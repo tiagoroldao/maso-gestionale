@@ -15,10 +15,12 @@ export default class User extends compose(UserSchema, withAuthFinder(hash)) {
 
   /**
    * Where a user lands after signing in: the Superuser has no business
-   * screens, so they go to the Instance page.
+   * screens, so they go to the Instance page; Technicians go to their Visits.
    */
   static homePath(user: User) {
-    return user.role === 'superuser' ? '/instance' : '/dashboard'
+    if (user.role === 'superuser') return '/instance'
+    if (user.role === 'technician') return '/my-visits'
+    return '/dashboard'
   }
 
   get initials() {

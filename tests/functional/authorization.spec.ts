@@ -26,11 +26,11 @@ test.group('Authorization by role', () => {
     }
   }
 
-  test('the Superuser lands on the Instance page, others on the dashboard', async ({ client }) => {
+  test('each role lands on its home page', async ({ client }) => {
     for (const [role, home] of [
       ['superuser', '/instance'],
       ['admin', '/dashboard'],
-      ['technician', '/dashboard'],
+      ['technician', '/my-visits'],
     ] as const) {
       const user = await createUser(role)
 

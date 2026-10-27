@@ -47,7 +47,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },
     { label: t('ui.nav.stock'), route: 'stock.index', icon: Boxes },
   ],
-  technician: [{ label: t('ui.nav.dashboard'), route: 'dashboard', icon: House }],
+  technician: [{ label: t('ui.nav.myVisits'), route: 'my_visits.index', icon: CalendarDays }],
 }
 
 const page = usePage()

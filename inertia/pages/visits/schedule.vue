@@ -49,7 +49,7 @@ function span(visit: CalendarVisit) {
  * earlier or later Visit (night call-outs).
  */
 const grid = computed(() => {
-  const spans = props.visits.map(span)
+  const spans = props.visits.filter((visit) => visit.startsAt.slice(0, 10) === props.date).map(span)
   const first = Math.min(7 * 60, ...spans.map((s) => Math.floor(s.start / 60) * 60))
   const last = Math.max(20 * 60, ...spans.map((s) => Math.ceil(s.end / 60) * 60))
   return { first, last: Math.min(last, 24 * 60) }
@@ -141,7 +141,8 @@ function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: numbe
     visitId: visit.id,
     fromTechnicianId: technicianId,
     startsAt: visit.startsAt,
-    grabMinutes: Math.floor(Math.max(grabbedAt, 0) / SLOT_HEIGHT) * SLOT_MINUTES,
+    // Exact (not rounded), so the drop rounds only once
+    grabMinutes: (Math.max(grabbedAt, 0) / SLOT_HEIGHT) * SLOT_MINUTES,
   }
 }
 
@@ -166,8 +167,10 @@ function onDayDrop(event: DragEvent, technicianId: number) {
   if (!dragging.value) return
   const column = event.currentTarget as HTMLElement
   const offset = event.clientY - column.getBoundingClientRect().top
-  const pointed = grid.value.first + Math.floor(offset / SLOT_HEIGHT) * SLOT_MINUTES
-  const start = Math.max(0, Math.min(24 * 60 - SLOT_MINUTES, pointed - dragging.value.grabMinutes))
+  const pointed = grid.value.first + (offset / SLOT_HEIGHT) * SLOT_MINUTES
+  // Rounded once, to the quarter hour planning allows
+  const exact = Math.round((pointed - dragging.value.grabMinutes) / 15) * 15
+  const start = Math.max(0, Math.min(24 * 60 - 15, exact))
   moveTo(technicianId, `${props.date}T${label(start)}`)
 }
 
@@ -189,6 +192,9 @@ const weekday = (iso: string) =>
   <AppLayout>
     <Page :title="t('ui.visits.scheduleTitle')">
       <template #actions>
+        <Link route="visits.to_schedule" class="btn btn--ghost btn--sm">
+          {{ t('ui.toSchedule.title') }}
+        </Link>
         <button type="button" class="btn btn--ghost btn--sm" @click="go(todayIso())">
           {{ t('ui.visits.today') }}
         </button>

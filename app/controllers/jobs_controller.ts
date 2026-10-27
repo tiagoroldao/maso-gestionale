@@ -95,7 +95,13 @@ export default class JobsController {
       .where('id', params.id)
       .preload('customer')
       .preload('site')
-      .preload('visits', (visits) => visits.preload('technicians').orderBy('startsAt'))
+      .preload('visits', (visits) =>
+        visits
+          .preload('technicians')
+          .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
+          .preload('photos', (photos) => photos.orderBy('createdAt'))
+          .orderBy('startsAt')
+      )
       .firstOrFail()
 
     return inertia.render('jobs/show', {
@@ -110,6 +116,12 @@ export default class JobsController {
         endsAt: localDateTime(visit.endsAt),
         status: visit.status,
         technicians: visit.technicians.map((technician) => technician.fullName ?? technician.email),
+        notes: visit.fieldNotes.map((note) => ({
+          id: note.id,
+          body: note.body,
+          author: note.author?.fullName ?? note.author?.email ?? null,
+        })),
+        photoIds: visit.photos.map((photo) => photo.id),
       })),
     })
   }

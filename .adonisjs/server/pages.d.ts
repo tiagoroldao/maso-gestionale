@@ -17,6 +17,8 @@ declare module '@adonisjs/inertia/types' {
     'errors/forbidden': ExtractProps<(typeof import('../../inertia/pages/errors/forbidden.vue'))['default']>
     'errors/not_found': ExtractProps<(typeof import('../../inertia/pages/errors/not_found.vue'))['default']>
     'errors/server_error': ExtractProps<(typeof import('../../inertia/pages/errors/server_error.vue'))['default']>
+    'field/index': ExtractProps<(typeof import('../../inertia/pages/field/index.vue'))['default']>
+    'field/show': ExtractProps<(typeof import('../../inertia/pages/field/show.vue'))['default']>
     'installed_equipment/form': ExtractProps<(typeof import('../../inertia/pages/installed_equipment/form.vue'))['default']>
     'instance': ExtractProps<(typeof import('../../inertia/pages/instance.vue'))['default']>
     'items/form': ExtractProps<(typeof import('../../inertia/pages/items/form.vue'))['default']>
@@ -40,5 +42,6 @@ declare module '@adonisjs/inertia/types' {
     'users/index': ExtractProps<(typeof import('../../inertia/pages/users/index.vue'))['default']>
     'visits/create': ExtractProps<(typeof import('../../inertia/pages/visits/create.vue'))['default']>
     'visits/schedule': ExtractProps<(typeof import('../../inertia/pages/visits/schedule.vue'))['default']>
+    'visits/to_schedule': ExtractProps<(typeof import('../../inertia/pages/visits/to_schedule.vue'))['default']>
   }
 }

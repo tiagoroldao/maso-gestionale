@@ -70,9 +70,11 @@ test.group('Planning Visits', () => {
     const technician = await createUser('technician')
     const job = await createJob(await createCustomer(), { kind: 'quoted', status: 'quoted' })
     await Quote.create({ jobId: job.id, status: 'draft' })
+    // Booked for next week, so it is upcoming whenever the test runs
+    const nextWeek = DateTime.now().plus({ weeks: 1 }).toFormat('yyyy-MM-dd')
     await client
       .post(`/jobs/${job.id}/visits`)
-      .json(plan([technician.id]))
+      .json(plan([technician.id], { date: nextWeek }))
       .withCsrfToken()
       .loginAs(office)
     await job.refresh()
@@ -82,6 +84,24 @@ test.group('Planning Visits', () => {
 
     await job.refresh()
     assert.equal(job.status, 'in_progress')
+  })
+
+  test('a past survey does not start the Job on acceptance', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const technician = await createUser('technician')
+    const job = await createJob(await createCustomer(), { kind: 'quoted', status: 'quoted' })
+    await Quote.create({ jobId: job.id, status: 'draft' })
+    const lastWeek = DateTime.now().minus({ weeks: 1 }).toFormat('yyyy-MM-dd')
+    await client
+      .post(`/jobs/${job.id}/visits`)
+      .json(plan([technician.id], { date: lastWeek }))
+      .withCsrfToken()
+      .loginAs(office)
+
+    await client.post(`/jobs/${job.id}/quote/accept`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'accepted')
   })
 
   test('cancelled Jobs get no Visits', async ({ client, assert }) => {

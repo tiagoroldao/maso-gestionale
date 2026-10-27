@@ -33,6 +33,21 @@ router
         router.get('company/logo', [controllers.CompanySettings, 'logo'])
         router.get('items/search', [controllers.Items, 'search'])
         router
+          .get('visit-photos/:id', [controllers.VisitPhotos, 'show'])
+          .where('id', router.matchers.number())
+        router
+          .get('my-visits/:id', [controllers.MyVisits, 'show'])
+          .where('id', router.matchers.number())
+        router
+          .post('my-visits/:id/status', [controllers.MyVisits, 'updateStatus'])
+          .where('id', router.matchers.number())
+        router
+          .post('my-visits/:id/notes', [controllers.MyVisits, 'addNote'])
+          .where('id', router.matchers.number())
+        router
+          .post('my-visits/:id/photos', [controllers.MyVisits, 'addPhoto'])
+          .where('id', router.matchers.number())
+        router
           .get('item-documents/:id', [controllers.ItemDocuments, 'show'])
           .where('id', router.matchers.number())
       })
@@ -99,6 +114,12 @@ router
 
     router
       .group(() => {
+        router.get('my-visits', [controllers.MyVisits, 'index'])
+      })
+      .use(middleware.can('workInField'))
+
+    router
+      .group(() => {
         router.get('jobs', [controllers.Jobs, 'index'])
         router.get('jobs/create', [controllers.Jobs, 'create'])
         router.post('jobs', [controllers.Jobs, 'store'])
@@ -117,6 +138,7 @@ router
           .post('jobs/:id/visits', [controllers.Visits, 'store'])
           .where('id', router.matchers.number())
         router.get('agenda', [controllers.Visits, 'schedule'])
+        router.get('agenda/to-schedule', [controllers.Visits, 'toSchedule'])
         router
           .patch('visits/:id/move', [controllers.Visits, 'move'])
           .where('id', router.matchers.number())

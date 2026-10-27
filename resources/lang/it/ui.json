@@ -24,7 +24,8 @@
     "items": "Articoli",
     "stock": "Magazzino",
     "jobs": "Commesse",
-    "schedule": "Agenda"
+    "schedule": "Agenda",
+    "myVisits": "I miei interventi"
   },
   "roles": {
     "superuser": "Superuser",
@@ -521,5 +522,30 @@
       "needs_return": "Da ripianificare"
     },
     "hours": "{hours, plural, one {# ora} other {# ore}}"
+  },
+  "field": {
+    "title": "I miei interventi",
+    "none": "Nessun intervento nei prossimi giorni.",
+    "today": "Oggi",
+    "back": "Interventi",
+    "status": "Stato",
+    "where": "Dove",
+    "job": "Commessa {number}",
+    "officeNotes": "Note dall'ufficio",
+    "team": "Squadra: {names}",
+    "notes": "Note",
+    "addNote": "Aggiungi una nota",
+    "saveNote": "Salva nota",
+    "photos": "Foto",
+    "photo": "Foto dell'intervento",
+    "addPhoto": "Scatta o scegli una foto",
+    "upload": "Carica foto"
+  },
+  "toSchedule": {
+    "title": "Da ripianificare",
+    "description": "Interventi segnati come da ripianificare, senza un intervento successivo.",
+    "none": "Niente da ripianificare.",
+    "lastVisit": "Ultimo intervento",
+    "lastNote": "Ultima nota"
   }
 }

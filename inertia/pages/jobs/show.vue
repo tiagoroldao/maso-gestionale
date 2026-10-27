@@ -5,6 +5,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, t } from '~/i18n'
+import { urlFor } from '~/client'
 
 const confirm = (message: string) => window.confirm(message)
 
@@ -27,6 +28,8 @@ defineProps<{
     endsAt: string
     status: string
     technicians: string[]
+    notes: { id: number; body: string; author: string | null }[]
+    photoIds: number[]
   }[]
 }>()
 </script>
@@ -99,7 +102,27 @@ defineProps<{
                   }}
                 </Link>
               </td>
-              <td>{{ visit.technicians.join(', ') }}</td>
+              <td>
+                {{ visit.technicians.join(', ') }}
+                <div v-for="note in visit.notes" :key="note.id" class="field__hint">
+                  {{ note.author }}: {{ note.body }}
+                </div>
+                <div v-if="visit.photoIds.length" class="field-photos">
+                  <a
+                    v-for="photoId in visit.photoIds"
+                    :key="photoId"
+                    :href="urlFor('visit_photos.show', { id: photoId })"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      :src="urlFor('visit_photos.show', { id: photoId })"
+                      :alt="t('ui.field.photo')"
+                      loading="lazy"
+                    />
+                  </a>
+                </div>
+              </td>
               <td>
                 <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
               </td>

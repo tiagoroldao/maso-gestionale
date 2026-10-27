@@ -45,5 +45,8 @@
   "visitPlanned": "Intervento pianificato.",
   "visitMoved": "Intervento spostato.",
   "jobNotSchedulable": "Una commessa annullata non può avere interventi.",
-  "visitNotMovable": "L'intervento è cambiato nel frattempo o non si può più spostare. Ricarica l'agenda."
+  "visitNotMovable": "L'intervento è cambiato nel frattempo o non si può più spostare. Ricarica l'agenda.",
+  "visitStatusSaved": "Stato aggiornato.",
+  "visitNoteAdded": "Nota salvata.",
+  "visitPhotoAdded": "Foto caricata."
 }

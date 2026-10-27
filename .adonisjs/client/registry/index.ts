@@ -54,6 +54,36 @@ const routes = {
     tokens: [[0,"items"],[0,"search"]],
     types: placeholder as Registry['items.search']['types'],
   },
+  'visit_photos.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/visit-photos/:id',
+    tokens: [[0,"visit-photos"],[1,"id"]],
+    types: placeholder as Registry['visit_photos.show']['types'],
+  },
+  'my_visits.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/my-visits/:id',
+    tokens: [[0,"my-visits"],[1,"id"]],
+    types: placeholder as Registry['my_visits.show']['types'],
+  },
+  'my_visits.update_status': {
+    methods: ["POST"],
+    pattern: '/my-visits/:id/status',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"status"]],
+    types: placeholder as Registry['my_visits.update_status']['types'],
+  },
+  'my_visits.add_note': {
+    methods: ["POST"],
+    pattern: '/my-visits/:id/notes',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"notes"]],
+    types: placeholder as Registry['my_visits.add_note']['types'],
+  },
+  'my_visits.add_photo': {
+    methods: ["POST"],
+    pattern: '/my-visits/:id/photos',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"photos"]],
+    types: placeholder as Registry['my_visits.add_photo']['types'],
+  },
   'item_documents.show': {
     methods: ["GET","HEAD"],
     pattern: '/item-documents/:id',
@@ -222,6 +252,12 @@ const routes = {
     tokens: [[0,"equipment"],[1,"id"]],
     types: placeholder as Registry['installed_equipment.update']['types'],
   },
+  'my_visits.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/my-visits',
+    tokens: [[0,"my-visits"]],
+    types: placeholder as Registry['my_visits.index']['types'],
+  },
   'jobs.index': {
     methods: ["GET","HEAD"],
     pattern: '/jobs',
@@ -281,6 +317,12 @@ const routes = {
     pattern: '/agenda',
     tokens: [[0,"agenda"]],
     types: placeholder as Registry['visits.schedule']['types'],
+  },
+  'visits.to_schedule': {
+    methods: ["GET","HEAD"],
+    pattern: '/agenda/to-schedule',
+    tokens: [[0,"agenda"],[0,"to-schedule"]],
+    types: placeholder as Registry['visits.to_schedule']['types'],
   },
   'visits.move': {
     methods: ["PATCH"],

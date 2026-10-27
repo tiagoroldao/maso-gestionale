@@ -13,6 +13,7 @@ export const controllers = {
   Items: () => import('#controllers/items_controller'),
   Jobs: () => import('#controllers/jobs_controller'),
   LetterheadPreview: () => import('#controllers/letterhead_preview_controller'),
+  MyVisits: () => import('#controllers/my_visits_controller'),
   PaymentTerms: () => import('#controllers/payment_terms_controller'),
   Quotes: () => import('#controllers/quotes_controller'),
   Rates: () => import('#controllers/rates_controller'),
@@ -22,5 +23,6 @@ export const controllers = {
   Stock: () => import('#controllers/stock_controller'),
   StockMovements: () => import('#controllers/stock_movements_controller'),
   Users: () => import('#controllers/users_controller'),
+  VisitPhotos: () => import('#controllers/visit_photos_controller'),
   Visits: () => import('#controllers/visits_controller'),
 }

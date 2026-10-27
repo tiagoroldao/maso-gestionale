@@ -34,7 +34,8 @@
       "amount": "Il campo {field} deve essere un importo valido",
       "quantity": "Il campo {field} deve essere una quantità valida",
       "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)",
-      "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}} per {field}"
+      "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}} per {field}",
+      "photo.file.extname": "La foto deve essere un'immagine JPEG, PNG o WebP"
     },
     "fields": {
       "email": "email",
@@ -112,7 +113,9 @@
       "technicianIds": "tecnici",
       "startsAt": "inizio",
       "toTechnicianId": "tecnico",
-      "fromTechnicianId": "tecnico di partenza"
+      "fromTechnicianId": "tecnico di partenza",
+      "body": "nota",
+      "photo": "foto"
     }
   }
 }

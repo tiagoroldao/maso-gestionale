@@ -29,6 +29,16 @@ export interface ApiDefinition {
     unarchive: typeof routes['items.unarchive']
     destroy: typeof routes['items.destroy']
   }
+  visitPhotos: {
+    show: typeof routes['visit_photos.show']
+  }
+  myVisits: {
+    show: typeof routes['my_visits.show']
+    updateStatus: typeof routes['my_visits.update_status']
+    addNote: typeof routes['my_visits.add_note']
+    addPhoto: typeof routes['my_visits.add_photo']
+    index: typeof routes['my_visits.index']
+  }
   itemDocuments: {
     show: typeof routes['item_documents.show']
     store: typeof routes['item_documents.store']
@@ -84,6 +94,7 @@ export interface ApiDefinition {
     create: typeof routes['visits.create']
     store: typeof routes['visits.store']
     schedule: typeof routes['visits.schedule']
+    toSchedule: typeof routes['visits.to_schedule']
     move: typeof routes['visits.move']
   }
   quotes: {

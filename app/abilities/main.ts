@@ -10,6 +10,7 @@
 */
 
 import type User from '#models/user'
+import type Visit from '#models/visit'
 import { Bouncer } from '@adonisjs/bouncer'
 
 /**
@@ -40,6 +41,22 @@ export const manageUsers = Bouncer.ability((user: User) => {
  */
 export const manageCustomers = Bouncer.ability((user: User) => {
   return user.role === 'admin' || user.role === 'office'
+})
+
+/**
+ * Field work: a Technician's own Visits.
+ */
+export const workInField = Bouncer.ability((user: User) => {
+  return user.role === 'technician'
+})
+
+/**
+ * One Visit's field details (notes, photos, status): its assigned
+ * Technicians, and Admin and Office.
+ */
+export const viewVisit = Bouncer.ability(async (user: User, visit: Visit) => {
+  if (user.role === 'admin' || user.role === 'office') return true
+  return user.role === 'technician' && (await visit.isAssignedTo(user))
 })
 
 /**

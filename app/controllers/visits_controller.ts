@@ -115,4 +115,43 @@ export default class VisitsController {
     session.flash('success', i18n.t('flash.visitMoved'))
     response.redirect().back()
   }
+
+  /**
+   * Visits a Technician marked as needing another visit, with no later
+   * Visit planned for the same Job yet.
+   */
+  async toSchedule({ inertia }: HttpContext) {
+    const visits = await Visit.query()
+      .where('status', 'needs_return')
+      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      .whereNotExists((later) =>
+        later
+          .from('visits as later')
+          .whereColumn('later.job_id', 'visits.job_id')
+          .whereColumn('later.starts_at', '>', 'visits.starts_at')
+      )
+      .preload('technicians')
+      // One note per Visit: a plain limit would apply across the whole list
+      .preload('fieldNotes', (notes) =>
+        notes.groupLimit(1).groupOrderBy('visit_notes.created_at', 'desc')
+      )
+      .preload('job', (job) => job.preload('customer').preload('site'))
+      .orderBy('startsAt')
+
+    return inertia.render('visits/to_schedule', {
+      visits: visits.map((visit) => ({
+        id: visit.id,
+        startsAt: localDateTime(visit.startsAt),
+        technicians: visit.technicians.map((user) => user.fullName ?? user.email),
+        lastNote: visit.fieldNotes[0]?.body ?? null,
+        job: {
+          id: visit.job.id,
+          number: visit.job.number,
+          title: visit.job.title,
+          customer: visit.job.customer.displayName,
+          site: visit.job.site?.summary ?? null,
+        },
+      })),
+    })
+  }
 }
