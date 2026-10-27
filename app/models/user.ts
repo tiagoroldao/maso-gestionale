@@ -13,6 +13,14 @@ export type Role = (typeof ROLES)[number]
 export default class User extends compose(UserSchema, withAuthFinder(hash)) {
   declare role: Role
 
+  /**
+   * Where a user lands after signing in: the Superuser has no business
+   * screens, so they go to the Instance page.
+   */
+  static homePath(user: User) {
+    return user.role === 'superuser' ? '/instance' : '/dashboard'
+  }
+
   get initials() {
     const [first, last] = this.fullName ? this.fullName.split(' ') : this.email.split('@')
     if (first && last) {

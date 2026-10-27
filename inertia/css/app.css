@@ -906,3 +906,29 @@ input {
     padding: 20px;
   }
 }
+
+/* --- table --- */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.table th,
+.table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line, #e5e7eb);
+  vertical-align: middle;
+}
+.table th {
+  font-weight: 500;
+  color: var(--subtle);
+}
+.table__row--muted td {
+  color: var(--subtle);
+}
+.table__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}

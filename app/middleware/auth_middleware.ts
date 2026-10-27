@@ -10,7 +10,16 @@ export default class AuthMiddleware {
     next: NextFn,
     options: { guards?: (keyof Authenticators)[] } = {}
   ) {
-    await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+    const user = await ctx.auth.authenticateUsing(options.guards, { loginRoute: this.redirectTo })
+
+    /**
+     * A user deactivated while signed in loses access on their next request.
+     */
+    if (!user.isActive) {
+      await ctx.auth.use('web').logout()
+      return ctx.response.redirect(this.redirectTo)
+    }
+
     return next()
   }
 }
