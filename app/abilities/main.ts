@@ -36,7 +36,15 @@ export const manageUsers = Bouncer.ability((user: User) => {
 })
 
 /**
- * Editing the company settings.
+ * Customers: listing, creating and editing them.
+ */
+export const manageCustomers = Bouncer.ability((user: User) => {
+  return user.role === 'admin' || user.role === 'office'
+})
+
+/**
+ * Editing the company settings, and the lists of options that belong
+ * with them (such as Payment Terms).
  */
 export const manageCompany = Bouncer.ability((user: User) => {
   return user.role === 'admin'

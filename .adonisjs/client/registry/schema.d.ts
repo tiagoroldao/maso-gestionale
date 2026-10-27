@@ -189,6 +189,71 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/users_controller').default['reactivate']>>>
     }
   }
+  'customers.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/customers'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/customer').customerSearchValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'customers.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/customers/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['create']>>>
+    }
+  }
+  'customers.store': {
+    methods: ["POST"]
+    pattern: '/customers'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/customer').customerValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/customer').customerValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'customers.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/customers/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['edit']>>>
+    }
+  }
+  'customers.update': {
+    methods: ["PUT"]
+    pattern: '/customers/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/customer').customerValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/customer').customerValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'company_settings.edit': {
     methods: ["GET","HEAD"]
     pattern: '/settings/company'
@@ -239,6 +304,58 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
+    }
+  }
+  'payment_terms.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/payment-terms'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['index']>>>
+    }
+  }
+  'payment_terms.store': {
+    methods: ["POST"]
+    pattern: '/settings/payment-terms'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'payment_terms.update': {
+    methods: ["PUT"]
+    pattern: '/settings/payment-terms/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'payment_terms.destroy': {
+    methods: ["DELETE"]
+    pattern: '/settings/payment-terms/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['destroy']>>>
     }
   }
   'instance': {

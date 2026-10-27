@@ -26,9 +26,22 @@ export interface ApiDefinition {
     deactivate: typeof routes['users.deactivate']
     reactivate: typeof routes['users.reactivate']
   }
+  customers: {
+    index: typeof routes['customers.index']
+    create: typeof routes['customers.create']
+    store: typeof routes['customers.store']
+    edit: typeof routes['customers.edit']
+    update: typeof routes['customers.update']
+  }
   letterheadPreview: {
     show: typeof routes['letterhead_preview.show']
     pdf: typeof routes['letterhead_preview.pdf']
+  }
+  paymentTerms: {
+    index: typeof routes['payment_terms.index']
+    store: typeof routes['payment_terms.store']
+    update: typeof routes['payment_terms.update']
+    destroy: typeof routes['payment_terms.destroy']
   }
   instance: typeof routes['instance']
 }

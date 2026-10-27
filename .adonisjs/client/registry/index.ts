@@ -90,6 +90,36 @@ const routes = {
     tokens: [[0,"users"],[1,"id"],[0,"reactivate"]],
     types: placeholder as Registry['users.reactivate']['types'],
   },
+  'customers.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/customers',
+    tokens: [[0,"customers"]],
+    types: placeholder as Registry['customers.index']['types'],
+  },
+  'customers.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/customers/create',
+    tokens: [[0,"customers"],[0,"create"]],
+    types: placeholder as Registry['customers.create']['types'],
+  },
+  'customers.store': {
+    methods: ["POST"],
+    pattern: '/customers',
+    tokens: [[0,"customers"]],
+    types: placeholder as Registry['customers.store']['types'],
+  },
+  'customers.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/customers/:id/edit',
+    tokens: [[0,"customers"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['customers.edit']['types'],
+  },
+  'customers.update': {
+    methods: ["PUT"],
+    pattern: '/customers/:id',
+    tokens: [[0,"customers"],[1,"id"]],
+    types: placeholder as Registry['customers.update']['types'],
+  },
   'company_settings.edit': {
     methods: ["GET","HEAD"],
     pattern: '/settings/company',
@@ -113,6 +143,30 @@ const routes = {
     pattern: '/settings/company/letterhead.pdf',
     tokens: [[0,"settings"],[0,"company"],[0,"letterhead.pdf"]],
     types: placeholder as Registry['letterhead_preview.pdf']['types'],
+  },
+  'payment_terms.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/payment-terms',
+    tokens: [[0,"settings"],[0,"payment-terms"]],
+    types: placeholder as Registry['payment_terms.index']['types'],
+  },
+  'payment_terms.store': {
+    methods: ["POST"],
+    pattern: '/settings/payment-terms',
+    tokens: [[0,"settings"],[0,"payment-terms"]],
+    types: placeholder as Registry['payment_terms.store']['types'],
+  },
+  'payment_terms.update': {
+    methods: ["PUT"],
+    pattern: '/settings/payment-terms/:id',
+    tokens: [[0,"settings"],[0,"payment-terms"],[1,"id"]],
+    types: placeholder as Registry['payment_terms.update']['types'],
+  },
+  'payment_terms.destroy': {
+    methods: ["DELETE"],
+    pattern: '/settings/payment-terms/:id',
+    tokens: [[0,"settings"],[0,"payment-terms"],[1,"id"]],
+    types: placeholder as Registry['payment_terms.destroy']['types'],
   },
   'instance': {
     methods: ["GET","HEAD"],
