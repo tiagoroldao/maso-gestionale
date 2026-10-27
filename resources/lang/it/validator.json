@@ -33,7 +33,8 @@
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
       "amount": "Il campo {field} deve essere un importo valido",
       "quantity": "Il campo {field} deve essere una quantità valida",
-      "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)"
+      "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)",
+      "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}} per {field}"
     },
     "fields": {
       "email": "email",
@@ -104,7 +105,14 @@
       "labourRateId": "tariffa",
       "unitPrice": "prezzo unitario",
       "hourlyPrice": "prezzo orario",
-      "callOutFee": "diritto di chiamata"
+      "callOutFee": "diritto di chiamata",
+      "date": "data",
+      "startTime": "ora di inizio",
+      "durationMinutes": "durata",
+      "technicianIds": "tecnici",
+      "startsAt": "inizio",
+      "toTechnicianId": "tecnico",
+      "fromTechnicianId": "tecnico di partenza"
     }
   }
 }

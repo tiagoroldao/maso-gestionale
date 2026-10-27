@@ -1,5 +1,7 @@
 import edge from 'edge.js'
 import Job from '#models/job'
+import Quote from '#models/quote'
+import QuoteLine from '#models/quote_line'
 import LabourRate from '#models/labour_rate'
 import CompanySettings from '#models/company_settings'
 import Quotes, { QuoteNotEditableError } from '#services/quotes'
@@ -72,7 +74,17 @@ export default class QuotesController {
 
   async update({ params, request, response, session, i18n }: HttpContext) {
     const job = await Job.findOrFail(params.id)
-    const data = await request.validateUsing(quoteValidator)
+    // Lines already on the Quote may keep an Item or rate archived since
+    const current = await QuoteLine.query().whereIn(
+      'quoteId',
+      Quote.query().select('id').where('jobId', job.id)
+    )
+    const data = await request.validateUsing(quoteValidator, {
+      meta: {
+        itemIds: current.flatMap((line) => (line.itemId ? [line.itemId] : [])),
+        labourRateIds: current.flatMap((line) => (line.labourRateId ? [line.labourRateId] : [])),
+      },
+    })
 
     try {
       await Quotes.save(job, { notes: data.notes ?? null, lines: data.lines })

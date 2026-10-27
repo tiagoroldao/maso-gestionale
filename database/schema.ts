@@ -385,3 +385,33 @@ export class UserSchema extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }
+
+export class VisitTechnicianSchema extends BaseModel {
+  static $columns = ['userId', 'visitId'] as const
+  $columns = VisitTechnicianSchema.$columns
+  @column()
+  declare userId: number
+  @column({ isPrimary: true })
+  declare visitId: number
+}
+
+export class VisitSchema extends BaseModel {
+  static $columns = ['createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startsAt', 'status', 'updatedAt'] as const
+  $columns = VisitSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare endsAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare jobId: number
+  @column()
+  declare notes: string | null
+  @column.dateTime()
+  declare startsAt: DateTime
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}

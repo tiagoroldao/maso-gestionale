@@ -22,4 +22,5 @@ export const controllers = {
   Stock: () => import('#controllers/stock_controller'),
   StockMovements: () => import('#controllers/stock_movements_controller'),
   Users: () => import('#controllers/users_controller'),
+  Visits: () => import('#controllers/visits_controller'),
 }

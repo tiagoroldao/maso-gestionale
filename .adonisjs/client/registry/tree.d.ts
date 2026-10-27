@@ -80,6 +80,12 @@ export interface ApiDefinition {
     update: typeof routes['jobs.update']
     cancel: typeof routes['jobs.cancel']
   }
+  visits: {
+    create: typeof routes['visits.create']
+    store: typeof routes['visits.store']
+    schedule: typeof routes['visits.schedule']
+    move: typeof routes['visits.move']
+  }
   quotes: {
     edit: typeof routes['quotes.edit']
     update: typeof routes['quotes.update']

@@ -38,5 +38,7 @@ declare module '@adonisjs/inertia/types' {
     'users/create': ExtractProps<(typeof import('../../inertia/pages/users/create.vue'))['default']>
     'users/edit': ExtractProps<(typeof import('../../inertia/pages/users/edit.vue'))['default']>
     'users/index': ExtractProps<(typeof import('../../inertia/pages/users/index.vue'))['default']>
+    'visits/create': ExtractProps<(typeof import('../../inertia/pages/visits/create.vue'))['default']>
+    'visits/schedule': ExtractProps<(typeof import('../../inertia/pages/visits/schedule.vue'))['default']>
   }
 }

@@ -6,6 +6,7 @@ import {
   Boxes,
   Briefcase,
   Building2,
+  CalendarDays,
   Contact,
   House,
   LogOut,
@@ -29,6 +30,7 @@ const navByRole: Record<string, NavItem[]> = {
   admin: [
     { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
     { label: t('ui.nav.jobs'), route: 'jobs.index', icon: Briefcase },
+    { label: t('ui.nav.schedule'), route: 'visits.schedule', icon: CalendarDays },
     { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
     { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },
@@ -39,6 +41,7 @@ const navByRole: Record<string, NavItem[]> = {
   office: [
     { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
     { label: t('ui.nav.jobs'), route: 'jobs.index', icon: Briefcase },
+    { label: t('ui.nav.schedule'), route: 'visits.schedule', icon: CalendarDays },
     { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
     { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },

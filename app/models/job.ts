@@ -1,9 +1,10 @@
-import { belongsTo, hasOne } from '@adonisjs/lucid/orm'
-import type { BelongsTo, HasOne } from '@adonisjs/lucid/types/relations'
+import { belongsTo, hasMany, hasOne } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, HasOne } from '@adonisjs/lucid/types/relations'
 import { JobSchema } from '#database/schema'
 import Customer from '#models/customer'
 import Site from '#models/site'
 import Quote from '#models/quote'
+import Visit from '#models/visit'
 
 export const JOB_KINDS = ['quoted', 'time_and_materials'] as const
 export type JobKind = (typeof JOB_KINDS)[number]
@@ -31,6 +32,9 @@ export default class Job extends JobSchema {
 
   @hasOne(() => Quote)
   declare quote: HasOne<typeof Quote>
+
+  @hasMany(() => Visit)
+  declare visits: HasMany<typeof Visit>
 
   /**
    * The Job number people quote: "2026/0007".

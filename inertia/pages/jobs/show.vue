@@ -21,6 +21,13 @@ defineProps<{
     createdAt: string
     cancelledAt: string | null
   }
+  visits: {
+    id: number
+    startsAt: string
+    endsAt: string
+    status: string
+    technicians: string[]
+  }[]
 }>()
 </script>
 
@@ -75,6 +82,36 @@ defineProps<{
             <dd :style="{ whiteSpace: 'pre-line' }">{{ job.description }}</dd>
           </template>
         </dl>
+      </Section>
+
+      <Section :title="t('ui.visits.title')">
+        <table v-if="visits.length" class="table">
+          <tbody>
+            <tr v-for="visit in visits" :key="visit.id">
+              <td>
+                <Link
+                  route="visits.schedule"
+                  :qs="{ date: visit.startsAt.slice(0, 10) }"
+                  class="il"
+                >
+                  {{ formatDate(visit.startsAt) }} {{ visit.startsAt.slice(11, 16) }}–{{
+                    visit.endsAt.slice(11, 16)
+                  }}
+                </Link>
+              </td>
+              <td>{{ visit.technicians.join(', ') }}</td>
+              <td>
+                <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.visits.none') }}</p>
+        <div v-if="job.status !== 'cancelled'">
+          <Link route="visits.create" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
+            {{ t('ui.visits.plan') }}
+          </Link>
+        </div>
       </Section>
 
       <Section v-if="job.kind === 'quoted'" :title="t('ui.quotes.section')">

@@ -264,6 +264,30 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"cancel"]],
     types: placeholder as Registry['jobs.cancel']['types'],
   },
+  'visits.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id/visits/create',
+    tokens: [[0,"jobs"],[1,"id"],[0,"visits"],[0,"create"]],
+    types: placeholder as Registry['visits.create']['types'],
+  },
+  'visits.store': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/visits',
+    tokens: [[0,"jobs"],[1,"id"],[0,"visits"]],
+    types: placeholder as Registry['visits.store']['types'],
+  },
+  'visits.schedule': {
+    methods: ["GET","HEAD"],
+    pattern: '/agenda',
+    tokens: [[0,"agenda"]],
+    types: placeholder as Registry['visits.schedule']['types'],
+  },
+  'visits.move': {
+    methods: ["PATCH"],
+    pattern: '/visits/:id/move',
+    tokens: [[0,"visits"],[1,"id"],[0,"move"]],
+    types: placeholder as Registry['visits.move']['types'],
+  },
   'quotes.edit': {
     methods: ["GET","HEAD"],
     pattern: '/jobs/:id/quote',

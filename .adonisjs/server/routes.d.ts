@@ -47,6 +47,10 @@ export type ScannedRoutes = {
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.schedule': { paramsTuple?: []; params?: {} }
+    'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -111,6 +115,8 @@ export type ScannedRoutes = {
     'jobs.create': { paramsTuple?: []; params?: {} }
     'jobs.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.schedule': { paramsTuple?: []; params?: {} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
@@ -152,6 +158,8 @@ export type ScannedRoutes = {
     'jobs.create': { paramsTuple?: []; params?: {} }
     'jobs.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.schedule': { paramsTuple?: []; params?: {} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
@@ -180,6 +188,7 @@ export type ScannedRoutes = {
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'jobs.store': { paramsTuple?: []; params?: {} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -213,6 +222,9 @@ export type ScannedRoutes = {
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  PATCH: {
+    'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {
