@@ -53,10 +53,12 @@ export default class ItemDocumentsController {
     const path = storagePath(document.filePath)
     if (!existsSync(path)) return response.notFound()
 
-    response.header('content-type', document.mimeType)
     response.header('x-content-type-options', 'nosniff')
-    // Even a crafted file can't run scripts in the app's origin
-    response.header('content-security-policy', 'sandbox')
+    // Images can't run scripts even if crafted. Not for PDFs: a sandboxed
+    // page blocks the browser's built-in PDF viewer.
+    if (document.mimeType.startsWith('image/')) {
+      response.header('content-security-policy', 'sandbox')
+    }
     // attachment() builds a standards-compliant header for any file name
     return response.attachment(path, document.originalName, 'inline')
   }

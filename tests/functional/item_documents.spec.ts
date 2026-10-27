@@ -82,8 +82,7 @@ test.group('Item Documents', (group) => {
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-
-    await rm(big, { force: true })
+      .finally(() => rm(big, { force: true }))
     assert.properties(response.flashMessage('inputErrorsBag'), ['attachment'])
     assert.lengthOf(await ItemDocument.all(), 0)
   })
@@ -123,7 +122,8 @@ test.group('Item Documents', (group) => {
 
     const opened = await client.get(`/item-documents/${document.id}`).loginAs(office)
     opened.assertStatus(200)
-    opened.assertHeader('content-security-policy', 'sandbox')
+    // PDFs must stay viewable in the browser's PDF viewer
+    assert.isUndefined(opened.header('content-security-policy'))
     assert.include(opened.header('content-disposition'), "Schema dell'impianto")
 
     const outsider = await client.get(`/item-documents/${document.id}`).loginAs(superuser)
