@@ -2,12 +2,13 @@ import type { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Job from '#models/job'
 import Visit from '#models/visit'
+import { CLOSED_VISIT_STATUSES } from '#services/field_work'
 
 export class JobNotSchedulableError extends Error {}
 
 /**
  * The Visit changed since the page was loaded (another user moved it), or
- * can no longer move (done, or its Job was cancelled).
+ * can no longer move (closed, or its Job was cancelled).
  */
 export class VisitNotMovableError extends Error {}
 
@@ -75,7 +76,7 @@ export default class Scheduling {
         .preload('job')
         .preload('technicians')
         .firstOrFail()
-      if (locked.status === 'done' || locked.job.status === 'cancelled') {
+      if (CLOSED_VISIT_STATUSES.includes(locked.status) || locked.job.status === 'cancelled') {
         throw new VisitNotMovableError()
       }
 

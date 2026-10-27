@@ -130,6 +130,14 @@ const dragging = ref<{
   grabMinutes: number
 } | null>(null)
 
+/**
+ * Done Visits and those needing another visit are closed: the server
+ * refuses to move them.
+ */
+function isOpen(visit: CalendarVisit) {
+  return !['done', 'needs_return'].includes(visit.status)
+}
+
 function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number) {
   // Firefox only starts a drag with some data set
   event.dataTransfer?.setData('text/plain', String(visit.id))
@@ -262,7 +270,7 @@ const weekday = (iso: string) =>
               class="agenda__visit"
               :class="`agenda__visit--${visit.status}`"
               :style="blockStyle(visit, layout(visitsFor(technician.id, date)).get(visit.id))"
-              draggable="true"
+              :draggable="isOpen(visit) ? 'true' : 'false'"
               :data-visit="visit.id"
               @dragstart="onDragStart($event, visit, technician.id)"
             >
@@ -303,7 +311,7 @@ const weekday = (iso: string) =>
                 :key="visit.id"
                 class="agenda__visit agenda__visit--card"
                 :class="`agenda__visit--${visit.status}`"
-                draggable="true"
+                :draggable="isOpen(visit) ? 'true' : 'false'"
                 :data-visit="visit.id"
                 @dragstart="onDragStart($event, visit, technician.id)"
               >
