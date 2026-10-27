@@ -48,10 +48,24 @@ router
 
     router
       .group(() => {
+        router.get('customers', [controllers.Customers, 'index'])
+        router.get('customers/create', [controllers.Customers, 'create'])
+        router.post('customers', [controllers.Customers, 'store'])
+        router.get('customers/:id/edit', [controllers.Customers, 'edit'])
+        router.put('customers/:id', [controllers.Customers, 'update'])
+      })
+      .use(middleware.can('manageCustomers'))
+
+    router
+      .group(() => {
         router.get('settings/company', [controllers.CompanySettings, 'edit'])
         router.post('settings/company', [controllers.CompanySettings, 'update'])
         router.get('settings/company/letterhead', [controllers.LetterheadPreview, 'show'])
         router.get('settings/company/letterhead.pdf', [controllers.LetterheadPreview, 'pdf'])
+        router.get('settings/payment-terms', [controllers.PaymentTerms, 'index'])
+        router.post('settings/payment-terms', [controllers.PaymentTerms, 'store'])
+        router.put('settings/payment-terms/:id', [controllers.PaymentTerms, 'update'])
+        router.delete('settings/payment-terms/:id', [controllers.PaymentTerms, 'destroy'])
       })
       .use(middleware.can('manageCompany'))
 

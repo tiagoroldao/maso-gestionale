@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
-import { Building2, House, LogOut, Server, Users } from 'lucide-vue-next'
+import { Building2, Contact, House, LogOut, Server, Users } from 'lucide-vue-next'
 import { Form } from '@adonisjs/inertia/vue'
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
@@ -16,10 +16,14 @@ const navByRole: Record<string, NavItem[]> = {
   superuser: [{ label: 'Instance', route: 'instance', icon: Server }],
   admin: [
     { label: 'Dashboard', route: 'dashboard', icon: House },
+    { label: 'Customers', route: 'customers.index', icon: Contact },
     { label: 'Users', route: 'users.index', icon: Users },
     { label: 'Settings', route: 'company_settings.edit', icon: Building2 },
   ],
-  office: [{ label: 'Dashboard', route: 'dashboard', icon: House }],
+  office: [
+    { label: 'Dashboard', route: 'dashboard', icon: House },
+    { label: 'Customers', route: 'customers.index', icon: Contact },
+  ],
   technician: [{ label: 'Dashboard', route: 'dashboard', icon: House }],
 }
 

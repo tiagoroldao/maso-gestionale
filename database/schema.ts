@@ -44,6 +44,68 @@ export class CompanySettingSchema extends BaseModel {
   declare vatNumber: string | null
 }
 
+export class CustomerSchema extends BaseModel {
+  static $columns = ['city', 'createdAt', 'email', 'firstName', 'id', 'lastName', 'name', 'notes', 'paymentTermsId', 'pec', 'phone', 'postalCode', 'province', 'sdiCode', 'street', 'streetNumber', 'taxCode', 'type', 'updatedAt', 'vatNumber'] as const
+  $columns = CustomerSchema.$columns
+  @column()
+  declare city: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare email: string | null
+  @column()
+  declare firstName: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lastName: string | null
+  @column()
+  declare name: string | null
+  @column()
+  declare notes: string | null
+  @column()
+  declare paymentTermsId: number
+  @column()
+  declare pec: string | null
+  @column()
+  declare phone: string | null
+  @column()
+  declare postalCode: string
+  @column()
+  declare province: string
+  @column()
+  declare sdiCode: string
+  @column()
+  declare street: string
+  @column()
+  declare streetNumber: string | null
+  @column()
+  declare taxCode: string | null
+  @column()
+  declare type: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare vatNumber: string | null
+}
+
+export class PaymentTermSchema extends BaseModel {
+  static $columns = ['createdAt', 'days', 'endOfMonth', 'id', 'name', 'updatedAt'] as const
+  $columns = PaymentTermSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare days: number
+  @column()
+  declare endOfMonth: boolean
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'isActive', 'password', 'role', 'updatedAt'] as const
   $columns = UserSchema.$columns
