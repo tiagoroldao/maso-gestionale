@@ -1,5 +1,5 @@
 import vine from '@vinejs/vine'
-import { UNIT_PRICE_DECIMALS } from '#shared/money'
+import { UNIT_PRICE_DECIMALS, VAT_RATES } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 
 const price = () =>
@@ -29,7 +29,8 @@ export const itemValidator = vine.withMetaData<{ id?: number }>().create({
   categoryId: vine.number().exists({ table: 'categories', column: 'id' }).optional(),
   supplierName: vine.string().trim().maxLength(255).optional(),
   supplierCode: vine.string().trim().maxLength(100).optional(),
-  vatRate: vine.string().use(amountRule({ decimals: 2, max: '100' })),
+  // The Italian VAT rates, until the VAT code table (#17) replaces this field
+  vatRate: vine.enum(VAT_RATES),
   purchasePrice: price(),
   resalePrice: price(),
 })
@@ -37,6 +38,7 @@ export const itemValidator = vine.withMetaData<{ id?: number }>().create({
 export const itemSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
   page: vine.number().min(1).optional(),
+  archived: vine.boolean().optional(),
 })
 
 /**

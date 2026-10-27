@@ -1,9 +1,8 @@
 import db from '@adonisjs/lucid/services/db'
 import PaymentTerms from '#models/payment_terms'
 import { paymentTermsValidator } from '#validators/payment_terms'
+import { isForeignKeyViolation } from '#services/database_errors'
 import type { HttpContext } from '@adonisjs/core/http'
-
-const FOREIGN_KEY_VIOLATION = '23503'
 
 /**
  * The Admin's list of Payment Terms that Customers can be given.
@@ -65,7 +64,7 @@ export default class PaymentTermsController {
         session.flash('success', i18n.t('flash.paymentTermsDeleted', { name: terms.name }))
       } catch (error) {
         // A Customer was given these terms after the check above
-        if ((error as { code?: string }).code !== FOREIGN_KEY_VIOLATION) throw error
+        if (!isForeignKeyViolation(error)) throw error
         session.flash('error', i18n.t('flash.paymentTermsInUse', { name: terms.name }))
       }
     }

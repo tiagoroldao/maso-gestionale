@@ -7,10 +7,11 @@ import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
 import Pagination from '~/components/pagination.vue'
 import { urlFor } from '~/client'
-import { formatMoney, t } from '~/i18n'
+import { formatUnitPrice, t } from '~/i18n'
 
 const props = defineProps<{
   q: string
+  archived: boolean
   items: {
     id: number
     code: string
@@ -26,10 +27,11 @@ const props = defineProps<{
 const search = ref(props.q)
 
 function submitSearch() {
-  router.get(urlFor('items.index'), search.value ? { q: search.value } : {}, {
-    preserveState: true,
-    replace: true,
-  })
+  router.get(
+    urlFor('items.index'),
+    { ...(search.value && { q: search.value }), ...(props.archived && { archived: 'true' }) },
+    { preserveState: true, replace: true }
+  )
 }
 </script>
 
@@ -37,6 +39,13 @@ function submitSearch() {
   <AppLayout>
     <Page :title="t('ui.items.title')">
       <template #actions>
+        <Link
+          route="items.index"
+          :qs="archived ? {} : { archived: 'true' }"
+          class="btn btn--ghost btn--sm"
+        >
+          {{ archived ? t('ui.items.hideArchived') : t('ui.items.showArchived') }}
+        </Link>
         <Link route="items.create" class="btn btn--primary btn--sm">
           <Plus :size="15" /> {{ t('ui.items.new') }}
         </Link>
@@ -79,10 +88,10 @@ function submitSearch() {
             <td>{{ item.description }}</td>
             <td>{{ item.category }}</td>
             <td :style="{ textAlign: 'right' }">
-              {{ formatMoney(item.purchasePrice) }}/{{ item.unit }}
+              {{ formatUnitPrice(item.purchasePrice) }}/{{ item.unit }}
             </td>
             <td :style="{ textAlign: 'right' }">
-              {{ formatMoney(item.resalePrice) }}/{{ item.unit }}
+              {{ formatUnitPrice(item.resalePrice) }}/{{ item.unit }}
             </td>
             <td class="table__actions">
               <Link route="items.edit" :params="{ id: item.id }" class="btn btn--ghost btn--sm">

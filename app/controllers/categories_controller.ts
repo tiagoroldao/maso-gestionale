@@ -1,8 +1,7 @@
 import Category from '#models/category'
 import { categoryValidator } from '#validators/item'
+import { isUniqueViolation, isForeignKeyViolation } from '#services/database_errors'
 import type { HttpContext } from '@adonisjs/core/http'
-
-const FOREIGN_KEY_VIOLATION = '23503'
 
 /**
  * The Admin's Categories, each with the markup used to suggest resale
@@ -24,7 +23,13 @@ export default class CategoriesController {
 
   async store({ request, response, session, i18n }: HttpContext) {
     const data = await request.validateUsing(categoryValidator, { meta: {} })
-    await Category.create(data)
+    try {
+      await Category.create(data)
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error
+      session.flash('error', i18n.t('flash.alreadyTaken'))
+      return response.redirect().toRoute('categories.index')
+    }
 
     session.flash('success', i18n.t('flash.categoryAdded'))
     response.redirect().toRoute('categories.index')
@@ -33,7 +38,13 @@ export default class CategoriesController {
   async update({ params, request, response, session, i18n }: HttpContext) {
     const category = await Category.findOrFail(params.id)
     const data = await request.validateUsing(categoryValidator, { meta: { id: category.id } })
-    await category.merge(data).save()
+    try {
+      await category.merge(data).save()
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error
+      session.flash('error', i18n.t('flash.alreadyTaken'))
+      return response.redirect().toRoute('categories.index')
+    }
 
     session.flash('success', i18n.t('flash.categorySaved'))
     response.redirect().toRoute('categories.index')
@@ -53,7 +64,7 @@ export default class CategoriesController {
       session.flash('success', i18n.t('flash.categoryDeleted', { name: category.name }))
     } catch (error) {
       // An Item was given this Category after the check above
-      if ((error as { code?: string }).code !== FOREIGN_KEY_VIOLATION) throw error
+      if (!isForeignKeyViolation(error)) throw error
       session.flash('error', i18n.t('flash.categoryInUse', { name: category.name }))
     }
     response.redirect().toRoute('categories.index')

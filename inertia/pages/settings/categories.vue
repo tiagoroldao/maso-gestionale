@@ -82,6 +82,7 @@ const percent = (value: string) => amountForInput(value).replace(/,00$/, '')
         <Form
           v-slot="{ processing, errors }"
           route="categories.store"
+          reset-on-success
           :style="{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }"
         >
           <div class="field">

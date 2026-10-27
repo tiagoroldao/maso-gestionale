@@ -43,6 +43,9 @@ export type ScannedRoutes = {
     'items.store': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.unarchive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'categories.store': { paramsTuple?: []; params?: {} }
     'categories.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -129,6 +132,8 @@ export type ScannedRoutes = {
     'sites.store': { paramsTuple?: []; params?: {} }
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
+    'items.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.unarchive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.store': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
@@ -144,6 +149,7 @@ export type ScannedRoutes = {
   }
   DELETE: {
     'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
+    'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }

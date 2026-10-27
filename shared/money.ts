@@ -13,6 +13,12 @@ import Big from 'big.js'
 export const UNIT_PRICE_DECIMALS = 4
 
 /**
+ * The Italian VAT rates an Item can default to, until the VAT code table
+ * (#17) replaces this list.
+ */
+export const VAT_RATES = ['22', '10', '5', '4'] as const
+
+/**
  * Parses an amount typed by a person: "12,50", "12.50" or "1234". Thousands
  * separators are not accepted, so "1.234,56" is rejected rather than
  * misread. Returns null for anything that isn't a plain decimal.
@@ -25,14 +31,14 @@ export function parseAmount(input: string): Big | null {
 
 /**
  * The resale price suggested by a Category markup, e.g. 10.00 at 35% is
- * 13.50. Rounded half-up to cents: it is only a suggestion the person
- * then edits.
+ * 13.5000. Rounded half-up to unit-price precision, so cheap small parts
+ * keep their fractions of a cent.
  */
 export function suggestedResalePrice(purchasePrice: string, markup: string) {
   return new Big(purchasePrice)
     .times(new Big(markup).div(100).plus(1))
-    .round(2, Big.roundHalfUp)
-    .toFixed(2)
+    .round(UNIT_PRICE_DECIMALS, Big.roundHalfUp)
+    .toFixed(UNIT_PRICE_DECIMALS)
 }
 
 /**

@@ -102,6 +102,15 @@ router
           .get('items/:id/edit', [controllers.Items, 'edit'])
           .where('id', router.matchers.number())
         router.put('items/:id', [controllers.Items, 'update']).where('id', router.matchers.number())
+        router
+          .post('items/:id/archive', [controllers.Items, 'archive'])
+          .where('id', router.matchers.number())
+        router
+          .post('items/:id/unarchive', [controllers.Items, 'unarchive'])
+          .where('id', router.matchers.number())
+        router
+          .delete('items/:id', [controllers.Items, 'destroy'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageItems'))
 

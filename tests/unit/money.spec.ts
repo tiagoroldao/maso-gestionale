@@ -17,10 +17,10 @@ test.group('Money', () => {
     .with(['1.234,56', '12,5,0', 'abc', '', '1e3'])
     .run(({ assert }, input) => assert.isNull(parseAmount(input)))
 
-  test('suggests the resale price from the markup, rounded half-up', ({ assert }) => {
-    assert.equal(suggestedResalePrice('10', '35'), '13.50')
-    assert.equal(suggestedResalePrice('0.0345', '100'), '0.07')
-    assert.equal(suggestedResalePrice('12.345', '0'), '12.35')
+  test('suggests the resale price from the markup, to unit-price precision', ({ assert }) => {
+    assert.equal(suggestedResalePrice('10', '35'), '13.5000')
+    assert.equal(suggestedResalePrice('0.0345', '100'), '0.0690')
+    assert.equal(suggestedResalePrice('0.12345', '0'), '0.1235')
   })
 
   test('computes the markup of a resale price', ({ assert }) => {

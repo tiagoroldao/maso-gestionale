@@ -27,11 +27,15 @@ export default class extends BaseSchema {
         .onDelete('RESTRICT')
       table.string('supplier_name', 255).nullable()
       table.string('supplier_code', 100).nullable()
+      // One of the Italian VAT rates until the VAT code table (#17) replaces it
       table.decimal('vat_rate', 5, 2).notNullable().defaultTo(22)
+      table.check('vat_rate in (4, 5, 10, 22)')
       table.decimal('purchase_price', 14, 4).notNullable().defaultTo(0)
       table.decimal('resale_price', 14, 4).notNullable().defaultTo(0)
       table.check('purchase_price >= 0')
       table.check('resale_price >= 0')
+      // Archived Items keep their history but leave lists and pickers
+      table.timestamp('archived_at').nullable()
 
       table.timestamp('created_at').notNullable()
       table.timestamp('updated_at').nullable()

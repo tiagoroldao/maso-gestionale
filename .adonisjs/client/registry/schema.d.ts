@@ -514,6 +514,45 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'items.archive': {
+    methods: ["POST"]
+    pattern: '/items/:id/archive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['archive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['archive']>>>
+    }
+  }
+  'items.unarchive': {
+    methods: ["POST"]
+    pattern: '/items/:id/unarchive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['unarchive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['unarchive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['unarchive']>>>
+    }
+  }
+  'items.destroy': {
+    methods: ["DELETE"]
+    pattern: '/items/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['destroy']>>>
+    }
+  }
   'categories.index': {
     methods: ["GET","HEAD"]
     pattern: '/settings/categories'

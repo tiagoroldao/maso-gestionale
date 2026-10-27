@@ -13,6 +13,14 @@ export default class Item extends ItemSchema {
   declare category: BelongsTo<typeof Category>
 
   /**
+   * Items still in use: archived Items keep their history but leave lists
+   * and pickers.
+   */
+  static active = scope((query) => {
+    query.whereNull('archived_at')
+  })
+
+  /**
    * Matches the code, the description or the supplier's code.
    */
   static search = scope((query, term: string) => {
@@ -24,4 +32,12 @@ export default class Item extends ItemSchema {
         .orWhereILike('supplier_code', pattern)
     })
   })
+
+  /**
+   * Whether anything else refers to this Item, so it must be archived
+   * rather than deleted. Nothing does yet; stock, Visits and invoices will.
+   */
+  async isReferenced() {
+    return false
+  }
 }

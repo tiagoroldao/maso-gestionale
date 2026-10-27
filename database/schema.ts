@@ -145,8 +145,10 @@ export class InstalledEquipmentSchema extends BaseModel {
 }
 
 export class ItemSchema extends BaseModel {
-  static $columns = ['categoryId', 'code', 'createdAt', 'description', 'id', 'purchasePrice', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
+  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'purchasePrice', 'reorderLevel', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
   $columns = ItemSchema.$columns
+  @column.dateTime()
+  declare archivedAt: DateTime | null
   @column()
   declare categoryId: number | null
   @column()
@@ -159,6 +161,8 @@ export class ItemSchema extends BaseModel {
   declare id: number
   @column()
   declare purchasePrice: string
+  @column()
+  declare reorderLevel: string | null
   @column()
   declare resalePrice: string
   @column()
@@ -215,6 +219,31 @@ export class SiteSchema extends BaseModel {
   declare unit: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class StockMovementSchema extends BaseModel {
+  static $columns = ['createdAt', 'createdBy', 'id', 'itemId', 'kind', 'occurredOn', 'quantity', 'reason', 'reference', 'unitCost'] as const
+  $columns = StockMovementSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdBy: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare kind: string
+  @column.date()
+  declare occurredOn: DateTime
+  @column()
+  declare quantity: string
+  @column()
+  declare reason: string | null
+  @column()
+  declare reference: string | null
+  @column()
+  declare unitCost: string | null
 }
 
 export class UserSchema extends BaseModel {

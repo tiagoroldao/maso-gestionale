@@ -69,3 +69,18 @@ const money = new Intl.NumberFormat(LOCALE, {
 export function formatMoney(amount: string | number) {
   return money.format(amount as Parameters<typeof money.format>[0])
 }
+
+const unitPrice = new Intl.NumberFormat(LOCALE, {
+  style: 'currency',
+  currency: 'EUR',
+  useGrouping: 'always',
+  maximumFractionDigits: 4,
+})
+
+/**
+ * A unit price, keeping up to 4 decimals ("0,0345 €") so cheap parts aren't
+ * shown rounded to the cent (ADR 0007).
+ */
+export function formatUnitPrice(amount: string | number) {
+  return unitPrice.format(amount as Parameters<typeof unitPrice.format>[0])
+}

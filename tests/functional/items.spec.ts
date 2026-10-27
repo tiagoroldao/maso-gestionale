@@ -3,7 +3,7 @@ import Item from '#models/item'
 import Category from '#models/category'
 import { createUser } from '#tests/helpers/users'
 import { createCategory, createItem } from '#tests/helpers/items'
-import { it } from '#tests/helpers/i18n'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const itemFields = {
   code: 'rac-12',
@@ -43,7 +43,7 @@ test.group('Items', () => {
 
     const response = await client
       .post('/items')
-      .form({ ...itemFields, purchasePrice: '1.234,56', resalePrice: '-1', vatRate: '150' })
+      .form({ ...itemFields, purchasePrice: '1.234,56', resalePrice: '1,23456', vatRate: '21' })
       .header('referer', '/items/create')
       .withCsrfToken()
       .loginAs(office)
@@ -105,14 +105,90 @@ test.group('Items', () => {
     assert.deepEqual(await search('ot-t12'), ['RAC-12'])
   })
 
-  test('Technicians can not open the Item screens', async ({ client }) => {
+  test('Technicians can not open or change Items', async ({ client, assert }) => {
     const technician = await createUser('technician')
-    const item = await createItem()
+    const item = await createItem({ description: 'Original' })
 
     for (const url of ['/items', '/items/create', `/items/${item.id}/edit`]) {
       const response = await client.get(url).withInertia().loginAs(technician)
       response.assertStatus(403)
     }
+    for (const request of [
+      client.post('/items').form({ ...itemFields, code: 'NEW' }),
+      client.put(`/items/${item.id}`).form({ ...itemFields, code: item.code }),
+      client.delete(`/items/${item.id}`),
+    ]) {
+      const response = await request
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(technician)
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+
+    await item.refresh()
+    assert.equal(item.description, 'Original')
+    assert.lengthOf(await Item.all(), 1)
+  })
+
+  test('the edit page receives prices exactly as stored', async ({ client }) => {
+    const office = await createUser('office')
+    const item = await createItem({ purchasePrice: '1.2345', resalePrice: '0.0345' })
+
+    const response = await client.get(`/items/${item.id}/edit`).withInertia().loginAs(office)
+
+    response.assertInertiaPropsContains({
+      item: { purchasePrice: '1.2345', resalePrice: '0.0345', vatRate: '22.00', archived: false },
+    })
+  })
+
+  test('clearing the Category and supplier on edit removes them', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const category = await createCategory()
+    const item = await createItem({ categoryId: category.id, supplierName: 'Idrotermica' })
+
+    await client
+      .put(`/items/${item.id}`)
+      .form({ ...itemFields, code: item.code, categoryId: '', supplierName: '' })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await item.refresh()
+    assert.isNull(item.categoryId)
+    assert.isNull(item.supplierName)
+  })
+
+  test('archived Items leave the list and the picker, and can be restored', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const item = await createItem({ code: 'OLD-1' })
+
+    await client.post(`/items/${item.id}/archive`).withCsrfToken().loginAs(office)
+    await item.refresh()
+    assert.isNotNull(item.archivedAt)
+
+    const codes = async (qs: Record<string, string>) => {
+      const response = await client.get('/items').qs(qs).withInertia().loginAs(office)
+      return (response.inertiaProps.items as { code: string }[]).map((row) => row.code)
+    }
+    assert.deepEqual(await codes({}), [])
+    assert.deepEqual(await codes({ archived: 'true' }), ['OLD-1'])
+    const picker = await client.get('/items/search').qs({ q: 'old' }).loginAs(office)
+    assert.lengthOf(picker.body().items, 0)
+
+    await client.post(`/items/${item.id}/unarchive`).withCsrfToken().loginAs(office)
+    assert.deepEqual(await codes({}), ['OLD-1'])
+  })
+
+  test('an Item that was never used can be deleted', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const item = await createItem()
+
+    await client.delete(`/items/${item.id}`).withCsrfToken().loginAs(office)
+
+    assert.isNull(await Item.find(item.id))
   })
 
   test('the Item picker never sends prices to Technicians', async ({ client, assert }) => {
@@ -163,9 +239,28 @@ test.group('Categories', () => {
     assert.isNotNull(await Category.find(category.id))
   })
 
-  test('only the Admin manages Categories', async ({ client }) => {
+  test('only the Admin manages Categories', async ({ client, assert }) => {
     const office = await createUser('office')
-    const response = await client.get('/settings/categories').withInertia().loginAs(office)
-    response.assertStatus(403)
+    const category = await createCategory({ name: 'Raccorderia', markupPercent: '35' })
+
+    const page = await client.get('/settings/categories').withInertia().loginAs(office)
+    page.assertStatus(403)
+
+    for (const request of [
+      client.post('/settings/categories').form({ name: 'Nuova', markupPercent: '10' }),
+      client.put(`/settings/categories/${category.id}`).form({ name: 'X', markupPercent: '99' }),
+      client.delete(`/settings/categories/${category.id}`),
+    ]) {
+      const response = await request
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+
+    await category.refresh()
+    assert.equal(category.markupPercent, '35.00')
+    assert.lengthOf(await Category.all(), 1)
   })
 })

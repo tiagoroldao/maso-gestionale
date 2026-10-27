@@ -240,6 +240,24 @@ const routes = {
     tokens: [[0,"items"],[1,"id"]],
     types: placeholder as Registry['items.update']['types'],
   },
+  'items.archive': {
+    methods: ["POST"],
+    pattern: '/items/:id/archive',
+    tokens: [[0,"items"],[1,"id"],[0,"archive"]],
+    types: placeholder as Registry['items.archive']['types'],
+  },
+  'items.unarchive': {
+    methods: ["POST"],
+    pattern: '/items/:id/unarchive',
+    tokens: [[0,"items"],[1,"id"],[0,"unarchive"]],
+    types: placeholder as Registry['items.unarchive']['types'],
+  },
+  'items.destroy': {
+    methods: ["DELETE"],
+    pattern: '/items/:id',
+    tokens: [[0,"items"],[1,"id"]],
+    types: placeholder as Registry['items.destroy']['types'],
+  },
   'categories.index': {
     methods: ["GET","HEAD"],
     pattern: '/settings/categories',

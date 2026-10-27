@@ -24,6 +24,9 @@ export interface ApiDefinition {
     store: typeof routes['items.store']
     edit: typeof routes['items.edit']
     update: typeof routes['items.update']
+    archive: typeof routes['items.archive']
+    unarchive: typeof routes['items.unarchive']
+    destroy: typeof routes['items.destroy']
   }
   users: {
     index: typeof routes['users.index']

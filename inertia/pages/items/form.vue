@@ -5,7 +5,13 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatMoney, t } from '~/i18n'
-import { amountForInput, markupPercent, parseAmount, suggestedResalePrice } from '@shared/money'
+import {
+  VAT_RATES,
+  amountForInput,
+  markupPercent,
+  parseAmount,
+  suggestedResalePrice,
+} from '@shared/money'
 
 type ItemProps = {
   id: number
@@ -18,6 +24,7 @@ type ItemProps = {
   vatRate: string
   purchasePrice: string
   resalePrice: string
+  archived: boolean
 }
 
 const props = defineProps<{
@@ -35,7 +42,7 @@ const values = reactive({
   unit: props.item?.unit ?? 'pz',
   supplierName: props.item?.supplierName ?? '',
   supplierCode: props.item?.supplierCode ?? '',
-  vatRate: props.item ? amountForInput(props.item.vatRate).replace(/,00$/, '') : '22',
+  vatRate: props.item ? String(Number(props.item.vatRate)) : '22',
 })
 const categoryId = ref<number | ''>(props.item?.categoryId ?? '')
 const purchasePrice = ref(props.item ? amountForInput(props.item.purchasePrice) : '')
@@ -158,14 +165,15 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
         <Section :title="t('ui.items.pricesSection')" :description="t('ui.items.pricesHint')">
           <div class="field">
             <label class="field__label" for="vatRate">{{ t('ui.items.vatRate') }}</label>
-            <input
+            <select
               id="vatRate"
               v-model="values.vatRate"
               name="vatRate"
-              inputmode="decimal"
               class="field__input"
               :style="{ maxWidth: '120px' }"
-            />
+            >
+              <option v-for="rate in VAT_RATES" :key="rate" :value="rate">{{ rate }} %</option>
+            </select>
             <span v-if="errors.vatRate" class="field__error">{{ errors.vatRate }}</span>
           </div>
           <div class="field">
@@ -222,6 +230,23 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
           </button>
         </Section>
       </Form>
+
+      <Section v-if="item">
+        <p v-if="item.archived" class="field__hint">{{ t('ui.items.archivedNotice') }}</p>
+        <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
+          <Form
+            :route="item.archived ? 'items.unarchive' : 'items.archive'"
+            :params="{ id: item.id }"
+          >
+            <button type="submit" class="btn btn--secondary btn--sm">
+              {{ item.archived ? t('ui.items.unarchive') : t('ui.items.archive') }}
+            </button>
+          </Form>
+          <Form route="items.destroy" :params="{ id: item.id }">
+            <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.items.delete') }}</button>
+          </Form>
+        </div>
+      </Section>
     </Page>
   </AppLayout>
 </template>
