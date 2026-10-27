@@ -88,6 +88,43 @@ test.group('Customers', () => {
     })
   })
 
+  test('creates an association with its numeric Codice Fiscale and no Partita IVA', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const terms = await defaultPaymentTerms()
+    const fields = {
+      type: 'organisation',
+      name: 'Associazione Amici del Parco',
+      street: 'Via Roma',
+      postalCode: '20121',
+      city: 'Milano',
+      province: 'MI',
+      paymentTermsId: String(terms.id),
+    }
+
+    const personal = await client
+      .post('/customers')
+      .form({ ...fields, taxCode: 'RSSMRA85T10A562S' })
+      .header('referer', '/customers/create')
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(personal.flashMessage('inputErrorsBag'), ['taxCode'])
+
+    await client
+      .post('/customers')
+      .form({ ...fields, taxCode: '97123450153' })
+      .withCsrfToken()
+      .loginAs(office)
+
+    const customer = await Customer.firstOrFail()
+    assert.equal(customer.type, 'organisation')
+    assert.equal(customer.displayName, 'Associazione Amici del Parco')
+    assert.isNull(customer.vatNumber)
+  })
+
   test('requires the name and tax fields that fit the type', async ({ client, assert }) => {
     const office = await createUser('office')
     const terms = await defaultPaymentTerms()

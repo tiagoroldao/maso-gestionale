@@ -84,6 +84,7 @@ export default class JobsController {
           customerId: data.customerId,
           siteId: data.siteId ?? null,
           kind: data.kind,
+          workCategory: data.workCategory,
           status: 'open',
           title: data.title,
           description: data.description ?? null,
@@ -157,6 +158,7 @@ export default class JobsController {
         kind: job.kind,
         status: job.status,
         kindLocked: job.status !== 'open' || hasQuote,
+        workCategory: job.workCategory,
         title: job.title,
         description: job.description,
       },
@@ -176,6 +178,7 @@ export default class JobsController {
     job.merge({
       customerId: data.customerId,
       siteId: data.siteId ?? null,
+      workCategory: data.workCategory,
       title: data.title,
       description: data.description ?? null,
     })

@@ -6,7 +6,7 @@ import Site from '#models/site'
 import Job from '#models/job'
 import type { Recipient } from '#documents/document_renderer'
 
-export const CUSTOMER_TYPES = ['private', 'company', 'condominium'] as const
+export const CUSTOMER_TYPES = ['private', 'company', 'condominium', 'organisation'] as const
 export type CustomerType = (typeof CUSTOMER_TYPES)[number]
 
 /**

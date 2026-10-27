@@ -74,7 +74,9 @@ const nameFields = computed<Field[]>(() =>
           label:
             type.value === 'condominium'
               ? t('ui.customers.condominiumName')
-              : t('ui.customers.companyName'),
+              : type.value === 'organisation'
+                ? t('ui.customers.organisationName')
+                : t('ui.customers.companyName'),
         },
       ]
 )
@@ -87,7 +89,11 @@ const taxFields = computed<Field[]>(() => [
           name: 'vatNumber' as const,
           label: t('ui.customers.vatNumber'),
           hint:
-            type.value === 'condominium' ? t('ui.customers.vatNumberCondominiumHint') : undefined,
+            type.value === 'condominium'
+              ? t('ui.customers.vatNumberCondominiumHint')
+              : type.value === 'organisation'
+                ? t('ui.customers.vatNumberOrganisationHint')
+                : undefined,
         },
       ]),
   {

@@ -22,7 +22,7 @@ test.group('Sites', () => {
 
     const response = await client
       .post('/sites')
-      .form(siteFields)
+      .form({ ...siteFields, residential: 'true' })
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
@@ -30,6 +30,7 @@ test.group('Sites', () => {
     const site = await Site.firstOrFail()
     response.assertHeader('location', `/sites/${site.id}`)
     assert.equal(site.province, 'GE')
+    assert.isTrue(site.residential)
     assert.equal(
       site.summary,
       'Casa al mare — Lungomare Colombo 12, scala B, int. 4, 16121 Genova (GE)'
@@ -64,6 +65,8 @@ test.group('Sites', () => {
 
     await site.refresh()
     assert.isNull(site.label)
+    // Unticked: the building is not mainly residential
+    assert.isFalse(site.residential)
     assert.equal(site.city, 'Genova')
   })
 

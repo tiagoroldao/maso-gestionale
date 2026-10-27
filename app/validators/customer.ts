@@ -5,7 +5,7 @@ import { taxCodeRule, vatNumberRule } from '#validators/rules/italian_ids'
 
 /**
  * A private individual's Codice Fiscale is the 16-character personal
- * code; a condominium's is the 11-digit numeric code.
+ * code; a condominium's or an association's is the 11-digit numeric code.
  */
 const taxCodeMatchesType = vine.createRule((value: unknown, _: undefined, field: FieldContext) => {
   if (typeof value !== 'string') return
@@ -19,6 +19,13 @@ const taxCodeMatchesType = vine.createRule((value: unknown, _: undefined, field:
   }
   if (type === 'condominium' && value.length !== 11) {
     field.report('A condominium needs an 11-digit Codice Fiscale', 'taxCodeType.condominium', field)
+  }
+  if (type === 'organisation' && value.length !== 11) {
+    field.report(
+      'An association needs an 11-digit Codice Fiscale',
+      'taxCodeType.organisation',
+      field
+    )
   }
 })
 
@@ -39,7 +46,7 @@ export const customerValidator = vine.create({
 
   firstName: optionalName(60).requiredWhen('type', '=', 'private'),
   lastName: optionalName(60).requiredWhen('type', '=', 'private'),
-  name: optionalName(80).requiredWhen('type', 'in', ['company', 'condominium']),
+  name: optionalName(80).requiredWhen('type', 'in', ['company', 'condominium', 'organisation']),
 
   vatNumber: vine.string().use(vatNumberRule()).optional().requiredWhen('type', '=', 'company'),
   taxCode: vine
@@ -47,7 +54,7 @@ export const customerValidator = vine.create({
     .use(taxCodeRule())
     .use(taxCodeMatchesType())
     .optional()
-    .requiredWhen('type', 'in', ['private', 'condominium']),
+    .requiredWhen('type', 'in', ['private', 'condominium', 'organisation']),
   sdiCode: vine
     .string()
     .trim()

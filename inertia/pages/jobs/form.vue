@@ -7,6 +7,7 @@ import AppLayout from '~/layouts/app.vue'
 import CustomerPicker, { type PickedCustomer } from '~/components/customer_picker.vue'
 import SitePicker, { type PickedSite } from '~/components/site_picker.vue'
 import { t } from '~/i18n'
+import { WORK_CATEGORIES } from '@shared/jobs'
 
 const props = defineProps<{
   job: {
@@ -15,6 +16,7 @@ const props = defineProps<{
     kind: string
     status: string
     kindLocked: boolean
+    workCategory: string
     title: string
     description: string | null
   } | null
@@ -31,6 +33,7 @@ const site = ref<{ id: number; summary: string } | null>(props.site)
  */
 const values = reactive({
   kind: props.job?.kind ?? 'quoted',
+  workCategory: props.job?.workCategory ?? 'maintenance',
   title: props.job?.title ?? '',
   description: props.job?.description ?? '',
 })
@@ -106,6 +109,21 @@ const title = props.job
             <span class="field__hint">
               {{ kindLocked ? t('ui.jobs.kindLocked') : t('ui.jobs.kindHint') }}
             </span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="workCategory">{{ t('ui.jobs.workCategory') }}</label>
+            <select
+              id="workCategory"
+              v-model="values.workCategory"
+              name="workCategory"
+              class="field__input"
+            >
+              <option v-for="category in WORK_CATEGORIES" :key="category" :value="category">
+                {{ t(`ui.jobs.workCategories.${category}`) }}
+              </option>
+            </select>
+            <span class="field__hint">{{ t('ui.jobs.workCategoryHint') }}</span>
+            <span v-if="errors.workCategory" class="field__error">{{ errors.workCategory }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="title">{{ t('ui.jobs.jobTitle') }}</label>

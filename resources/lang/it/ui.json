@@ -113,7 +113,8 @@
     "company": "Azienda",
     "paymentTerms": "Condizioni di pagamento",
     "categories": "Categorie",
-    "rates": "Tariffe"
+    "rates": "Tariffe",
+    "vatCodes": "Codici IVA"
   },
   "company": {
     "companySection": "Azienda",
@@ -167,7 +168,8 @@
     "types": {
       "private": "Privato",
       "company": "Azienda",
-      "condominium": "Condominio"
+      "condominium": "Condominio",
+      "organisation": "Ente / associazione"
     },
     "typeSection": "Tipo",
     "typeLabel": "Tipo di cliente",
@@ -176,9 +178,11 @@
     "lastName": "Cognome",
     "companyName": "Ragione sociale",
     "condominiumName": "Denominazione del condominio",
+    "organisationName": "Denominazione dell'ente",
     "taxSection": "Dati fiscali e fatturazione elettronica",
     "vatNumber": "Partita IVA",
     "vatNumberCondominiumHint": "Di solito vuota per i condomini.",
+    "vatNumberOrganisationHint": "Solo se l'ente svolge anche attività commerciale.",
     "taxCode": "Codice Fiscale",
     "taxCodeCompanyHint": "Facoltativo se coincide con la Partita IVA.",
     "sdiCode": "Codice destinatario SDI",
@@ -226,6 +230,8 @@
     "unit": "Scala, piano, interno",
     "accessNotes": "Note di accesso",
     "accessNotesHint": "Chiavi, codici del cancello, parcheggio, a chi chiedere.",
+    "residential": "Edificio prevalentemente residenziale",
+    "residentialHint": "Abitazioni e condomini residenziali. Determina l'IVA agevolata su manutenzioni e ristrutturazioni.",
     "notLinked": "Non collegato a nessun cliente.",
     "notLinkedHint": "Non collegato a nessun cliente. Collegalo dalla pagina di un cliente.",
     "save": "Salva immobile",
@@ -307,7 +313,10 @@
     "supplierName": "Nome fornitore",
     "supplierCode": "Codice fornitore",
     "pricesSection": "Prezzi",
-    "vatRate": "Aliquota IVA predefinita (%)",
+    "vatCode": "Codice IVA predefinito",
+    "vatCodeHint": "Usato quando l'articolo è venduto senza lavori. Sulle commesse l'IVA dipende dal tipo di lavoro.",
+    "significantGood": "Bene significativo",
+    "significantGoodHint": "Caldaie, apparecchi di condizionamento e ricambio dell'aria, sanitari e rubinetteria da bagno, infissi, videocitofoni, ascensori e montacarichi, impianti di sicurezza. L'IVA al 10% si applica solo fino al valore del resto del lavoro.",
     "purchasePrice": "Prezzo di acquisto",
     "resalePrice": "Prezzo di vendita",
     "suggested": "Suggerito dal ricarico della categoria ({markup} %): {price}",
@@ -402,6 +411,15 @@
     "changeCustomer": "Cambia cliente",
     "removeSite": "Rimuovi immobile",
     "kindHint": "Con preventivo: si fattura dal preventivo accettato. A consuntivo: si fattura da ore e materiali degli interventi.",
+    "workCategory": "Tipo di lavoro",
+    "workCategoryHint": "Insieme al tipo di cliente e all'immobile, determina l'IVA proposta in fattura.",
+    "workCategories": {
+      "new_installation": "Nuova installazione",
+      "maintenance": "Manutenzione",
+      "renovation": "Ristrutturazione",
+      "repair": "Riparazione",
+      "sale": "Vendita"
+    },
     "kindLocked": "Il tipo si può cambiare solo finché la commessa è aperta.",
     "save": "Salva commessa",
     "create": "Apri commessa",
@@ -447,6 +465,24 @@
     "callOutTitle": "Diritto di chiamata",
     "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
     "callOutFee": "Diritto di chiamata (€)"
+  },
+  "vatCodes": {
+    "title": "Codici IVA",
+    "description": "Aliquote e nature usate sulle righe delle fatture. Da verificare con il commercialista.",
+    "empty": "Nessun codice IVA.",
+    "name": "Nome",
+    "rate": "Aliquota (%)",
+    "natura": "Natura",
+    "legalNote": "Nota in fattura",
+    "legalNoteHint": "Stampata in fattura, ad esempio l'articolo di legge dell'inversione contabile.",
+    "naturaHint": "La natura (N1–N7) spiega perché non si applica l'IVA: serve solo con aliquota 0%.",
+    "nameOf": "Nome di {name}",
+    "rateOf": "Aliquota di {name}",
+    "naturaOf": "Natura di {name}",
+    "legalNoteOf": "Nota in fattura di {name}",
+    "addTitle": "Nuovo codice IVA",
+    "add": "Aggiungi codice IVA",
+    "archive": "Archivia"
   },
   "quotes": {
     "section": "Preventivo",

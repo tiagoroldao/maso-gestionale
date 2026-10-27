@@ -3,6 +3,7 @@ import { belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { ItemSchema } from '#database/schema'
 import Category from '#models/category'
+import VatCode from '#models/vat_code'
 import ItemDocument from '#models/item_document'
 import { likePattern } from '#services/search'
 
@@ -13,6 +14,12 @@ import { likePattern } from '#services/search'
 export default class Item extends ItemSchema {
   @belongsTo(() => Category)
   declare category: BelongsTo<typeof Category>
+
+  /**
+   * The VAT Code a direct sale of this Item defaults to.
+   */
+  @belongsTo(() => VatCode)
+  declare vatCode: BelongsTo<typeof VatCode>
 
   @hasMany(() => ItemDocument)
   declare documents: HasMany<typeof ItemDocument>

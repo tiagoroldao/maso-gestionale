@@ -132,6 +132,12 @@ export interface ApiDefinition {
     archive: typeof routes['rates.archive']
     updateCallOutFee: typeof routes['rates.update_call_out_fee']
   }
+  vatCodes: {
+    index: typeof routes['vat_codes.index']
+    store: typeof routes['vat_codes.store']
+    update: typeof routes['vat_codes.update']
+    archive: typeof routes['vat_codes.archive']
+  }
   paymentTerms: {
     index: typeof routes['payment_terms.index']
     store: typeof routes['payment_terms.store']

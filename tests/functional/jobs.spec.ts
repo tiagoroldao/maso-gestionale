@@ -20,6 +20,7 @@ test.group('Jobs', () => {
           customerId: String(customer.id),
           siteId: String(site.id),
           kind: 'quoted',
+          workCategory: 'renovation',
           title,
         })
         .withCsrfToken()
@@ -35,6 +36,10 @@ test.group('Jobs', () => {
         [`${year}/0002`, 'Perdita bagno', 'open', site.id],
       ]
     )
+    assert.deepEqual(
+      jobs.map((job) => job.workCategory),
+      ['renovation', 'renovation']
+    )
   })
 
   test('numbers stay unique when Jobs are opened at the same time', async ({ client, assert }) => {
@@ -45,7 +50,12 @@ test.group('Jobs', () => {
       Array.from({ length: 5 }, (_, i) =>
         client
           .post('/jobs')
-          .form({ customerId: String(customer.id), kind: 'time_and_materials', title: `Job ${i}` })
+          .form({
+            customerId: String(customer.id),
+            kind: 'time_and_materials',
+            workCategory: 'repair',
+            title: `Job ${i}`,
+          })
           .withCsrfToken()
           .loginAs(office)
       )
@@ -56,7 +66,7 @@ test.group('Jobs', () => {
     assert.deepEqual(sequences, [1, 2, 3, 4, 5])
   })
 
-  test('requires a Customer, a kind and a title', async ({ client, assert }) => {
+  test('requires a Customer, a kind, a work category and a title', async ({ client, assert }) => {
     const office = await createUser('office')
 
     const response = await client
@@ -67,7 +77,12 @@ test.group('Jobs', () => {
       .loginAs(office)
       .redirects(0)
 
-    assert.properties(response.flashMessage('inputErrorsBag'), ['customerId', 'kind', 'title'])
+    assert.properties(response.flashMessage('inputErrorsBag'), [
+      'customerId',
+      'kind',
+      'workCategory',
+      'title',
+    ])
   })
 
   test('the kind can only change while the Job is open', async ({ client, assert }) => {
@@ -79,11 +94,17 @@ test.group('Jobs', () => {
     for (const job of [open, quoted]) {
       await client
         .put(`/jobs/${job.id}`)
-        .form({ customerId: String(customer.id), kind: 'time_and_materials', title: 'Changed' })
+        .form({
+          customerId: String(customer.id),
+          kind: 'time_and_materials',
+          workCategory: 'sale',
+          title: 'Changed',
+        })
         .withCsrfToken()
         .loginAs(office)
       await job.refresh()
       assert.equal(job.title, 'Changed')
+      assert.equal(job.workCategory, 'sale')
     }
     assert.equal(open.kind, 'time_and_materials')
     assert.equal(quoted.kind, 'quoted')

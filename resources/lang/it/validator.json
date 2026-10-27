@@ -30,6 +30,8 @@
       "italianIban": "Il campo {field} deve essere un IBAN italiano valido",
       "taxCodeType.private": "Per un privato serve il Codice Fiscale personale di 16 caratteri",
       "taxCodeType.condominium": "Per un condominio serve il Codice Fiscale numerico di 11 cifre",
+      "taxCodeType.organisation": "Per un ente serve il Codice Fiscale numerico di 11 cifre",
+      "natura.withRate": "La natura si indica solo con aliquota 0%",
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
       "amount": "Il campo {field} deve essere un importo valido",
       "quantity": "Il campo {field} deve essere una quantità valida",
@@ -87,7 +89,6 @@
       "categoryId": "categoria",
       "supplierName": "fornitore",
       "supplierCode": "codice fornitore",
-      "vatRate": "aliquota IVA",
       "purchasePrice": "prezzo di acquisto",
       "resalePrice": "prezzo di vendita",
       "markupPercent": "ricarico",
@@ -118,7 +119,12 @@
       "photo": "foto",
       "technicianId": "tecnico",
       "hours": "ore",
-      "installed": "installato"
+      "installed": "installato",
+      "rate": "aliquota",
+      "natura": "natura",
+      "legalNote": "nota in fattura",
+      "vatCodeId": "codice IVA",
+      "workCategory": "tipo di lavoro"
     }
   }
 }

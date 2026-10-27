@@ -8,7 +8,8 @@ import { t } from '~/i18n'
 type SiteField = 'label' | 'street' | 'streetNumber' | 'unit' | 'postalCode' | 'city' | 'province'
 
 const props = defineProps<{
-  site: (Record<SiteField | 'accessNotes', string | null> & { id: number }) | null
+  site:
+    (Record<SiteField | 'accessNotes', string | null> & { id: number; residential: boolean }) | null
   customers: { id: number; displayName: string }[]
   forCustomer: { id: number; displayName: string } | null
 }>()
@@ -63,6 +64,18 @@ const title = props.site
               :value="site?.accessNotes ?? ''"
             />
             <span class="field__hint">{{ t('ui.sites.accessNotesHint') }}</span>
+          </div>
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input
+                type="checkbox"
+                name="residential"
+                value="true"
+                :checked="site?.residential ?? true"
+              />
+              {{ t('ui.sites.residential') }}
+            </label>
+            <span class="field__hint">{{ t('ui.sites.residentialHint') }}</span>
           </div>
         </Section>
 

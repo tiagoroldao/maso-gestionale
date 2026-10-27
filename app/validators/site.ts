@@ -22,6 +22,8 @@ export const siteValidator = vine.create({
     .toUpperCase()
     .regex(/^[A-Z]{2}$/),
   accessNotes: optionalText(5000),
+  // A checkbox: absent when unticked
+  residential: vine.boolean().optional(),
   customerId: vine.number().exists({ table: 'customers', column: 'id' }).optional(),
 })
 

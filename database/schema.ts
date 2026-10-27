@@ -170,7 +170,7 @@ export class ItemDocumentSchema extends BaseModel {
 }
 
 export class ItemSchema extends BaseModel {
-  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
+  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'significantGood', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatCodeId'] as const
   $columns = ItemSchema.$columns
   @column.dateTime()
   declare archivedAt: DateTime | null
@@ -193,6 +193,8 @@ export class ItemSchema extends BaseModel {
   @column()
   declare resalePrice: string
   @column()
+  declare significantGood: boolean
+  @column()
   declare supplierCode: string | null
   @column()
   declare supplierName: string | null
@@ -201,11 +203,11 @@ export class ItemSchema extends BaseModel {
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
-  declare vatRate: string
+  declare vatCodeId: number
 }
 
 export class JobSchema extends BaseModel {
-  static $columns = ['cancelledAt', 'createdAt', 'customerId', 'description', 'id', 'kind', 'sequence', 'siteId', 'status', 'title', 'updatedAt', 'year'] as const
+  static $columns = ['cancelledAt', 'createdAt', 'customerId', 'description', 'id', 'kind', 'sequence', 'siteId', 'status', 'title', 'updatedAt', 'workCategory', 'year'] as const
   $columns = JobSchema.$columns
   @column.dateTime()
   declare cancelledAt: DateTime | null
@@ -229,6 +231,8 @@ export class JobSchema extends BaseModel {
   declare title: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare workCategory: string
   @column()
   declare year: number
 }
@@ -314,7 +318,7 @@ export class QuoteSchema extends BaseModel {
 }
 
 export class SiteSchema extends BaseModel {
-  static $columns = ['accessNotes', 'city', 'createdAt', 'id', 'label', 'postalCode', 'province', 'street', 'streetNumber', 'unit', 'updatedAt'] as const
+  static $columns = ['accessNotes', 'city', 'createdAt', 'id', 'label', 'postalCode', 'province', 'residential', 'street', 'streetNumber', 'unit', 'updatedAt'] as const
   $columns = SiteSchema.$columns
   @column()
   declare accessNotes: string | null
@@ -330,6 +334,8 @@ export class SiteSchema extends BaseModel {
   declare postalCode: string
   @column()
   declare province: string
+  @column()
+  declare residential: boolean
   @column()
   declare street: string
   @column()
@@ -382,6 +388,27 @@ export class UserSchema extends BaseModel {
   declare password: string
   @column()
   declare role: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class VatCodeSchema extends BaseModel {
+  static $columns = ['archivedAt', 'createdAt', 'id', 'legalNote', 'name', 'natura', 'rate', 'updatedAt'] as const
+  $columns = VatCodeSchema.$columns
+  @column.dateTime()
+  declare archivedAt: DateTime | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare legalNote: string | null
+  @column()
+  declare name: string
+  @column()
+  declare natura: string | null
+  @column()
+  declare rate: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }
