@@ -8,13 +8,9 @@ import VisitHour from '#models/visit_hour'
 import VisitItem from '#models/visit_item'
 import InstalledEquipment from '#models/installed_equipment'
 import StockLedger from '#stock/stock_ledger'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
-/**
- * Statuses that close a Visit: its Items are taken off stock and its
- * hours, Items and status become final. "Needs another visit" closes this
- * Visit too; the follow-up is a new Visit.
- */
-export const CLOSED_VISIT_STATUSES: VisitStatus[] = ['done', 'needs_return']
+export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
  * The Visit is closed (its hours, Items and stock are final), or the

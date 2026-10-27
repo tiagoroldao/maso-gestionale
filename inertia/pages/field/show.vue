@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isClosedVisit } from '@shared/visits'
 import { ref } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
@@ -53,9 +54,8 @@ defineProps<{
 const picked = ref<PickedItem | null>(null)
 const installed = ref(false)
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
-const closing = ['done', 'needs_return']
 const confirmDone = (status: string) => () =>
-  !closing.includes(status) || window.confirm(t('ui.field.completeConfirm'))
+  !isClosedVisit(status) || window.confirm(t('ui.field.completeConfirm'))
 const confirmRemove = () => window.confirm(t('ui.field.removeConfirm'))
 
 const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const

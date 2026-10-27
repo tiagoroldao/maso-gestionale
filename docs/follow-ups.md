@@ -6,13 +6,13 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 | Issue | What | Waiting on |
 |---|---|---|
-| #17 | Commercialista reviews seeded VAT Codes, default rules, legal notes, tax regime, payment terms | The business (`needs-human`) |
-| #28 | Legacy invoice import | The business (`needs-human`) |
+| #17 | Commercialista review of VAT settings and invoicing assumptions | The business (`needs-human`) |
+| #28 | Bulk import from the old accounting software | The business (`needs-human`) |
 | #34 | How updates are applied | The business (`needs-human`) |
-| #35 | Cloudflare Tunnel setup | The business (`needs-human`) |
+| #35 | Cloudflare Tunnel and Access setup | The business (`needs-human`) |
 | #56 | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP) | Review of proposal |
 | #57 | Proposal: withholding tax on condominium Invoices | Review of proposal, #17 |
-| #58 | Proposal: assisted *beni significativi* VAT split | Review of proposal, #17 |
+| #58 | Proposal: assisted *beni significativi* VAT split | Review of proposal; its rule is confirmed in #17 |
 | #59 | Proposal: payment in instalments | Review of proposal |
 | #60 | Proposal: virtual stamp duty | Review of proposal |
 | #61 | Proposal: tax bonus wording on Invoices | Review of proposal |
@@ -21,6 +21,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Not yet issues
 
-- **Billing price policy (#22):** Visit hours and Items record their unit price when entered (#16). #22 must decide whether a Time & Materials Invoice uses those recorded prices (current default) or today's prices.
+- **Billing price policy:** noted on #22 (recorded prices vs. today's prices for Time & Materials Invoices).
+
 - **Closing a Visit by mistake (#16):** "Done" and "needs another visit" are final; neither the Technician nor Office can reopen a Visit. Accepted trade-off for now; revisit if it happens in practice (an Office "reopen" that reverses the stock usage).
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.
