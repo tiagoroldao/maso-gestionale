@@ -12,6 +12,11 @@ export interface ApiDefinition {
     destroy: typeof routes['session.destroy']
   }
   dashboard: typeof routes['dashboard']
+  companySettings: {
+    logo: typeof routes['company_settings.logo']
+    edit: typeof routes['company_settings.edit']
+    update: typeof routes['company_settings.update']
+  }
   users: {
     index: typeof routes['users.index']
     create: typeof routes['users.create']

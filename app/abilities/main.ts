@@ -36,6 +36,13 @@ export const manageUsers = Bouncer.ability((user: User) => {
 })
 
 /**
+ * Editing the company settings.
+ */
+export const manageCompany = Bouncer.ability((user: User) => {
+  return user.role === 'admin'
+})
+
+/**
  * An Admin may only manage Office and Technician accounts, never other
  * Admins or the Superuser.
  */

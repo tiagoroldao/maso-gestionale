@@ -47,4 +47,4 @@ Tests run against the `maso_test` database, which the Postgres container creates
 docker compose up -d --build
 ```
 
-The `app` container runs pending migrations on start-up and then serves on port 3333.
+The `app` container runs pending migrations on start-up and then serves on port 3333. Uploaded files (such as the company logo) live in the `app-storage` volume; in development they go to `storage/` in the repo (git-ignored), or wherever `STORAGE_PATH` points.

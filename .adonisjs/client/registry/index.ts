@@ -42,6 +42,12 @@ const routes = {
     tokens: [[0,"dashboard"]],
     types: placeholder as Registry['dashboard']['types'],
   },
+  'company_settings.logo': {
+    methods: ["GET","HEAD"],
+    pattern: '/company/logo',
+    tokens: [[0,"company"],[0,"logo"]],
+    types: placeholder as Registry['company_settings.logo']['types'],
+  },
   'users.index': {
     methods: ["GET","HEAD"],
     pattern: '/users',
@@ -83,6 +89,18 @@ const routes = {
     pattern: '/users/:id/reactivate',
     tokens: [[0,"users"],[1,"id"],[0,"reactivate"]],
     types: placeholder as Registry['users.reactivate']['types'],
+  },
+  'company_settings.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/company',
+    tokens: [[0,"settings"],[0,"company"]],
+    types: placeholder as Registry['company_settings.edit']['types'],
+  },
+  'company_settings.update': {
+    methods: ["POST"],
+    pattern: '/settings/company',
+    tokens: [[0,"settings"],[0,"company"]],
+    types: placeholder as Registry['company_settings.update']['types'],
   },
   'instance': {
     methods: ["GET","HEAD"],

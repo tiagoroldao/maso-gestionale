@@ -30,6 +30,7 @@ router
     router
       .group(() => {
         router.on('/dashboard').renderInertia('dashboard', {}).as('dashboard')
+        router.get('company/logo', [controllers.CompanySettings, 'logo'])
       })
       .use(middleware.can('accessBusiness'))
 
@@ -44,6 +45,13 @@ router
         router.post('users/:id/reactivate', [controllers.Users, 'reactivate'])
       })
       .use(middleware.can('manageUsers'))
+
+    router
+      .group(() => {
+        router.get('settings/company', [controllers.CompanySettings, 'edit'])
+        router.post('settings/company', [controllers.CompanySettings, 'update'])
+      })
+      .use(middleware.can('manageCompany'))
 
     router
       .group(() => {
