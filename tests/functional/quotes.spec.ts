@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import Quote from '#models/quote'
 import LabourRate from '#models/labour_rate'
 import CompanySettings from '#models/company_settings'
@@ -170,6 +171,100 @@ test.group('Quotes', () => {
     assert.equal(job.status, 'open')
   })
 
+  test('saving only text lines puts the Job back to open', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: [{ kind: 'text', description: 'Da definire' }] })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'open')
+  })
+
+  test('a cancelled Job keeps its Quote frozen', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+
+    for (const request of [
+      client.put(`/jobs/${job.id}/quote`).json({ lines: [] }),
+      client.post(`/jobs/${job.id}/quote/accept`),
+    ]) {
+      const response = await request.withCsrfToken().loginAs(office).redirects(0)
+      response.assertFlashMessage('error', it('flash.quoteNotEditable'))
+    }
+    await job.refresh()
+    assert.equal(job.status, 'cancelled')
+  })
+
+  test('archived Items and rates can not be added, and huge lines are refused', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, item, rate } = await setup()
+    item.archivedAt = DateTime.now()
+    await item.save()
+    rate.archivedAt = DateTime.now()
+    await rate.save()
+
+    const response = await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({
+        lines: [
+          { kind: 'item', itemId: item.id, description: 'X', quantity: '1', unitPrice: '1' },
+          {
+            kind: 'labour',
+            labourRateId: rate.id,
+            description: 'Y',
+            quantity: '1',
+            unitPrice: '1',
+          },
+          { kind: 'call_out', description: 'Z', quantity: '99999999', unitPrice: '9999999' },
+        ],
+      })
+      .header('referer', `/jobs/${job.id}/quote`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    assert.properties(response.flashMessage('inputErrorsBag'), [
+      'lines.0.itemId',
+      'lines.1.labourRateId',
+      'lines.2.quantity',
+    ])
+  })
+
+  test('the kind of a Job with a Quote can not change', async ({ client, assert }) => {
+    const { office, customer, job } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: [{ kind: 'text', description: 'Bozza' }] })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await client
+      .put(`/jobs/${job.id}`)
+      .form({ customerId: String(customer.id), kind: 'time_and_materials', title: job.title })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'open')
+    assert.equal(job.kind, 'quoted')
+  })
+
   test('Time & Materials Jobs have no Quote', async ({ client, assert }) => {
     const { office, customer } = await setup()
     const job = await createJob(customer, { kind: 'time_and_materials' })
@@ -237,6 +332,22 @@ test.group('Rates', () => {
       .loginAs(admin)
     const settings = await CompanySettings.current()
     assert.equal(settings.callOutFee, '35.0000')
+  })
+
+  test('an archived rate name can be used again', async ({ client, assert }) => {
+    const admin = await createUser('admin')
+    const old = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '30' })
+    await client.post(`/settings/rates/${old.id}/archive`).withCsrfToken().loginAs(admin)
+
+    await client
+      .post('/settings/rates')
+      .form({ name: 'Idraulico', hourlyPrice: '35' })
+      .withCsrfToken()
+      .loginAs(admin)
+
+    const active = await LabourRate.query().where('name', 'Idraulico').whereNull('archived_at')
+    assert.lengthOf(active, 1)
+    assert.equal(active[0].hourlyPrice, '35.0000')
   })
 
   test('Office can not manage rates', async ({ client }) => {

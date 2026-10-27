@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { ArrowDown, ArrowUp, FileText, Trash2 } from 'lucide-vue-next'
@@ -46,11 +46,14 @@ const props = defineProps<{
   callOutFee: string | null
 }>()
 
+const page = usePage()
+const errors = computed(() => (page.props.errors ?? {}) as Record<string, string>)
+
 let nextKey = 0
 const trim = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
-const lines = reactive<Line[]>(
-  (props.quote?.lines ?? []).map((line) => ({
+function linesFromProps() {
+  return (props.quote?.lines ?? []).map((line) => ({
     key: nextKey++,
     kind: line.kind,
     itemId: line.itemId,
@@ -60,13 +63,38 @@ const lines = reactive<Line[]>(
     unit: line.unit,
     unitPrice: line.unitPrice ? amountForInput(line.unitPrice) : '',
   }))
-)
+}
+
+const lines = reactive<Line[]>(linesFromProps())
 const notes = ref(props.quote?.notes ?? '')
+
+/**
+ * What the server has, in the same shape as the editor's state, so unsaved
+ * changes can be detected.
+ */
+const snapshot = () =>
+  JSON.stringify({
+    notes: notes.value,
+    lines: lines.map(({ key: _key, ...line }) => line),
+  })
+const saved = ref(snapshot())
+const dirty = computed(() => snapshot() !== saved.value)
+
+/**
+ * After a save, or when someone else decided the Quote, show what the
+ * server has rather than stale local edits.
+ */
+watch(
+  () => props.quote,
+  () => {
+    if (Object.keys(errors.value).length) return
+    lines.splice(0, lines.length, ...linesFromProps())
+    notes.value = props.quote?.notes ?? ''
+    saved.value = snapshot()
+  }
+)
 const processing = ref(false)
 const labourRateId = ref<number | ''>('')
-
-const page = usePage()
-const errors = computed(() => (page.props.errors ?? {}) as Record<string, string>)
 
 function totalOf(line: Line) {
   const quantity = parseQuantity(line.quantity)
@@ -166,6 +194,8 @@ function save() {
 }
 
 const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
+
+const confirmDecision = (message: string) => () => window.confirm(message)
 </script>
 
 <template>
@@ -217,6 +247,12 @@ const lineError = (index: number, field: string) => errors.value[`lines.${index}
                 />
                 <span v-if="lineError(index, 'description')" class="field__error">
                   {{ lineError(index, 'description') }}
+                </span>
+                <span
+                  v-if="lineError(index, 'itemId') || lineError(index, 'labourRateId')"
+                  class="field__error"
+                >
+                  {{ lineError(index, 'itemId') ?? lineError(index, 'labourRateId') }}
                 </span>
               </td>
               <td>
@@ -336,6 +372,7 @@ const lineError = (index: number, field: string) => errors.value[`lines.${index}
           :disabled="!editable"
           :aria-label="t('ui.quotes.notes')"
         />
+        <span v-if="errors.notes" class="field__error">{{ errors.notes }}</span>
       </Section>
 
       <Section v-if="editable">
@@ -343,7 +380,9 @@ const lineError = (index: number, field: string) => errors.value[`lines.${index}
           <button type="button" class="btn btn--primary" :disabled="processing" @click="save">
             {{ t('ui.quotes.save') }}
           </button>
+          <span v-if="dirty" class="field__hint">{{ t('ui.quotes.unsaved') }}</span>
         </div>
+        <span v-if="errors.lines" class="field__error">{{ errors.lines }}</span>
       </Section>
 
       <Section
@@ -351,17 +390,28 @@ const lineError = (index: number, field: string) => errors.value[`lines.${index}
         :title="t('ui.quotes.decisionTitle')"
       >
         <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-          <Form route="quotes.accept" :params="{ id: job.id }">
-            <button type="submit" class="btn btn--primary btn--sm">
+          <Form
+            route="quotes.accept"
+            :params="{ id: job.id }"
+            :on-before="
+              confirmDecision(t('ui.quotes.acceptConfirm', { total: formatMoney(quote.total) }))
+            "
+          >
+            <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
               {{ t('ui.quotes.accept') }}
             </button>
           </Form>
-          <Form route="quotes.decline" :params="{ id: job.id }">
-            <button type="submit" class="btn btn--ghost btn--sm">
+          <Form
+            route="quotes.decline"
+            :params="{ id: job.id }"
+            :on-before="confirmDecision(t('ui.quotes.declineConfirm', { number: job.number }))"
+          >
+            <button type="submit" class="btn btn--ghost btn--sm" :disabled="dirty">
               {{ t('ui.quotes.decline') }}
             </button>
           </Form>
         </div>
+        <p v-if="dirty" class="field__hint">{{ t('ui.quotes.saveBeforeDeciding') }}</p>
       </Section>
     </Page>
   </AppLayout>

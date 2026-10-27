@@ -11,6 +11,7 @@
     "unitPrice": "Prezzo unitario",
     "amount": "Importo",
     "total": "Totale",
-    "vatExcluded": "IVA esclusa"
+    "vatExcluded": "IVA esclusa",
+    "issuedOn": "Data: {date}"
   }
 }

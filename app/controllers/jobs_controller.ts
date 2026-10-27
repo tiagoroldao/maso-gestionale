@@ -112,12 +112,15 @@ export default class JobsController {
       .preload('site')
       .firstOrFail()
 
+    const hasQuote = Boolean(await job.related('quote').query().first())
+
     return inertia.render('jobs/form', {
       job: {
         id: job.id,
         number: job.number,
         kind: job.kind,
         status: job.status,
+        kindLocked: job.status !== 'open' || hasQuote,
         title: job.title,
         description: job.description,
       },
@@ -140,8 +143,10 @@ export default class JobsController {
       title: data.title,
       description: data.description ?? null,
     })
-    // The kind decides how the Job is invoiced, so it can only change while open
-    if (job.status === 'open') job.kind = data.kind
+    // The kind decides how the Job is invoiced, so it can only change while
+    // the Job is open and has no Quote yet
+    const hasQuote = await job.related('quote').query().first()
+    if (job.status === 'open' && !hasQuote) job.kind = data.kind
     await job.save()
 
     session.flash('success', i18n.t('flash.jobSaved', { number: job.number }))
@@ -149,13 +154,19 @@ export default class JobsController {
   }
 
   async cancel({ params, response, session, i18n }: HttpContext) {
-    const job = await Job.findOrFail(params.id)
-
-    if (job.status !== 'cancelled') {
-      job.status = 'cancelled'
-      job.cancelledAt = DateTime.now()
-      await job.save()
-    }
+    const job = await db.transaction(async (trx) => {
+      // Locked, so a Quote save or decision can't overwrite the cancellation
+      const locked = await Job.query({ client: trx })
+        .where('id', params.id)
+        .forUpdate()
+        .firstOrFail()
+      if (locked.status !== 'cancelled') {
+        locked.status = 'cancelled'
+        locked.cancelledAt = DateTime.now()
+        await locked.save()
+      }
+      return locked
+    })
 
     session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
     response.redirect().toRoute('jobs.show', { id: job.id })

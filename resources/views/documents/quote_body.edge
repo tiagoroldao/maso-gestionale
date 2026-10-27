@@ -7,9 +7,10 @@
   .quote-total { margin-top: 4mm; text-align: right; font-size: 11pt; }
   .quote-total strong { font-size: 12pt; }
   .quote-note { margin-top: 6mm; white-space: pre-line; }
+  .quote-lines tr { page-break-inside: avoid; }
 </style>
 
-<p>{{ t('documents.quote.subject', { title: job.title }) }}</p>
+<p>{{ t('documents.quote.issuedOn', { date: issuedOn }) }}<br />{{ t('documents.quote.subject', { title: job.title }) }}</p>
 
 <table class="quote-lines">
   <thead>

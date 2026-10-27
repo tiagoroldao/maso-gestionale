@@ -40,14 +40,15 @@ export default class Item extends ItemSchema {
 
   /**
    * Whether anything else refers to this Item, so it must be archived
-   * rather than deleted: Stock Movements and Installed Equipment today,
-   * Visits and invoices later.
+   * rather than deleted: Stock Movements, Installed Equipment and Quote
+   * lines today, Visits and invoices later.
    */
   async isReferenced() {
-    const [movement, equipment] = await Promise.all([
-      db.from('stock_movements').where('item_id', this.id).first(),
-      db.from('installed_equipment').where('item_id', this.id).first(),
-    ])
-    return Boolean(movement || equipment)
+    const references = await Promise.all(
+      ['stock_movements', 'installed_equipment', 'quote_lines'].map((table) =>
+        db.from(table).where('item_id', this.id).first()
+      )
+    )
+    return references.some(Boolean)
   }
 }

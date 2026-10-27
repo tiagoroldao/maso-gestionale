@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Item from '#models/item'
-import type Job from '#models/job'
+import Job from '#models/job'
 import Quote from '#models/quote'
 import QuoteLine, { type QuoteLineKind } from '#models/quote_line'
 import { lineTotal } from '#shared/money'
@@ -41,6 +41,9 @@ export default class Quotes {
    */
   static async save(job: Job, input: { notes?: string | null; lines: QuoteLineInput[] }) {
     return db.transaction(async (trx) => {
+      // Lock the Job first, so a cancel or another save can't interleave
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      job.merge({ status: locked.status, kind: locked.kind })
       job.useTransaction(trx)
       const quote = await Quote.query({ client: trx }).where('jobId', job.id).forUpdate().first()
       if (!this.isEditable(job, quote)) throw new QuoteNotEditableError()
@@ -79,6 +82,8 @@ export default class Quotes {
     jobStatus: 'accepted' | 'cancelled'
   ) {
     await db.transaction(async (trx) => {
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      job.merge({ status: locked.status, kind: locked.kind })
       job.useTransaction(trx)
       const quote = await Quote.query({ client: trx })
         .where('jobId', job.id)

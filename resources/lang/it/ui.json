@@ -486,6 +486,10 @@
       "draft": "Bozza",
       "accepted": "Accettato",
       "declined": "Rifiutato"
-    }
+    },
+    "unsaved": "Modifiche non salvate.",
+    "saveBeforeDeciding": "Salva il preventivo prima di registrarne l'esito.",
+    "acceptConfirm": "Confermi che il cliente ha accettato il preventivo di {total}? Non sarà più modificabile.",
+    "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo? La commessa {number} verrà annullata."
   }
 }

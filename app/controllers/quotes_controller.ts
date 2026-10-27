@@ -101,6 +101,7 @@ export default class QuotesController {
 
     const bodyHtml = await edge.render('documents/quote_body', {
       job: { number: job.number, title: job.title },
+      issuedOn: (quote.updatedAt ?? quote.createdAt).toFormat('dd/MM/yyyy'),
       notes: quote.notes,
       total: euro.format(quote.total as unknown as number),
       lines: quote.lines.map((line) => ({
