@@ -1023,6 +1023,9 @@ input {
   border-left: 3px solid var(--ink);
   cursor: grab;
 }
+.agenda__visit[draggable='false'] {
+  cursor: default;
+}
 .agenda__visit--card {
   position: static;
   margin-bottom: 4px;

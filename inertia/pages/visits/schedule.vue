@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { isClosedVisit } from '@shared/visits'
 import { computed, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
@@ -130,7 +131,16 @@ const dragging = ref<{
   grabMinutes: number
 } | null>(null)
 
+/**
+ * Closed Visits (done, or needing another visit) can't move: the server
+ * refuses them too.
+ */
+function isOpen(visit: CalendarVisit) {
+  return !isClosedVisit(visit.status)
+}
+
 function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number) {
+  if (!isOpen(visit)) return
   // Firefox only starts a drag with some data set
   event.dataTransfer?.setData('text/plain', String(visit.id))
   // How far into the Visit it was grabbed, so dropping on another lane at
@@ -262,7 +272,7 @@ const weekday = (iso: string) =>
               class="agenda__visit"
               :class="`agenda__visit--${visit.status}`"
               :style="blockStyle(visit, layout(visitsFor(technician.id, date)).get(visit.id))"
-              draggable="true"
+              :draggable="isOpen(visit) ? 'true' : 'false'"
               :data-visit="visit.id"
               @dragstart="onDragStart($event, visit, technician.id)"
             >
@@ -303,7 +313,7 @@ const weekday = (iso: string) =>
                 :key="visit.id"
                 class="agenda__visit agenda__visit--card"
                 :class="`agenda__visit--${visit.status}`"
-                draggable="true"
+                :draggable="isOpen(visit) ? 'true' : 'false'"
                 :data-visit="visit.id"
                 @dragstart="onDragStart($event, visit, technician.id)"
               >

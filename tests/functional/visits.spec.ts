@@ -270,18 +270,21 @@ test.group('Agenda', () => {
     )
   })
 
-  test('done Visits and cancelled Jobs can not be moved', async ({ client, assert }) => {
+  test('closed Visits and cancelled Jobs can not be moved', async ({ client, assert }) => {
     const office = await createUser('office')
     const anna = await createUser('technician')
     const done = await visitFor([anna.id], '2026-11-03T09:00')
     done.status = 'done'
     await done.save()
+    const needsReturn = await visitFor([anna.id], '2026-11-03T11:00')
+    needsReturn.status = 'needs_return'
+    await needsReturn.save()
     const ofCancelled = await visitFor([anna.id], '2026-11-03T14:00')
     await ofCancelled.load('job')
     ofCancelled.job.status = 'cancelled'
     await ofCancelled.job.save()
 
-    for (const visit of [done, ofCancelled]) {
+    for (const visit of [done, needsReturn, ofCancelled]) {
       const response = await client
         .patch(`/visits/${visit.id}/move`)
         .json({ startsAt: '2026-11-05T09:00' })
