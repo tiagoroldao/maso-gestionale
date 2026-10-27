@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import Visit from '#models/visit'
+import Quote from '#models/quote'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
@@ -62,6 +63,25 @@ test.group('Planning Visits', () => {
       await job.refresh()
       assert.equal(job.status, expected, `${kind} ${status}`)
     }
+  })
+
+  test('accepting a Quote with work already booked starts the Job', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const technician = await createUser('technician')
+    const job = await createJob(await createCustomer(), { kind: 'quoted', status: 'quoted' })
+    await Quote.create({ jobId: job.id, status: 'draft' })
+    await client
+      .post(`/jobs/${job.id}/visits`)
+      .json(plan([technician.id]))
+      .withCsrfToken()
+      .loginAs(office)
+    await job.refresh()
+    assert.equal(job.status, 'quoted')
+
+    await client.post(`/jobs/${job.id}/quote/accept`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
   })
 
   test('cancelled Jobs get no Visits', async ({ client, assert }) => {
@@ -179,6 +199,109 @@ test.group('Agenda', () => {
       visit.technicians.map((t) => t.id),
       [bruno.id, carla.id]
     )
+  })
+
+  test('a stale hand-over is refused instead of adding a Technician', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const bruno = await createUser('technician')
+    const carla = await createUser('technician')
+    const visit = await visitFor([bruno.id], '2026-11-03T09:00')
+
+    // The page still showed the Visit in Anna's lane
+    const response = await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T09:00', fromTechnicianId: anna.id, toTechnicianId: carla.id })
+      .header('referer', '/agenda')
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('error', it('flash.visitNotMovable'))
+    await visit.load('technicians')
+    assert.deepEqual(
+      visit.technicians.map((t) => t.id),
+      [bruno.id]
+    )
+  })
+
+  test('handing over to a Technician already on the Visit removes the original', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const bruno = await createUser('technician')
+    const visit = await visitFor([anna.id, bruno.id], '2026-11-03T09:00')
+
+    await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T09:00', fromTechnicianId: anna.id, toTechnicianId: bruno.id })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await visit.load('technicians')
+    assert.deepEqual(
+      visit.technicians.map((t) => t.id),
+      [bruno.id]
+    )
+  })
+
+  test('done Visits and cancelled Jobs can not be moved', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const done = await visitFor([anna.id], '2026-11-03T09:00')
+    done.status = 'done'
+    await done.save()
+    const ofCancelled = await visitFor([anna.id], '2026-11-03T14:00')
+    await ofCancelled.load('job')
+    ofCancelled.job.status = 'cancelled'
+    await ofCancelled.job.save()
+
+    for (const visit of [done, ofCancelled]) {
+      const response = await client
+        .patch(`/visits/${visit.id}/move`)
+        .json({ startsAt: '2026-11-05T09:00' })
+        .header('referer', '/agenda')
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      response.assertFlashMessage('error', it('flash.visitNotMovable'))
+      const before = visit.startsAt.toISO()
+      await visit.refresh()
+      assert.equal(visit.startsAt.toISO(), before)
+    }
+  })
+
+  test("a cancelled Job's Visits leave the agenda", async ({ client, assert }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const visit = await visitFor([anna.id], '2026-11-03T09:00')
+    await client.post(`/jobs/${visit.jobId}/cancel`).withCsrfToken().loginAs(office)
+
+    const day = await client.get('/agenda').qs({ date: '2026-11-03' }).withInertia().loginAs(office)
+
+    assert.lengthOf(day.inertiaProps.visits as unknown[], 0)
+    assert.isNotNull(await Visit.find(visit.id))
+  })
+
+  test('impossible dates are refused, not crashed on', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const visit = await visitFor([anna.id], '2026-11-03T09:00')
+
+    const response = await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-02-30T10:00' })
+      .header('referer', '/agenda')
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    assert.properties(response.flashMessage('inputErrorsBag'), ['startsAt'])
   })
 
   test('Technicians can not use the agenda', async ({ client }) => {

@@ -502,7 +502,7 @@
     "date": "Data",
     "startTime": "Ora di inizio",
     "duration": "Durata",
-    "minutes": "{minutes, plural, other {# minuti}}",
+    "minutes": "{minutes} minuti",
     "technicians": "Tecnici",
     "noTechnicians": "Nessun tecnico attivo. Aggiungi gli utenti tecnici in Utenti.",
     "notes": "Note per i tecnici",
@@ -519,6 +519,7 @@
       "in_progress": "In corso",
       "done": "Completato",
       "needs_return": "Da ripianificare"
-    }
+    },
+    "hours": "{hours, plural, one {# ora} other {# ore}}"
   }
 }

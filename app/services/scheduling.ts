@@ -6,6 +6,12 @@ import Visit from '#models/visit'
 export class JobNotSchedulableError extends Error {}
 
 /**
+ * The Visit changed since the page was loaded (another user moved it), or
+ * can no longer move (done, or its Job was cancelled).
+ */
+export class VisitNotMovableError extends Error {}
+
+/**
  * Scheduling Visits and the Job status changes it causes.
  */
 export default class Scheduling {
@@ -25,9 +31,12 @@ export default class Scheduling {
     job: Job,
     input: { startsAt: DateTime; endsAt: DateTime; technicianIds: number[]; notes?: string | null }
   ) {
-    if (!this.canSchedule(job)) throw new JobNotSchedulableError()
-
     return db.transaction(async (trx) => {
+      // Locked and re-read, so a concurrent cancel can't be overwritten
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      job.merge({ status: locked.status, kind: locked.kind })
+      if (!this.canSchedule(job)) throw new JobNotSchedulableError()
+
       const visit = await Visit.create(
         {
           jobId: job.id,
@@ -59,18 +68,34 @@ export default class Scheduling {
     visit: Visit,
     input: { startsAt: DateTime; fromTechnicianId?: number; toTechnicianId?: number }
   ) {
-    const length = visit.endsAt.diff(visit.startsAt)
-
     await db.transaction(async (trx) => {
-      visit.useTransaction(trx)
-      visit.startsAt = input.startsAt
-      visit.endsAt = input.startsAt.plus(length)
-      await visit.save()
+      const locked = await Visit.query({ client: trx })
+        .where('id', visit.id)
+        .forUpdate()
+        .preload('job')
+        .preload('technicians')
+        .firstOrFail()
+      if (locked.status === 'done' || locked.job.status === 'cancelled') {
+        throw new VisitNotMovableError()
+      }
 
       const { fromTechnicianId: from, toTechnicianId: to } = input
-      if (from && to && from !== to) {
-        await visit.related('technicians').detach([from])
-        await visit.related('technicians').sync([to], false)
+      const current = locked.technicians.map((technician) => technician.id)
+      const handOver = from && to && from !== to
+      // A stale page (someone already moved it) must not add a Technician
+      if (handOver && !current.includes(from)) throw new VisitNotMovableError()
+
+      const length = locked.endsAt.diff(locked.startsAt)
+      locked.useTransaction(trx)
+      locked.startsAt = input.startsAt
+      locked.endsAt = input.startsAt.plus(length)
+      await locked.save()
+
+      if (handOver) {
+        // Dropping on a lane hands the Visit over; if the target Technician
+        // was already on it, the Visit simply loses the original one
+        await locked.related('technicians').detach([from])
+        await locked.related('technicians').sync([to], false)
       }
     })
   }

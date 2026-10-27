@@ -26,22 +26,40 @@ const props = defineProps<{
   visits: CalendarVisit[]
 }>()
 
-/**
- * The day grid runs 07:00–20:00 in half-hour slots.
- */
-const FIRST_HOUR = 7
-const LAST_HOUR = 20
 const SLOT_MINUTES = 30
 const SLOT_HEIGHT = 24
-const slots = Array.from(
-  { length: ((LAST_HOUR - FIRST_HOUR) * 60) / SLOT_MINUTES },
-  (_, i) => FIRST_HOUR * 60 + i * SLOT_MINUTES
-)
 
 const time = (iso: string) => iso.slice(11, 16)
 const minutesOf = (iso: string) => Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16))
 const pad = (n: number) => String(n).padStart(2, '0')
 const label = (minutes: number) => `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
+
+/**
+ * Where a Visit sits on the day's grid, in minutes from midnight; a Visit
+ * running past midnight is cut at the end of the day.
+ */
+function span(visit: CalendarVisit) {
+  const start = visit.startsAt.slice(0, 10) === props.date ? minutesOf(visit.startsAt) : 0
+  const end = visit.endsAt.slice(0, 10) === props.date ? minutesOf(visit.endsAt) : 24 * 60
+  return { start, end: Math.max(end, start + SLOT_MINUTES) }
+}
+
+/**
+ * The day grid runs 07:00–20:00 in half-hour slots, stretched to fit any
+ * earlier or later Visit (night call-outs).
+ */
+const grid = computed(() => {
+  const spans = props.visits.map(span)
+  const first = Math.min(7 * 60, ...spans.map((s) => Math.floor(s.start / 60) * 60))
+  const last = Math.max(20 * 60, ...spans.map((s) => Math.ceil(s.end / 60) * 60))
+  return { first, last: Math.min(last, 24 * 60) }
+})
+const slots = computed(() =>
+  Array.from(
+    { length: (grid.value.last - grid.value.first) / SLOT_MINUTES },
+    (_, i) => grid.value.first + i * SLOT_MINUTES
+  )
+)
 
 function shiftDate(iso: string, days: number) {
   const [y, m, d] = iso.split('-').map(Number)
@@ -61,17 +79,70 @@ function visitsFor(technicianId: number, day: string) {
   )
 }
 
-function blockStyle(visit: CalendarVisit) {
-  const top = ((minutesOf(visit.startsAt) - FIRST_HOUR * 60) / SLOT_MINUTES) * SLOT_HEIGHT
-  const height =
-    ((minutesOf(visit.endsAt) - minutesOf(visit.startsAt)) / SLOT_MINUTES) * SLOT_HEIGHT
-  return { top: `${Math.max(top, 0)}px`, height: `${Math.max(height, SLOT_HEIGHT)}px` }
+/**
+ * Overlapping Visits in one lane share its width side by side, so a double
+ * booking is visible rather than hidden.
+ */
+function layout(visits: CalendarVisit[]) {
+  const sorted = [...visits].sort((a, b) => span(a).start - span(b).start)
+  const placed = new Map<number, { column: number; columns: number }>()
+  let columnEnds: number[] = []
+  let cluster: CalendarVisit[] = []
+  let clusterEnd = -1
+
+  const close = () => {
+    const columns = Math.max(...cluster.map((visit) => placed.get(visit.id)!.column)) + 1
+    for (const visit of cluster) placed.get(visit.id)!.columns = columns
+    cluster = []
+    columnEnds = []
+  }
+
+  for (const visit of sorted) {
+    const { start, end } = span(visit)
+    if (cluster.length && start >= clusterEnd) close()
+    let column = columnEnds.findIndex((columnEnd) => columnEnd <= start)
+    if (column === -1) column = columnEnds.length
+    columnEnds[column] = end
+    placed.set(visit.id, { column, columns: 1 })
+    cluster.push(visit)
+    clusterEnd = Math.max(clusterEnd, end)
+  }
+  if (cluster.length) close()
+  return placed
 }
 
-const dragging = ref<{ visitId: number; fromTechnicianId: number; startsAt: string } | null>(null)
+function blockStyle(visit: CalendarVisit, placement?: { column: number; columns: number }) {
+  const { start, end } = span(visit)
+  const { column = 0, columns = 1 } = placement ?? {}
+  return {
+    top: `${((start - grid.value.first) / SLOT_MINUTES) * SLOT_HEIGHT}px`,
+    height: `${((end - start) / SLOT_MINUTES) * SLOT_HEIGHT}px`,
+    left: `calc(${(column / columns) * 100}% + 2px)`,
+    width: `calc(${100 / columns}% - 4px)`,
+    right: 'auto',
+  }
+}
 
-function onDragStart(visit: CalendarVisit, technicianId: number) {
-  dragging.value = { visitId: visit.id, fromTechnicianId: technicianId, startsAt: visit.startsAt }
+const dragging = ref<{
+  visitId: number
+  fromTechnicianId: number
+  startsAt: string
+  grabMinutes: number
+} | null>(null)
+
+function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number) {
+  // Firefox only starts a drag with some data set
+  event.dataTransfer?.setData('text/plain', String(visit.id))
+  // How far into the Visit it was grabbed, so dropping on another lane at
+  // the same height keeps the same start time
+  const block = event.currentTarget as HTMLElement
+  const grabbedAt = event.clientY - block.getBoundingClientRect().top
+  dragging.value = {
+    visitId: visit.id,
+    fromTechnicianId: technicianId,
+    startsAt: visit.startsAt,
+    grabMinutes: Math.floor(Math.max(grabbedAt, 0) / SLOT_HEIGHT) * SLOT_MINUTES,
+  }
 }
 
 function moveTo(technicianId: number, startsAt: string) {
@@ -88,13 +159,16 @@ function moveTo(technicianId: number, startsAt: string) {
 }
 
 /**
- * Day view: the drop position picks the half-hour slot.
+ * Day view: the drop position, less where the Visit was grabbed, picks the
+ * new start slot.
  */
 function onDayDrop(event: DragEvent, technicianId: number) {
+  if (!dragging.value) return
   const column = event.currentTarget as HTMLElement
   const offset = event.clientY - column.getBoundingClientRect().top
-  const slot = Math.max(0, Math.min(slots.length - 1, Math.floor(offset / SLOT_HEIGHT)))
-  moveTo(technicianId, `${props.date}T${label(slots[slot])}`)
+  const pointed = grid.value.first + Math.floor(offset / SLOT_HEIGHT) * SLOT_MINUTES
+  const start = Math.max(0, Math.min(24 * 60 - SLOT_MINUTES, pointed - dragging.value.grabMinutes))
+  moveTo(technicianId, `${props.date}T${label(start)}`)
 }
 
 /**
@@ -181,10 +255,10 @@ const weekday = (iso: string) =>
               :key="visit.id"
               class="agenda__visit"
               :class="`agenda__visit--${visit.status}`"
-              :style="blockStyle(visit)"
+              :style="blockStyle(visit, layout(visitsFor(technician.id, date)).get(visit.id))"
               draggable="true"
               :data-visit="visit.id"
-              @dragstart="onDragStart(visit, technician.id)"
+              @dragstart="onDragStart($event, visit, technician.id)"
             >
               <strong>{{ time(visit.startsAt) }}–{{ time(visit.endsAt) }}</strong>
               <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{
@@ -225,7 +299,7 @@ const weekday = (iso: string) =>
                 :class="`agenda__visit--${visit.status}`"
                 draggable="true"
                 :data-visit="visit.id"
-                @dragstart="onDragStart(visit, technician.id)"
+                @dragstart="onDragStart($event, visit, technician.id)"
               >
                 <strong>{{ time(visit.startsAt) }}</strong>
                 <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{

@@ -33,7 +33,7 @@ export const visitValidator = vine.create({
  * A drag-and-drop move on the calendar.
  */
 export const moveVisitValidator = vine.create({
-  startsAt: vine.string().regex(/^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d$/),
+  startsAt: vine.date({ formats: ['YYYY-MM-DDTHH:mm'] }),
   fromTechnicianId: vine.number().optional(),
   toTechnicianId: vine
     .number()

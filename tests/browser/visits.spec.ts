@@ -25,14 +25,16 @@ test.group('Agenda in the browser', () => {
 
     const card = form.locator('[data-visit]')
     await card.waitFor()
-    // Half-hour slots of 24px from 07:00: 13:00 is slot 12
+    // The 09:00–11:00 block sits 96px down the grid (07:00 start, 24px per
+    // half hour); Playwright grabs it in the middle, 48px in. Dropping at the
+    // same height on Bruno's lane hands it over without changing the time.
     await card.dragTo(form.locator(`.agenda__column[data-technician="${bruno.id}"]`), {
-      targetPosition: { x: 20, y: 12 * 24 + 5 },
+      targetPosition: { x: 20, y: 96 + 48 },
     })
 
     await form.locator(`.agenda__column[data-technician="${bruno.id}"] [data-visit]`).waitFor()
     const moved = await Visit.query().preload('technicians').firstOrFail()
-    assert.equal(moved.startsAt.toFormat('HH:mm'), '13:00')
+    assert.equal(moved.startsAt.toFormat('HH:mm'), '09:00')
     assert.deepEqual(
       moved.technicians.map((t) => t.id),
       [bruno.id]

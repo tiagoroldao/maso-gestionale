@@ -111,7 +111,8 @@
       "durationMinutes": "durata",
       "technicianIds": "tecnici",
       "startsAt": "inizio",
-      "toTechnicianId": "tecnico"
+      "toTechnicianId": "tecnico",
+      "fromTechnicianId": "tecnico di partenza"
     }
   }
 }

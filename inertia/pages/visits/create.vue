@@ -50,7 +50,11 @@ const durations = [30, 60, 90, 120, 180, 240, 480]
                   :value="minutes"
                   :selected="minutes === 120"
                 >
-                  {{ t('ui.visits.minutes', { minutes }) }}
+                  {{
+                    minutes < 60
+                      ? t('ui.visits.minutes', { minutes })
+                      : t('ui.visits.hours', { hours: minutes / 60 })
+                  }}
                 </option>
               </select>
             </div>
