@@ -17,6 +17,10 @@ export const installedEquipmentValidator = vine.create({
   serialNumber: optionalText(100),
   installedOn: optionalDate(),
   maintenanceIntervalMonths: vine.number().withoutDecimals().min(1).max(120).optional(),
-  lastServicedOn: optionalDate(),
+  lastServicedOn: vine
+    .date({ formats: ['YYYY-MM-DD'] })
+    .beforeOrEqual('today')
+    .afterOrSameAs('installedOn')
+    .optional(),
   notes: optionalText(5000),
 })

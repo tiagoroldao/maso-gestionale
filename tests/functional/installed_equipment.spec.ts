@@ -69,6 +69,61 @@ test.group('Installed Equipment', () => {
     assert.lengthOf(await InstalledEquipment.all(), 0)
   })
 
+  test('a last service before installation is rejected', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const site = await createSite()
+
+    const response = await client
+      .post(`/sites/${site.id}/equipment`)
+      .form({ ...boilerFields, lastServicedOn: '2024-09-30' })
+      .header('referer', `/sites/${site.id}/equipment/create`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    assert.properties(response.flashMessage('inputErrorsBag'), ['lastServicedOn'])
+  })
+
+  test('a last service without an install date is accepted', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const site = await createSite()
+
+    await client
+      .post(`/sites/${site.id}/equipment`)
+      .form({
+        equipmentType: 'Boiler',
+        lastServicedOn: '2025-03-01',
+        maintenanceIntervalMonths: '12',
+      })
+      .withCsrfToken()
+      .loginAs(office)
+
+    const boiler = await InstalledEquipment.firstOrFail()
+    assert.equal(boiler.nextDueOn?.toISODate(), '2026-03-01')
+  })
+
+  test('clearing fields on edit removes them', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const site = await createSite()
+    const boiler = await site.related('installedEquipment').create({
+      equipmentType: 'Boiler',
+      make: 'Vaillant',
+      maintenanceIntervalMonths: 12,
+      installedOn: DateTime.fromISO('2024-01-01'),
+    })
+
+    await client
+      .put(`/equipment/${boiler.id}`)
+      .form({ equipmentType: 'Boiler', make: '', maintenanceIntervalMonths: '', installedOn: '' })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await boiler.refresh()
+    assert.isNull(boiler.make)
+    assert.isNull(boiler.maintenanceIntervalMonths)
+    assert.isNull(boiler.installedOn)
+  })
+
   test('the Site history page lists its equipment with the next due date', async ({ client }) => {
     const office = await createUser('office')
     const site = await createSite()
@@ -114,15 +169,34 @@ test.group('Installed Equipment', () => {
     })
   })
 
-  test('Technicians can not manage equipment from the office screens', async ({ client }) => {
+  test('Technicians can not manage equipment from the office screens', async ({
+    client,
+    assert,
+  }) => {
     const technician = await createUser('technician')
     const site = await createSite()
+    const boiler = await site.related('installedEquipment').create({ equipmentType: 'Boiler' })
 
-    const response = await client
+    const page = await client
       .get(`/sites/${site.id}/equipment/create`)
       .withInertia()
       .loginAs(technician)
+    page.assertStatus(403)
 
-    response.assertStatus(403)
+    for (const request of [
+      client.post(`/sites/${site.id}/equipment`).form(boilerFields),
+      client.put(`/equipment/${boiler.id}`).form(boilerFields),
+    ]) {
+      const response = await request
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(technician)
+        .redirects(0)
+      response.assertFlashMessage('error', 'Access denied')
+    }
+
+    await boiler.refresh()
+    assert.isNull(boiler.make)
+    assert.lengthOf(await InstalledEquipment.all(), 1)
   })
 })

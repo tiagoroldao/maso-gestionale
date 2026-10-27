@@ -84,7 +84,7 @@ export default class SitesController {
     const site = await Site.query()
       .where('id', params.id)
       .preload('customers')
-      .preload('installedEquipment', (equipment) => equipment.orderBy('equipmentType'))
+      .preload('installedEquipment', (equipment) => equipment.orderBy(['equipment_type', 'id']))
       .firstOrFail()
 
     return inertia.render('sites/show', {
