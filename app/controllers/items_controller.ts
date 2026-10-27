@@ -1,13 +1,17 @@
 import { DateTime } from 'luxon'
 import Item from '#models/item'
 import Category from '#models/category'
+import StockMovement from '#models/stock_movement'
+import StockLedger from '#stock/stock_ledger'
+import { isBelowMarkup } from '#shared/money'
 import { itemSearchValidator, itemValidator } from '#validators/item'
-import { isUniqueViolation } from '#services/database_errors'
+import { isForeignKeyViolation, isUniqueViolation } from '#services/database_errors'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
 const PER_PAGE = 25
 const PICKER_LIMIT = 20
+const MOVEMENT_HISTORY = 100
 
 function toAttributes(data: Infer<typeof itemValidator>) {
   return {
@@ -20,6 +24,7 @@ function toAttributes(data: Infer<typeof itemValidator>) {
     vatRate: data.vatRate,
     purchasePrice: data.purchasePrice,
     resalePrice: data.resalePrice,
+    reorderLevel: data.reorderLevel ?? null,
   }
 }
 
@@ -41,11 +46,13 @@ export default class ItemsController {
     else query.withScopes((scopes) => scopes.active())
     if (q) query.withScopes((scopes) => scopes.search(q))
     const results = await query.orderBy(['code', 'id']).paginate(page, PER_PAGE)
+    const levels = await StockLedger.levels(results.all().map((item) => item.id))
 
     return inertia.render('items/index', {
       q: q ?? '',
       archived,
       items: results.all().map((item) => ({
+        stock: levels.get(item.id) ?? '0.000',
         id: item.id,
         code: item.code,
         description: item.description,
@@ -78,7 +85,52 @@ export default class ItemsController {
     }
 
     session.flash('success', i18n.t('flash.itemSaved', { code: item.code }))
-    response.redirect().toRoute('items.index')
+    response.redirect().toRoute('items.show', { id: item.id })
+  }
+
+  /**
+   * The Item with its current stock and Stock Movement history.
+   */
+  async show({ params, inertia }: HttpContext) {
+    const item = await Item.query().where('id', params.id).preload('category').firstOrFail()
+    const movements = await StockMovement.query()
+      .where('itemId', item.id)
+      .preload('author')
+      .orderBy([
+        { column: 'occurred_on', order: 'desc' },
+        { column: 'id', order: 'desc' },
+      ])
+      .limit(MOVEMENT_HISTORY)
+
+    return inertia.render('items/show', {
+      item: {
+        id: item.id,
+        code: item.code,
+        description: item.description,
+        unit: item.unit,
+        category: item.category?.name ?? null,
+        supplierName: item.supplierName,
+        supplierCode: item.supplierCode,
+        purchasePrice: item.purchasePrice,
+        resalePrice: item.resalePrice,
+        reorderLevel: item.reorderLevel,
+        belowMarkup: item.category
+          ? isBelowMarkup(item.purchasePrice, item.resalePrice, item.category.markupPercent)
+          : false,
+        markupPercent: item.category?.markupPercent ?? null,
+      },
+      stock: await StockLedger.levelOf(item),
+      movements: movements.map((movement) => ({
+        id: movement.id,
+        kind: movement.kind,
+        quantity: movement.quantity,
+        unitCost: movement.unitCost,
+        occurredOn: movement.occurredOn.toISODate()!,
+        reference: movement.reference,
+        reason: movement.reason,
+        author: movement.author?.fullName ?? movement.author?.email ?? null,
+      })),
+    })
   }
 
   async edit({ params, inertia }: HttpContext) {
@@ -97,6 +149,7 @@ export default class ItemsController {
         purchasePrice: item.purchasePrice,
         resalePrice: item.resalePrice,
         archived: item.archivedAt !== null,
+        reorderLevel: item.reorderLevel,
       },
       categories: await categoryOptions(),
     })
@@ -115,7 +168,7 @@ export default class ItemsController {
     }
 
     session.flash('success', i18n.t('flash.itemSaved', { code: item.code }))
-    response.redirect().toRoute('items.index')
+    response.redirect().toRoute('items.show', { id: item.id })
   }
 
   /**
@@ -178,7 +231,14 @@ export default class ItemsController {
       session.flash('error', i18n.t('flash.itemInUse', { code: item.code }))
       return response.redirect().back()
     }
-    await item.delete()
+    try {
+      await item.delete()
+    } catch (error) {
+      // Something started using the Item after the check above
+      if (!isForeignKeyViolation(error)) throw error
+      session.flash('error', i18n.t('flash.itemInUse', { code: item.code }))
+      return response.redirect().back()
+    }
 
     session.flash('success', i18n.t('flash.itemDeleted', { code: item.code }))
     response.redirect().toRoute('items.index')

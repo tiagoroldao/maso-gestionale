@@ -41,6 +41,10 @@ export type ScannedRoutes = {
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
+    'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -82,6 +86,8 @@ export type ScannedRoutes = {
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
+    'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
@@ -112,6 +118,8 @@ export type ScannedRoutes = {
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
+    'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
@@ -132,6 +140,8 @@ export type ScannedRoutes = {
     'sites.store': { paramsTuple?: []; params?: {} }
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
+    'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.unarchive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.store': { paramsTuple?: []; params?: {} }

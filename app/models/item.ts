@@ -1,3 +1,4 @@
+import db from '@adonisjs/lucid/services/db'
 import { belongsTo, scope } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import { ItemSchema } from '#database/schema'
@@ -35,9 +36,10 @@ export default class Item extends ItemSchema {
 
   /**
    * Whether anything else refers to this Item, so it must be archived
-   * rather than deleted. Nothing does yet; stock, Visits and invoices will.
+   * rather than deleted: Stock Movements today, Visits and invoices later.
    */
   async isReferenced() {
-    return false
+    const movement = await db.from('stock_movements').where('item_id', this.id).first()
+    return Boolean(movement)
   }
 }

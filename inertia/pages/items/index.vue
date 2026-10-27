@@ -8,6 +8,7 @@ import AppLayout from '~/layouts/app.vue'
 import Pagination from '~/components/pagination.vue'
 import { urlFor } from '~/client'
 import { formatUnitPrice, t } from '~/i18n'
+import { amountForInput } from '@shared/money'
 
 const props = defineProps<{
   q: string
@@ -17,6 +18,7 @@ const props = defineProps<{
     code: string
     description: string
     unit: string
+    stock: string
     category: string | null
     purchasePrice: string
     resalePrice: string
@@ -77,6 +79,7 @@ function submitSearch() {
             <th>{{ t('ui.items.code') }}</th>
             <th>{{ t('ui.items.description') }}</th>
             <th>{{ t('ui.items.category') }}</th>
+            <th :style="{ textAlign: 'right' }">{{ t('ui.items.stock') }}</th>
             <th :style="{ textAlign: 'right' }">{{ t('ui.items.purchasePrice') }}</th>
             <th :style="{ textAlign: 'right' }">{{ t('ui.items.resalePrice') }}</th>
             <th />
@@ -84,9 +87,15 @@ function submitSearch() {
         </thead>
         <tbody>
           <tr v-for="item in items" :key="item.id">
-            <td class="mono">{{ item.code }}</td>
+            <td class="mono">
+              <Link route="items.show" :params="{ id: item.id }" class="il">{{ item.code }}</Link>
+            </td>
             <td>{{ item.description }}</td>
             <td>{{ item.category }}</td>
+            <td :style="{ textAlign: 'right' }">
+              {{ amountForInput(item.stock).replace(/,?0+$/, '').replace(/,$/, '') }}
+              {{ item.unit }}
+            </td>
             <td :style="{ textAlign: 'right' }">
               {{ formatUnitPrice(item.purchasePrice) }}/{{ item.unit }}
             </td>

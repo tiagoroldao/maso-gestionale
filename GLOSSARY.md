@@ -66,9 +66,9 @@ _Avoid_: Family, type, group
 A reference file attached to an Item, such as a manual or datasheet.
 _Avoid_: Attachment, Issued Document
 
-**Stock Movement**:
-A recorded change to an Item's quantity in the Warehouse: a receipt, usage on a Visit, a direct sale on an Invoice, or an adjustment with a reason.
-_Avoid_: Transaction, stock change, carico/scarico
+**Stock Movement** (_Movimento di magazzino_):
+A recorded change to an Item's quantity in the Warehouse: a receipt (_carico_), usage on a Visit (_utilizzo_), a direct sale on an Invoice (_vendita_), or an adjustment with a reason (_rettifica_).
+_Avoid_: Transaction, stock change, scarico (ambiguous between usage, sale and adjustment)
 
 ## Invoicing
 

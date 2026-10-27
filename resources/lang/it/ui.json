@@ -21,7 +21,8 @@
     "users": "Utenti",
     "settings": "Impostazioni",
     "instance": "Istanza",
-    "items": "Articoli"
+    "items": "Articoli",
+    "stock": "Magazzino"
   },
   "roles": {
     "superuser": "Superuser",
@@ -307,6 +308,46 @@
     "archive": "Archivia",
     "unarchive": "Ripristina",
     "delete": "Elimina",
-    "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli."
+    "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli.",
+    "stock": "Giacenza",
+    "reorderLevel": "Scorta minima",
+    "reorderLevelHint": "Facoltativa. Sotto questa quantità l'articolo compare tra quelli da riordinare.",
+    "details": "Dati",
+    "prices": "Prezzi",
+    "belowMarkup": "Il prezzo di vendita è sotto il ricarico della categoria ({markup} %): rivedi il prezzo.",
+    "movementsTitle": "Movimenti di magazzino",
+    "noMovements": "Nessun movimento.",
+    "date": "Data",
+    "kind": "Tipo",
+    "quantity": "Quantità",
+    "unitCost": "Costo unitario",
+    "reference": "Riferimento",
+    "reason": "Motivo",
+    "author": "Registrato da",
+    "kinds": {
+      "receipt": "Carico",
+      "usage": "Utilizzo",
+      "sale": "Vendita",
+      "adjustment": "Rettifica"
+    },
+    "receiptTitle": "Registra un carico",
+    "receiptDescription": "Merce ricevuta. Il costo unitario diventa il nuovo prezzo di acquisto; il prezzo di vendita non cambia.",
+    "receiptReference": "Riferimento (es. DDT o fattura)",
+    "receive": "Registra carico",
+    "adjustmentTitle": "Registra una rettifica",
+    "adjustmentDescription": "Inventario, rotture o smarrimenti. Usa un numero negativo per togliere merce.",
+    "adjust": "Registra rettifica",
+    "negativeStock": "Giacenza negativa"
+  },
+  "stock": {
+    "title": "Magazzino",
+    "toReorderTitle": "Da riordinare",
+    "toReorderDescription": "Articoli con giacenza negativa o pari o inferiore alla scorta minima.",
+    "belowMarkupTitle": "Prezzi da rivedere",
+    "belowMarkupDescription": "Articoli il cui prezzo di vendita è sotto il ricarico della categoria dopo un acquisto più caro.",
+    "nothing": "Niente da segnalare.",
+    "negative": "negativa",
+    "low": "sotto scorta",
+    "categoryMarkup": "Ricarico categoria"
   }
 }

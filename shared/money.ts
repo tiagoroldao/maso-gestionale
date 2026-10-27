@@ -61,3 +61,20 @@ export function amountForInput(amount: string) {
   const trimmed = fraction.replace(/0+$/, '').padEnd(2, '0')
   return `${whole},${trimmed}`
 }
+
+/**
+ * True when a resale price earns less than the Category markup over the
+ * purchase price: the Item's price needs reviewing after a costlier
+ * purchase.
+ */
+export function isBelowMarkup(purchasePrice: string, resalePrice: string, markup: string) {
+  // Compared with the rounded suggestion, so an Item priced exactly as
+  // suggested is never flagged
+  return new Big(resalePrice).lt(suggestedResalePrice(purchasePrice, markup))
+}
+
+/**
+ * Parses a quantity typed by a person ("2,5" metres), with the same rules
+ * as parseAmount.
+ */
+export const parseQuantity = parseAmount

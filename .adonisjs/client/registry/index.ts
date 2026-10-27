@@ -228,6 +228,30 @@ const routes = {
     tokens: [[0,"items"]],
     types: placeholder as Registry['items.store']['types'],
   },
+  'items.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/items/:id',
+    tokens: [[0,"items"],[1,"id"]],
+    types: placeholder as Registry['items.show']['types'],
+  },
+  'stock_movements.receive': {
+    methods: ["POST"],
+    pattern: '/items/:id/receipts',
+    tokens: [[0,"items"],[1,"id"],[0,"receipts"]],
+    types: placeholder as Registry['stock_movements.receive']['types'],
+  },
+  'stock_movements.adjust': {
+    methods: ["POST"],
+    pattern: '/items/:id/adjustments',
+    tokens: [[0,"items"],[1,"id"],[0,"adjustments"]],
+    types: placeholder as Registry['stock_movements.adjust']['types'],
+  },
+  'stock.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/stock',
+    tokens: [[0,"stock"]],
+    types: placeholder as Registry['stock.index']['types'],
+  },
   'items.edit': {
     methods: ["GET","HEAD"],
     pattern: '/items/:id/edit',

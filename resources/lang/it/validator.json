@@ -31,7 +31,8 @@
       "taxCodeType.private": "Per un privato serve il Codice Fiscale personale di 16 caratteri",
       "taxCodeType.condominium": "Per un condominio serve il Codice Fiscale numerico di 11 cifre",
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
-      "amount": "Il campo {field} deve essere un importo valido"
+      "amount": "Il campo {field} deve essere un importo valido",
+      "quantity": "Il campo {field} deve essere una quantità valida"
     },
     "fields": {
       "email": "email",
@@ -86,7 +87,13 @@
       "vatRate": "aliquota IVA",
       "purchasePrice": "prezzo di acquisto",
       "resalePrice": "prezzo di vendita",
-      "markupPercent": "ricarico"
+      "markupPercent": "ricarico",
+      "quantity": "quantità",
+      "unitCost": "costo unitario",
+      "occurredOn": "data",
+      "reference": "riferimento",
+      "reason": "motivo",
+      "reorderLevel": "scorta minima"
     }
   }
 }

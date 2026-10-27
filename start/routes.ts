@@ -98,6 +98,14 @@ router
         router.get('items', [controllers.Items, 'index'])
         router.get('items/create', [controllers.Items, 'create'])
         router.post('items', [controllers.Items, 'store'])
+        router.get('items/:id', [controllers.Items, 'show']).where('id', router.matchers.number())
+        router
+          .post('items/:id/receipts', [controllers.StockMovements, 'receive'])
+          .where('id', router.matchers.number())
+        router
+          .post('items/:id/adjustments', [controllers.StockMovements, 'adjust'])
+          .where('id', router.matchers.number())
+        router.get('stock', [controllers.Stock, 'index'])
         router
           .get('items/:id/edit', [controllers.Items, 'edit'])
           .where('id', router.matchers.number())

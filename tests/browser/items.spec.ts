@@ -25,7 +25,7 @@ test.group('Items in the browser', () => {
     assert.equal(await page.getByLabel(it('ui.items.resalePrice')).inputValue(), '14,90')
 
     await page.getByRole('button', { name: it('ui.items.save') }).click()
-    await page.waitForURL('**/items')
+    await page.waitForURL(/\/items\/\d+$/)
     const item = await Item.firstOrFail()
     assert.equal(item.resalePrice, '14.9000')
     assert.equal(item.purchasePrice, '11.0000')
