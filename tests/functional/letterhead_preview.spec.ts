@@ -28,7 +28,12 @@ test.group('Letterhead preview', () => {
 
     response.assertStatus(200)
     response.assertHeader('content-type', 'application/pdf')
-    assert.equal(Buffer.from(response.body() as Buffer).subarray(0, 5).toString(), '%PDF-')
+    assert.equal(
+      Buffer.from(response.body() as Buffer)
+        .subarray(0, 5)
+        .toString(),
+      '%PDF-'
+    )
   }).tags(['@gotenberg'])
 
   test('an unreachable Gotenberg raises a PdfConversionError', async ({ assert }) => {
