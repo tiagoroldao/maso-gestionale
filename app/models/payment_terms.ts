@@ -13,9 +13,4 @@ export default class PaymentTerms extends PaymentTermSchema {
     const date = invoiceDate.plus({ days: this.days })
     return this.endOfMonth ? date.endOf('month').startOf('day') : date
   }
-
-  get label() {
-    if (this.days === 0 && !this.endOfMonth) return 'Immediate'
-    return `${this.days} days${this.endOfMonth ? ' end of month' : ''}`
-  }
 }

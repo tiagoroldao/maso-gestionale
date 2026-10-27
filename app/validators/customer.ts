@@ -21,15 +21,21 @@ const taxCodeMatchesType = vine.createRule((value: unknown, _: undefined, field:
 const optionalText = (max: number) => vine.string().trim().maxLength(max).optional()
 
 /**
+ * Lengths follow the FatturaPA limits so a saved Customer always fits an
+ * invoice: Denominazione 80, Nome / Cognome / Indirizzo / Comune 60.
+ */
+const optionalName = (max: number) => vine.string().trim().minLength(1).maxLength(max).optional()
+
+/**
  * Validator for creating and editing a Customer. Which name and tax
  * fields are required depends on the type.
  */
 export const customerValidator = vine.create({
   type: vine.enum(CUSTOMER_TYPES),
 
-  firstName: optionalText(255).requiredWhen('type', '=', 'private'),
-  lastName: optionalText(255).requiredWhen('type', '=', 'private'),
-  name: optionalText(255).requiredWhen('type', 'in', ['company', 'condominium']),
+  firstName: optionalName(60).requiredWhen('type', '=', 'private'),
+  lastName: optionalName(60).requiredWhen('type', '=', 'private'),
+  name: optionalName(80).requiredWhen('type', 'in', ['company', 'condominium']),
 
   vatNumber: vine.string().use(vatNumberRule()).optional().requiredWhen('type', '=', 'company'),
   taxCode: vine
@@ -46,13 +52,13 @@ export const customerValidator = vine.create({
     .optional(),
   pec: vine.string().trim().email().maxLength(254).optional(),
 
-  street: vine.string().trim().minLength(1).maxLength(255),
+  street: vine.string().trim().minLength(1).maxLength(60),
   streetNumber: optionalText(8),
   postalCode: vine
     .string()
     .trim()
     .regex(/^\d{5}$/),
-  city: vine.string().trim().minLength(1).maxLength(255),
+  city: vine.string().trim().minLength(1).maxLength(60),
   province: vine
     .string()
     .trim()
@@ -69,25 +75,4 @@ export const customerValidator = vine.create({
 export const customerSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
   page: vine.number().min(1).optional(),
-})
-
-/**
- * Validator for the Admin's Payment Terms.
- */
-export const paymentTermsValidator = vine.withMetaData<{ id?: number }>().create({
-  name: vine
-    .string()
-    .trim()
-    .minLength(1)
-    .maxLength(100)
-    .unique({
-      table: 'payment_terms',
-      column: 'name',
-      caseInsensitive: true,
-      filter: (db, _, field) => {
-        if (field.meta.id) db.whereNot('id', field.meta.id)
-      },
-    }),
-  days: vine.number().withoutDecimals().min(0).max(365),
-  endOfMonth: vine.boolean().optional(),
 })

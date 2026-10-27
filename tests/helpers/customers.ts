@@ -27,7 +27,7 @@ export async function createCustomer(attributes: Partial<Customer> = {}) {
   const terms = await defaultPaymentTerms()
   return Customer.create({
     type: 'company',
-    name: 'Condominio Via Verdi 10',
+    name: 'Idraulica Bianchi S.r.l.',
     vatNumber: '12345678903',
     street: 'Via Verdi',
     postalCode: '20121',

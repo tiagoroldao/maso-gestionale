@@ -68,7 +68,8 @@ defineProps<{
                     End of month
                   </label>
                   <span :style="{ color: 'var(--subtle)' }"
-                    >{{ terms.customerCount }} customers</span
+                    >{{ terms.customerCount }}
+                    {{ terms.customerCount === 1 ? 'customer' : 'customers' }}</span
                   >
                   <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
                     Save

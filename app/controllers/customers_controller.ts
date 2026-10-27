@@ -52,13 +52,15 @@ export default class CustomersController {
     const query = Customer.query()
     if (q) {
       const pattern = likePattern(q)
+      // Tax IDs are stored without spaces or the IT country prefix
+      const taxIdPattern = likePattern(q.replace(/\s+/g, '').replace(/^IT(?=\d{11}$)/i, ''))
       query.where((builder) => {
         builder
           .whereILike('name', pattern)
           .orWhereRaw(`concat_ws(' ', first_name, last_name) ilike ?`, [pattern])
           .orWhereRaw(`concat_ws(' ', last_name, first_name) ilike ?`, [pattern])
-          .orWhereILike('tax_code', pattern)
-          .orWhereILike('vat_number', pattern)
+          .orWhereILike('tax_code', taxIdPattern)
+          .orWhereILike('vat_number', taxIdPattern)
       })
     }
     const results = await query

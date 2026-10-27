@@ -5,20 +5,22 @@ import { italianIbanRule, taxCodeRule, vatNumberRule } from '#validators/rules/i
 /**
  * Validator for the Admin saving the company settings. The fields that
  * appear on every invoice are required; contact details are optional.
+ * Lengths follow the FatturaPA limits (Denominazione 80, Indirizzo and
+ * Comune 60).
  */
 export const companySettingsValidator = vine.create({
-  name: vine.string().trim().minLength(1).maxLength(255),
+  name: vine.string().trim().minLength(1).maxLength(80),
   vatNumber: vine.string().use(vatNumberRule()),
   taxCode: vine.string().use(taxCodeRule()),
   taxRegime: vine.enum(Object.keys(TAX_REGIMES) as TaxRegime[]),
 
-  street: vine.string().trim().minLength(1).maxLength(255),
+  street: vine.string().trim().minLength(1).maxLength(60),
   streetNumber: vine.string().trim().maxLength(8).optional(),
   postalCode: vine
     .string()
     .trim()
     .regex(/^\d{5}$/),
-  city: vine.string().trim().minLength(1).maxLength(255),
+  city: vine.string().trim().minLength(1).maxLength(60),
   province: vine
     .string()
     .trim()

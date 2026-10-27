@@ -58,6 +58,36 @@ test.group('Customers', () => {
     assert.equal(customer.pec, 'bianchi@pec.example.com')
   })
 
+  test('creates a condominium with its numeric Codice Fiscale', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const terms = await defaultPaymentTerms()
+
+    await client
+      .post('/customers')
+      .form({
+        type: 'condominium',
+        name: 'Condominio Via Verdi 10',
+        taxCode: '97123450153',
+        street: 'Via Verdi',
+        streetNumber: '10',
+        postalCode: '20121',
+        city: 'Milano',
+        province: 'MI',
+        paymentTermsId: String(terms.id),
+      })
+      .withCsrfToken()
+      .loginAs(office)
+
+    const customer = await Customer.firstOrFail()
+    assert.equal(customer.type, 'condominium')
+    assert.deepEqual(customer.toRecipient(), {
+      name: 'Condominio Via Verdi 10',
+      addressLines: ['Via Verdi, 10', '20121 Milano (MI)'],
+      vatNumber: null,
+      taxCode: '97123450153',
+    })
+  })
+
   test('requires the name and tax fields that fit the type', async ({ client, assert }) => {
     const office = await createUser('office')
     const terms = await defaultPaymentTerms()
@@ -77,6 +107,14 @@ test.group('Customers', () => {
       {
         form: { type: 'company', name: 'X', vatNumber: '12345678901', sdiCode: 'ABC' },
         errors: ['vatNumber', 'sdiCode'],
+      },
+      {
+        form: { type: 'private', firstName: '   ', lastName: ' ', taxCode: 'RSSMRA85T10A562S' },
+        errors: ['firstName', 'lastName'],
+      },
+      {
+        form: { type: 'company', name: 'x'.repeat(81), vatNumber: '12345678903' },
+        errors: ['name'],
       },
     ]
 
@@ -136,7 +174,10 @@ test.group('Customers', () => {
     assert.deepEqual(await search('rossi mario'), ['Mario Rossi'])
     assert.deepEqual(await search('rssmra85'), ['Mario Rossi'])
     assert.deepEqual(await search('01114601006'), ['Edilizia Bianchi'])
+    assert.deepEqual(await search('IT01114601006'), ['Edilizia Bianchi'])
+    assert.deepEqual(await search('RSSMRA85 T10A562S'), ['Mario Rossi'])
     assert.deepEqual(await search('%'), [])
+    assert.deepEqual(await search('_'), [])
   })
 
   test('paginates the list', async ({ client, assert }) => {
@@ -149,6 +190,19 @@ test.group('Customers', () => {
 
     assert.lengthOf(second.inertiaProps.customers as unknown[], 1)
     second.assertInertiaPropsContains({ pagination: { currentPage: 2, lastPage: 2, total: 26 } })
+  })
+
+  test('renders the edit page with the saved values', async ({ client }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer({ name: 'Edilizia Bianchi' })
+
+    const response = await client
+      .get(`/customers/${customer.id}/edit`)
+      .withInertia()
+      .loginAs(office)
+
+    response.assertInertiaComponent('customers/form')
+    response.assertInertiaPropsContains({ customer: { id: customer.id, name: 'Edilizia Bianchi' } })
   })
 
   test('Technicians and the Superuser can not list or edit Customers', async ({ client }) => {

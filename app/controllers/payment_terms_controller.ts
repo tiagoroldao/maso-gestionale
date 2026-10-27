@@ -1,7 +1,9 @@
 import db from '@adonisjs/lucid/services/db'
 import PaymentTerms from '#models/payment_terms'
-import { paymentTermsValidator } from '#validators/customer'
+import { paymentTermsValidator } from '#validators/payment_terms'
 import type { HttpContext } from '@adonisjs/core/http'
+
+const FOREIGN_KEY_VIOLATION = '23503'
 
 /**
  * The Admin's list of Payment Terms that Customers can be given.
@@ -51,12 +53,21 @@ export default class PaymentTermsController {
   async destroy({ params, response, session }: HttpContext) {
     const terms = await PaymentTerms.findOrFail(params.id)
     const inUse = await db.from('customers').where('payment_terms_id', terms.id).first()
+    const [{ total }] = await db.from('payment_terms').count('* as total')
 
     if (inUse) {
       session.flash('error', `${terms.name} is used by Customers and can't be deleted.`)
+    } else if (Number(total) <= 1) {
+      session.flash('error', 'There must always be at least one set of Payment Terms.')
     } else {
-      await terms.delete()
-      session.flash('success', `${terms.name} deleted.`)
+      try {
+        await terms.delete()
+        session.flash('success', `${terms.name} deleted.`)
+      } catch (error) {
+        // A Customer was given these terms after the check above
+        if ((error as { code?: string }).code !== FOREIGN_KEY_VIOLATION) throw error
+        session.flash('error', `${terms.name} is used by Customers and can't be deleted.`)
+      }
     }
     response.redirect().toRoute('payment_terms.index')
   }

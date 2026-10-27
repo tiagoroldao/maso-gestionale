@@ -62,6 +62,20 @@ test.group('Payment Terms', () => {
     assert.isNotNull(await PaymentTerms.find(customer.paymentTermsId))
   })
 
+  test('the last Payment Terms can not be deleted', async ({ client, assert }) => {
+    const admin = await createUser('admin')
+    const immediate = await PaymentTerms.findByOrFail('name', 'Immediate')
+
+    const response = await client
+      .delete(`/settings/payment-terms/${immediate.id}`)
+      .withCsrfToken()
+      .loginAs(admin)
+      .redirects(0)
+
+    response.assertFlashMessage('error', 'There must always be at least one set of Payment Terms.')
+    assert.isNotNull(await PaymentTerms.find(immediate.id))
+  })
+
   test('only the Admin manages Payment Terms', async ({ client }) => {
     for (const role of ['office', 'technician'] as const) {
       const user = await createUser(role)
