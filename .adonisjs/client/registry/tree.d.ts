@@ -30,8 +30,21 @@ export interface ApiDefinition {
     index: typeof routes['customers.index']
     create: typeof routes['customers.create']
     store: typeof routes['customers.store']
+    show: typeof routes['customers.show']
     edit: typeof routes['customers.edit']
     update: typeof routes['customers.update']
+  }
+  customerSites: {
+    store: typeof routes['customer_sites.store']
+    destroy: typeof routes['customer_sites.destroy']
+  }
+  sites: {
+    index: typeof routes['sites.index']
+    search: typeof routes['sites.search']
+    create: typeof routes['sites.create']
+    store: typeof routes['sites.store']
+    edit: typeof routes['sites.edit']
+    update: typeof routes['sites.update']
   }
   letterheadPreview: {
     show: typeof routes['letterhead_preview.show']

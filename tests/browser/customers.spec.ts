@@ -20,10 +20,11 @@ test.group('Customers in the browser', () => {
     await page.getByLabel('Provincia').fill('TO')
     await page.getByRole('button', { name: 'Save customer' }).click()
 
-    await page.waitForURL('**/customers')
-    await page.getByLabel('Search customers').fill('01114601006')
-    await page.getByRole('button', { name: 'Search' }).click()
-    await page.getByRole('cell', { name: 'Edilizia Bianchi S.p.A.' }).waitFor()
+    await page.waitForURL(/\/customers\/\d+$/)
+    const list = await visit('/customers')
+    await list.getByLabel('Search customers').fill('01114601006')
+    await list.getByRole('button', { name: 'Search' }).click()
+    await list.getByRole('cell', { name: 'Edilizia Bianchi S.p.A.' }).waitFor()
 
     const customer = await Customer.firstOrFail()
     assert.equal(customer.type, 'company')

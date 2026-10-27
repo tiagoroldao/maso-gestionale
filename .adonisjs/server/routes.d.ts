@@ -21,8 +21,17 @@ export type ScannedRoutes = {
     'customers.index': { paramsTuple?: []; params?: {} }
     'customers.create': { paramsTuple?: []; params?: {} }
     'customers.store': { paramsTuple?: []; params?: {} }
+    'customers.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'customer_sites.store': { paramsTuple: [ParamValue]; params: {'customerId': ParamValue} }
+    'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
+    'sites.index': { paramsTuple?: []; params?: {} }
+    'sites.search': { paramsTuple?: []; params?: {} }
+    'sites.create': { paramsTuple?: []; params?: {} }
+    'sites.store': { paramsTuple?: []; params?: {} }
+    'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
     'letterhead_preview.show': { paramsTuple?: []; params?: {} }
@@ -43,7 +52,12 @@ export type ScannedRoutes = {
     'users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.index': { paramsTuple?: []; params?: {} }
     'customers.create': { paramsTuple?: []; params?: {} }
+    'customers.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.index': { paramsTuple?: []; params?: {} }
+    'sites.search': { paramsTuple?: []; params?: {} }
+    'sites.create': { paramsTuple?: []; params?: {} }
+    'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'letterhead_preview.show': { paramsTuple?: []; params?: {} }
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
@@ -60,7 +74,12 @@ export type ScannedRoutes = {
     'users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.index': { paramsTuple?: []; params?: {} }
     'customers.create': { paramsTuple?: []; params?: {} }
+    'customers.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.index': { paramsTuple?: []; params?: {} }
+    'sites.search': { paramsTuple?: []; params?: {} }
+    'sites.create': { paramsTuple?: []; params?: {} }
+    'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'letterhead_preview.show': { paramsTuple?: []; params?: {} }
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
@@ -75,15 +94,19 @@ export type ScannedRoutes = {
     'users.deactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.reactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.store': { paramsTuple?: []; params?: {} }
+    'customer_sites.store': { paramsTuple: [ParamValue]; params: {'customerId': ParamValue} }
+    'sites.store': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
   }
   PUT: {
     'users.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   DELETE: {
+    'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }

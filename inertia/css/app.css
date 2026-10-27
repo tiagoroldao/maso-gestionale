@@ -932,3 +932,45 @@ input {
   gap: 8px;
   justify-content: flex-end;
 }
+
+/* --- picker --- */
+.picker__results {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.picker__option {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.picker__option:hover,
+.picker__option:focus-visible {
+  background: var(--line);
+}
+
+/* --- definition list --- */
+.details {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+.details dt {
+  color: var(--subtle);
+}
+.details dd {
+  margin: 0;
+}

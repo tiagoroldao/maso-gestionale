@@ -74,7 +74,11 @@ function submitSearch() {
         </thead>
         <tbody>
           <tr v-for="customer in customers" :key="customer.id">
-            <td>{{ customer.displayName }}</td>
+            <td>
+              <Link route="customers.show" :params="{ id: customer.id }" class="il">
+                {{ customer.displayName }}
+              </Link>
+            </td>
             <td>{{ customerTypeLabels[customer.type] }}</td>
             <td class="mono">{{ customer.vatNumber ?? customer.taxCode }}</td>
             <td>{{ customer.city }} ({{ customer.province }})</td>

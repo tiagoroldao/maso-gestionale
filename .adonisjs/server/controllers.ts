@@ -5,10 +5,12 @@
 
 export const controllers = {
   CompanySettings: () => import('#controllers/company_settings_controller'),
+  CustomerSites: () => import('#controllers/customer_sites_controller'),
   Customers: () => import('#controllers/customers_controller'),
   LetterheadPreview: () => import('#controllers/letterhead_preview_controller'),
   PaymentTerms: () => import('#controllers/payment_terms_controller'),
   Session: () => import('#controllers/session_controller'),
   Setup: () => import('#controllers/setup_controller'),
+  Sites: () => import('#controllers/sites_controller'),
   Users: () => import('#controllers/users_controller'),
 }

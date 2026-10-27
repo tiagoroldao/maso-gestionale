@@ -44,6 +44,17 @@ export class CompanySettingSchema extends BaseModel {
   declare vatNumber: string | null
 }
 
+export class CustomerSiteSchema extends BaseModel {
+  static $columns = ['createdAt', 'customerId', 'siteId'] as const
+  $columns = CustomerSiteSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare customerId: number
+  @column()
+  declare siteId: number
+}
+
 export class CustomerSchema extends BaseModel {
   static $columns = ['city', 'createdAt', 'email', 'firstName', 'id', 'lastName', 'name', 'notes', 'paymentTermsId', 'pec', 'phone', 'postalCode', 'province', 'sdiCode', 'street', 'streetNumber', 'taxCode', 'type', 'updatedAt', 'vatNumber'] as const
   $columns = CustomerSchema.$columns
@@ -102,6 +113,33 @@ export class PaymentTermSchema extends BaseModel {
   declare id: number
   @column()
   declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class SiteSchema extends BaseModel {
+  static $columns = ['accessNotes', 'city', 'createdAt', 'id', 'label', 'postalCode', 'province', 'street', 'streetNumber', 'unit', 'updatedAt'] as const
+  $columns = SiteSchema.$columns
+  @column()
+  declare accessNotes: string | null
+  @column()
+  declare city: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare label: string | null
+  @column()
+  declare postalCode: string
+  @column()
+  declare province: string
+  @column()
+  declare street: string
+  @column()
+  declare streetNumber: string | null
+  @column()
+  declare unit: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }
