@@ -108,6 +108,14 @@ export interface ApiDefinition {
     decline: typeof routes['quotes.decline']
     pdf: typeof routes['quotes.pdf']
   }
+  invoices: {
+    index: typeof routes['invoices.index']
+    create: typeof routes['invoices.create']
+    store: typeof routes['invoices.store']
+    edit: typeof routes['invoices.edit']
+    update: typeof routes['invoices.update']
+    destroy: typeof routes['invoices.destroy']
+  }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']
     adjust: typeof routes['stock_movements.adjust']

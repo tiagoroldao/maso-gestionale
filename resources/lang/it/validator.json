@@ -124,7 +124,8 @@
       "natura": "natura",
       "legalNote": "nota in fattura",
       "vatCodeId": "codice IVA",
-      "workCategory": "tipo di lavoro"
+      "workCategory": "tipo di lavoro",
+      "discountPercent": "sconto"
     }
   }
 }
