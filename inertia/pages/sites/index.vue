@@ -7,6 +7,7 @@ import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
 import Pagination from '~/components/pagination.vue'
 import { urlFor } from '~/client'
+import { t } from '~/i18n'
 
 const props = defineProps<{
   q: string
@@ -26,10 +27,10 @@ function submitSearch() {
 
 <template>
   <AppLayout>
-    <Page title="Sites" description="Addresses where work is done, whoever the Customer.">
+    <Page :title="t('ui.sites.title')" :description="t('ui.sites.description')">
       <template #actions>
         <Link route="sites.create" class="btn btn--primary btn--sm">
-          <Plus :size="15" /> New site
+          <Plus :size="15" /> {{ t('ui.sites.new') }}
         </Link>
       </template>
 
@@ -42,36 +43,36 @@ function submitSearch() {
           v-model="search"
           type="search"
           class="field__input"
-          aria-label="Search sites"
-          placeholder="Street, city or label"
+          :aria-label="t('ui.sites.searchLabel')"
+          :placeholder="t('ui.sites.searchPlaceholder')"
           :style="{ maxWidth: '360px' }"
         />
-        <button type="submit" class="btn btn--secondary">Search</button>
+        <button type="submit" class="btn btn--secondary">{{ t('ui.common.search') }}</button>
       </form>
 
       <p v-if="sites.length === 0" :style="{ color: 'var(--subtle)' }">
-        {{ q ? `No sites match “${q}”.` : 'No sites yet.' }}
+        {{ q ? t('ui.sites.noMatches', { q }) : t('ui.sites.empty') }}
       </p>
 
       <table v-else class="table">
         <thead>
           <tr>
-            <th>Site</th>
-            <th>Customers</th>
+            <th>{{ t('ui.sites.site') }}</th>
+            <th>{{ t('ui.sites.customers') }}</th>
             <th />
           </tr>
         </thead>
         <tbody>
           <tr v-for="site in sites" :key="site.id">
             <td>
-              <Link route="sites.show" :params="{ id: site.id }" class="il">{{
-                site.summary
-              }}</Link>
+              <Link route="sites.show" :params="{ id: site.id }" class="il">
+                {{ site.summary }}
+              </Link>
             </td>
             <td>{{ site.customerCount }}</td>
             <td class="table__actions">
               <Link route="sites.edit" :params="{ id: site.id }" class="btn btn--ghost btn--sm">
-                Edit
+                {{ t('ui.common.edit') }}
               </Link>
             </td>
           </tr>

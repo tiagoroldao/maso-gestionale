@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlainLayout from '~/layouts/plain.vue'
+import { t } from '~/i18n'
 </script>
 
 <template>
@@ -12,10 +13,10 @@ import PlainLayout from '~/layouts/plain.vue'
           </span>
         </div>
         <div class="pc-lead">
-          <span>Not allowed.</span>
-          <em>Your role can't open this page.</em>
+          <span>{{ t('ui.errors.forbiddenTitle') }}</span>
+          <em>{{ t('ui.errors.forbiddenLead') }}</em>
         </div>
-        <p class="pc-para">Ask an Admin if you think you should have access.</p>
+        <p class="pc-para">{{ t('ui.errors.forbiddenText') }}</p>
       </article>
     </div>
   </PlainLayout>

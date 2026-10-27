@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import User from '#models/user'
+import { it } from '#tests/helpers/i18n'
 
 const validSetup = {
   superuserEmail: 'installer@example.com',
@@ -58,7 +59,12 @@ test.group('First-run setup', () => {
 
     response.assertHeader('location', '/setup')
     response.assertFlashMessage('inputErrorsBag', {
-      adminEmail: ['The adminEmail field and superuserEmail field must be different'],
+      adminEmail: [
+        it('validator.shared.messages.notSameAs', {
+          field: it('validator.shared.fields.adminEmail'),
+          otherField: it('validator.shared.fields.superuserEmail'),
+        }),
+      ],
     })
     assert.lengthOf(await User.all(), 0)
   })

@@ -6,8 +6,9 @@ import { Plus } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
 import Pagination from '~/components/pagination.vue'
-import { customerTypeLabels } from '~/components/customer_types'
+import { customerTypeLabel } from '~/components/customer_types'
 import { urlFor } from '~/client'
+import { t } from '~/i18n'
 
 const props = defineProps<{
   q: string
@@ -35,10 +36,10 @@ function submitSearch() {
 
 <template>
   <AppLayout>
-    <Page title="Customers">
+    <Page :title="t('ui.customers.title')">
       <template #actions>
         <Link route="customers.create" class="btn btn--primary btn--sm">
-          <Plus :size="15" /> New customer
+          <Plus :size="15" /> {{ t('ui.customers.new') }}
         </Link>
       </template>
 
@@ -51,24 +52,24 @@ function submitSearch() {
           v-model="search"
           type="search"
           class="field__input"
-          aria-label="Search customers"
-          placeholder="Name, Codice Fiscale or Partita IVA"
+          :aria-label="t('ui.customers.searchLabel')"
+          :placeholder="t('ui.customers.searchPlaceholder')"
           :style="{ maxWidth: '360px' }"
         />
-        <button type="submit" class="btn btn--secondary">Search</button>
+        <button type="submit" class="btn btn--secondary">{{ t('ui.common.search') }}</button>
       </form>
 
       <p v-if="customers.length === 0" :style="{ color: 'var(--subtle)' }">
-        {{ q ? `No customers match “${q}”.` : 'No customers yet.' }}
+        {{ q ? t('ui.customers.noMatches', { q }) : t('ui.customers.empty') }}
       </p>
 
       <table v-else class="table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Type</th>
-            <th>Partita IVA / Codice Fiscale</th>
-            <th>City</th>
+            <th>{{ t('ui.customers.name') }}</th>
+            <th>{{ t('ui.customers.type') }}</th>
+            <th>{{ t('ui.customers.taxId') }}</th>
+            <th>{{ t('ui.customers.city') }}</th>
             <th />
           </tr>
         </thead>
@@ -79,7 +80,7 @@ function submitSearch() {
                 {{ customer.displayName }}
               </Link>
             </td>
-            <td>{{ customerTypeLabels[customer.type] }}</td>
+            <td>{{ customerTypeLabel(customer.type) }}</td>
             <td class="mono">{{ customer.vatNumber ?? customer.taxCode }}</td>
             <td>{{ customer.city }} ({{ customer.province }})</td>
             <td class="table__actions">
@@ -88,7 +89,7 @@ function submitSearch() {
                 :params="{ id: customer.id }"
                 class="btn btn--ghost btn--sm"
               >
-                Edit
+                {{ t('ui.common.edit') }}
               </Link>
             </td>
           </tr>

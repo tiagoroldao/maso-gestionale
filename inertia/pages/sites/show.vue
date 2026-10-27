@@ -4,6 +4,7 @@ import { Pencil, Plus } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
+import { formatDate, t, todayIso } from '~/i18n'
 
 defineProps<{
   site: { id: number; summary: string; accessNotes: string | null }
@@ -18,7 +19,7 @@ defineProps<{
   }[]
 }>()
 
-const today = new Date().toISOString().slice(0, 10)
+const today = todayIso()
 </script>
 
 <template>
@@ -26,15 +27,15 @@ const today = new Date().toISOString().slice(0, 10)
     <Page :title="site.summary">
       <template #actions>
         <Link route="sites.edit" :params="{ id: site.id }" class="btn btn--secondary btn--sm">
-          <Pencil :size="15" /> Edit site
+          <Pencil :size="15" /> {{ t('ui.sites.editSite') }}
         </Link>
       </template>
 
-      <Section v-if="site.accessNotes" title="Access notes">
+      <Section v-if="site.accessNotes" :title="t('ui.sites.accessNotes')">
         <p :style="{ whiteSpace: 'pre-line', margin: 0 }">{{ site.accessNotes }}</p>
       </Section>
 
-      <Section title="Customers">
+      <Section :title="t('ui.sites.customers')">
         <ul v-if="customers.length" :style="{ margin: 0, paddingLeft: '18px' }">
           <li v-for="customer in customers" :key="customer.id">
             <Link route="customers.show" :params="{ id: customer.id }" class="il">
@@ -42,17 +43,17 @@ const today = new Date().toISOString().slice(0, 10)
             </Link>
           </li>
         </ul>
-        <p v-else :style="{ color: 'var(--subtle)' }">Not linked to any Customer.</p>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.sites.notLinked') }}</p>
       </Section>
 
-      <Section title="Installed Equipment">
+      <Section :title="t('ui.equipment.sectionTitle')">
         <table v-if="installedEquipment.length" class="table">
           <thead>
             <tr>
-              <th>Equipment</th>
-              <th>Serial number</th>
-              <th>Installed</th>
-              <th>Next check due</th>
+              <th>{{ t('ui.equipment.equipment') }}</th>
+              <th>{{ t('ui.equipment.serialNumber') }}</th>
+              <th>{{ t('ui.equipment.installed') }}</th>
+              <th>{{ t('ui.equipment.nextDue') }}</th>
               <th />
             </tr>
           </thead>
@@ -60,14 +61,16 @@ const today = new Date().toISOString().slice(0, 10)
             <tr v-for="equipment in installedEquipment" :key="equipment.id">
               <td>{{ equipment.description }}</td>
               <td class="mono">{{ equipment.serialNumber }}</td>
-              <td>{{ equipment.installedOn }}</td>
+              <td>{{ formatDate(equipment.installedOn) }}</td>
               <td>
                 <template v-if="equipment.nextDueOn">
-                  {{ equipment.nextDueOn }}
-                  <span v-if="equipment.nextDueOn < today" class="tag">overdue</span>
+                  {{ formatDate(equipment.nextDueOn) }}
+                  <span v-if="equipment.nextDueOn < today" class="tag">
+                    {{ t('ui.equipment.overdue') }}
+                  </span>
                 </template>
                 <span v-else-if="equipment.maintenanceIntervalMonths" class="field__hint">
-                  Every {{ equipment.maintenanceIntervalMonths }} months, no date to count from
+                  {{ t('ui.equipment.noDate', { months: equipment.maintenanceIntervalMonths }) }}
                 </span>
               </td>
               <td class="table__actions">
@@ -76,20 +79,20 @@ const today = new Date().toISOString().slice(0, 10)
                   :params="{ id: equipment.id }"
                   class="btn btn--ghost btn--sm"
                 >
-                  Edit
+                  {{ t('ui.common.edit') }}
                 </Link>
               </td>
             </tr>
           </tbody>
         </table>
-        <p v-else :style="{ color: 'var(--subtle)' }">No equipment recorded yet.</p>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.equipment.empty') }}</p>
         <div>
           <Link
             route="installed_equipment.create"
             :params="{ siteId: site.id }"
             class="btn btn--secondary btn--sm"
           >
-            <Plus :size="15" /> Add equipment
+            <Plus :size="15" /> {{ t('ui.equipment.add') }}
           </Link>
         </div>
       </Section>

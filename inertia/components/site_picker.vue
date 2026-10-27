@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 /**
  * Searches Sites for a Customer: the Customer's linked Sites come first,
  * and typing searches every Site. Emits the chosen Site.
@@ -59,26 +60,33 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="field">
-    <label class="field__label" :for="inputId">{{ label ?? 'Find a Site' }}</label>
+    <label class="field__label" :for="inputId">{{ label ?? t('ui.sites.picker.label') }}</label>
     <input
       :id="inputId"
       v-model="query"
       type="search"
       class="field__input"
-      placeholder="Street, city or label"
+      :placeholder="t('ui.sites.picker.placeholder')"
       autocomplete="off"
     />
-    <ul v-if="results.length" class="picker__results" role="listbox" aria-label="Sites">
+    <ul
+      v-if="results.length"
+      class="picker__results"
+      role="listbox"
+      :aria-label="t('ui.sites.picker.results')"
+    >
       <li v-for="site in results" :key="site.id">
         <button type="button" class="picker__option" role="option" @click="emit('select', site)">
           {{ site.summary }}
-          <span v-if="site.linked" class="tag">linked</span>
+          <span v-if="site.linked" class="tag">{{ t('ui.sites.picker.linked') }}</span>
         </button>
       </li>
     </ul>
     <p v-else-if="status === 'failed'" class="field__error">
-      Couldn't search Sites. Reload the page and try again.
+      {{ t('ui.sites.picker.failed') }}
     </p>
-    <p v-else-if="query && status === 'done'" class="field__hint">No Sites match.</p>
+    <p v-else-if="query && status === 'done'" class="field__hint">
+      {{ t('ui.sites.picker.noMatches') }}
+    </p>
   </div>
 </template>

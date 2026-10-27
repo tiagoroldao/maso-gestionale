@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
 import ThemeToggle from '~/components/theme_toggle.vue'
@@ -19,7 +20,7 @@ import ThemeToggle from '~/components/theme_toggle.vue'
         <ThemeToggle />
       </div>
 
-      <p class="auth__quote">Customers, Jobs, Visits, stock and invoicing in one place.</p>
+      <p class="auth__quote">{{ t('ui.auth.tagline') }}</p>
 
       <div />
     </aside>

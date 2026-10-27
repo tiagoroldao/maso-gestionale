@@ -5,6 +5,7 @@ import app from '@adonisjs/core/services/app'
 import CompanySettings from '#models/company_settings'
 import { storagePath } from '#services/storage'
 import { createUser } from '#tests/helpers/users'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const validSettings = {
   name: 'Idraulica Maso S.r.l.',
@@ -169,7 +170,7 @@ test.group('Company settings', (group) => {
         .withCsrfToken()
         .loginAs(user)
         .redirects(0)
-      save.assertFlashMessage('error', 'Access denied')
+      save.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
     }
 
     assert.isNull(await CompanySettings.find(1))

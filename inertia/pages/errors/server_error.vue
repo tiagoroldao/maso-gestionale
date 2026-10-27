@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlainLayout from '~/layouts/plain.vue'
+import { t } from '~/i18n'
 </script>
 
 <template>
@@ -7,18 +8,15 @@ import PlainLayout from '~/layouts/plain.vue'
     <div class="home">
       <article class="prose-card">
         <div class="pc-top">
-          <span class="pc-status mono tag" :style="{ color: '#c0392b' }">
+          <span class="pc-status mono tag" :style="{ color: 'var(--subtle)' }">
             <span class="dot" /> 500
           </span>
         </div>
         <div class="pc-lead">
-          <span>Something broke.</span>
-          <em>The server hit an unexpected error.</em>
+          <span>{{ t('ui.errors.serverErrorTitle') }}</span>
+          <em>{{ t('ui.errors.serverErrorLead') }}</em>
         </div>
-        <p class="pc-para">
-          Try again in a moment. If the problem persists, check the server logs for the underlying
-          exception.
-        </p>
+        <p class="pc-para">{{ t('ui.errors.serverErrorText') }}</p>
       </article>
     </div>
   </PlainLayout>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Building2, Contact, House, LogOut, MapPin, Server, Users } from 'lucide-vue-next'
@@ -13,20 +14,20 @@ import NavLink, { type NavItem } from '~/components/nav_link.vue'
  * only hides links a role can't use.
  */
 const navByRole: Record<string, NavItem[]> = {
-  superuser: [{ label: 'Instance', route: 'instance', icon: Server }],
+  superuser: [{ label: t('ui.nav.instance'), route: 'instance', icon: Server }],
   admin: [
-    { label: 'Dashboard', route: 'dashboard', icon: House },
-    { label: 'Customers', route: 'customers.index', icon: Contact },
-    { label: 'Sites', route: 'sites.index', icon: MapPin },
-    { label: 'Users', route: 'users.index', icon: Users },
-    { label: 'Settings', route: 'company_settings.edit', icon: Building2 },
+    { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
+    { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
+    { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
+    { label: t('ui.nav.users'), route: 'users.index', icon: Users },
+    { label: t('ui.nav.settings'), route: 'company_settings.edit', icon: Building2 },
   ],
   office: [
-    { label: 'Dashboard', route: 'dashboard', icon: House },
-    { label: 'Customers', route: 'customers.index', icon: Contact },
-    { label: 'Sites', route: 'sites.index', icon: MapPin },
+    { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
+    { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
+    { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
   ],
-  technician: [{ label: 'Dashboard', route: 'dashboard', icon: House }],
+  technician: [{ label: t('ui.nav.dashboard'), route: 'dashboard', icon: House }],
 }
 
 const page = usePage()
@@ -41,7 +42,7 @@ const nav = computed(() => navByRole[page.props.user?.role ?? ''] ?? [])
         <ThemeToggle />
         <Form route="session.destroy">
           <button type="submit" class="btn btn--secondary btn--sm">
-            <LogOut :size="15" /> Log out
+            <LogOut :size="15" /> {{ t('ui.common.logout') }}
           </button>
         </Form>
       </div>

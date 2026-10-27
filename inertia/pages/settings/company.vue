@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 import { Form } from '@adonisjs/inertia/vue'
 import { urlFor } from '~/client'
 import Section from '~/components/section.vue'
@@ -28,36 +29,39 @@ const props = defineProps<{
 
 type Field = { name: TextField; label: string; hint?: string; type?: string }
 
-const sections: { title: string; description?: string; fields: Field[] }[] = [
+const sections: { key: string; title: string; description?: string; fields: Field[] }[] = [
   {
-    title: 'Company',
+    key: 'company',
+    title: t('ui.company.companySection'),
     fields: [
-      { name: 'name', label: 'Company name (ragione sociale)' },
-      { name: 'vatNumber', label: 'Partita IVA' },
+      { name: 'name', label: t('ui.company.name') },
+      { name: 'vatNumber', label: t('ui.company.vatNumber') },
       {
         name: 'taxCode',
-        label: 'Codice Fiscale',
-        hint: 'For most companies this is the same as the Partita IVA.',
+        label: t('ui.company.taxCode'),
+        hint: t('ui.company.taxCodeHint'),
       },
     ],
   },
   {
-    title: 'Registered address',
+    key: 'address',
+    title: t('ui.company.addressSection'),
     fields: [
-      { name: 'street', label: 'Street' },
-      { name: 'streetNumber', label: 'Street number' },
-      { name: 'postalCode', label: 'CAP' },
-      { name: 'city', label: 'Comune' },
-      { name: 'province', label: 'Provincia', hint: 'Two letters, e.g. MI.' },
+      { name: 'street', label: t('ui.address.street') },
+      { name: 'streetNumber', label: t('ui.address.streetNumber') },
+      { name: 'postalCode', label: t('ui.address.postalCode') },
+      { name: 'city', label: t('ui.address.city') },
+      { name: 'province', label: t('ui.address.province'), hint: t('ui.address.provinceHint') },
     ],
   },
   {
-    title: 'Payments and contacts',
-    description: 'Optional. Printed on invoices and documents when filled in.',
+    key: 'contacts',
+    title: t('ui.company.contactsSection'),
+    description: t('ui.company.contactsDescription'),
     fields: [
-      { name: 'iban', label: 'IBAN' },
-      { name: 'email', label: 'Email', type: 'email' },
-      { name: 'phone', label: 'Phone', type: 'tel' },
+      { name: 'iban', label: t('ui.company.iban') },
+      { name: 'email', label: t('ui.company.email'), type: 'email' },
+      { name: 'phone', label: t('ui.company.phone'), type: 'tel' },
     ],
   },
 ]
@@ -73,7 +77,7 @@ const logoUrl = props.settings.updatedAt
       <Form v-slot="{ processing, errors }" route="company_settings.update">
         <Section
           v-for="section in sections"
-          :key="section.title"
+          :key="section.key"
           :title="section.title"
           :description="section.description"
         >
@@ -91,8 +95,8 @@ const logoUrl = props.settings.updatedAt
             <span v-if="errors[field.name]" class="field__error">{{ errors[field.name] }}</span>
           </div>
 
-          <div v-if="section.title === 'Company'" class="field">
-            <label class="field__label" for="taxRegime">Tax regime (regime fiscale)</label>
+          <div v-if="section.key === 'company'" class="field">
+            <label class="field__label" for="taxRegime">{{ t('ui.company.taxRegime') }}</label>
             <select
               id="taxRegime"
               name="taxRegime"
@@ -107,16 +111,19 @@ const logoUrl = props.settings.updatedAt
           </div>
         </Section>
 
-        <Section title="Logo" description="PNG, JPEG or WebP, up to 2 MB.">
+        <Section
+          :title="t('ui.company.logoSection')"
+          :description="t('ui.company.logoDescription')"
+        >
           <img
             v-if="settings.hasLogo"
             :src="logoUrl"
-            alt="Current logo"
+            :alt="t('ui.company.currentLogo')"
             :style="{ maxHeight: '80px', maxWidth: '240px', objectFit: 'contain' }"
           />
           <div class="field">
             <label class="field__label" for="logo">
-              {{ settings.hasLogo ? 'Replace logo' : 'Upload logo' }}
+              {{ settings.hasLogo ? t('ui.company.replaceLogo') : t('ui.company.uploadLogo') }}
             </label>
             <input id="logo" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp" />
             <span v-if="errors.logo" class="field__error">{{ errors.logo }}</span>
@@ -125,14 +132,15 @@ const logoUrl = props.settings.updatedAt
             v-if="settings.hasLogo"
             :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
           >
-            <input type="checkbox" name="removeLogo" value="true" /> Remove the logo
+            <input type="checkbox" name="removeLogo" value="true" />
+            {{ t('ui.company.removeLogo') }}
           </label>
         </Section>
 
         <Section>
           <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
             <button type="submit" class="btn btn--primary" :disabled="processing">
-              Save company settings
+              {{ t('ui.company.save') }}
             </button>
             <a
               :href="urlFor('letterhead_preview.pdf')"
@@ -140,7 +148,7 @@ const logoUrl = props.settings.updatedAt
               rel="noopener"
               class="btn btn--secondary"
             >
-              Preview letterhead (PDF)
+              {{ t('ui.company.previewLetterhead') }}
             </a>
           </div>
         </Section>

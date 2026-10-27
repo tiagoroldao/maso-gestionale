@@ -61,7 +61,7 @@ export default class SitesController {
     })
   }
 
-  async store({ request, response, session }: HttpContext) {
+  async store({ request, response, session, i18n }: HttpContext) {
     const data = await request.validateUsing(siteValidator)
     const site = await db.transaction(async (trx) => {
       const created = await Site.create(toAttributes(data), { client: trx })
@@ -69,7 +69,7 @@ export default class SitesController {
       return created
     })
 
-    session.flash('success', 'Site saved.')
+    session.flash('success', i18n.t('flash.siteSaved'))
     if (data.customerId) {
       return response.redirect().toRoute('customers.show', { id: data.customerId })
     }
@@ -131,13 +131,13 @@ export default class SitesController {
     })
   }
 
-  async update({ params, request, response, session }: HttpContext) {
+  async update({ params, request, response, session, i18n }: HttpContext) {
     const site = await Site.findOrFail(params.id)
     const data = await request.validateUsing(siteValidator)
 
     await site.merge(toAttributes(data)).save()
 
-    session.flash('success', 'Site saved.')
+    session.flash('success', i18n.t('flash.siteSaved'))
     response.redirect().toRoute('sites.show', { id: site.id })
   }
 

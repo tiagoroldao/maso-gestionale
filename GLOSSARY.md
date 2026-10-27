@@ -1,6 +1,6 @@
 # Maso Gestionale
 
-Management app for a single small plumbing business: customers, jobs and visits, stock, invoicing and compliance documents. Canonical terms are English; Italian equivalents are noted where staff use them.
+Management app for a single small plumbing business: customers, jobs and visits, stock, invoicing and compliance documents. Canonical terms are English and used in code; the interface shows the Italian equivalent noted next to each term (ADR 0006).
 
 ## Customers and installations
 
@@ -8,15 +8,15 @@ Management app for a single small plumbing business: customers, jobs and visits,
 The person or organization that is billed for work.
 _Avoid_: Client, account
 
-**Site**:
+**Site** (_Immobile_):
 A physical address where work is done and equipment is installed, independent of who owns or pays for it.
 _Avoid_: Location, address, property
 
-**Installed Equipment**:
+**Installed Equipment** (_Apparecchio_):
 A specific piece of equipment (boiler, AC unit, water heater…) installed at a Site, which outlives changes of Customer and may refer to the Item it was sold as.
 _Avoid_: Product, asset, impianto (when meaning a single unit), installation
 
-**Maintenance Interval**:
+**Maintenance Interval** (_Intervallo di manutenzione_):
 How often a piece of Installed Equipment needs a periodic check, from which its next due date follows.
 _Avoid_: Service schedule, recurrence
 
@@ -58,7 +58,7 @@ _Avoid_: Inventory, depot
 A stocked article with a purchase price and an independently set resale price, which can be added to an invoice.
 _Avoid_: Product, part, material
 
-**Category**:
+**Category** (_Categoria_):
 A grouping of Items that carries a suggested markup, used only to propose a resale price.
 _Avoid_: Family, type, group
 
@@ -108,7 +108,7 @@ _Avoid_: Old invoice, imported invoice, archived invoice
 An amount received against an Invoice or Legacy Invoice; an invoice may have several.
 _Avoid_: Receipt, transaction
 
-**Payment Terms**:
+**Payment Terms** (_Condizioni di pagamento_):
 The rule, set per Customer, that determines an invoice's due date.
 _Avoid_: Due conditions
 
@@ -121,7 +121,7 @@ The Italian tax agency's system through which every electronic invoice is sent a
 A fixed, non-editable page frame (company letterhead, Customer block) that every Document Template is rendered inside.
 _Avoid_: Base template, master, letterhead template
 
-**Recipient**:
+**Recipient** (_Destinatario_):
 Who a document is addressed to, printed in the Base Layout's header; usually taken from a Customer.
 _Avoid_: Addressee, customer block
 
@@ -135,7 +135,7 @@ _Avoid_: Certificate, generated document, printout
 
 ## People
 
-**Instance**:
+**Instance** (_Istanza_):
 One running copy of the system, owned and used by exactly one business.
 _Avoid_: Installation, deployment, tenant
 
@@ -143,10 +143,11 @@ _Avoid_: Installation, deployment, tenant
 The role of whoever sets up and maintains an Instance, with access to Instance settings but not to business data.
 _Avoid_: Root, sysadmin, super admin
 
-**Admin**:
+**Admin** (_Titolare_):
 The business owner role, with access to all business data and company settings.
+_Avoid_: Amministratore (clashes with a condominium's amministratore, who is a Customer)
 
-**Office**:
+**Office** (_Ufficio_):
 The staff role that manages Customers, Jobs, scheduling, invoicing and stock.
 _Avoid_: Back-office, secretary
 

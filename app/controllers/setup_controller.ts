@@ -7,7 +7,7 @@ export default class SetupController {
     return inertia.render('setup', {})
   }
 
-  async store({ request, response, session }: HttpContext) {
+  async store({ request, response, session, i18n }: HttpContext) {
     const input = await request.validateUsing(setupValidator)
 
     try {
@@ -23,7 +23,7 @@ export default class SetupController {
       if (!(error instanceof SetupAlreadyCompletedError)) throw error
     }
 
-    session.flash('success', 'Setup complete. You can now sign in.')
+    session.flash('success', i18n.t('flash.setupComplete'))
     response.redirect().toRoute('session.create')
   }
 }

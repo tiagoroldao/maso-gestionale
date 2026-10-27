@@ -3,6 +3,7 @@ import Site from '#models/site'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const siteFields = {
   label: 'Casa al mare',
@@ -160,7 +161,7 @@ test.group('Sites', () => {
           .withCsrfToken()
           .loginAs(user)
           .redirects(0)
-        response.assertFlashMessage('error', 'Access denied')
+        response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
       }
     }
 

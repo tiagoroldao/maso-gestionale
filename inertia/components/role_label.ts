@@ -1,6 +1,5 @@
-export const roleLabels: Record<string, string> = {
-  superuser: 'Superuser',
-  admin: 'Admin',
-  office: 'Office',
-  technician: 'Technician',
+import { t } from '~/i18n'
+
+export function roleLabel(role: string) {
+  return t(`ui.roles.${role}`)
 }

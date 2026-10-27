@@ -32,11 +32,11 @@ export default class UsersController {
     return inertia.render('users/create', {})
   }
 
-  async store({ request, response, session }: HttpContext) {
+  async store({ request, response, session, i18n }: HttpContext) {
     const { fullName, email, role, password } = await request.validateUsing(createUserValidator)
     await User.create({ fullName, email, role, password })
 
-    session.flash('success', `${fullName} can now sign in.`)
+    session.flash('success', i18n.t('flash.userCreated', { name: fullName }))
     response.redirect().toRoute('users.index')
   }
 
@@ -47,7 +47,7 @@ export default class UsersController {
     return inertia.render('users/edit', { user: UserTransformer.transform(user) })
   }
 
-  async update({ params, request, response, session, bouncer }: HttpContext) {
+  async update({ params, request, response, session, bouncer, i18n }: HttpContext) {
     const user = await User.findOrFail(params.id)
     await bouncer.authorize('editUser', user)
 
@@ -58,29 +58,29 @@ export default class UsersController {
     if (password) user.password = password
     await user.save()
 
-    session.flash('success', 'Changes saved.')
+    session.flash('success', i18n.t('flash.userSaved'))
     response.redirect().toRoute('users.index')
   }
 
-  async deactivate({ params, response, session, bouncer }: HttpContext) {
+  async deactivate({ params, response, session, bouncer, i18n }: HttpContext) {
     const user = await User.findOrFail(params.id)
     await bouncer.authorize('editUser', user)
 
     user.isActive = false
     await user.save()
 
-    session.flash('success', `${user.fullName} can no longer sign in.`)
+    session.flash('success', i18n.t('flash.userDeactivated', { name: user.fullName }))
     response.redirect().toRoute('users.index')
   }
 
-  async reactivate({ params, response, session, bouncer }: HttpContext) {
+  async reactivate({ params, response, session, bouncer, i18n }: HttpContext) {
     const user = await User.findOrFail(params.id)
     await bouncer.authorize('editUser', user)
 
     user.isActive = true
     await user.save()
 
-    session.flash('success', `${user.fullName} can sign in again.`)
+    session.flash('success', i18n.t('flash.userReactivated', { name: user.fullName }))
     response.redirect().toRoute('users.index')
   }
 }
