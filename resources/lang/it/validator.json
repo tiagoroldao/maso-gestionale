@@ -89,7 +89,6 @@
       "categoryId": "categoria",
       "supplierName": "fornitore",
       "supplierCode": "codice fornitore",
-      "vatRate": "aliquota IVA",
       "purchasePrice": "prezzo di acquisto",
       "resalePrice": "prezzo di vendita",
       "markupPercent": "ricarico",

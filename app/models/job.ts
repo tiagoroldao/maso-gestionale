@@ -5,22 +5,10 @@ import Customer from '#models/customer'
 import Site from '#models/site'
 import Quote from '#models/quote'
 import Visit from '#models/visit'
+import type { WorkCategory } from '#shared/jobs'
 
 export const JOB_KINDS = ['quoted', 'time_and_materials'] as const
 export type JobKind = (typeof JOB_KINDS)[number]
-
-/**
- * The kind of work, which with the Customer type and the Site decides the
- * default VAT on the Job's Invoice lines.
- */
-export const WORK_CATEGORIES = [
-  'new_installation',
-  'maintenance',
-  'renovation',
-  'repair',
-  'sale',
-] as const
-export type WorkCategory = (typeof WORK_CATEGORIES)[number]
 
 /**
  * Statuses stored on the Job. Work Complete, Invoiced and Closed are

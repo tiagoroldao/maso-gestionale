@@ -316,7 +316,7 @@
     "vatCode": "Codice IVA predefinito",
     "vatCodeHint": "Usato quando l'articolo è venduto senza lavori. Sulle commesse l'IVA dipende dal tipo di lavoro.",
     "significantGood": "Bene significativo",
-    "significantGoodHint": "Caldaie, condizionatori, sanitari e rubinetteria da bagno, infissi, videocitofoni, ascensori, impianti di sicurezza. L'IVA al 10% si applica solo fino al valore del resto del lavoro.",
+    "significantGoodHint": "Caldaie, apparecchi di condizionamento e ricambio dell'aria, sanitari e rubinetteria da bagno, infissi, videocitofoni, ascensori e montacarichi, impianti di sicurezza. L'IVA al 10% si applica solo fino al valore del resto del lavoro.",
     "purchasePrice": "Prezzo di acquisto",
     "resalePrice": "Prezzo di vendita",
     "suggested": "Suggerito dal ricarico della categoria ({markup} %): {price}",

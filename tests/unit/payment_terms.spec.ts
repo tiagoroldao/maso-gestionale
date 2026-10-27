@@ -26,6 +26,8 @@ test.group('PaymentTerms due date', () => {
     assert.equal(terms(30, true).dueDate(endOfJanuary).toISODate(), '2026-02-28')
     assert.equal(terms(60, true).dueDate(endOfJanuary).toISODate(), '2026-03-31')
     assert.equal(terms(90, true).dueDate(DateTime.fromISO('2026-11-30')).toISODate(), '2027-02-28')
+    // Early in the month too: the month after, not the same one
+    assert.equal(terms(30, true).dueDate(DateTime.fromISO('2026-01-01')).toISODate(), '2026-02-28')
   })
 
   test('other day counts are added as days before moving to month end', ({ assert }) => {

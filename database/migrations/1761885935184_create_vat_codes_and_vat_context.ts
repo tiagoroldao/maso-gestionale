@@ -27,8 +27,10 @@ const SEED = [
     name: 'Esente art. 10',
     rate: 0,
     natura: 'N4',
+    // The number of art. 10 that applies is for the commercialista (#17)
     legal_note: "Operazione esente ai sensi dell'art. 10 DPR 633/1972",
   },
+  // The provision to cite is for the commercialista (#17)
   { name: 'Non soggetta', rate: 0, natura: 'N2.2', legal_note: 'Operazione non soggetta a IVA' },
 ]
 
@@ -74,7 +76,7 @@ export default class extends BaseSchema {
     this.schema.alterTable('items', (table) => {
       // Bene significativo: 10% VAT only up to the value of the rest of the work
       table.boolean('significant_good').notNullable().defaultTo(false)
-      table.integer('vat_code_id').nullable().references('id').inTable('vat_codes')
+      table.integer('vat_code_id').nullable().references('id').inTable('vat_codes').index()
     })
 
     this.defer(async (db) => {
@@ -107,7 +109,8 @@ export default class extends BaseSchema {
         'ALTER TABLE items ADD CONSTRAINT items_vat_rate_check CHECK (vat_rate IN (4, 5, 10, 22))'
       )
       await db.rawQuery('ALTER TABLE items DROP COLUMN vat_code_id, DROP COLUMN significant_good')
-      await db.rawQuery("DELETE FROM customers WHERE type = 'organisation'")
+      // Associations have Jobs and Invoices: keep them, as the closest type
+      await db.rawQuery("UPDATE customers SET type = 'company' WHERE type = 'organisation'")
       await db.rawQuery('ALTER TABLE customers DROP CONSTRAINT customers_type_check')
       await db.rawQuery(
         "ALTER TABLE customers ADD CONSTRAINT customers_type_check CHECK (type IN ('private', 'company', 'condominium'))"

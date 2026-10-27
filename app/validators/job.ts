@@ -1,5 +1,6 @@
 import vine from '@vinejs/vine'
-import { JOB_KINDS, JOB_STATUSES, WORK_CATEGORIES } from '#models/job'
+import { JOB_KINDS, JOB_STATUSES } from '#models/job'
+import { WORK_CATEGORIES } from '#shared/jobs'
 
 export const jobValidator = vine.create({
   customerId: vine.number().exists({ table: 'customers', column: 'id' }),

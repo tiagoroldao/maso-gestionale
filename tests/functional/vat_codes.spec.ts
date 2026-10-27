@@ -1,7 +1,9 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import VatCode from '#models/vat_code'
 import { createUser } from '#tests/helpers/users'
 import { createItem, vatCode } from '#tests/helpers/items'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 test.group('VAT Codes', () => {
   test('a fresh install has the seeded codes for review', async ({ client }) => {
@@ -49,12 +51,13 @@ test.group('VAT Codes', () => {
   test('a Natura code goes with 0%, and only with 0%', async ({ client, assert }) => {
     const admin = await createUser('admin')
 
-    for (const form of [
-      { name: 'Senza natura', rate: '0' },
-      { name: 'Natura con aliquota', rate: '22', natura: 'N4' },
-      { name: '22%', rate: '22' },
-      { name: 'Troppo', rate: '100' },
-    ]) {
+    for (const [form, field] of [
+      [{ name: 'Senza natura', rate: '0' }, 'natura'],
+      [{ name: 'Natura con aliquota', rate: '22', natura: 'N4' }, 'natura'],
+      [{ name: '22%', rate: '22' }, 'name'],
+      [{ name: 'Troppo', rate: '100' }, 'rate'],
+      [{ name: 'Illeggibile', rate: 'abc', natura: 'N4' }, 'rate'],
+    ] as const) {
       const response = await client
         .post('/settings/vat-codes')
         .form(form)
@@ -62,8 +65,8 @@ test.group('VAT Codes', () => {
         .withCsrfToken()
         .loginAs(admin)
         .redirects(0)
-      const errors = response.flashMessage('inputErrorsBag')
-      assert.isNotEmpty(errors, form.name)
+      const errors = response.flashMessage('inputErrorsBag') as Record<string, unknown>
+      assert.deepEqual(Object.keys(errors), [field], form.name)
     }
     assert.lengthOf(await VatCode.all(), 8)
   })
@@ -107,11 +110,68 @@ test.group('VAT Codes', () => {
     assert.properties(refused.flashMessage('inputErrorsBag'), ['vatCodeId'])
   })
 
-  test('only the Admin manages VAT Codes', async ({ client }) => {
+  test('an Item keeps its archived code on edit, but can not switch to another', async ({
+    client,
+    assert,
+  }) => {
+    const admin = await createUser('admin')
+    const five = await vatCode('5%')
+    const four = await vatCode('4%')
+    const item = await createItem({ vatCodeId: five.id, significantGood: true })
+    for (const code of [five, four]) {
+      code.archivedAt = DateTime.now()
+      await code.save()
+    }
+    const fields = {
+      code: item.code,
+      description: 'Caldaia',
+      unit: 'pz',
+      purchasePrice: '1',
+      resalePrice: '2',
+    }
+
+    await client
+      .put(`/items/${item.id}`)
+      .form({ ...fields, vatCodeId: String(five.id) })
+      .withCsrfToken()
+      .loginAs(admin)
+    await item.refresh()
+    assert.equal(item.description, 'Caldaia')
+    assert.equal(item.vatCodeId, five.id)
+    // Unticked
+    assert.isFalse(item.significantGood)
+
+    const refused = await client
+      .put(`/items/${item.id}`)
+      .form({ ...fields, vatCodeId: String(four.id) })
+      .header('referer', `/items/${item.id}/edit`)
+      .withCsrfToken()
+      .loginAs(admin)
+      .redirects(0)
+    assert.properties(refused.flashMessage('inputErrorsBag'), ['vatCodeId'])
+  })
+
+  test('only the Admin manages VAT Codes', async ({ client, assert }) => {
+    const code = await vatCode()
     for (const role of ['office', 'technician'] as const) {
       const user = await createUser(role)
       const response = await client.get('/settings/vat-codes').withInertia().loginAs(user)
       response.assertStatus(403)
+      for (const request of [
+        client.post('/settings/vat-codes').form({ name: 'X', rate: '1' }),
+        client.put(`/settings/vat-codes/${code.id}`).form({ name: 'X', rate: '1' }),
+        client.post(`/settings/vat-codes/${code.id}/archive`),
+      ]) {
+        const denied = await request
+          .header('referer', '/')
+          .withCsrfToken()
+          .loginAs(user)
+          .redirects(0)
+        denied.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      }
     }
+    await code.refresh()
+    assert.equal(code.name, '22%')
+    assert.isNull(code.archivedAt)
   })
 })

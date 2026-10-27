@@ -7,8 +7,7 @@ import AppLayout from '~/layouts/app.vue'
 import CustomerPicker, { type PickedCustomer } from '~/components/customer_picker.vue'
 import SitePicker, { type PickedSite } from '~/components/site_picker.vue'
 import { t } from '~/i18n'
-
-const WORK_CATEGORIES = ['new_installation', 'maintenance', 'renovation', 'repair', 'sale']
+import { WORK_CATEGORIES } from '@shared/jobs'
 
 const props = defineProps<{
   job: {

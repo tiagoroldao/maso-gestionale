@@ -47,7 +47,7 @@ async function categoryOptions() {
  */
 async function vatCodeOptions(current?: number) {
   const codes = await VatCode.query()
-    .where((q) => q.whereNull('archived_at').orWhere('id', current ?? 0))
+    .where((q) => q.withScopes((scopes) => scopes.active()).orWhere('id', current ?? 0))
     .orderBy([
       { column: 'rate', order: 'desc' },
       { column: 'name', order: 'asc' },
