@@ -6,6 +6,7 @@ import { nextJobSequence } from '#services/job_numbers'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
+import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -15,7 +16,7 @@ export default class JobsController {
   async index({ request, inertia }: HttpContext) {
     const { q, status, page = 1 } = await jobSearchValidator.validate(request.qs())
 
-    const query = Job.query().preload('customer').preload('site')
+    const query = Job.query().preload('customer').preload('site').preload('visits')
     if (!status) query.whereNot('status', 'cancelled')
     else if (status !== 'all') query.where('status', status)
     if (q) {
@@ -100,11 +101,20 @@ export default class JobsController {
           .preload('technicians')
           .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
           .preload('photos', (photos) => photos.orderBy('createdAt'))
+          .preload('hours', (hours) => hours.preload('labourRate'))
+          .preload('items', (items) => items.preload('item'))
           .orderBy('startsAt')
       )
       .firstOrFail()
 
+    // Time and materials recorded so far, at current rates and resale prices
+    const amounts = job.visits.flatMap((visit) => [
+      ...visit.hours.map((hour) => lineTotal(hour.hours, hour.labourRate.hourlyPrice)),
+      ...visit.items.map((line) => lineTotal(line.quantity, line.item.resalePrice)),
+    ])
+
     return inertia.render('jobs/show', {
+      timeAndMaterials: { total: sumAmounts(amounts), lines: amounts.length },
       job: {
         ...jobRow(job),
         description: job.description,

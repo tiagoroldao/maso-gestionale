@@ -48,6 +48,18 @@ router
           .post('my-visits/:id/photos', [controllers.MyVisits, 'addPhoto'])
           .where('id', router.matchers.number())
         router
+          .post('my-visits/:id/hours', [controllers.MyVisits, 'addHours'])
+          .where('id', router.matchers.number())
+        router
+          .delete('visit-hours/:hourId', [controllers.MyVisits, 'removeHours'])
+          .where('hourId', router.matchers.number())
+        router
+          .post('my-visits/:id/items', [controllers.MyVisits, 'addItem'])
+          .where('id', router.matchers.number())
+        router
+          .delete('visit-items/:itemId', [controllers.MyVisits, 'removeItem'])
+          .where('itemId', router.matchers.number())
+        router
           .get('item-documents/:id', [controllers.ItemDocuments, 'show'])
           .where('id', router.matchers.number())
       })

@@ -86,10 +86,13 @@ export default class SitesController {
       .where('id', params.id)
       .preload('customers')
       .preload('jobs', (jobs) =>
-        jobs.preload('customer').orderBy([
-          { column: 'year', order: 'desc' },
-          { column: 'sequence', order: 'desc' },
-        ])
+        jobs
+          .preload('customer')
+          .preload('visits')
+          .orderBy([
+            { column: 'year', order: 'desc' },
+            { column: 'sequence', order: 'desc' },
+          ])
       )
       .preload('installedEquipment', (equipment) =>
         equipment

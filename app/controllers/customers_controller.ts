@@ -88,10 +88,13 @@ export default class CustomersController {
       .preload('paymentTerms')
       .preload('sites', (sites) => sites.orderBy('city').orderBy('street'))
       .preload('jobs', (jobs) =>
-        jobs.preload('site').orderBy([
-          { column: 'year', order: 'desc' },
-          { column: 'sequence', order: 'desc' },
-        ])
+        jobs
+          .preload('site')
+          .preload('visits')
+          .orderBy([
+            { column: 'year', order: 'desc' },
+            { column: 'sequence', order: 'desc' },
+          ])
       )
       .firstOrFail()
 

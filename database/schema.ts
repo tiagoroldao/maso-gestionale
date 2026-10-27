@@ -386,6 +386,44 @@ export class UserSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class VisitHourSchema extends BaseModel {
+  static $columns = ['createdAt', 'hours', 'id', 'labourRateId', 'userId', 'visitId'] as const
+  $columns = VisitHourSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare hours: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare labourRateId: number
+  @column()
+  declare userId: number
+  @column()
+  declare visitId: number
+}
+
+export class VisitItemSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'installed', 'installedEquipmentId', 'itemId', 'quantity', 'stockMovementId', 'visitId'] as const
+  $columns = VisitItemSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare installed: boolean
+  @column()
+  declare installedEquipmentId: number | null
+  @column()
+  declare itemId: number
+  @column()
+  declare quantity: string
+  @column()
+  declare stockMovementId: number | null
+  @column()
+  declare visitId: number
+}
+
 export class VisitNoteSchema extends BaseModel {
   static $columns = ['body', 'createdAt', 'id', 'userId', 'visitId'] as const
   $columns = VisitNoteSchema.$columns

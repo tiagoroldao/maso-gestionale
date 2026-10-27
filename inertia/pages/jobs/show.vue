@@ -4,12 +4,13 @@ import { Pencil } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
-import { formatDate, t } from '~/i18n'
+import { formatDate, formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
 
 const confirm = (message: string) => window.confirm(message)
 
 defineProps<{
+  timeAndMaterials: { total: string; lines: number }
   job: {
     id: number
     number: string
@@ -85,6 +86,13 @@ defineProps<{
             <dd :style="{ whiteSpace: 'pre-line' }">{{ job.description }}</dd>
           </template>
         </dl>
+      </Section>
+
+      <Section v-if="timeAndMaterials.lines" :title="t('ui.jobs.timeAndMaterials')">
+        <p :style="{ margin: 0 }">
+          <strong>{{ formatMoney(timeAndMaterials.total) }}</strong>
+          <span class="field__hint"> · {{ t('ui.jobs.timeAndMaterialsHint') }}</span>
+        </p>
       </Section>
 
       <Section :title="t('ui.visits.title')">

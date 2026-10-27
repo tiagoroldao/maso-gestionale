@@ -1,5 +1,6 @@
 import vine from '@vinejs/vine'
 import { VISIT_STATUSES } from '#models/visit'
+import { quantityRule } from '#validators/rules/quantity'
 
 export const visitStatusValidator = vine.create({
   status: vine.enum(VISIT_STATUSES),
@@ -15,4 +16,29 @@ export const visitNoteValidator = vine.create({
  */
 export const visitPhotoValidator = vine.create({
   photo: vine.file({ size: '15mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }),
+})
+
+export const visitHoursValidator = vine.create({
+  technicianId: vine.number(),
+  labourRateId: vine.number().exists({
+    table: 'labour_rates',
+    column: 'id',
+    filter: (db) => {
+      db.whereNull('archived_at')
+    },
+  }),
+  hours: vine.string().use(quantityRule({ allowNegative: false, max: '24' })),
+})
+
+export const visitItemValidator = vine.create({
+  itemId: vine.number().exists({
+    table: 'items',
+    column: 'id',
+    filter: (db) => {
+      db.whereNull('archived_at')
+    },
+  }),
+  quantity: vine.string().use(quantityRule({ allowNegative: false, max: '99999' })),
+  installed: vine.boolean().optional(),
+  serialNumber: vine.string().trim().maxLength(100).optional(),
 })

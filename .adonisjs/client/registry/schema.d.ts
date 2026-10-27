@@ -176,6 +176,58 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addPhoto']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'my_visits.add_hours': {
+    methods: ["POST"]
+    pattern: '/my-visits/:id/hours'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitHoursValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitHoursValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addHours']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addHours']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addHours']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'my_visits.remove_hours': {
+    methods: ["DELETE"]
+    pattern: '/visit-hours/:hourId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { hourId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeHours']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeHours']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeHours']>>>
+    }
+  }
+  'my_visits.add_item': {
+    methods: ["POST"]
+    pattern: '/my-visits/:id/items'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitItemValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitItemValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addItem']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addItem']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addItem']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'my_visits.remove_item': {
+    methods: ["DELETE"]
+    pattern: '/visit-items/:itemId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { itemId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeItem']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeItem']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeItem']>>>
+    }
+  }
   'item_documents.show': {
     methods: ["GET","HEAD"]
     pattern: '/item-documents/:id'

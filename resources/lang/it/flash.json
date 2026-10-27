@@ -48,5 +48,13 @@
   "visitNotMovable": "L'intervento è cambiato nel frattempo o non si può più spostare. Ricarica l'agenda.",
   "visitStatusSaved": "Stato aggiornato.",
   "visitNoteAdded": "Nota salvata.",
-  "visitPhotoAdded": "Foto caricata."
+  "visitPhotoAdded": "Foto caricata.",
+  "visitDone": "L'intervento è completato e non si può più modificare.",
+  "visitHoursAdded": "Ore registrate.",
+  "visitItemAdded": "Materiale registrato.",
+  "fieldWorkRefused": {
+    "done": "L'intervento è completato e non si può più modificare.",
+    "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
+    "noSite": "La commessa non ha un immobile: non si può registrare un'installazione."
+  }
 }

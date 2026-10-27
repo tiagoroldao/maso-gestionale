@@ -115,7 +115,10 @@
       "toTechnicianId": "tecnico",
       "fromTechnicianId": "tecnico di partenza",
       "body": "nota",
-      "photo": "foto"
+      "photo": "foto",
+      "technicianId": "tecnico",
+      "hours": "ore",
+      "installed": "installato"
     }
   }
 }
