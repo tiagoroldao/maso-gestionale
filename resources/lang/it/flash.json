@@ -32,5 +32,6 @@
   "documentDeleted": "Documento «{title}» eliminato.",
   "jobCreated": "Commessa {number} aperta.",
   "jobSaved": "Commessa {number} salvata.",
-  "jobCancelled": "Commessa {number} annullata."
+  "jobCancelled": "Commessa {number} annullata.",
+  "jobNotEditable": "Una commessa annullata non si può modificare."
 }

@@ -83,6 +83,7 @@ const title = props.job
             :customer-id="customer.id"
             @select="pickSite"
           />
+          <span v-if="errors.siteId" class="field__error">{{ errors.siteId }}</span>
         </Section>
 
         <Section :title="t('ui.jobs.detailsSection')">

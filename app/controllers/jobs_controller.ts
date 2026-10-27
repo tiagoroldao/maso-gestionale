@@ -2,7 +2,6 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Job from '#models/job'
 import Customer from '#models/customer'
-import Site from '#models/site'
 import { nextJobSequence } from '#services/job_numbers'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
@@ -23,7 +22,11 @@ export default class JobsController {
       query.where((builder) => {
         builder
           .whereILike('title', pattern)
-          .orWhereRaw(`concat(year, '/', lpad(sequence::text, 4, '0')) ilike ?`, [pattern])
+          // Matches "2026/0007" as displayed, including sequences past 9999
+          .orWhereRaw(
+            `concat(year, '/', lpad(sequence::text, greatest(4, length(sequence::text)), '0')) ilike ?`,
+            [pattern]
+          )
           .orWhereHas('customer', (customer) => {
             customer
               .whereILike('name', pattern)
@@ -53,14 +56,12 @@ export default class JobsController {
 
   async create({ request, inertia }: HttpContext) {
     const customerId = Number(request.qs().customerId) || null
-    const siteId = Number(request.qs().siteId) || null
     const customer = customerId ? await Customer.find(customerId) : null
-    const site = siteId ? await Site.find(siteId) : null
 
     return inertia.render('jobs/form', {
       job: null,
       customer: customer ? { id: customer.id, displayName: customer.displayName } : null,
-      site: site ? { id: site.id, summary: site.summary } : null,
+      site: null,
     })
   }
 
@@ -127,6 +128,10 @@ export default class JobsController {
 
   async update({ params, request, response, session, i18n }: HttpContext) {
     const job = await Job.findOrFail(params.id)
+    if (job.status === 'cancelled') {
+      session.flash('error', i18n.t('flash.jobNotEditable'))
+      return response.redirect().toRoute('jobs.show', { id: job.id })
+    }
     const data = await request.validateUsing(jobValidator)
 
     job.merge({

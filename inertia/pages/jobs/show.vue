@@ -6,6 +6,8 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, t } from '~/i18n'
 
+const confirm = (message: string) => window.confirm(message)
+
 defineProps<{
   job: {
     id: number
@@ -26,7 +28,12 @@ defineProps<{
   <AppLayout>
     <Page :title="`${job.number} · ${job.title}`">
       <template #actions>
-        <Link route="jobs.edit" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
+        <Link
+          v-if="job.status !== 'cancelled'"
+          route="jobs.edit"
+          :params="{ id: job.id }"
+          class="btn btn--secondary btn--sm"
+        >
           <Pencil :size="15" /> {{ t('ui.common.edit') }}
         </Link>
       </template>
@@ -71,7 +78,11 @@ defineProps<{
       </Section>
 
       <Section v-if="job.status !== 'cancelled'">
-        <Form route="jobs.cancel" :params="{ id: job.id }">
+        <Form
+          route="jobs.cancel"
+          :params="{ id: job.id }"
+          :on-before="() => confirm(t('ui.jobs.cancelConfirm', { number: job.number }))"
+        >
           <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.jobs.cancel') }}</button>
         </Form>
       </Section>

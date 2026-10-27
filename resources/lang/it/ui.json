@@ -399,7 +399,7 @@
     "changeCustomer": "Cambia cliente",
     "removeSite": "Rimuovi immobile",
     "kindHint": "Con preventivo: si fattura dal preventivo accettato. A consuntivo: si fattura da ore e materiali degli interventi.",
-    "kindLocked": "Il tipo non si può più cambiare dopo l'apertura.",
+    "kindLocked": "Il tipo si può cambiare solo finché la commessa è aperta.",
     "save": "Salva commessa",
     "create": "Apri commessa",
     "cancel": "Annulla commessa",
@@ -423,6 +423,8 @@
       "in_progress": "In corso",
       "cancelled": "Annullate",
       "all": "Tutte"
-    }
+    },
+    "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
+    "cancelledNotEditable": "Una commessa annullata non si può modificare."
   }
 }

@@ -89,6 +89,23 @@ test.group('Jobs', () => {
     assert.equal(quoted.kind, 'quoted')
   })
 
+  test('a cancelled Job can not be edited', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    const job = await createJob(customer, { status: 'cancelled', title: 'Original' })
+
+    const response = await client
+      .put(`/jobs/${job.id}`)
+      .form({ customerId: String(customer.id), kind: 'quoted', title: 'Changed' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('error', it('flash.jobNotEditable'))
+    await job.refresh()
+    assert.equal(job.title, 'Original')
+  })
+
   test('cancelling removes a Job from the active list', async ({ client, assert }) => {
     const office = await createUser('office')
     const customer = await createCustomer()
@@ -131,6 +148,7 @@ test.group('Jobs', () => {
     assert.deepEqual(await search(job.number), ['Caldaia nuova'])
     assert.deepEqual(await search('caldaia'), ['Caldaia nuova'])
     assert.deepEqual(await search('rossi mario'), ['Caldaia nuova'])
+    assert.deepEqual(await search('mario rossi'), ['Caldaia nuova'])
     assert.deepEqual(await search('bianchi'), ['Scarico'])
   })
 
