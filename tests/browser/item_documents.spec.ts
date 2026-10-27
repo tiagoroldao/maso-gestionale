@@ -34,12 +34,14 @@ test.group('Item Documents in the browser', (group) => {
     assert.lengthOf(await ItemDocument.all(), 1)
 
     const form = await visit(`/sites/${site.id}/equipment/create`)
+    await form.getByLabel(it('ui.equipment.type')).fill('Caldaia')
     await form.getByLabel(it('ui.equipment.serialNumber')).fill('SN-123')
     await form.getByLabel(it('ui.equipment.linkItem')).fill('cald')
     await form.getByRole('option', { name: /CALD-25/ }).click()
 
     assert.equal(await form.getByLabel(it('ui.equipment.interval')).inputValue(), '12')
     assert.equal(await form.getByLabel(it('ui.equipment.serialNumber')).inputValue(), 'SN-123')
+    assert.equal(await form.getByLabel(it('ui.equipment.type')).inputValue(), 'Caldaia')
     await form.getByRole('button', { name: it('ui.equipment.save') }).click()
     await form.waitForURL(`**/sites/${site.id}`)
     await form.getByText('CALD-25').waitFor()

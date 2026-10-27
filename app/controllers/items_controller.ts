@@ -1,3 +1,4 @@
+import { unlink } from 'node:fs/promises'
 import { DateTime } from 'luxon'
 import Item from '#models/item'
 import Category from '#models/category'
@@ -6,6 +7,7 @@ import StockLedger from '#stock/stock_ledger'
 import { isBelowMarkup } from '#shared/money'
 import { itemSearchValidator, itemValidator } from '#validators/item'
 import { isForeignKeyViolation, isUniqueViolation } from '#services/database_errors'
+import { storagePath } from '#services/storage'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -252,6 +254,8 @@ export default class ItemsController {
       session.flash('error', i18n.t('flash.itemInUse', { code: item.code }))
       return response.redirect().back()
     }
+    const documents = await item.related('documents').query()
+    const files = documents.map((document) => document.filePath)
     try {
       await item.delete()
     } catch (error) {
@@ -260,6 +264,9 @@ export default class ItemsController {
       session.flash('error', i18n.t('flash.itemInUse', { code: item.code }))
       return response.redirect().back()
     }
+
+    // The documents' rows went with the Item; remove their files too
+    await Promise.all(files.map((file) => unlink(storagePath(file)).catch(() => {})))
 
     session.flash('success', i18n.t('flash.itemDeleted', { code: item.code }))
     response.redirect().toRoute('items.index')

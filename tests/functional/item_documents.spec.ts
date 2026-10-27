@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { rm } from 'node:fs/promises'
+import { rm, writeFile } from 'node:fs/promises'
 import { test } from '@japa/runner'
 import app from '@adonisjs/core/services/app'
 import ItemDocument from '#models/item_document'
@@ -23,7 +23,7 @@ test.group('Item Documents', (group) => {
     await client
       .post(`/items/${item.id}/documents`)
       .field('title', 'Manuale di installazione')
-      .file('file', manual)
+      .file('attachment', manual)
       .header('referer', `/items/${item.id}`)
       .withCsrfToken()
       .loginAs(office)
@@ -56,16 +56,82 @@ test.group('Item Documents', (group) => {
     const response = await client
       .post(`/items/${item.id}/documents`)
       .field('title', 'Script')
-      .file('file', app.makePath('tests/fixtures/not_an_image.txt'))
+      .file('attachment', app.makePath('tests/fixtures/not_an_image.txt'))
       .header('referer', `/items/${item.id}`)
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
 
-    assert.deepEqual(response.flashMessage('inputErrorsBag').file, [
+    assert.deepEqual(response.flashMessage('inputErrorsBag').attachment, [
       "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)",
     ])
     assert.lengthOf(await ItemDocument.all(), 0)
+  })
+
+  test('an oversized file gets the size message, not a raw error', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const item = await createItem()
+    const big = app.makePath('tmp/oversized.pdf')
+    await writeFile(big, Buffer.alloc(21 * 1024 * 1024))
+
+    const response = await client
+      .post(`/items/${item.id}/documents`)
+      .field('title', 'Manuale enorme')
+      .file('attachment', big)
+      .header('referer', `/items/${item.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    await rm(big, { force: true })
+    assert.properties(response.flashMessage('inputErrorsBag'), ['attachment'])
+    assert.lengthOf(await ItemDocument.all(), 0)
+  })
+
+  test('deleting an Item removes its document files', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const item = await createItem()
+    await client
+      .post(`/items/${item.id}/documents`)
+      .field('title', 'Manuale')
+      .file('attachment', manual)
+      .withCsrfToken()
+      .loginAs(office)
+    const document = await ItemDocument.firstOrFail()
+    assert.isTrue(existsSync(storagePath(document.filePath)))
+
+    await client.delete(`/items/${item.id}`).withCsrfToken().loginAs(office)
+
+    assert.isNull(await ItemDocument.find(document.id))
+    assert.isFalse(existsSync(storagePath(document.filePath)))
+  })
+
+  test('serves Italian file names and refuses missing files and outsiders', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const superuser = await createUser('superuser')
+    const item = await createItem()
+    await client
+      .post(`/items/${item.id}/documents`)
+      .field('title', 'Schema')
+      .file('attachment', manual, { filename: "Schema dell'impianto è.pdf" })
+      .withCsrfToken()
+      .loginAs(office)
+    const document = await ItemDocument.firstOrFail()
+
+    const opened = await client.get(`/item-documents/${document.id}`).loginAs(office)
+    opened.assertStatus(200)
+    opened.assertHeader('content-security-policy', 'sandbox')
+    assert.include(opened.header('content-disposition'), "Schema dell'impianto")
+
+    const outsider = await client.get(`/item-documents/${document.id}`).loginAs(superuser)
+    outsider.assertStatus(403)
+
+    await rm(storagePath(document.filePath))
+    const missing = await client.get(`/item-documents/${document.id}`).loginAs(office)
+    missing.assertStatus(404)
   })
 
   test('Technicians can not upload or delete documents', async ({ client, assert }) => {
@@ -80,7 +146,7 @@ test.group('Item Documents', (group) => {
     })
 
     for (const request of [
-      client.post(`/items/${item.id}/documents`).field('title', 'X').file('file', manual),
+      client.post(`/items/${item.id}/documents`).field('title', 'X').file('attachment', manual),
       client.delete(`/item-documents/${document.id}`),
     ]) {
       const response = await request

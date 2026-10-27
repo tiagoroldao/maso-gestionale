@@ -6,5 +6,5 @@ import vine from '@vinejs/vine'
  */
 export const itemDocumentValidator = vine.create({
   title: vine.string().trim().minLength(1).maxLength(255),
-  file: vine.file({ size: '20mb', extnames: ['pdf', 'jpg', 'jpeg', 'png', 'webp'] }),
+  attachment: vine.file({ size: '20mb', extnames: ['pdf', 'jpg', 'jpeg', 'png', 'webp'] }),
 })

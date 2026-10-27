@@ -326,8 +326,13 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
           </div>
           <div class="field">
             <label class="field__label" for="document-file">{{ t('ui.items.documentFile') }}</label>
-            <input id="document-file" name="file" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" />
-            <span v-if="errors.file" class="field__error">{{ errors.file }}</span>
+            <input
+              id="document-file"
+              name="attachment"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+            />
+            <span v-if="errors.attachment" class="field__error">{{ errors.attachment }}</span>
           </div>
           <button
             type="submit"

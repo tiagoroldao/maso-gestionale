@@ -368,21 +368,6 @@
     "nothing": "Niente da segnalare.",
     "negative": "negativa",
     "low": "sotto scorta",
-    "categoryMarkup": "Ricarico categoria",
-    "picker": {
-      "label": "Cerca un articolo",
-      "placeholder": "Codice, descrizione o codice fornitore",
-      "noMatches": "Nessun articolo corrisponde.",
-      "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
-    },
-    "maintenanceSection": "Manutenzione",
-    "maintenanceInterval": "Intervallo di manutenzione predefinito (mesi)",
-    "maintenanceIntervalHint": "Facoltativo. Proposto quando l'articolo viene collegato a un apparecchio installato.",
-    "documentsTitle": "Documenti",
-    "documentsDescription": "Manuali, schede tecniche e certificazioni (PDF o immagini, massimo 20 MB).",
-    "noDocuments": "Nessun documento.",
-    "documentTitle": "Titolo",
-    "documentFile": "File",
-    "upload": "Carica documento"
+    "categoryMarkup": "Ricarico categoria"
   }
 }

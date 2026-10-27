@@ -33,7 +33,7 @@
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
       "amount": "Il campo {field} deve essere un importo valido",
       "quantity": "Il campo {field} deve essere una quantità valida",
-      "file.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)"
+      "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)"
     },
     "fields": {
       "email": "email",
@@ -96,8 +96,8 @@
       "reason": "motivo",
       "reorderLevel": "scorta minima",
       "title": "titolo",
-      "file": "file",
-      "itemId": "articolo"
+      "itemId": "articolo",
+      "attachment": "documento"
     }
   }
 }

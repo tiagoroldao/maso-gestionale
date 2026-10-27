@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync } from 'node:fs'
 import { unlink } from 'node:fs/promises'
 import Item from '#models/item'
 import ItemDocument from '#models/item_document'
@@ -21,20 +22,26 @@ const MIME_TYPES: Record<string, string> = {
 export default class ItemDocumentsController {
   async store({ params, request, response, session, i18n }: HttpContext) {
     const item = await Item.findOrFail(params.id)
-    const { title, file } = await request.validateUsing(itemDocumentValidator)
+    const { title, attachment: file } = await request.validateUsing(itemDocumentValidator)
 
     const extname = file.extname!.toLowerCase()
     const fileName = `${randomUUID()}.${extname}`
     const directory = `items/${item.id}`
     await file.move(storagePath(directory), { name: fileName })
 
-    await item.related('documents').create({
-      title,
-      filePath: `${directory}/${fileName}`,
-      originalName: file.clientName.slice(0, 255),
-      mimeType: MIME_TYPES[extname],
-      sizeBytes: file.size,
-    })
+    try {
+      await item.related('documents').create({
+        title,
+        filePath: `${directory}/${fileName}`,
+        originalName: file.clientName.slice(0, 255),
+        mimeType: MIME_TYPES[extname],
+        sizeBytes: file.size,
+      })
+    } catch (error) {
+      // Don't leave a file that no row points to
+      await unlink(storagePath(directory, fileName)).catch(() => {})
+      throw error
+    }
 
     session.flash('success', i18n.t('flash.documentUploaded'))
     response.redirect().back()
@@ -43,13 +50,15 @@ export default class ItemDocumentsController {
   async show({ params, response }: HttpContext) {
     const document = await ItemDocument.findOrFail(params.id)
 
+    const path = storagePath(document.filePath)
+    if (!existsSync(path)) return response.notFound()
+
     response.header('content-type', document.mimeType)
     response.header('x-content-type-options', 'nosniff')
-    response.header(
-      'content-disposition',
-      `inline; filename*=UTF-8''${encodeURIComponent(document.originalName)}`
-    )
-    return response.download(storagePath(document.filePath))
+    // Even a crafted file can't run scripts in the app's origin
+    response.header('content-security-policy', 'sandbox')
+    // attachment() builds a standards-compliant header for any file name
+    return response.attachment(path, document.originalName, 'inline')
   }
 
   async destroy({ params, response, session, i18n }: HttpContext) {

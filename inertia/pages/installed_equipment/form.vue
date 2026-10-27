@@ -54,7 +54,6 @@ function linkItem(picked: PickedItem) {
   if (!values.maintenanceIntervalMonths && picked.maintenanceIntervalMonths) {
     values.maintenanceIntervalMonths = String(picked.maintenanceIntervalMonths)
   }
-  if (!values.equipmentType) values.equipmentType = picked.description
 }
 
 const textFields: { name: TextField; label: string; list?: string }[] = [
@@ -97,6 +96,7 @@ const title = props.equipment ? t('ui.equipment.editTitle') : t('ui.equipment.ad
             </button>
           </div>
           <ItemPicker v-else :label="t('ui.equipment.linkItem')" @select="linkItem" />
+          <span v-if="errors.itemId" class="field__error">{{ errors.itemId }}</span>
           <ul v-if="item?.documents?.length" :style="{ margin: 0, paddingLeft: '18px' }">
             <li v-for="document in item.documents" :key="document.id">
               <a
