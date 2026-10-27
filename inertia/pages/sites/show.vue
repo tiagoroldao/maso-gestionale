@@ -5,10 +5,12 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, t, todayIso } from '~/i18n'
+import JobList, { type JobRow } from '~/components/job_list.vue'
 
 defineProps<{
   site: { id: number; summary: string; accessNotes: string | null }
   customers: { id: number; displayName: string }[]
+  jobs: JobRow[]
   installedEquipment: {
     id: number
     description: string
@@ -46,6 +48,11 @@ const today = todayIso()
           </li>
         </ul>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.sites.notLinked') }}</p>
+      </Section>
+
+      <Section :title="t('ui.jobs.title')">
+        <JobList v-if="jobs.length" :jobs="jobs" :show-site="false" />
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.jobs.empty') }}</p>
       </Section>
 
       <Section :title="t('ui.equipment.sectionTitle')">

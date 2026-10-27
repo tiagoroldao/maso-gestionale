@@ -22,7 +22,8 @@
     "settings": "Impostazioni",
     "instance": "Istanza",
     "items": "Articoli",
-    "stock": "Magazzino"
+    "stock": "Magazzino",
+    "jobs": "Commesse"
   },
   "roles": {
     "superuser": "Superuser",
@@ -195,7 +196,12 @@
     "noSites": "Nessun immobile collegato.",
     "unlink": "Scollega",
     "linkSite": "Collega un immobile esistente",
-    "newSite": "Nuovo immobile per questo cliente"
+    "newSite": "Nuovo immobile per questo cliente",
+    "picker": {
+      "label": "Cerca un cliente",
+      "noMatches": "Nessun cliente corrisponde.",
+      "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
+    }
   },
   "sites": {
     "title": "Immobili",
@@ -369,5 +375,56 @@
     "negative": "negativa",
     "low": "sotto scorta",
     "categoryMarkup": "Ricarico categoria"
+  },
+  "jobs": {
+    "title": "Commesse",
+    "new": "Nuova commessa",
+    "newTitle": "Nuova commessa",
+    "editTitle": "Modifica commessa {number}",
+    "newForCustomer": "Nuova commessa per questo cliente",
+    "searchLabel": "Cerca commesse",
+    "searchPlaceholder": "Numero, titolo o cliente",
+    "statusFilter": "Stato",
+    "empty": "Nessuna commessa.",
+    "number": "Numero",
+    "jobTitle": "Titolo",
+    "customer": "Cliente",
+    "site": "Immobile",
+    "status": "Stato",
+    "createdAt": "Aperta il",
+    "kind": "Tipo",
+    "description": "Descrizione",
+    "detailsSection": "Commessa",
+    "siteHint": "Facoltativo. Gli immobili collegati al cliente compaiono per primi.",
+    "changeCustomer": "Cambia cliente",
+    "removeSite": "Rimuovi immobile",
+    "kindHint": "Con preventivo: si fattura dal preventivo accettato. A consuntivo: si fattura da ore e materiali degli interventi.",
+    "kindLocked": "Il tipo si può cambiare solo finché la commessa è aperta.",
+    "save": "Salva commessa",
+    "create": "Apri commessa",
+    "cancel": "Annulla commessa",
+    "cancelledOn": "annullata il {date}",
+    "kinds": {
+      "quoted": "Con preventivo",
+      "time_and_materials": "A consuntivo"
+    },
+    "statuses": {
+      "open": "Aperta",
+      "quoted": "Preventivata",
+      "accepted": "Accettata",
+      "in_progress": "In corso",
+      "cancelled": "Annullata"
+    },
+    "filters": {
+      "active": "Attive",
+      "open": "Aperte",
+      "quoted": "Preventivate",
+      "accepted": "Accettate",
+      "in_progress": "In corso",
+      "cancelled": "Annullate",
+      "all": "Tutte"
+    },
+    "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
+    "cancelledNotEditable": "Una commessa annullata non si può modificare."
   }
 }

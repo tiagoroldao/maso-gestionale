@@ -43,6 +43,13 @@ export const manageCustomers = Bouncer.ability((user: User) => {
 })
 
 /**
+ * Jobs: creating, editing and cancelling them.
+ */
+export const manageJobs = Bouncer.ability((user: User) => {
+  return user.role === 'admin' || user.role === 'office'
+})
+
+/**
  * Items: the catalogue of stocked articles and their prices.
  */
 export const manageItems = Bouncer.ability((user: User) => {

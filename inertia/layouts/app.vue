@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import {
   Boxes,
+  Briefcase,
   Building2,
   Contact,
   House,
@@ -27,6 +28,7 @@ const navByRole: Record<string, NavItem[]> = {
   superuser: [{ label: t('ui.nav.instance'), route: 'instance', icon: Server }],
   admin: [
     { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
+    { label: t('ui.nav.jobs'), route: 'jobs.index', icon: Briefcase },
     { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
     { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },
@@ -36,6 +38,7 @@ const navByRole: Record<string, NavItem[]> = {
   ],
   office: [
     { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
+    { label: t('ui.nav.jobs'), route: 'jobs.index', icon: Briefcase },
     { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
     { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },

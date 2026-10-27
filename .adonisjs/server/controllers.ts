@@ -11,6 +11,7 @@ export const controllers = {
   InstalledEquipment: () => import('#controllers/installed_equipment_controller'),
   ItemDocuments: () => import('#controllers/item_documents_controller'),
   Items: () => import('#controllers/items_controller'),
+  Jobs: () => import('#controllers/jobs_controller'),
   LetterheadPreview: () => import('#controllers/letterhead_preview_controller'),
   PaymentTerms: () => import('#controllers/payment_terms_controller'),
   Session: () => import('#controllers/session_controller'),

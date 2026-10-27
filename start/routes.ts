@@ -52,6 +52,7 @@ router
 
     router
       .group(() => {
+        router.get('customers/search', [controllers.Customers, 'search'])
         router.get('customers', [controllers.Customers, 'index'])
         router.get('customers/create', [controllers.Customers, 'create'])
         router.post('customers', [controllers.Customers, 'store'])
@@ -95,6 +96,22 @@ router
           .where('id', router.matchers.number())
       })
       .use(middleware.can('manageCustomers'))
+
+    router
+      .group(() => {
+        router.get('jobs', [controllers.Jobs, 'index'])
+        router.get('jobs/create', [controllers.Jobs, 'create'])
+        router.post('jobs', [controllers.Jobs, 'store'])
+        router.get('jobs/:id', [controllers.Jobs, 'show']).where('id', router.matchers.number())
+        router
+          .get('jobs/:id/edit', [controllers.Jobs, 'edit'])
+          .where('id', router.matchers.number())
+        router.put('jobs/:id', [controllers.Jobs, 'update']).where('id', router.matchers.number())
+        router
+          .post('jobs/:id/cancel', [controllers.Jobs, 'cancel'])
+          .where('id', router.matchers.number())
+      })
+      .use(middleware.can('manageJobs'))
 
     router
       .group(() => {

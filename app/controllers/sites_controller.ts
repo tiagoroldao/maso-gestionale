@@ -2,6 +2,7 @@ import db from '@adonisjs/lucid/services/db'
 import Site from '#models/site'
 import Customer from '#models/customer'
 import { siteSearchValidator, siteValidator } from '#validators/site'
+import { jobRow } from '#services/job_rows'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -84,6 +85,12 @@ export default class SitesController {
     const site = await Site.query()
       .where('id', params.id)
       .preload('customers')
+      .preload('jobs', (jobs) =>
+        jobs.preload('customer').orderBy([
+          { column: 'year', order: 'desc' },
+          { column: 'sequence', order: 'desc' },
+        ])
+      )
       .preload('installedEquipment', (equipment) =>
         equipment
           .orderBy(['equipment_type', 'id'])
@@ -101,6 +108,7 @@ export default class SitesController {
         id: customer.id,
         displayName: customer.displayName,
       })),
+      jobs: site.jobs.map((job) => jobRow(job)),
       installedEquipment: site.installedEquipment.map((equipment) => ({
         id: equipment.id,
         description: equipment.description,

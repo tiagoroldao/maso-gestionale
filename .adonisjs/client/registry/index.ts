@@ -102,6 +102,12 @@ const routes = {
     tokens: [[0,"users"],[1,"id"],[0,"reactivate"]],
     types: placeholder as Registry['users.reactivate']['types'],
   },
+  'customers.search': {
+    methods: ["GET","HEAD"],
+    pattern: '/customers/search',
+    tokens: [[0,"customers"],[0,"search"]],
+    types: placeholder as Registry['customers.search']['types'],
+  },
   'customers.index': {
     methods: ["GET","HEAD"],
     pattern: '/customers',
@@ -215,6 +221,48 @@ const routes = {
     pattern: '/equipment/:id',
     tokens: [[0,"equipment"],[1,"id"]],
     types: placeholder as Registry['installed_equipment.update']['types'],
+  },
+  'jobs.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs',
+    tokens: [[0,"jobs"]],
+    types: placeholder as Registry['jobs.index']['types'],
+  },
+  'jobs.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/create',
+    tokens: [[0,"jobs"],[0,"create"]],
+    types: placeholder as Registry['jobs.create']['types'],
+  },
+  'jobs.store': {
+    methods: ["POST"],
+    pattern: '/jobs',
+    tokens: [[0,"jobs"]],
+    types: placeholder as Registry['jobs.store']['types'],
+  },
+  'jobs.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id',
+    tokens: [[0,"jobs"],[1,"id"]],
+    types: placeholder as Registry['jobs.show']['types'],
+  },
+  'jobs.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id/edit',
+    tokens: [[0,"jobs"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['jobs.edit']['types'],
+  },
+  'jobs.update': {
+    methods: ["PUT"],
+    pattern: '/jobs/:id',
+    tokens: [[0,"jobs"],[1,"id"]],
+    types: placeholder as Registry['jobs.update']['types'],
+  },
+  'jobs.cancel': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/cancel',
+    tokens: [[0,"jobs"],[1,"id"],[0,"cancel"]],
+    types: placeholder as Registry['jobs.cancel']['types'],
   },
   'items.index': {
     methods: ["GET","HEAD"],
