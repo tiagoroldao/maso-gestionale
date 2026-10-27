@@ -1,5 +1,5 @@
 import vine from '@vinejs/vine'
-import { UNIT_PRICE_DECIMALS, VAT_RATES } from '#shared/money'
+import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
 
@@ -10,7 +10,7 @@ const price = () =>
  * Validator for creating and editing an Item. The resale price is always
  * the value the person entered; the Category markup only pre-fills it.
  */
-export const itemValidator = vine.withMetaData<{ id?: number }>().create({
+export const itemValidator = vine.withMetaData<{ id?: number; vatCodeId?: number }>().create({
   code: vine
     .string()
     .trim()
@@ -30,8 +30,16 @@ export const itemValidator = vine.withMetaData<{ id?: number }>().create({
   categoryId: vine.number().exists({ table: 'categories', column: 'id' }).optional(),
   supplierName: vine.string().trim().maxLength(255).optional(),
   supplierCode: vine.string().trim().maxLength(100).optional(),
-  // The Italian VAT rates, until the VAT code table (#17) replaces this field
-  vatRate: vine.enum(VAT_RATES),
+  vatCodeId: vine.number().exists({
+    table: 'vat_codes',
+    column: 'id',
+    // Archived codes can't be picked, but an Item keeps the one it has
+    filter: (db, _, field) => {
+      db.where((q) => q.whereNull('archived_at').orWhere('id', field.meta.vatCodeId ?? 0))
+    },
+  }),
+  // A checkbox: absent when unticked
+  significantGood: vine.boolean().optional(),
   purchasePrice: price(),
   resalePrice: price(),
   reorderLevel: vine

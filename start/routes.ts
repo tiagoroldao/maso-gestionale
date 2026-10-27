@@ -230,6 +230,14 @@ router
           .post('settings/rates/:id/archive', [controllers.Rates, 'archive'])
           .where('id', router.matchers.number())
         router.put('settings/call-out-fee', [controllers.Rates, 'updateCallOutFee'])
+        router.get('settings/vat-codes', [controllers.VatCodes, 'index'])
+        router.post('settings/vat-codes', [controllers.VatCodes, 'store'])
+        router
+          .put('settings/vat-codes/:id', [controllers.VatCodes, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .post('settings/vat-codes/:id/archive', [controllers.VatCodes, 'archive'])
+          .where('id', router.matchers.number())
         router.get('settings/payment-terms', [controllers.PaymentTerms, 'index'])
         router.post('settings/payment-terms', [controllers.PaymentTerms, 'store'])
         router.put('settings/payment-terms/:id', [controllers.PaymentTerms, 'update'])

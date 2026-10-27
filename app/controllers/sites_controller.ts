@@ -25,6 +25,7 @@ function toAttributes(data: Infer<typeof siteValidator>) {
     city: data.city,
     province: data.province,
     accessNotes: data.accessNotes ?? null,
+    residential: data.residential ?? false,
   }
 }
 
@@ -139,6 +140,7 @@ export default class SitesController {
         city: site.city,
         province: site.province,
         accessNotes: site.accessNotes,
+        residential: site.residential,
       },
       customers: site.customers.map((customer) => ({
         id: customer.id,

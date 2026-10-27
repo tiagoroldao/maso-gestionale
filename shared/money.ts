@@ -13,12 +13,6 @@ import Big from 'big.js'
 export const UNIT_PRICE_DECIMALS = 4
 
 /**
- * The Italian VAT rates an Item can default to, until the VAT code table
- * (#17) replaces this list.
- */
-export const VAT_RATES = ['22', '10', '5', '4'] as const
-
-/**
  * Parses an amount typed by a person: "12,50", "12.50" or "1234". Thousands
  * separators are not accepted, so "1.234,56" is rejected rather than
  * misread. Returns null for anything that isn't a plain decimal.

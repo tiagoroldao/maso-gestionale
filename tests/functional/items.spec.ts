@@ -2,7 +2,7 @@ import { test } from '@japa/runner'
 import Item from '#models/item'
 import Category from '#models/category'
 import { createUser } from '#tests/helpers/users'
-import { createCategory, createItem } from '#tests/helpers/items'
+import { createCategory, createItem, vatCode } from '#tests/helpers/items'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const itemFields = {
@@ -11,19 +11,31 @@ const itemFields = {
   unit: 'pz',
   supplierName: 'Idrotermica Srl',
   supplierCode: 'OT-T12',
-  vatRate: '22',
   purchasePrice: '1,2345',
   resalePrice: '1,90',
+  vatCodeId: '',
 }
 
-test.group('Items', () => {
+test.group('Items', (group) => {
+  group.each.setup(async () => {
+    const standard = await vatCode()
+    itemFields.vatCodeId = String(standard.id)
+  })
+
   test('Office creates an Item, with prices typed the Italian way', async ({ client, assert }) => {
     const office = await createUser('office')
     const category = await createCategory()
 
+    const reduced = await vatCode('10%')
+
     const response = await client
       .post('/items')
-      .form({ ...itemFields, categoryId: String(category.id) })
+      .form({
+        ...itemFields,
+        categoryId: String(category.id),
+        vatCodeId: String(reduced.id),
+        significantGood: 'true',
+      })
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
@@ -33,7 +45,8 @@ test.group('Items', () => {
     assert.equal(item.code, 'RAC-12')
     assert.equal(item.purchasePrice, '1.2345')
     assert.equal(item.resalePrice, '1.9000')
-    assert.equal(item.vatRate, '22.00')
+    assert.equal(item.vatCodeId, reduced.id)
+    assert.isTrue(item.significantGood)
     assert.equal(item.categoryId, category.id)
   })
 
@@ -43,7 +56,12 @@ test.group('Items', () => {
 
     const response = await client
       .post('/items')
-      .form({ ...itemFields, purchasePrice: '1.234,56', resalePrice: '1,23456', vatRate: '21' })
+      .form({
+        ...itemFields,
+        purchasePrice: '1.234,56',
+        resalePrice: '1,23456',
+        vatCodeId: '999999',
+      })
       .header('referer', '/items/create')
       .withCsrfToken()
       .loginAs(office)
@@ -53,7 +71,7 @@ test.group('Items', () => {
       'code',
       'purchasePrice',
       'resalePrice',
-      'vatRate',
+      'vatCodeId',
     ])
     assert.lengthOf(await Item.all(), 1)
   })
@@ -138,7 +156,12 @@ test.group('Items', () => {
     const response = await client.get(`/items/${item.id}/edit`).withInertia().loginAs(office)
 
     response.assertInertiaPropsContains({
-      item: { purchasePrice: '1.2345', resalePrice: '0.0345', vatRate: '22.00', archived: false },
+      item: {
+        purchasePrice: '1.2345',
+        resalePrice: '0.0345',
+        significantGood: false,
+        archived: false,
+      },
     })
   })
 

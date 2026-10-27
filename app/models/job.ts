@@ -10,6 +10,19 @@ export const JOB_KINDS = ['quoted', 'time_and_materials'] as const
 export type JobKind = (typeof JOB_KINDS)[number]
 
 /**
+ * The kind of work, which with the Customer type and the Site decides the
+ * default VAT on the Job's Invoice lines.
+ */
+export const WORK_CATEGORIES = [
+  'new_installation',
+  'maintenance',
+  'renovation',
+  'repair',
+  'sale',
+] as const
+export type WorkCategory = (typeof WORK_CATEGORIES)[number]
+
+/**
  * Statuses stored on the Job. Work Complete, Invoiced and Closed are
  * worked out from Visits, Invoices and Payments by later features.
  */
@@ -23,6 +36,7 @@ export type JobStatus = (typeof JOB_STATUSES)[number]
 export default class Job extends JobSchema {
   declare kind: JobKind
   declare status: JobStatus
+  declare workCategory: WorkCategory
 
   @belongsTo(() => Customer)
   declare customer: BelongsTo<typeof Customer>

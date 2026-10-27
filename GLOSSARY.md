@@ -32,6 +32,10 @@ A Job invoiced from an accepted Quote.
 **Time & Materials Job**:
 A Job invoiced from the labour and Items recorded on its Visits.
 
+**Work Category** (_Tipo di lavoro_):
+The kind of work a Job is (new installation, maintenance, renovation, repair or sale), which together with the Customer and the Site decides the VAT normally charged.
+_Avoid_: Job type (ambiguous with Quoted / Time & Materials), intervention type
+
 **Quote** (_Preventivo_):
 A priced proposal for a Job that the Customer accepts or declines.
 _Avoid_: Estimate, offer
@@ -58,6 +62,10 @@ _Avoid_: Inventory, depot
 A stocked article with a purchase price and an independently set resale price, which can be added to an invoice.
 _Avoid_: Product, part, material
 
+**Significant Good** (_Bene significativo_):
+An Item of a kind listed by law (boilers, air conditioners, sanitaryware, window frames…) whose reduced VAT on residential maintenance only covers part of its value.
+_Avoid_: Major item, main component
+
 **Category** (_Categoria_):
 A grouping of Items that carries a suggested markup, used only to propose a resale price.
 _Avoid_: Family, type, group
@@ -75,6 +83,10 @@ _Avoid_: Transaction, stock change, scarico (ambiguous between usage, sale and a
 **Invoice** (_Fattura_):
 A request for payment to a Customer, which becomes a fiscal document with a number only once finalised.
 _Avoid_: Bill, receipt
+
+**VAT Code** (_Codice IVA_):
+The VAT treatment of an invoice line: a rate, or no VAT together with the reason (exempt, out of scope, reverse charge) the tax agency requires.
+_Avoid_: VAT rate (a code at 0% has no meaningful rate), aliquota (when meaning the whole treatment)
 
 **Finalised Invoice**:
 An Invoice that has received its number and date and can no longer be edited, except after a Rejection.

@@ -10,6 +10,7 @@ export function jobRow(job: Job) {
     number: job.number,
     title: job.title,
     kind: job.kind,
+    workCategory: job.workCategory,
     // Refined from the Visits when they are loaded (Work Complete)
     status:
       'visits' in job.$preloaded

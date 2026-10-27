@@ -6,13 +6,7 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
-import {
-  VAT_RATES,
-  amountForInput,
-  markupPercent,
-  parseAmount,
-  suggestedResalePrice,
-} from '@shared/money'
+import { amountForInput, markupPercent, parseAmount, suggestedResalePrice } from '@shared/money'
 
 type ItemProps = {
   id: number
@@ -22,7 +16,8 @@ type ItemProps = {
   categoryId: number | null
   supplierName: string | null
   supplierCode: string | null
-  vatRate: string
+  vatCodeId: number
+  significantGood: boolean
   purchasePrice: string
   resalePrice: string
   archived: boolean
@@ -34,6 +29,7 @@ const props = defineProps<{
   item: ItemProps | null
   documents: { id: number; title: string; originalName: string; sizeBytes: number }[]
   categories: { id: number; name: string; markupPercent: string }[]
+  vatCodes: { id: number; name: string }[]
 }>()
 
 /**
@@ -46,7 +42,8 @@ const values = reactive({
   unit: props.item?.unit ?? 'pz',
   supplierName: props.item?.supplierName ?? '',
   supplierCode: props.item?.supplierCode ?? '',
-  vatRate: props.item ? String(Number(props.item.vatRate)) : '22',
+  vatCodeId: props.item?.vatCodeId ?? props.vatCodes[0]?.id,
+  significantGood: props.item?.significantGood ?? false,
   reorderLevel: props.item?.reorderLevel
     ? amountForInput(props.item.reorderLevel).replace(/,?0+$/, '').replace(/,$/, '')
     : '',
@@ -172,17 +169,32 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
 
         <Section :title="t('ui.items.pricesSection')" :description="t('ui.items.pricesHint')">
           <div class="field">
-            <label class="field__label" for="vatRate">{{ t('ui.items.vatRate') }}</label>
+            <label class="field__label" for="vatCodeId">{{ t('ui.items.vatCode') }}</label>
             <select
-              id="vatRate"
-              v-model="values.vatRate"
-              name="vatRate"
+              id="vatCodeId"
+              v-model="values.vatCodeId"
+              name="vatCodeId"
               class="field__input"
-              :style="{ maxWidth: '120px' }"
+              :style="{ maxWidth: '360px' }"
             >
-              <option v-for="rate in VAT_RATES" :key="rate" :value="rate">{{ rate }} %</option>
+              <option v-for="code in vatCodes" :key="code.id" :value="code.id">
+                {{ code.name }}
+              </option>
             </select>
-            <span v-if="errors.vatRate" class="field__error">{{ errors.vatRate }}</span>
+            <span class="field__hint">{{ t('ui.items.vatCodeHint') }}</span>
+            <span v-if="errors.vatCodeId" class="field__error">{{ errors.vatCodeId }}</span>
+          </div>
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input
+                v-model="values.significantGood"
+                type="checkbox"
+                name="significantGood"
+                value="true"
+              />
+              {{ t('ui.items.significantGood') }}
+            </label>
+            <span class="field__hint">{{ t('ui.items.significantGoodHint') }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="purchasePrice">{{

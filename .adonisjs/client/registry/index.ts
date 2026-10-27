@@ -546,6 +546,30 @@ const routes = {
     tokens: [[0,"settings"],[0,"call-out-fee"]],
     types: placeholder as Registry['rates.update_call_out_fee']['types'],
   },
+  'vat_codes.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/vat-codes',
+    tokens: [[0,"settings"],[0,"vat-codes"]],
+    types: placeholder as Registry['vat_codes.index']['types'],
+  },
+  'vat_codes.store': {
+    methods: ["POST"],
+    pattern: '/settings/vat-codes',
+    tokens: [[0,"settings"],[0,"vat-codes"]],
+    types: placeholder as Registry['vat_codes.store']['types'],
+  },
+  'vat_codes.update': {
+    methods: ["PUT"],
+    pattern: '/settings/vat-codes/:id',
+    tokens: [[0,"settings"],[0,"vat-codes"],[1,"id"]],
+    types: placeholder as Registry['vat_codes.update']['types'],
+  },
+  'vat_codes.archive': {
+    methods: ["POST"],
+    pattern: '/settings/vat-codes/:id/archive',
+    tokens: [[0,"settings"],[0,"vat-codes"],[1,"id"],[0,"archive"]],
+    types: placeholder as Registry['vat_codes.archive']['types'],
+  },
   'payment_terms.index': {
     methods: ["GET","HEAD"],
     pattern: '/settings/payment-terms',

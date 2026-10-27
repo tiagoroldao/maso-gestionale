@@ -16,6 +16,7 @@ defineProps<{
     number: string
     title: string
     kind: string
+    workCategory: string
     status: string
     description: string | null
     customer: { id: number; displayName: string } | null
@@ -60,6 +61,8 @@ defineProps<{
           </dd>
           <dt>{{ t('ui.jobs.kind') }}</dt>
           <dd>{{ t(`ui.jobs.kinds.${job.kind}`) }}</dd>
+          <dt>{{ t('ui.jobs.workCategory') }}</dt>
+          <dd>{{ t(`ui.jobs.workCategories.${job.workCategory}`) }}</dd>
           <dt>{{ t('ui.jobs.customer') }}</dt>
           <dd>
             <Link

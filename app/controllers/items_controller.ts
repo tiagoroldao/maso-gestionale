@@ -2,6 +2,7 @@ import { unlink } from 'node:fs/promises'
 import { DateTime } from 'luxon'
 import Item from '#models/item'
 import Category from '#models/category'
+import VatCode from '#models/vat_code'
 import StockMovement from '#models/stock_movement'
 import StockLedger from '#stock/stock_ledger'
 import { isBelowMarkup } from '#shared/money'
@@ -23,7 +24,8 @@ function toAttributes(data: Infer<typeof itemValidator>) {
     categoryId: data.categoryId ?? null,
     supplierName: data.supplierName ?? null,
     supplierCode: data.supplierCode ?? null,
-    vatRate: data.vatRate,
+    vatCodeId: data.vatCodeId,
+    significantGood: data.significantGood ?? false,
     purchasePrice: data.purchasePrice,
     resalePrice: data.resalePrice,
     reorderLevel: data.reorderLevel ?? null,
@@ -38,6 +40,19 @@ async function categoryOptions() {
     name: category.name,
     markupPercent: category.markupPercent,
   }))
+}
+
+/**
+ * Active VAT Codes, plus the one the Item already has if it was archived.
+ */
+async function vatCodeOptions(current?: number) {
+  const codes = await VatCode.query()
+    .where((q) => q.whereNull('archived_at').orWhere('id', current ?? 0))
+    .orderBy([
+      { column: 'rate', order: 'desc' },
+      { column: 'name', order: 'asc' },
+    ])
+  return codes.map((code) => ({ id: code.id, name: code.name }))
 }
 
 export default class ItemsController {
@@ -77,6 +92,7 @@ export default class ItemsController {
       item: null,
       documents: [],
       categories: await categoryOptions(),
+      vatCodes: await vatCodeOptions(),
     })
   }
 
@@ -160,7 +176,8 @@ export default class ItemsController {
         categoryId: item.categoryId,
         supplierName: item.supplierName,
         supplierCode: item.supplierCode,
-        vatRate: item.vatRate,
+        vatCodeId: item.vatCodeId,
+        significantGood: item.significantGood,
         purchasePrice: item.purchasePrice,
         resalePrice: item.resalePrice,
         archived: item.archivedAt !== null,
@@ -174,12 +191,15 @@ export default class ItemsController {
         sizeBytes: document.sizeBytes,
       })),
       categories: await categoryOptions(),
+      vatCodes: await vatCodeOptions(item.vatCodeId),
     })
   }
 
   async update({ params, request, response, session, i18n }: HttpContext) {
     const item = await Item.findOrFail(params.id)
-    const data = await request.validateUsing(itemValidator, { meta: { id: item.id } })
+    const data = await request.validateUsing(itemValidator, {
+      meta: { id: item.id, vatCodeId: item.vatCodeId },
+    })
 
     try {
       await item.merge(toAttributes(data)).save()
@@ -219,7 +239,7 @@ export default class ItemsController {
         ...(withPrices && {
           purchasePrice: item.purchasePrice,
           resalePrice: item.resalePrice,
-          vatRate: item.vatRate,
+          vatCodeId: item.vatCodeId,
         }),
       })),
     }

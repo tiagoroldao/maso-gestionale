@@ -1177,6 +1177,58 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['updateCallOutFee']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'vat_codes.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/vat-codes'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['index']>>>
+    }
+  }
+  'vat_codes.store': {
+    methods: ["POST"]
+    pattern: '/settings/vat-codes'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/vat_code').vatCodeValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/vat_code').vatCodeValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'vat_codes.update': {
+    methods: ["PUT"]
+    pattern: '/settings/vat-codes/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/vat_code').vatCodeValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/vat_code').vatCodeValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'vat_codes.archive': {
+    methods: ["POST"]
+    pattern: '/settings/vat-codes/:id/archive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['archive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['archive']>>>
+    }
+  }
   'payment_terms.index': {
     methods: ["GET","HEAD"]
     pattern: '/settings/payment-terms'
