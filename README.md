@@ -25,6 +25,15 @@ npm run dev                     # http://localhost:3333
 
 On a fresh database every page redirects to `/setup`, which creates the Superuser and the first Admin.
 
+To try the app with realistic data instead, run `npm run dev:reset`. It **wipes the dev database**, migrates it and seeds a small business: Customers of every type, a stocked catalogue, Jobs in every status, Visits around today and a draft Invoice. Every account's password is `password123`:
+
+| Role | Email |
+|---|---|
+| Superuser | `superuser@maso.test` |
+| Admin | `titolare@maso.test` |
+| Office | `ufficio@maso.test` |
+| Technician | `luca@maso.test`, `giorgio@maso.test` |
+
 The dev database is published on host port 5433, Gotenberg on 3010, both on localhost only. Override with `DB_HOST_PORT` / `GOTENBERG_PORT`. When pulling changes, compare your `.env` with `.env.example`: new required variables (such as `GOTENBERG_URL`) stop the app from booting until they are set.
 
 ### Route registry
