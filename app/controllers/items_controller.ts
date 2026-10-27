@@ -1,3 +1,4 @@
+import { unlink } from 'node:fs/promises'
 import { DateTime } from 'luxon'
 import Item from '#models/item'
 import Category from '#models/category'
@@ -6,6 +7,7 @@ import StockLedger from '#stock/stock_ledger'
 import { isBelowMarkup } from '#shared/money'
 import { itemSearchValidator, itemValidator } from '#validators/item'
 import { isForeignKeyViolation, isUniqueViolation } from '#services/database_errors'
+import { storagePath } from '#services/storage'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -25,6 +27,7 @@ function toAttributes(data: Infer<typeof itemValidator>) {
     purchasePrice: data.purchasePrice,
     resalePrice: data.resalePrice,
     reorderLevel: data.reorderLevel ?? null,
+    maintenanceIntervalMonths: data.maintenanceIntervalMonths ?? null,
   }
 }
 
@@ -70,7 +73,11 @@ export default class ItemsController {
   }
 
   async create({ inertia }: HttpContext) {
-    return inertia.render('items/form', { item: null, categories: await categoryOptions() })
+    return inertia.render('items/form', {
+      item: null,
+      documents: [],
+      categories: await categoryOptions(),
+    })
   }
 
   async store({ request, response, session, i18n }: HttpContext) {
@@ -92,7 +99,11 @@ export default class ItemsController {
    * The Item with its current stock and Stock Movement history.
    */
   async show({ params, inertia }: HttpContext) {
-    const item = await Item.query().where('id', params.id).preload('category').firstOrFail()
+    const item = await Item.query()
+      .where('id', params.id)
+      .preload('category')
+      .preload('documents', (documents) => documents.orderBy('title'))
+      .firstOrFail()
     const movements = await StockMovement.query()
       .where('itemId', item.id)
       .preload('author')
@@ -120,6 +131,7 @@ export default class ItemsController {
         markupPercent: item.category?.markupPercent ?? null,
       },
       stock: await StockLedger.levelOf(item),
+      documents: item.documents.map((document) => ({ id: document.id, title: document.title })),
       movements: movements.map((movement) => ({
         id: movement.id,
         kind: movement.kind,
@@ -134,7 +146,10 @@ export default class ItemsController {
   }
 
   async edit({ params, inertia }: HttpContext) {
-    const item = await Item.findOrFail(params.id)
+    const item = await Item.query()
+      .where('id', params.id)
+      .preload('documents', (documents) => documents.orderBy('title'))
+      .firstOrFail()
 
     return inertia.render('items/form', {
       item: {
@@ -150,7 +165,14 @@ export default class ItemsController {
         resalePrice: item.resalePrice,
         archived: item.archivedAt !== null,
         reorderLevel: item.reorderLevel,
+        maintenanceIntervalMonths: item.maintenanceIntervalMonths,
       },
+      documents: item.documents.map((document) => ({
+        id: document.id,
+        title: document.title,
+        originalName: document.originalName,
+        sizeBytes: document.sizeBytes,
+      })),
       categories: await categoryOptions(),
     })
   }
@@ -193,6 +215,7 @@ export default class ItemsController {
         code: item.code,
         description: item.description,
         unit: item.unit,
+        maintenanceIntervalMonths: item.maintenanceIntervalMonths,
         ...(withPrices && {
           purchasePrice: item.purchasePrice,
           resalePrice: item.resalePrice,
@@ -231,6 +254,8 @@ export default class ItemsController {
       session.flash('error', i18n.t('flash.itemInUse', { code: item.code }))
       return response.redirect().back()
     }
+    const documents = await item.related('documents').query()
+    const files = documents.map((document) => document.filePath)
     try {
       await item.delete()
     } catch (error) {
@@ -239,6 +264,9 @@ export default class ItemsController {
       session.flash('error', i18n.t('flash.itemInUse', { code: item.code }))
       return response.redirect().back()
     }
+
+    // The documents' rows went with the Item; remove their files too
+    await Promise.all(files.map((file) => unlink(storagePath(file)).catch(() => {})))
 
     session.flash('success', i18n.t('flash.itemDeleted', { code: item.code }))
     response.redirect().toRoute('items.index')

@@ -32,6 +32,9 @@ router
         router.on('/dashboard').renderInertia('dashboard', {}).as('dashboard')
         router.get('company/logo', [controllers.CompanySettings, 'logo'])
         router.get('items/search', [controllers.Items, 'search'])
+        router
+          .get('item-documents/:id', [controllers.ItemDocuments, 'show'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('accessBusiness'))
 
@@ -118,6 +121,12 @@ router
           .where('id', router.matchers.number())
         router
           .delete('items/:id', [controllers.Items, 'destroy'])
+          .where('id', router.matchers.number())
+        router
+          .post('items/:id/documents', [controllers.ItemDocuments, 'store'])
+          .where('id', router.matchers.number())
+        router
+          .delete('item-documents/:id', [controllers.ItemDocuments, 'destroy'])
           .where('id', router.matchers.number())
       })
       .use(middleware.can('manageItems'))

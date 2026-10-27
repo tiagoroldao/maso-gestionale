@@ -2,6 +2,7 @@ import { belongsTo } from '@adonisjs/lucid/orm'
 import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import { InstalledEquipmentSchema } from '#database/schema'
 import Site from '#models/site'
+import Item from '#models/item'
 
 /**
  * A specific piece of equipment installed at a Site, which outlives
@@ -12,6 +13,13 @@ export default class InstalledEquipment extends InstalledEquipmentSchema {
 
   @belongsTo(() => Site)
   declare site: BelongsTo<typeof Site>
+
+  /**
+   * The Item this equipment was sold as, if any; its documents and default
+   * Maintenance Interval apply.
+   */
+  @belongsTo(() => Item)
+  declare item: BelongsTo<typeof Item>
 
   /**
    * When the next periodic check is due: the Maintenance Interval after

@@ -7,6 +7,7 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, formatUnitPrice, t, todayIso } from '~/i18n'
 import { amountForInput } from '@shared/money'
+import { urlFor } from '~/client'
 
 const props = defineProps<{
   item: {
@@ -24,6 +25,7 @@ const props = defineProps<{
     markupPercent: string | null
   }
   stock: string
+  documents: { id: number; title: string }[]
   movements: {
     id: number
     kind: string
@@ -88,6 +90,22 @@ const isNegative = computed(() => props.stock.startsWith('-'))
         <p v-if="item.belowMarkup && item.markupPercent" class="field__error">
           {{ t('ui.items.belowMarkup', { markup: percent(item.markupPercent) }) }}
         </p>
+      </Section>
+
+      <Section :title="t('ui.items.documentsTitle')">
+        <ul v-if="documents.length" :style="{ margin: 0, paddingLeft: '18px' }">
+          <li v-for="document in documents" :key="document.id">
+            <a
+              :href="urlFor('item_documents.show', { id: document.id })"
+              target="_blank"
+              rel="noopener"
+              class="il"
+            >
+              {{ document.title }}
+            </a>
+          </li>
+        </ul>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.items.noDocuments') }}</p>
       </Section>
 
       <Section :title="t('ui.items.receiptTitle')" :description="t('ui.items.receiptDescription')">

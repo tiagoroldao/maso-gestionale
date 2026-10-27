@@ -27,5 +27,7 @@
   "itemUnarchived": "Articolo «{code}» ripristinato.",
   "alreadyTaken": "Un altro elemento con questo nome o codice è appena stato salvato. Ricarica la pagina e riprova.",
   "stockReceived": "Carico registrato.",
-  "stockAdjusted": "Rettifica registrata."
+  "stockAdjusted": "Rettifica registrata.",
+  "documentUploaded": "Documento caricato.",
+  "documentDeleted": "Documento «{title}» eliminato."
 }

@@ -54,6 +54,12 @@ const routes = {
     tokens: [[0,"items"],[0,"search"]],
     types: placeholder as Registry['items.search']['types'],
   },
+  'item_documents.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/item-documents/:id',
+    tokens: [[0,"item-documents"],[1,"id"]],
+    types: placeholder as Registry['item_documents.show']['types'],
+  },
   'users.index': {
     methods: ["GET","HEAD"],
     pattern: '/users',
@@ -281,6 +287,18 @@ const routes = {
     pattern: '/items/:id',
     tokens: [[0,"items"],[1,"id"]],
     types: placeholder as Registry['items.destroy']['types'],
+  },
+  'item_documents.store': {
+    methods: ["POST"],
+    pattern: '/items/:id/documents',
+    tokens: [[0,"items"],[1,"id"],[0,"documents"]],
+    types: placeholder as Registry['item_documents.store']['types'],
+  },
+  'item_documents.destroy': {
+    methods: ["DELETE"],
+    pattern: '/item-documents/:id',
+    tokens: [[0,"item-documents"],[1,"id"]],
+    types: placeholder as Registry['item_documents.destroy']['types'],
   },
   'categories.index': {
     methods: ["GET","HEAD"],

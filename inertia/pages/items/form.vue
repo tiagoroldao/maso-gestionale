@@ -5,6 +5,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatMoney, t } from '~/i18n'
+import { urlFor } from '~/client'
 import {
   VAT_RATES,
   amountForInput,
@@ -26,10 +27,12 @@ type ItemProps = {
   resalePrice: string
   archived: boolean
   reorderLevel: string | null
+  maintenanceIntervalMonths: number | null
 }
 
 const props = defineProps<{
   item: ItemProps | null
+  documents: { id: number; title: string; originalName: string; sizeBytes: number }[]
   categories: { id: number; name: string; markupPercent: string }[]
 }>()
 
@@ -47,6 +50,7 @@ const values = reactive({
   reorderLevel: props.item?.reorderLevel
     ? amountForInput(props.item.reorderLevel).replace(/,?0+$/, '').replace(/,$/, '')
     : '',
+  maintenanceIntervalMonths: String(props.item?.maintenanceIntervalMonths ?? ''),
 })
 const categoryId = ref<number | ''>(props.item?.categoryId ?? '')
 const purchasePrice = ref(props.item ? amountForInput(props.item.purchasePrice) : '')
@@ -244,12 +248,102 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
           </div>
         </Section>
 
+        <Section :title="t('ui.items.maintenanceSection')">
+          <div class="field">
+            <label class="field__label" for="maintenanceIntervalMonths">
+              {{ t('ui.items.maintenanceInterval') }}
+            </label>
+            <input
+              id="maintenanceIntervalMonths"
+              v-model="values.maintenanceIntervalMonths"
+              name="maintenanceIntervalMonths"
+              type="number"
+              min="1"
+              max="120"
+              class="field__input"
+              :style="{ maxWidth: '120px' }"
+            />
+            <span class="field__hint">{{ t('ui.items.maintenanceIntervalHint') }}</span>
+            <span v-if="errors.maintenanceIntervalMonths" class="field__error">
+              {{ errors.maintenanceIntervalMonths }}
+            </span>
+          </div>
+        </Section>
+
         <Section>
           <button type="submit" class="btn btn--primary" :disabled="processing">
             {{ t('ui.items.save') }}
           </button>
         </Section>
       </Form>
+
+      <Section
+        v-if="item"
+        :title="t('ui.items.documentsTitle')"
+        :description="t('ui.items.documentsDescription')"
+      >
+        <table v-if="documents.length" class="table">
+          <tbody>
+            <tr v-for="document in documents" :key="document.id">
+              <td>
+                <a
+                  :href="urlFor('item_documents.show', { id: document.id })"
+                  target="_blank"
+                  rel="noopener"
+                  class="il"
+                >
+                  {{ document.title }}
+                </a>
+                <span class="field__hint">
+                  · {{ document.originalName }} · {{ Math.ceil(document.sizeBytes / 1024) }} KB
+                </span>
+              </td>
+              <td class="table__actions">
+                <Form route="item_documents.destroy" :params="{ id: document.id }">
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    {{ t('ui.common.delete') }}
+                  </button>
+                </Form>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.items.noDocuments') }}</p>
+
+        <Form
+          v-slot="{ processing, errors }"
+          route="item_documents.store"
+          :params="{ id: item.id }"
+          reset-on-success
+          :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }"
+        >
+          <div class="field">
+            <label class="field__label" for="document-title">{{
+              t('ui.items.documentTitle')
+            }}</label>
+            <input id="document-title" name="title" class="field__input" />
+            <span v-if="errors.title" class="field__error">{{ errors.title }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="document-file">{{ t('ui.items.documentFile') }}</label>
+            <input
+              id="document-file"
+              name="attachment"
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+            />
+            <span v-if="errors.attachment" class="field__error">{{ errors.attachment }}</span>
+          </div>
+          <button
+            type="submit"
+            class="btn btn--secondary"
+            :disabled="processing"
+            :style="{ marginTop: '22px' }"
+          >
+            {{ t('ui.items.upload') }}
+          </button>
+        </Form>
+      </Section>
 
       <Section v-if="item">
         <p v-if="item.archived" class="field__hint">{{ t('ui.items.archivedNotice') }}</p>

@@ -15,7 +15,9 @@ type Common = {
   user?: User | null
   /**
    * Joins the caller's transaction, so a Visit or Invoice and its Stock
-   * Movements are saved together.
+   * Movements are saved together. The caller must then refresh any Item it
+   * holds before saving it again, or it would put back the old purchase
+   * price. When locking several Items, lock them in id order.
    */
   client?: TransactionClientContract
 }

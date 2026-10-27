@@ -66,7 +66,9 @@ const bodyParserConfig = defineConfig({
     /**
      * Maximum accepted payload size for multipart requests.
      */
-    limit: '20mb',
+    // Above the largest per-file limit (20 MB documents), so the validator's
+    // Italian message is shown instead of a raw 413
+    limit: '25mb',
 
     /**
      * Content types handled by the multipart parser.

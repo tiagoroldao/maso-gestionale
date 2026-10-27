@@ -111,6 +111,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['search']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'item_documents.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/item-documents/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+    }
+  }
   'users.index': {
     methods: ["GET","HEAD"]
     pattern: '/users'
@@ -603,6 +616,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['destroy']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['destroy']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['destroy']>>>
+    }
+  }
+  'item_documents.store': {
+    methods: ["POST"]
+    pattern: '/items/:id/documents'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/item_document').itemDocumentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/item_document').itemDocumentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'item_documents.destroy': {
+    methods: ["DELETE"]
+    pattern: '/item-documents/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['destroy']>>>
     }
   }
   'categories.index': {

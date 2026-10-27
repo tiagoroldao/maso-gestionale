@@ -116,7 +116,7 @@ export class CustomerSchema extends BaseModel {
 }
 
 export class InstalledEquipmentSchema extends BaseModel {
-  static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'serialNumber', 'siteId', 'updatedAt'] as const
+  static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'itemId', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'serialNumber', 'siteId', 'updatedAt'] as const
   $columns = InstalledEquipmentSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -126,6 +126,8 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare id: number
   @column.date()
   declare installedOn: DateTime | null
+  @column()
+  declare itemId: number | null
   @column.date()
   declare lastServicedOn: DateTime | null
   @column()
@@ -144,8 +146,29 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ItemDocumentSchema extends BaseModel {
+  static $columns = ['createdAt', 'filePath', 'id', 'itemId', 'mimeType', 'originalName', 'sizeBytes', 'title'] as const
+  $columns = ItemDocumentSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare filePath: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare mimeType: string
+  @column()
+  declare originalName: string
+  @column()
+  declare sizeBytes: number
+  @column()
+  declare title: string
+}
+
 export class ItemSchema extends BaseModel {
-  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'purchasePrice', 'reorderLevel', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
+  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
   $columns = ItemSchema.$columns
   @column.dateTime()
   declare archivedAt: DateTime | null
@@ -159,6 +182,8 @@ export class ItemSchema extends BaseModel {
   declare description: string
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare maintenanceIntervalMonths: number | null
   @column()
   declare purchasePrice: string
   @column()
@@ -175,6 +200,35 @@ export class ItemSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare vatRate: string
+}
+
+export class JobSchema extends BaseModel {
+  static $columns = ['cancelledAt', 'createdAt', 'customerId', 'description', 'id', 'kind', 'sequence', 'siteId', 'status', 'title', 'updatedAt', 'year'] as const
+  $columns = JobSchema.$columns
+  @column.dateTime()
+  declare cancelledAt: DateTime | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare customerId: number
+  @column()
+  declare description: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare sequence: number
+  @column()
+  declare siteId: number | null
+  @column()
+  declare status: string
+  @column()
+  declare title: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
 }
 
 export class PaymentTermSchema extends BaseModel {
