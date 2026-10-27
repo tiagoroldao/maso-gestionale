@@ -10,7 +10,7 @@ export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
 
 /**
  * A priced proposal for a Job that the Customer accepts or declines.
- * Amounts are VAT-exclusive until VAT codes exist (#17).
+ * Amounts are VAT-exclusive until Quote lines get VAT Codes (#67).
  */
 export default class Quote extends QuoteSchema {
   declare status: QuoteStatus

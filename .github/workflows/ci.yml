@@ -67,6 +67,22 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
 
+      - name: Generated files are up to date
+        run: |
+          node ace migration:run --force
+          npm run codegen
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          if ! git diff --exit-code -- .adonisjs database/schema.ts; then
+            echo "::error::Generated files are stale. Run 'npm run codegen' (with migrations applied) and commit the result."
+            exit 1
+          fi
+
+      - name: Comments waiting on closed issues
+        run: npm run check:issue-refs
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
       - name: Tests (unit, functional, browser)
         run: node ace test
         env:

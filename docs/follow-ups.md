@@ -33,11 +33,13 @@ Review findings folded into planned work, so they are picked up with it:
 - **#17:** Registro Imprese / REA; Credit Note numbering (shared sequence or *sezionale*).
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings.
-- **#22:** Quote VAT Codes (#67); Job guards once invoiced; Visit lines linked to the Invoice that billed them; rounding vs. the Job page total; price policy (comment).
+- **#22** (Quoted Job → draft): Quote VAT Codes (#67); Job guards once invoiced.
+- **#74** (Time & Materials → draft): rounding vs. the Job page total; price policy (comment on #22).
+- **#75:** Visit lines linked to the Invoice that billed them.
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues
 
-- **Billing price policy:** noted on #22 (recorded prices vs. today's prices for Time & Materials Invoices).
+- **Billing price policy:** comment on #22, applies to #74 (recorded prices vs. today's prices).
 - **Closing a Visit by mistake (#16):** "Done" and "needs another visit" are final; neither the Technician nor Office can reopen a Visit. Accepted trade-off for now; revisit if it happens in practice (an Office "reopen" that reverses the stock usage).
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.
