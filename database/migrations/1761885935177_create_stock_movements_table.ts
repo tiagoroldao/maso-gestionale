@@ -14,7 +14,7 @@ export default class extends BaseSchema {
       table.date('occurred_on').notNullable()
       table.string('reference', 255).nullable()
       table.text('reason').nullable()
-      table.check(`kind <> 'adjustment' OR reason IS NOT NULL`)
+      table.check(`kind <> 'adjustment' OR btrim(coalesce(reason, '')) <> ''`)
       table.integer('created_by').nullable().references('id').inTable('users').onDelete('SET NULL')
       table.timestamp('created_at').notNullable()
 

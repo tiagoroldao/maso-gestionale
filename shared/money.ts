@@ -68,8 +68,9 @@ export function amountForInput(amount: string) {
  * purchase.
  */
 export function isBelowMarkup(purchasePrice: string, resalePrice: string, markup: string) {
-  const minimum = new Big(purchasePrice).times(new Big(markup).div(100).plus(1))
-  return new Big(resalePrice).lt(minimum)
+  // Compared with the rounded suggestion, so an Item priced exactly as
+  // suggested is never flagged
+  return new Big(resalePrice).lt(suggestedResalePrice(purchasePrice, markup))
 }
 
 /**

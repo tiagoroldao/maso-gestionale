@@ -347,6 +347,7 @@
     "belowMarkupDescription": "Articoli il cui prezzo di vendita è sotto il ricarico della categoria dopo un acquisto più caro.",
     "nothing": "Niente da segnalare.",
     "negative": "negativa",
-    "low": "sotto scorta"
+    "low": "sotto scorta",
+    "categoryMarkup": "Ricarico categoria"
   }
 }

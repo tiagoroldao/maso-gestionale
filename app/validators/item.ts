@@ -36,7 +36,7 @@ export const itemValidator = vine.withMetaData<{ id?: number }>().create({
   resalePrice: price(),
   reorderLevel: vine
     .string()
-    .use(quantityRule({ allowNegative: false }))
+    .use(quantityRule({ allowNegative: false, allowZero: true }))
     .optional(),
 })
 

@@ -4,7 +4,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { amountForInput } from '@shared/money'
-import { t } from '~/i18n'
+import { formatUnitPrice, t } from '~/i18n'
 
 type Row = {
   id: number
@@ -13,6 +13,9 @@ type Row = {
   unit: string
   stock: string
   reorderLevel: string | null
+  purchasePrice: string
+  resalePrice: string
+  markupPercent: string | null
   negative: boolean
   low: boolean
 }
@@ -66,12 +69,30 @@ function quantity(value: string) {
         :description="t('ui.stock.belowMarkupDescription')"
       >
         <table v-if="belowMarkup.length" class="table">
+          <thead>
+            <tr>
+              <th>{{ t('ui.items.code') }}</th>
+              <th>{{ t('ui.items.description') }}</th>
+              <th :style="{ textAlign: 'right' }">{{ t('ui.items.purchasePrice') }}</th>
+              <th :style="{ textAlign: 'right' }">{{ t('ui.items.resalePrice') }}</th>
+              <th :style="{ textAlign: 'right' }">{{ t('ui.stock.categoryMarkup') }}</th>
+            </tr>
+          </thead>
           <tbody>
             <tr v-for="row in belowMarkup" :key="row.id">
               <td class="mono">
                 <Link route="items.show" :params="{ id: row.id }" class="il">{{ row.code }}</Link>
               </td>
               <td>{{ row.description }}</td>
+              <td :style="{ textAlign: 'right' }">{{ formatUnitPrice(row.purchasePrice) }}</td>
+              <td :style="{ textAlign: 'right' }">{{ formatUnitPrice(row.resalePrice) }}</td>
+              <td :style="{ textAlign: 'right' }">
+                {{
+                  row.markupPercent
+                    ? `${amountForInput(row.markupPercent).replace(/,00$/, '')} %`
+                    : ''
+                }}
+              </td>
             </tr>
           </tbody>
         </table>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Pencil } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
@@ -38,12 +39,17 @@ const props = defineProps<{
 /**
  * Quantities as people write them: "2,5" rather than "2.500".
  */
+function percent(value: string) {
+  return amountForInput(value).replace(/,00$/, '')
+}
+
 function quantity(value: string) {
   return amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 }
 
 const today = todayIso()
-const isNegative = props.stock.startsWith('-')
+// Recomputed after each recorded movement (the page is reused, not remounted)
+const isNegative = computed(() => props.stock.startsWith('-'))
 </script>
 
 <template>
@@ -80,7 +86,7 @@ const isNegative = props.stock.startsWith('-')
           <dd>{{ formatUnitPrice(item.resalePrice) }}/{{ item.unit }}</dd>
         </dl>
         <p v-if="item.belowMarkup && item.markupPercent" class="field__error">
-          {{ t('ui.items.belowMarkup', { markup: amountForInput(item.markupPercent) }) }}
+          {{ t('ui.items.belowMarkup', { markup: percent(item.markupPercent) }) }}
         </p>
       </Section>
 
@@ -174,6 +180,7 @@ const isNegative = props.stock.startsWith('-')
               :value="today"
               class="field__input"
             />
+            <span v-if="errors.occurredOn" class="field__error">{{ errors.occurredOn }}</span>
           </div>
           <button
             type="submit"

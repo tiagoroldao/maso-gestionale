@@ -1,10 +1,11 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import StockLedger from '#stock/stock_ledger'
 import StockMovement from '#models/stock_movement'
 import { createUser } from '#tests/helpers/users'
 import { createCategory, createItem } from '#tests/helpers/items'
-import { it } from '#tests/helpers/i18n'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const today = DateTime.now()
 
@@ -35,6 +36,42 @@ test.group('Stock ledger', () => {
     // The Item can still be saved after the receipt's transaction
     item.description = 'Still editable'
     await item.save()
+  })
+
+  test('a backdated receipt never replaces a newer purchase price', async ({ assert }) => {
+    const item = await createItem({ purchasePrice: '10' })
+
+    await StockLedger.receive(item, { quantity: '1', unitCost: '12.40', occurredOn: today })
+    await StockLedger.receive(item, {
+      quantity: '1',
+      unitCost: '10',
+      occurredOn: today.minus({ days: 10 }),
+    })
+    assert.equal(item.purchasePrice, '12.4000')
+
+    // A later receipt on the same date does take over
+    await StockLedger.receive(item, { quantity: '1', unitCost: '13', occurredOn: today })
+    assert.equal(item.purchasePrice, '13.0000')
+  })
+
+  test('joins a caller transaction, rolling back with it', async ({ assert }) => {
+    const item = await createItem({ purchasePrice: '10' })
+
+    await db
+      .transaction(async (trx) => {
+        await StockLedger.receive(item, {
+          quantity: '5',
+          unitCost: '20',
+          occurredOn: today,
+          client: trx,
+        })
+        throw new Error('caller fails')
+      })
+      .catch(() => {})
+
+    assert.equal(await StockLedger.levelOf(item), '0.000')
+    await item.refresh()
+    assert.equal(item.purchasePrice, '10.0000')
   })
 
   test('a receipt without a unit cost keeps the purchase price', async ({ assert }) => {
@@ -96,6 +133,45 @@ test.group('Stock screens', () => {
     assert.equal(item.purchasePrice, '11.2000')
   })
 
+  test('quantities with more than 3 decimals are rejected', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const item = await createItem()
+
+    for (const quantity of ['2,5555', '0,0004']) {
+      const response = await client
+        .post(`/items/${item.id}/receipts`)
+        .form({ quantity, occurredOn: today.toISODate()! })
+        .header('referer', `/items/${item.id}`)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      assert.properties(response.flashMessage('inputErrorsBag'), ['quantity'])
+    }
+    assert.lengthOf(await StockMovement.all(), 0)
+  })
+
+  test('Technicians can not record movements', async ({ client, assert }) => {
+    const technician = await createUser('technician')
+    const item = await createItem()
+
+    for (const request of [
+      client
+        .post(`/items/${item.id}/receipts`)
+        .form({ quantity: '1', occurredOn: today.toISODate()! }),
+      client
+        .post(`/items/${item.id}/adjustments`)
+        .form({ quantity: '-1', reason: 'x', occurredOn: today.toISODate()! }),
+    ]) {
+      const response = await request
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(technician)
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+    assert.lengthOf(await StockMovement.all(), 0)
+  })
+
   test('an adjustment needs a reason', async ({ client, assert }) => {
     const office = await createUser('office')
     const item = await createItem()
@@ -146,6 +222,11 @@ test.group('Stock screens', () => {
     await StockLedger.receive(low, { quantity: '5', occurredOn: today })
     await StockLedger.receive(fine, { quantity: '6', occurredOn: today })
     await StockLedger.receive(costly, { quantity: '1', unitCost: '11', occurredOn: today })
+
+    const archived = await createItem({ code: 'ARCH' })
+    await StockLedger.adjust(archived, { quantity: '-1', reason: 'x', occurredOn: today })
+    archived.archivedAt = DateTime.now()
+    await archived.save()
 
     const response = await client.get('/stock').withInertia().loginAs(office)
 
