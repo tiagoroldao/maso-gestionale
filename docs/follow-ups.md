@@ -25,6 +25,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #71   | Refuse field work on cancelled Jobs' Visits                                                                                                | —                                                |
 | #72   | Stable issue date and validity on Quote PDFs                                                                                               | —                                                |
 | #73   | Review leftovers: UI polish and test gaps (#43–#66 reviews)                                                                                | —                                                |
+| #80   | Extract a Jobs service (create, cancel); the dev seeder copies the controller logic until then                                             | —                                                |
 
 ## Added to existing issues
 
@@ -44,4 +45,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **Archived-reference check outside the lock:** Quote and Invoice saves read which archived Items and VAT Codes the record already uses before locking it, so a concurrent save or archive could let an archived reference onto a draft. Move the check inside the locked transaction for both (from the #77 review).
 - **Billing price policy:** comment on #22, applies to #74 (recorded prices vs. today's prices).
 - **Closing a Visit by mistake (#16):** "Done" and "needs another visit" are final; neither the Technician nor Office can reopen a Visit. Accepted trade-off for now; revisit if it happens in practice (an Office "reopen" that reverses the stock usage).
+- **pg deprecation warning in tests:** "client.query() when the client is already executing a query" appears in functional tests (field work, dev seeder) under the global transaction: some code path runs queries in parallel on one connection. Find it with `node --trace-deprecation` before the pg 9 upgrade.
+- **Dev seed timing:** the seeder starts today's boiler Visit (09–13) whatever the time, so seeding early or late gives an in-progress Visit outside its hours. Harmless.
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.

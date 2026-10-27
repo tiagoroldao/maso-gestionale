@@ -57,16 +57,19 @@ export default class DevSeeder extends BaseSeeder {
       password: DEV_PASSWORD,
       role: 'office',
     })
-    const [luca, giorgio] = await Promise.all(
-      ['Luca Ferri', 'Giorgio Sala'].map((fullName, i) =>
-        User.create({
+    // One at a time: queries in parallel on one transaction warn in tests
+    const technicians: User[] = []
+    for (const [i, fullName] of ['Luca Ferri', 'Giorgio Sala'].entries()) {
+      technicians.push(
+        await User.create({
           fullName,
           email: DEV_LOGINS.technicians[i],
           password: DEV_PASSWORD,
           role: 'technician',
         })
       )
-    )
+    }
+    const [luca, giorgio] = technicians
 
     await this.settings()
     const rates = await this.rates()
@@ -220,25 +223,24 @@ export default class DevSeeder extends BaseSeeder {
     cancelled.merge({ status: 'cancelled', cancelledAt: DateTime.now() })
     await cancelled.save()
 
-    // A draft Invoice: a counter sale at two rates, with a global discount
-    const invoice = await Invoices.create(customers.company.customer)
-    const [standard, reduced] = await Promise.all([
-      VatCode.findByOrFail('name', '22%'),
-      VatCode.findByOrFail('name', '10%'),
-    ])
+    // A draft Invoice at two rates with a global discount: gaskets bought
+    // at the counter (22%) and maintenance at the Customer's home (10%)
+    const invoice = await Invoices.create(customers.private.customer)
+    const standard = await VatCode.findByOrFail('name', '22%')
+    const reduced = await VatCode.findByOrFail('name', '10%')
     await Invoices.save(invoice, {
       discountPercent: '5',
-      notes: 'Vendita al banco.',
+      notes: 'Materiale al banco e manutenzione a domicilio.',
       lines: [
         {
-          itemId: items.rubinetto.id,
-          description: items.rubinetto.description,
+          itemId: items.guarnizioni.id,
+          description: items.guarnizioni.description,
           quantity: '2',
-          unitPrice: items.rubinetto.resalePrice,
+          unitPrice: items.guarnizioni.resalePrice,
           vatCodeId: standard.id,
         },
         {
-          description: 'Manutenzione rubinetteria (abitazione)',
+          description: 'Manutenzione rubinetteria, Casa Rossi',
           quantity: '1',
           unitPrice: '60',
           vatCodeId: reduced.id,
@@ -367,7 +369,7 @@ export default class DevSeeder extends BaseSeeder {
       raccordo: get('RAC-T12'),
       tubo: get('TUB-MS20'),
       sifone: get('SIF-40'),
-      rubinetto: get('RUB-MIX'),
+      guarnizioni: get('GUAR-K'),
       wc: get('WC-SOSP'),
       caldaia: get('CAL-25'),
     }

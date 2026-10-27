@@ -41,8 +41,22 @@ test.group('Development seed data', () => {
       .loginAs(office)
     assert.lengthOf(complete.inertiaProps.jobs as unknown[], 1)
 
+    // Today's started boiler Visit and tomorrow's follow-up
     const luca = await User.findByOrFail('email', DEV_LOGINS.technicians[0])
     const mine = await client.get('/my-visits').withInertia().loginAs(luca)
-    assert.isNotEmpty(mine.inertiaProps.visits as unknown[])
+    const lucaVisits = mine.inertiaProps.visits as { status: string }[]
+    assert.sameMembers(
+      lucaVisits.filter((visit) => visit.status !== 'needs_return').map((visit) => visit.status),
+      ['in_progress', 'planned']
+    )
+
+    const agenda = await client.get('/agenda').qs({ view: 'week' }).withInertia().loginAs(office)
+    assert.isNotEmpty(agenda.inertiaProps.visits as unknown[])
+    const stock = await client.get('/stock').withInertia().loginAs(office)
+    const toReorder = stock.inertiaProps.toReorder as { code: string }[]
+    assert.deepEqual(
+      toReorder.map((item) => item.code),
+      ['FLX-30']
+    )
   })
 })
