@@ -32,7 +32,7 @@ Review findings folded into planned work, so they are picked up with it:
 
 - **#17:** Registro Imprese / REA; Credit Note numbering (shared sequence or _sezionale_).
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
-- **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings.
+- **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()` (comment).
 - **#22** (Quoted Job → draft): Quote VAT Codes (#67); Job guards once invoiced.
 - **#74** (Time & Materials → draft): rounding vs. the Job page total; price policy (comment on #22).
 - **#75:** Visit lines linked to the Invoice that billed them.

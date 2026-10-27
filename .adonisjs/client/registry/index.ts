@@ -384,6 +384,42 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"quote.pdf"]],
     types: placeholder as Registry['quotes.pdf']['types'],
   },
+  'invoices.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices',
+    tokens: [[0,"invoices"]],
+    types: placeholder as Registry['invoices.index']['types'],
+  },
+  'invoices.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/create',
+    tokens: [[0,"invoices"],[0,"create"]],
+    types: placeholder as Registry['invoices.create']['types'],
+  },
+  'invoices.store': {
+    methods: ["POST"],
+    pattern: '/invoices',
+    tokens: [[0,"invoices"]],
+    types: placeholder as Registry['invoices.store']['types'],
+  },
+  'invoices.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/edit',
+    tokens: [[0,"invoices"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['invoices.edit']['types'],
+  },
+  'invoices.update': {
+    methods: ["PUT"],
+    pattern: '/invoices/:id',
+    tokens: [[0,"invoices"],[1,"id"]],
+    types: placeholder as Registry['invoices.update']['types'],
+  },
+  'invoices.destroy': {
+    methods: ["DELETE"],
+    pattern: '/invoices/:id',
+    tokens: [[0,"invoices"],[1,"id"]],
+    types: placeholder as Registry['invoices.destroy']['types'],
+  },
   'items.index': {
     methods: ["GET","HEAD"],
     pattern: '/items',

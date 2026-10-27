@@ -59,5 +59,9 @@
     "done": "L'intervento è chiuso e non si può più modificare.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
     "noSite": "La commessa non ha un immobile: non si può registrare un'installazione."
-  }
+  },
+  "invoiceCreated": "Bozza di fattura creata.",
+  "invoiceSaved": "Bozza salvata.",
+  "invoiceDeleted": "Bozza eliminata.",
+  "invoiceNotEditable": "La fattura non è più modificabile."
 }

@@ -148,6 +148,56 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class InvoiceLineSchema extends BaseModel {
+  static $columns = ['description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
+  $columns = InvoiceLineSchema.$columns
+  @column()
+  declare description: string
+  @column()
+  declare discountPercent: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceId: number
+  @column()
+  declare itemId: number | null
+  @column()
+  declare lineTotal: string
+  @column()
+  declare natura: string | null
+  @column()
+  declare position: number
+  @column()
+  declare quantity: string
+  @column()
+  declare unit: string | null
+  @column()
+  declare unitPrice: string
+  @column()
+  declare vatCodeId: number
+  @column()
+  declare vatRate: string
+}
+
+export class InvoiceSchema extends BaseModel {
+  static $columns = ['createdAt', 'customerId', 'discountPercent', 'id', 'notes', 'status', 'updatedAt'] as const
+  $columns = InvoiceSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare customerId: number
+  @column()
+  declare discountPercent: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare notes: string | null
+  @column()
+  declare status: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class ItemDocumentSchema extends BaseModel {
   static $columns = ['createdAt', 'filePath', 'id', 'itemId', 'mimeType', 'originalName', 'sizeBytes', 'title'] as const
   $columns = ItemDocumentSchema.$columns

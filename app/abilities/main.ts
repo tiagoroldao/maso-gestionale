@@ -74,6 +74,13 @@ export const manageItems = Bouncer.ability((user: User) => {
 })
 
 /**
+ * Invoices: drafting, editing and deleting them.
+ */
+export const manageInvoices = Bouncer.ability((user: User) => {
+  return user.role === 'admin' || user.role === 'office'
+})
+
+/**
  * Seeing purchase and resale prices. Technicians never do (PRD).
  */
 export const seePrices = Bouncer.ability((user: User) => {

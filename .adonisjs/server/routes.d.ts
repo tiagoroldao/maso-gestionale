@@ -67,6 +67,12 @@ export type ScannedRoutes = {
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.index': { paramsTuple?: []; params?: {} }
+    'invoices.create': { paramsTuple?: []; params?: {} }
+    'invoices.store': { paramsTuple?: []; params?: {} }
+    'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -138,6 +144,9 @@ export type ScannedRoutes = {
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.index': { paramsTuple?: []; params?: {} }
+    'invoices.create': { paramsTuple?: []; params?: {} }
+    'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -186,6 +195,9 @@ export type ScannedRoutes = {
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.index': { paramsTuple?: []; params?: {} }
+    'invoices.create': { paramsTuple?: []; params?: {} }
+    'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -221,6 +233,7 @@ export type ScannedRoutes = {
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.store': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
     'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -239,6 +252,7 @@ export type ScannedRoutes = {
     'my_visits.remove_hours': { paramsTuple: [ParamValue]; params: {'hourId': ParamValue} }
     'my_visits.remove_item': { paramsTuple: [ParamValue]; params: {'itemId': ParamValue} }
     'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
+    'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -251,6 +265,7 @@ export type ScannedRoutes = {
     'installed_equipment.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

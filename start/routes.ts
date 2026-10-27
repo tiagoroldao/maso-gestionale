@@ -174,6 +174,23 @@ router
 
     router
       .group(() => {
+        router.get('invoices', [controllers.Invoices, 'index'])
+        router.get('invoices/create', [controllers.Invoices, 'create'])
+        router.post('invoices', [controllers.Invoices, 'store'])
+        router
+          .get('invoices/:id/edit', [controllers.Invoices, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('invoices/:id', [controllers.Invoices, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .delete('invoices/:id', [controllers.Invoices, 'destroy'])
+          .where('id', router.matchers.number())
+      })
+      .use(middleware.can('manageInvoices'))
+
+    router
+      .group(() => {
         router.get('items', [controllers.Items, 'index'])
         router.get('items/create', [controllers.Items, 'create'])
         router.post('items', [controllers.Items, 'store'])
