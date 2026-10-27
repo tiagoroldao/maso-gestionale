@@ -54,7 +54,6 @@ export default class DocumentRenderer {
         taxCode: company.taxCode && company.taxCode !== company.vatNumber ? company.taxCode : null,
         email: company.email ?? null,
         phone: company.phone ?? null,
-        iban: company.iban ?? null,
         logoDataUri: await this.logoDataUri(company.logoFile ?? null),
       },
     })

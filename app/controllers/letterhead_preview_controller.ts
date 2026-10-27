@@ -26,7 +26,7 @@ export default class LetterheadPreviewController {
     return new DocumentRenderer().renderHtml(SAMPLE)
   }
 
-  async pdf({ response }: HttpContext) {
+  async pdf({ response, logger }: HttpContext) {
     try {
       const pdf = await new DocumentRenderer().renderPdf(SAMPLE)
       response.header('content-type', 'application/pdf')
@@ -34,6 +34,7 @@ export default class LetterheadPreviewController {
       return pdf
     } catch (error) {
       if (!(error instanceof PdfConversionError)) throw error
+      logger.warn({ err: error }, 'PDF conversion failed')
       return response.serviceUnavailable('The PDF service is not available. Try again shortly.')
     }
   }

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form } from '@adonisjs/inertia/vue'
+import { urlFor } from '~/client'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import SettingsLayout from '~/layouts/settings.vue'
@@ -134,7 +135,7 @@ const logoUrl = props.settings.updatedAt
               Save company settings
             </button>
             <a
-              href="/settings/company/letterhead.pdf"
+              :href="urlFor('letterhead_preview.pdf')"
               target="_blank"
               rel="noopener"
               class="btn btn--secondary"

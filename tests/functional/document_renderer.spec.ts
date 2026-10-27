@@ -1,5 +1,4 @@
-import { rm } from 'node:fs/promises'
-import { copyFile, mkdir } from 'node:fs/promises'
+import { copyFile, mkdir, rm } from 'node:fs/promises'
 import { test } from '@japa/runner'
 import app from '@adonisjs/core/services/app'
 import CompanySettings from '#models/company_settings'

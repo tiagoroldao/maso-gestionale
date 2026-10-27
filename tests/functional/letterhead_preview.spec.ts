@@ -13,12 +13,14 @@ test.group('Letterhead preview', () => {
     response.assertTextIncludes('Letterhead preview')
   })
 
-  test('Office users can not open the preview', async ({ client }) => {
-    const office = await createUser('office')
-
-    const response = await client.get('/settings/company/letterhead.pdf').loginAs(office)
-
-    response.assertStatus(403)
+  test('only the Admin can open the preview', async ({ client }) => {
+    for (const role of ['office', 'technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      for (const url of ['/settings/company/letterhead', '/settings/company/letterhead.pdf']) {
+        const response = await client.get(url).loginAs(user)
+        response.assertStatus(403)
+      }
+    }
   })
 
   test('smoke: real Gotenberg returns a PDF', async ({ client, assert }) => {
@@ -35,6 +37,13 @@ test.group('Letterhead preview', () => {
       '%PDF-'
     )
   }).tags(['@gotenberg'])
+
+  test('an error response from Gotenberg raises a PdfConversionError', async ({ assert }) => {
+    // The app's own test server answers this unknown route with an error status
+    const converter = new GotenbergPdfConverter(`http://${process.env.HOST}:${process.env.PORT}`)
+
+    await assert.rejects(() => converter.convert('<p>hi</p>'), PdfConversionError)
+  })
 
   test('an unreachable Gotenberg raises a PdfConversionError', async ({ assert }) => {
     const converter = new GotenbergPdfConverter('http://127.0.0.1:9')

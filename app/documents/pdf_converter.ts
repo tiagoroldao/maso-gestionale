@@ -10,6 +10,11 @@ export interface PdfConverter {
 export class PdfConversionError extends Error {}
 
 /**
+ * How long a single conversion may take before it is abandoned.
+ */
+const TIMEOUT_MS = 30_000
+
+/**
  * Converts through Gotenberg's Chromium route. The HTML must embed every
  * asset (images as data URIs), since Gotenberg can't reach the app.
  */
@@ -24,12 +29,13 @@ export class GotenbergPdfConverter implements PdfConverter {
 
     let response: Response
     try {
-      response = await fetch(`${this.baseUrl}/forms/chromium/convert/html`, {
+      response = await fetch(new URL('/forms/chromium/convert/html', this.baseUrl), {
         method: 'POST',
         body: form,
+        signal: AbortSignal.timeout(TIMEOUT_MS),
       })
     } catch (error) {
-      throw new PdfConversionError(`Gotenberg is unreachable at ${this.baseUrl}`, { cause: error })
+      throw new PdfConversionError(`Gotenberg did not respond at ${this.baseUrl}`, { cause: error })
     }
     if (!response.ok) {
       throw new PdfConversionError(

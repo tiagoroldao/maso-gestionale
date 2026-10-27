@@ -121,6 +121,10 @@ The Italian tax agency's system through which every electronic invoice is sent a
 A fixed, non-editable page frame (company letterhead, Customer block) that every Document Template is rendered inside.
 _Avoid_: Base template, master, letterhead template
 
+**Recipient**:
+Who a document is addressed to, printed in the Base Layout's header; usually taken from a Customer.
+_Avoid_: Addressee, customer block
+
 **Document Template**:
 An Admin-editable definition of a document's body content and the extra fields it asks for, rendered inside a Base Layout.
 _Avoid_: Form, model, certificate template
