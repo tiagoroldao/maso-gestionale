@@ -111,7 +111,7 @@ export default class Quotes {
             visits
               .where('status', 'in_progress')
               .orWhere((planned) =>
-                planned.where('status', 'planned').where('starts_at', '>=', new Date())
+                planned.where('status', 'planned').where('ends_at', '>', new Date())
               )
           )
           .first()

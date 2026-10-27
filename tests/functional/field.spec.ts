@@ -213,6 +213,41 @@ test.group('To schedule', () => {
     assert.lengthOf(after.inertiaProps.visits as unknown[], 0)
   })
 
+  test('each Visit shows its own last note, and cancelled Jobs are left out', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const yesterday = DateTime.now().minus({ days: 1 })
+    const first = await visitFor([anna.id], yesterday)
+    const second = await visitFor([anna.id], yesterday.plus({ hours: 3 }))
+    const cancelled = await visitFor([anna.id], yesterday.plus({ hours: 5 }))
+    for (const [visit, body] of [
+      [first, 'Manca il raccordo'],
+      [second, 'Cliente assente'],
+      [cancelled, 'Non serve'],
+    ] as const) {
+      visit.status = 'needs_return'
+      await visit.save()
+      await visit.related('fieldNotes').create({ body, userId: anna.id })
+    }
+    await cancelled.load('job')
+    cancelled.job.status = 'cancelled'
+    await cancelled.job.save()
+
+    const response = await client.get('/agenda/to-schedule').withInertia().loginAs(office)
+
+    const rows = response.inertiaProps.visits as { id: number; lastNote: string }[]
+    assert.sameDeepMembers(
+      rows.map((row) => ({ id: row.id, lastNote: row.lastNote })),
+      [
+        { id: first.id, lastNote: 'Manca il raccordo' },
+        { id: second.id, lastNote: 'Cliente assente' },
+      ]
+    )
+  })
+
   test('Technicians can not see the list', async ({ client }) => {
     const technician = await createUser('technician')
     const response = await client.get('/agenda/to-schedule').withInertia().loginAs(technician)

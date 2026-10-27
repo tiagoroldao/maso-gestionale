@@ -131,7 +131,10 @@ export default class VisitsController {
           .whereColumn('later.starts_at', '>', 'visits.starts_at')
       )
       .preload('technicians')
-      .preload('fieldNotes', (notes) => notes.orderBy('createdAt', 'desc').limit(1))
+      // One note per Visit: a plain limit would apply across the whole list
+      .preload('fieldNotes', (notes) =>
+        notes.groupLimit(1).groupOrderBy('visit_notes.created_at', 'desc')
+      )
       .preload('job', (job) => job.preload('customer').preload('site'))
       .orderBy('startsAt')
 

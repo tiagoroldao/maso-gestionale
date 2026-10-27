@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Phone } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
@@ -34,6 +35,7 @@ defineProps<{
 }>()
 
 const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const
+const page = usePage()
 </script>
 
 <template>
@@ -43,7 +45,16 @@ const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const
       :description="`${formatDate(visit.startsAt)} ${visit.startsAt.slice(11, 16)}–${visit.endsAt.slice(11, 16)}`"
     >
       <template #actions>
-        <Link route="my_visits.index" class="btn btn--ghost btn--sm">{{ t('ui.field.back') }}</Link>
+        <Link
+          v-if="page.props.user?.role === 'technician'"
+          route="my_visits.index"
+          class="btn btn--ghost btn--sm"
+        >
+          {{ t('ui.field.back') }}
+        </Link>
+        <Link v-else route="visits.schedule" class="btn btn--ghost btn--sm">
+          {{ t('ui.nav.schedule') }}
+        </Link>
       </template>
 
       <Section :title="t('ui.field.status')">
@@ -157,7 +168,13 @@ const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const
         >
           <div class="field">
             <label class="field__label" for="photo">{{ t('ui.field.addPhoto') }}</label>
-            <input id="photo" name="photo" type="file" accept="image/*" capture="environment" />
+            <input
+              id="photo"
+              name="photo"
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              capture="environment"
+            />
             <span v-if="errors.photo" class="field__error">{{ errors.photo }}</span>
           </div>
           <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
