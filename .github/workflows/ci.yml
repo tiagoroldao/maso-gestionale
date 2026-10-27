@@ -28,6 +28,9 @@ jobs:
           --health-timeout 5s
           --health-retries 10
 
+      gotenberg:
+        image: gotenberg/gotenberg:8
+
     env:
       TZ: UTC
       PORT: 3333
@@ -41,6 +44,7 @@ jobs:
       DB_USER: maso
       DB_PASSWORD: maso
       DB_DATABASE: maso_test
+      GOTENBERG_URL: http://gotenberg:3000
 
     steps:
       - uses: actions/checkout@v7

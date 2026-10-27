@@ -129,9 +129,19 @@ const logoUrl = props.settings.updatedAt
         </Section>
 
         <Section>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
-            Save company settings
-          </button>
+          <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
+            <button type="submit" class="btn btn--primary" :disabled="processing">
+              Save company settings
+            </button>
+            <a
+              href="/settings/company/letterhead.pdf"
+              target="_blank"
+              rel="noopener"
+              class="btn btn--secondary"
+            >
+              Preview letterhead (PDF)
+            </a>
+          </div>
         </Section>
       </Form>
     </SettingsLayout>

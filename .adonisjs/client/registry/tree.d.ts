@@ -26,5 +26,9 @@ export interface ApiDefinition {
     deactivate: typeof routes['users.deactivate']
     reactivate: typeof routes['users.reactivate']
   }
+  letterheadPreview: {
+    show: typeof routes['letterhead_preview.show']
+    pdf: typeof routes['letterhead_preview.pdf']
+  }
   instance: typeof routes['instance']
 }
