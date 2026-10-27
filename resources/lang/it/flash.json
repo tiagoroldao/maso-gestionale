@@ -41,5 +41,8 @@
   "quoteSaved": "Preventivo salvato.",
   "quoteNotEditable": "Il preventivo non è più modificabile.",
   "quoteAccepted": "Preventivo accettato: la commessa è accettata.",
-  "quoteDeclined": "Preventivo rifiutato: la commessa è annullata."
+  "quoteDeclined": "Preventivo rifiutato: la commessa è annullata.",
+  "visitPlanned": "Intervento pianificato.",
+  "visitMoved": "Intervento spostato.",
+  "jobNotSchedulable": "Una commessa annullata non può avere interventi."
 }

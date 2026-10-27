@@ -566,6 +566,58 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
     }
   }
+  'visits.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/jobs/:id/visits/create'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+    }
+  }
+  'visits.store': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/visits'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').visitValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').visitValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'visits.schedule': {
+    methods: ["GET","HEAD"]
+    pattern: '/agenda'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/visit').scheduleValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['schedule']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['schedule']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['schedule']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'visits.move': {
+    methods: ["PATCH"]
+    pattern: '/visits/:id/move'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').moveVisitValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').moveVisitValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['move']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['move']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['move']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'quotes.edit': {
     methods: ["GET","HEAD"]
     pattern: '/jobs/:id/quote'

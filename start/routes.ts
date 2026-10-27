@@ -111,6 +111,16 @@ router
           .post('jobs/:id/cancel', [controllers.Jobs, 'cancel'])
           .where('id', router.matchers.number())
         router
+          .get('jobs/:id/visits/create', [controllers.Visits, 'create'])
+          .where('id', router.matchers.number())
+        router
+          .post('jobs/:id/visits', [controllers.Visits, 'store'])
+          .where('id', router.matchers.number())
+        router.get('agenda', [controllers.Visits, 'schedule'])
+        router
+          .patch('visits/:id/move', [controllers.Visits, 'move'])
+          .where('id', router.matchers.number())
+        router
           .get('jobs/:id/quote', [controllers.Quotes, 'edit'])
           .where('id', router.matchers.number())
         router

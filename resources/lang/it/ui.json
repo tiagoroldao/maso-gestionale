@@ -23,7 +23,8 @@
     "instance": "Istanza",
     "items": "Articoli",
     "stock": "Magazzino",
-    "jobs": "Commesse"
+    "jobs": "Commesse",
+    "schedule": "Agenda"
   },
   "roles": {
     "superuser": "Superuser",
@@ -491,5 +492,33 @@
     "saveBeforeDeciding": "Salva il preventivo prima di registrarne l'esito.",
     "acceptConfirm": "Confermi che il cliente ha accettato il preventivo di {total}? Non sarà più modificabile.",
     "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo? La commessa {number} verrà annullata."
+  },
+  "visits": {
+    "title": "Interventi",
+    "none": "Nessun intervento pianificato.",
+    "plan": "Pianifica intervento",
+    "planTitle": "Pianifica intervento · {number}",
+    "when": "Quando",
+    "date": "Data",
+    "startTime": "Ora di inizio",
+    "duration": "Durata",
+    "minutes": "{minutes, plural, other {# minuti}}",
+    "technicians": "Tecnici",
+    "noTechnicians": "Nessun tecnico attivo. Aggiungi gli utenti tecnici in Utenti.",
+    "notes": "Note per i tecnici",
+    "notesHint": "Cosa portare, a chi chiedere, cosa controllare.",
+    "scheduleTitle": "Agenda",
+    "today": "Oggi",
+    "dayView": "Vista giorno",
+    "weekView": "Vista settimana",
+    "previous": "Precedente",
+    "next": "Successivo",
+    "weekOf": "Settimana {from} – {to}",
+    "statuses": {
+      "planned": "Pianificato",
+      "in_progress": "In corso",
+      "done": "Completato",
+      "needs_return": "Da ripianificare"
+    }
   }
 }
