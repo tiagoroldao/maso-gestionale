@@ -29,5 +29,8 @@
   "stockReceived": "Carico registrato.",
   "stockAdjusted": "Rettifica registrata.",
   "documentUploaded": "Documento caricato.",
-  "documentDeleted": "Documento «{title}» eliminato."
+  "documentDeleted": "Documento «{title}» eliminato.",
+  "jobCreated": "Commessa {number} aperta.",
+  "jobSaved": "Commessa {number} salvata.",
+  "jobCancelled": "Commessa {number} annullata."
 }

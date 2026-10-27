@@ -1,6 +1,8 @@
 import Customer from '#models/customer'
 import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
+import { customerPickerValidator } from '#validators/job'
+import { jobRow } from '#services/job_rows'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 import { likePattern } from '#services/search'
@@ -85,6 +87,12 @@ export default class CustomersController {
       .where('id', params.id)
       .preload('paymentTerms')
       .preload('sites', (sites) => sites.orderBy('city').orderBy('street'))
+      .preload('jobs', (jobs) =>
+        jobs.preload('site').orderBy([
+          { column: 'year', order: 'desc' },
+          { column: 'sequence', order: 'desc' },
+        ])
+      )
       .firstOrFail()
 
     return inertia.render('customers/show', {
@@ -103,6 +111,7 @@ export default class CustomersController {
         paymentTerms: customer.paymentTerms.name,
       },
       sites: customer.sites.map((site) => ({ id: site.id, summary: site.summary })),
+      jobs: customer.jobs.map((job) => jobRow(job)),
     })
   }
 
@@ -157,5 +166,34 @@ export default class CustomersController {
 
     session.flash('success', i18n.t('flash.customerSaved', { name: customer.displayName }))
     response.redirect().toRoute('customers.show', { id: customer.id })
+  }
+
+  /**
+   * JSON for the Customer picker: matches by name or tax IDs.
+   */
+  async search({ request }: HttpContext) {
+    const { q } = await customerPickerValidator.validate(request.qs())
+    if (!q) return { customers: [] }
+
+    const pattern = likePattern(q)
+    const customers = await Customer.query()
+      .where((builder) => {
+        builder
+          .whereILike('name', pattern)
+          .orWhereRaw(`concat_ws(' ', first_name, last_name) ilike ?`, [pattern])
+          .orWhereRaw(`concat_ws(' ', last_name, first_name) ilike ?`, [pattern])
+          .orWhereILike('tax_code', pattern)
+          .orWhereILike('vat_number', pattern)
+      })
+      .orderByRaw(`lower(coalesce(name, concat_ws(' ', last_name, first_name))), id`)
+      .limit(20)
+
+    return {
+      customers: customers.map((customer) => ({
+        id: customer.id,
+        displayName: customer.displayName,
+        city: customer.city,
+      })),
+    }
   }
 }

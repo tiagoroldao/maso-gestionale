@@ -8,6 +8,7 @@ import AppLayout from '~/layouts/app.vue'
 import SitePicker, { type PickedSite } from '~/components/site_picker.vue'
 import { customerTypeLabel } from '~/components/customer_types'
 import { urlFor } from '~/client'
+import JobList, { type JobRow } from '~/components/job_list.vue'
 import { t } from '~/i18n'
 
 const props = defineProps<{
@@ -26,6 +27,7 @@ const props = defineProps<{
     paymentTerms: string
   }
   sites: { id: number; summary: string }[]
+  jobs: JobRow[]
 }>()
 
 function linkSite(site: PickedSite) {
@@ -125,6 +127,19 @@ function linkSite(site: PickedSite) {
             class="btn btn--secondary btn--sm"
           >
             <Plus :size="15" /> {{ t('ui.customers.newSite') }}
+          </Link>
+        </div>
+      </Section>
+      <Section :title="t('ui.jobs.title')">
+        <JobList v-if="jobs.length" :jobs="jobs" :show-customer="false" />
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.jobs.empty') }}</p>
+        <div>
+          <Link
+            route="jobs.create"
+            :qs="{ customerId: customer.id }"
+            class="btn btn--secondary btn--sm"
+          >
+            <Plus :size="15" /> {{ t('ui.jobs.newForCustomer') }}
           </Link>
         </div>
       </Section>

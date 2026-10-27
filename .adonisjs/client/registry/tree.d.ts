@@ -44,6 +44,7 @@ export interface ApiDefinition {
     reactivate: typeof routes['users.reactivate']
   }
   customers: {
+    search: typeof routes['customers.search']
     index: typeof routes['customers.index']
     create: typeof routes['customers.create']
     store: typeof routes['customers.store']
@@ -69,6 +70,15 @@ export interface ApiDefinition {
     store: typeof routes['installed_equipment.store']
     edit: typeof routes['installed_equipment.edit']
     update: typeof routes['installed_equipment.update']
+  }
+  jobs: {
+    index: typeof routes['jobs.index']
+    create: typeof routes['jobs.create']
+    store: typeof routes['jobs.store']
+    show: typeof routes['jobs.show']
+    edit: typeof routes['jobs.edit']
+    update: typeof routes['jobs.update']
+    cancel: typeof routes['jobs.cancel']
   }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']

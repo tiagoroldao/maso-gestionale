@@ -3,6 +3,7 @@ import type { HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { SiteSchema } from '#database/schema'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
+import Job from '#models/job'
 import { likePattern } from '#services/search'
 
 /**
@@ -15,6 +16,9 @@ export default class Site extends SiteSchema {
 
   @hasMany(() => InstalledEquipment)
   declare installedEquipment: HasMany<typeof InstalledEquipment>
+
+  @hasMany(() => Job)
+  declare jobs: HasMany<typeof Job>
 
   /**
    * Matches the label or any part of the address.

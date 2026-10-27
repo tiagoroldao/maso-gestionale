@@ -97,7 +97,9 @@
       "reorderLevel": "scorta minima",
       "title": "titolo",
       "itemId": "articolo",
-      "attachment": "documento"
+      "attachment": "documento",
+      "kind": "tipo",
+      "status": "stato"
     }
   }
 }

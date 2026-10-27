@@ -1,8 +1,9 @@
-import { belongsTo, manyToMany } from '@adonisjs/lucid/orm'
-import type { BelongsTo, ManyToMany } from '@adonisjs/lucid/types/relations'
+import { belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { CustomerSchema } from '#database/schema'
 import PaymentTerms from '#models/payment_terms'
 import Site from '#models/site'
+import Job from '#models/job'
 import type { Recipient } from '#documents/document_renderer'
 
 export const CUSTOMER_TYPES = ['private', 'company', 'condominium'] as const
@@ -19,6 +20,9 @@ export default class Customer extends CustomerSchema {
 
   @manyToMany(() => Site, { pivotTable: 'customer_site' })
   declare sites: ManyToMany<typeof Site>
+
+  @hasMany(() => Job)
+  declare jobs: HasMany<typeof Job>
 
   get displayName() {
     return this.type === 'private'
