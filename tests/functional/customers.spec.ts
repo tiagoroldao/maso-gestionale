@@ -22,8 +22,8 @@ test.group('Customers', () => {
       .loginAs(office)
       .redirects(0)
 
-    response.assertHeader('location', '/customers')
     const customer = await Customer.firstOrFail()
+    response.assertHeader('location', `/customers/${customer.id}`)
     assert.equal(customer.displayName, 'Mario Rossi')
     assert.equal(customer.taxCode, 'RSSMRA85T10A562S')
     assert.equal(customer.province, 'MI')

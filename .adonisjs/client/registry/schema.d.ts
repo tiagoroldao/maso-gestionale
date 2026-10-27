@@ -228,6 +228,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'customers.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/customers/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['show']>>>
+    }
+  }
   'customers.edit': {
     methods: ["GET","HEAD"]
     pattern: '/customers/:id/edit'
@@ -252,6 +265,110 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'customer_sites.store': {
+    methods: ["POST"]
+    pattern: '/customers/:customerId/sites'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/site').linkSiteValidator)>>
+      paramsTuple: [ParamValue]
+      params: { customerId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/site').linkSiteValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customer_sites_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customer_sites_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customer_sites_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'customer_sites.destroy': {
+    methods: ["DELETE"]
+    pattern: '/customers/:customerId/sites/:siteId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { customerId: ParamValue; siteId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customer_sites_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customer_sites_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customer_sites_controller').default['destroy']>>>
+    }
+  }
+  'sites.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/site').siteSearchValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'sites.search': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites/search'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/site').siteSearchValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['search']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['search']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['search']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'sites.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['create']>>>
+    }
+  }
+  'sites.store': {
+    methods: ["POST"]
+    pattern: '/sites'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/site').siteValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/site').siteValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'sites.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['edit']>>>
+    }
+  }
+  'sites.update': {
+    methods: ["PUT"]
+    pattern: '/sites/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/site').siteValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/site').siteValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'company_settings.edit': {

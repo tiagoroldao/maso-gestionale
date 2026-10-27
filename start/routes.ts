@@ -51,8 +51,18 @@ router
         router.get('customers', [controllers.Customers, 'index'])
         router.get('customers/create', [controllers.Customers, 'create'])
         router.post('customers', [controllers.Customers, 'store'])
+        router.get('customers/:id', [controllers.Customers, 'show'])
         router.get('customers/:id/edit', [controllers.Customers, 'edit'])
         router.put('customers/:id', [controllers.Customers, 'update'])
+        router.post('customers/:customerId/sites', [controllers.CustomerSites, 'store'])
+        router.delete('customers/:customerId/sites/:siteId', [controllers.CustomerSites, 'destroy'])
+
+        router.get('sites', [controllers.Sites, 'index'])
+        router.get('sites/search', [controllers.Sites, 'search'])
+        router.get('sites/create', [controllers.Sites, 'create'])
+        router.post('sites', [controllers.Sites, 'store'])
+        router.get('sites/:id/edit', [controllers.Sites, 'edit'])
+        router.put('sites/:id', [controllers.Sites, 'update'])
       })
       .use(middleware.can('manageCustomers'))
 

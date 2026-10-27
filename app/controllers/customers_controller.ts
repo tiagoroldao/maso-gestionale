@@ -3,15 +3,9 @@ import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
+import { likePattern } from '#services/search'
 
 const PER_PAGE = 25
-
-/**
- * Escapes LIKE wildcards so a search for "50%" matches literally.
- */
-function likePattern(term: string) {
-  return `%${term.replace(/[\\%_]/g, (char) => `\\${char}`)}%`
-}
 
 /**
  * Keeps only the fields that apply to the Customer's type, so switching
@@ -86,6 +80,32 @@ export default class CustomersController {
     })
   }
 
+  async show({ params, inertia }: HttpContext) {
+    const customer = await Customer.query()
+      .where('id', params.id)
+      .preload('paymentTerms')
+      .preload('sites', (sites) => sites.orderBy('city').orderBy('street'))
+      .firstOrFail()
+
+    return inertia.render('customers/show', {
+      customer: {
+        id: customer.id,
+        displayName: customer.displayName,
+        type: customer.type,
+        vatNumber: customer.vatNumber,
+        taxCode: customer.taxCode,
+        sdiCode: customer.sdiCode,
+        pec: customer.pec,
+        billingAddress: customer.toRecipient().addressLines,
+        email: customer.email,
+        phone: customer.phone,
+        notes: customer.notes,
+        paymentTerms: customer.paymentTerms.name,
+      },
+      sites: customer.sites.map((site) => ({ id: site.id, summary: site.summary })),
+    })
+  }
+
   async create({ inertia }: HttpContext) {
     return inertia.render('customers/form', {
       customer: null,
@@ -98,7 +118,7 @@ export default class CustomersController {
     const customer = await Customer.create(toAttributes(data))
 
     session.flash('success', `${customer.displayName} saved.`)
-    response.redirect().toRoute('customers.index')
+    response.redirect().toRoute('customers.show', { id: customer.id })
   }
 
   async edit({ params, inertia }: HttpContext) {
@@ -136,6 +156,6 @@ export default class CustomersController {
     await customer.merge(toAttributes(data)).save()
 
     session.flash('success', `${customer.displayName} saved.`)
-    response.redirect().toRoute('customers.index')
+    response.redirect().toRoute('customers.show', { id: customer.id })
   }
 }

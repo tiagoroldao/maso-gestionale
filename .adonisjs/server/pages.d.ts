@@ -12,6 +12,7 @@ declare module '@adonisjs/inertia/types' {
     'auth/login': ExtractProps<(typeof import('../../inertia/pages/auth/login.vue'))['default']>
     'customers/form': ExtractProps<(typeof import('../../inertia/pages/customers/form.vue'))['default']>
     'customers/index': ExtractProps<(typeof import('../../inertia/pages/customers/index.vue'))['default']>
+    'customers/show': ExtractProps<(typeof import('../../inertia/pages/customers/show.vue'))['default']>
     'dashboard': ExtractProps<(typeof import('../../inertia/pages/dashboard.vue'))['default']>
     'errors/forbidden': ExtractProps<(typeof import('../../inertia/pages/errors/forbidden.vue'))['default']>
     'errors/not_found': ExtractProps<(typeof import('../../inertia/pages/errors/not_found.vue'))['default']>
@@ -20,6 +21,8 @@ declare module '@adonisjs/inertia/types' {
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
     'setup': ExtractProps<(typeof import('../../inertia/pages/setup.vue'))['default']>
+    'sites/form': ExtractProps<(typeof import('../../inertia/pages/sites/form.vue'))['default']>
+    'sites/index': ExtractProps<(typeof import('../../inertia/pages/sites/index.vue'))['default']>
     'users/create': ExtractProps<(typeof import('../../inertia/pages/users/create.vue'))['default']>
     'users/edit': ExtractProps<(typeof import('../../inertia/pages/users/edit.vue'))['default']>
     'users/index': ExtractProps<(typeof import('../../inertia/pages/users/index.vue'))['default']>

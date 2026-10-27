@@ -108,6 +108,12 @@ const routes = {
     tokens: [[0,"customers"]],
     types: placeholder as Registry['customers.store']['types'],
   },
+  'customers.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/customers/:id',
+    tokens: [[0,"customers"],[1,"id"]],
+    types: placeholder as Registry['customers.show']['types'],
+  },
   'customers.edit': {
     methods: ["GET","HEAD"],
     pattern: '/customers/:id/edit',
@@ -119,6 +125,54 @@ const routes = {
     pattern: '/customers/:id',
     tokens: [[0,"customers"],[1,"id"]],
     types: placeholder as Registry['customers.update']['types'],
+  },
+  'customer_sites.store': {
+    methods: ["POST"],
+    pattern: '/customers/:customerId/sites',
+    tokens: [[0,"customers"],[1,"customerId"],[0,"sites"]],
+    types: placeholder as Registry['customer_sites.store']['types'],
+  },
+  'customer_sites.destroy': {
+    methods: ["DELETE"],
+    pattern: '/customers/:customerId/sites/:siteId',
+    tokens: [[0,"customers"],[1,"customerId"],[0,"sites"],[1,"siteId"]],
+    types: placeholder as Registry['customer_sites.destroy']['types'],
+  },
+  'sites.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites',
+    tokens: [[0,"sites"]],
+    types: placeholder as Registry['sites.index']['types'],
+  },
+  'sites.search': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites/search',
+    tokens: [[0,"sites"],[0,"search"]],
+    types: placeholder as Registry['sites.search']['types'],
+  },
+  'sites.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites/create',
+    tokens: [[0,"sites"],[0,"create"]],
+    types: placeholder as Registry['sites.create']['types'],
+  },
+  'sites.store': {
+    methods: ["POST"],
+    pattern: '/sites',
+    tokens: [[0,"sites"]],
+    types: placeholder as Registry['sites.store']['types'],
+  },
+  'sites.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites/:id/edit',
+    tokens: [[0,"sites"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['sites.edit']['types'],
+  },
+  'sites.update': {
+    methods: ["PUT"],
+    pattern: '/sites/:id',
+    tokens: [[0,"sites"],[1,"id"]],
+    types: placeholder as Registry['sites.update']['types'],
   },
   'company_settings.edit': {
     methods: ["GET","HEAD"],
