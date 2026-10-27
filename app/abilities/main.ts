@@ -43,6 +43,20 @@ export const manageCustomers = Bouncer.ability((user: User) => {
 })
 
 /**
+ * Items: the catalogue of stocked articles and their prices.
+ */
+export const manageItems = Bouncer.ability((user: User) => {
+  return user.role === 'admin' || user.role === 'office'
+})
+
+/**
+ * Seeing purchase and resale prices. Technicians never do (PRD).
+ */
+export const seePrices = Bouncer.ability((user: User) => {
+  return user.role === 'admin' || user.role === 'office'
+})
+
+/**
  * Editing the company settings, and the lists of options that belong
  * with them (such as Payment Terms).
  */

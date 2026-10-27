@@ -15,5 +15,10 @@
   "siteLinked": "Immobile collegato.",
   "siteUnlinked": "Immobile scollegato.",
   "equipmentAdded": "Apparecchio aggiunto.",
-  "equipmentSaved": "Apparecchio salvato."
+  "equipmentSaved": "Apparecchio salvato.",
+  "itemSaved": "Articolo «{code}» salvato.",
+  "categoryAdded": "Categoria aggiunta.",
+  "categorySaved": "Categoria salvata.",
+  "categoryDeleted": "Categoria «{name}» eliminata.",
+  "categoryInUse": "La categoria «{name}» è assegnata ad almeno un articolo e non può essere eliminata."
 }

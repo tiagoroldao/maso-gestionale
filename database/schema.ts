@@ -7,6 +7,21 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class CategorySchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'markupPercent', 'name', 'updatedAt'] as const
+  $columns = CategorySchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare markupPercent: string
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class CompanySettingSchema extends BaseModel {
   static $columns = ['city', 'createdAt', 'email', 'iban', 'id', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
   $columns = CompanySettingSchema.$columns
@@ -127,6 +142,35 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare siteId: number
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class ItemSchema extends BaseModel {
+  static $columns = ['categoryId', 'code', 'createdAt', 'description', 'id', 'purchasePrice', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
+  $columns = ItemSchema.$columns
+  @column()
+  declare categoryId: number | null
+  @column()
+  declare code: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare purchasePrice: string
+  @column()
+  declare resalePrice: string
+  @column()
+  declare supplierCode: string | null
+  @column()
+  declare supplierName: string | null
+  @column()
+  declare unit: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare vatRate: string
 }
 
 export class PaymentTermSchema extends BaseModel {

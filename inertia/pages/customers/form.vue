@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import { Form } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
@@ -35,6 +35,29 @@ const props = defineProps<{
 }>()
 
 const type = ref(props.customer?.type ?? 'private')
+
+/**
+ * Field values live in reactive state (not one-way :value bindings), so
+ * switching the type re-renders the form without wiping what was typed.
+ */
+const values = reactive<Record<CustomerField | 'notes', string>>({
+  firstName: props.customer?.firstName ?? '',
+  lastName: props.customer?.lastName ?? '',
+  name: props.customer?.name ?? '',
+  vatNumber: props.customer?.vatNumber ?? '',
+  taxCode: props.customer?.taxCode ?? '',
+  sdiCode: props.customer?.sdiCode ?? '',
+  pec: props.customer?.pec ?? '',
+  street: props.customer?.street ?? '',
+  streetNumber: props.customer?.streetNumber ?? '',
+  postalCode: props.customer?.postalCode ?? '',
+  city: props.customer?.city ?? '',
+  province: props.customer?.province ?? '',
+  email: props.customer?.email ?? '',
+  phone: props.customer?.phone ?? '',
+  notes: props.customer?.notes ?? '',
+})
+const paymentTermsId = ref(props.customer?.paymentTermsId ?? props.paymentTerms[0]?.id)
 const isPrivate = computed(() => type.value === 'private')
 
 type Field = { name: CustomerField; label: string; hint?: string; type?: string }
@@ -123,10 +146,10 @@ const title = props.customer ? t('ui.customers.editTitle') : t('ui.customers.new
             <label class="field__label" :for="field.name">{{ field.label }}</label>
             <input
               :id="field.name"
+              v-model="values[field.name]"
               :name="field.name"
               :type="field.type ?? 'text'"
               class="field__input"
-              :value="customer?.[field.name] ?? ''"
               :aria-invalid="errors[field.name] ? 'true' : 'false'"
             />
             <span v-if="field.hint" class="field__hint">{{ field.hint }}</span>
@@ -141,9 +164,9 @@ const title = props.customer ? t('ui.customers.editTitle') : t('ui.customers.new
             </label>
             <select
               id="paymentTermsId"
+              v-model="paymentTermsId"
               name="paymentTermsId"
               class="field__input"
-              :value="customer?.paymentTermsId ?? paymentTerms[0]?.id"
             >
               <option v-for="terms in paymentTerms" :key="terms.id" :value="terms.id">
                 {{ terms.name }}
@@ -157,10 +180,10 @@ const title = props.customer ? t('ui.customers.editTitle') : t('ui.customers.new
             <label class="field__label" for="notes">{{ t('ui.customers.notes') }}</label>
             <textarea
               id="notes"
+              v-model="values.notes"
               name="notes"
               class="field__input"
               rows="3"
-              :value="customer?.notes ?? ''"
             />
             <span v-if="errors.notes" class="field__error">{{ errors.notes }}</span>
           </div>

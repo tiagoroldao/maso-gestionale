@@ -30,7 +30,8 @@
       "italianIban": "Il campo {field} deve essere un IBAN italiano valido",
       "taxCodeType.private": "Per un privato serve il Codice Fiscale personale di 16 caratteri",
       "taxCodeType.condominium": "Per un condominio serve il Codice Fiscale numerico di 11 cifre",
-      "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP"
+      "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
+      "amount": "Il campo {field} deve essere un importo valido"
     },
     "fields": {
       "email": "email",
@@ -56,7 +57,7 @@
       "pec": "PEC",
       "street": "indirizzo",
       "streetNumber": "numero civico",
-      "unit": "scala/piano/interno",
+      "unit": "unità di misura",
       "postalCode": "CAP",
       "city": "comune",
       "province": "provincia",
@@ -76,7 +77,16 @@
       "serialNumber": "numero di serie",
       "installedOn": "data di installazione",
       "lastServicedOn": "data dell'ultima manutenzione",
-      "maintenanceIntervalMonths": "intervallo di manutenzione"
+      "maintenanceIntervalMonths": "intervallo di manutenzione",
+      "code": "codice",
+      "description": "descrizione",
+      "categoryId": "categoria",
+      "supplierName": "fornitore",
+      "supplierCode": "codice fornitore",
+      "vatRate": "aliquota IVA",
+      "purchasePrice": "prezzo di acquisto",
+      "resalePrice": "prezzo di vendita",
+      "markupPercent": "ricarico"
     }
   }
 }

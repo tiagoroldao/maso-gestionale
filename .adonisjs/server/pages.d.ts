@@ -19,6 +19,9 @@ declare module '@adonisjs/inertia/types' {
     'errors/server_error': ExtractProps<(typeof import('../../inertia/pages/errors/server_error.vue'))['default']>
     'installed_equipment/form': ExtractProps<(typeof import('../../inertia/pages/installed_equipment/form.vue'))['default']>
     'instance': ExtractProps<(typeof import('../../inertia/pages/instance.vue'))['default']>
+    'items/form': ExtractProps<(typeof import('../../inertia/pages/items/form.vue'))['default']>
+    'items/index': ExtractProps<(typeof import('../../inertia/pages/items/index.vue'))['default']>
+    'settings/categories': ExtractProps<(typeof import('../../inertia/pages/settings/categories.vue'))['default']>
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
     'setup': ExtractProps<(typeof import('../../inertia/pages/setup.vue'))['default']>

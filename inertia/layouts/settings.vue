@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { t } from '~/i18n'
 import Page from '~/components/page.vue'
-import { Building2, CalendarClock } from 'lucide-vue-next'
+import { Building2, CalendarClock, Tags } from 'lucide-vue-next'
 import NavLink, { type NavItem } from '~/components/nav_link.vue'
 
 /**
@@ -13,6 +13,7 @@ import NavLink, { type NavItem } from '~/components/nav_link.vue'
 const items: NavItem[] = [
   { label: t('ui.settings.company'), route: 'company_settings.edit', icon: Building2 },
   { label: t('ui.settings.paymentTerms'), route: 'payment_terms.index', icon: CalendarClock },
+  { label: t('ui.settings.categories'), route: 'categories.index', icon: Tags },
 ]
 </script>
 

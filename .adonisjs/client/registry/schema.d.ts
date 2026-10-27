@@ -98,6 +98,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['logo']>>>
     }
   }
+  'items.search': {
+    methods: ["GET","HEAD"]
+    pattern: '/items/search'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/item').itemSearchValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['search']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['search']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['search']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'users.index': {
     methods: ["GET","HEAD"]
     pattern: '/users'
@@ -434,6 +447,123 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'items.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/items'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/item').itemSearchValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'items.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/items/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['create']>>>
+    }
+  }
+  'items.store': {
+    methods: ["POST"]
+    pattern: '/items'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/item').itemValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/item').itemValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'items.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/items/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['edit']>>>
+    }
+  }
+  'items.update': {
+    methods: ["PUT"]
+    pattern: '/items/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/item').itemValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/item').itemValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'categories.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/categories'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['index']>>>
+    }
+  }
+  'categories.store': {
+    methods: ["POST"]
+    pattern: '/settings/categories'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/item').categoryValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/item').categoryValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'categories.update': {
+    methods: ["PUT"]
+    pattern: '/settings/categories/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/item').categoryValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/item').categoryValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'categories.destroy': {
+    methods: ["DELETE"]
+    pattern: '/settings/categories/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/categories_controller').default['destroy']>>>
     }
   }
   'company_settings.edit': {
