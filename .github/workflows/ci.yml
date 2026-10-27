@@ -31,7 +31,8 @@ jobs:
     env:
       TZ: UTC
       PORT: 3333
-      HOST: localhost
+      # Explicit IPv4: inside the container "localhost" resolves to ::1 first
+      HOST: 127.0.0.1
       LOG_LEVEL: info
       APP_KEY: ci-only-app-key-not-secret-000000
       SESSION_DRIVER: memory
