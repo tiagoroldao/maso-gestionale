@@ -113,11 +113,11 @@ export default class CustomersController {
     })
   }
 
-  async store({ request, response, session }: HttpContext) {
+  async store({ request, response, session, i18n }: HttpContext) {
     const data = await request.validateUsing(customerValidator)
     const customer = await Customer.create(toAttributes(data))
 
-    session.flash('success', `${customer.displayName} saved.`)
+    session.flash('success', i18n.t('flash.customerSaved', { name: customer.displayName }))
     response.redirect().toRoute('customers.show', { id: customer.id })
   }
 
@@ -149,13 +149,13 @@ export default class CustomersController {
     })
   }
 
-  async update({ params, request, response, session }: HttpContext) {
+  async update({ params, request, response, session, i18n }: HttpContext) {
     const customer = await Customer.findOrFail(params.id)
     const data = await request.validateUsing(customerValidator)
 
     await customer.merge(toAttributes(data)).save()
 
-    session.flash('success', `${customer.displayName} saved.`)
+    session.flash('success', i18n.t('flash.customerSaved', { name: customer.displayName }))
     response.redirect().toRoute('customers.show', { id: customer.id })
   }
 }

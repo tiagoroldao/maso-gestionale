@@ -32,7 +32,7 @@ export default class CompanySettingsController {
     })
   }
 
-  async update({ request, response, session }: HttpContext) {
+  async update({ request, response, session, i18n }: HttpContext) {
     const { logo, removeLogo, ...fields } = await request.validateUsing(companySettingsValidator)
     const settings = await CompanySettings.current()
 
@@ -56,7 +56,7 @@ export default class CompanySettingsController {
 
     await settings.save()
 
-    session.flash('success', 'Company settings saved.')
+    session.flash('success', i18n.t('flash.companySaved'))
     response.redirect().toRoute('company_settings.edit')
   }
 

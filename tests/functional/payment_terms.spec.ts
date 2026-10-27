@@ -2,10 +2,11 @@ import { test } from '@japa/runner'
 import PaymentTerms from '#models/payment_terms'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
+import { it } from '#tests/helpers/i18n'
 
 test.group('Payment Terms', () => {
-  test('there are Immediate Payment Terms from the start', async ({ assert }) => {
-    const terms = await PaymentTerms.findByOrFail('name', 'Immediate')
+  test('there are immediate-payment terms from the start', async ({ assert }) => {
+    const terms = await PaymentTerms.findByOrFail('name', 'Rimessa diretta')
     assert.equal(terms.days, 0)
   })
 
@@ -36,7 +37,7 @@ test.group('Payment Terms', () => {
 
     const response = await client
       .post('/settings/payment-terms')
-      .form({ name: 'immediate', days: '-1' })
+      .form({ name: 'rimessa diretta', days: '-1' })
       .header('referer', '/settings/payment-terms')
       .withCsrfToken()
       .loginAs(admin)
@@ -58,13 +59,17 @@ test.group('Payment Terms', () => {
       .withCsrfToken()
       .loginAs(admin)
       .redirects(0)
-    response.assertFlashMessage('error', "Immediate is used by Customers and can't be deleted.")
+    // The literal text, to catch grammar the catalogue lookup can't
+    response.assertFlashMessage(
+      'error',
+      'Le condizioni «Rimessa diretta» sono assegnate ad almeno un cliente e non possono essere eliminate.'
+    )
     assert.isNotNull(await PaymentTerms.find(customer.paymentTermsId))
   })
 
   test('the last Payment Terms can not be deleted', async ({ client, assert }) => {
     const admin = await createUser('admin')
-    const immediate = await PaymentTerms.findByOrFail('name', 'Immediate')
+    const immediate = await PaymentTerms.findByOrFail('name', 'Rimessa diretta')
 
     const response = await client
       .delete(`/settings/payment-terms/${immediate.id}`)
@@ -72,7 +77,7 @@ test.group('Payment Terms', () => {
       .loginAs(admin)
       .redirects(0)
 
-    response.assertFlashMessage('error', 'There must always be at least one set of Payment Terms.')
+    response.assertFlashMessage('error', it('flash.paymentTermsLast'))
     assert.isNotNull(await PaymentTerms.find(immediate.id))
   })
 

@@ -27,13 +27,13 @@ export default class InstalledEquipmentController {
     return inertia.render('installed_equipment/form', { site: siteProps(site), equipment: null })
   }
 
-  async store({ params, request, response, session }: HttpContext) {
+  async store({ params, request, response, session, i18n }: HttpContext) {
     const site = await Site.findOrFail(params.siteId)
     const data = await request.validateUsing(installedEquipmentValidator)
 
     await site.related('installedEquipment').create(toAttributes(data))
 
-    session.flash('success', 'Equipment added.')
+    session.flash('success', i18n.t('flash.equipmentAdded'))
     response.redirect().toRoute('sites.show', { id: site.id })
   }
 
@@ -59,13 +59,13 @@ export default class InstalledEquipmentController {
     })
   }
 
-  async update({ params, request, response, session }: HttpContext) {
+  async update({ params, request, response, session, i18n }: HttpContext) {
     const equipment = await InstalledEquipment.findOrFail(params.id)
     const data = await request.validateUsing(installedEquipmentValidator)
 
     await equipment.merge(toAttributes(data)).save()
 
-    session.flash('success', 'Equipment saved.')
+    session.flash('success', i18n.t('flash.equipmentSaved'))
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
   }
 }

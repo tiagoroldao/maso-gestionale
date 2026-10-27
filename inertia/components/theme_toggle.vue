@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Moon, Sun } from 'lucide-vue-next'
+import { t } from '~/i18n'
 
 const COOKIE = 'app_theme'
 const ONE_YEAR = 60 * 60 * 24 * 365
@@ -21,8 +22,8 @@ function toggle() {
   <button
     type="button"
     class="iconbtn"
-    :aria-label="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
-    :title="theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'"
+    :aria-label="theme === 'dark' ? t('ui.common.lightTheme') : t('ui.common.darkTheme')"
+    :title="theme === 'dark' ? t('ui.common.lightTheme') : t('ui.common.darkTheme')"
     @click="toggle"
   >
     <Sun

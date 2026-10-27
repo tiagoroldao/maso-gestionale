@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 import AuthLayout from '~/layouts/auth.vue'
 import { Form } from '@adonisjs/inertia/vue'
 
@@ -14,23 +15,33 @@ type FieldName =
 type Field = { name: FieldName; label: string; type: string; autocomplete: string }
 
 const superuserFields: Field[] = [
-  { name: 'superuserEmail', label: 'Email', type: 'email', autocomplete: 'off' },
-  { name: 'superuserPassword', label: 'Password', type: 'password', autocomplete: 'new-password' },
+  { name: 'superuserEmail', label: t('ui.setup.email'), type: 'email', autocomplete: 'off' },
+  {
+    name: 'superuserPassword',
+    label: t('ui.setup.password'),
+    type: 'password',
+    autocomplete: 'new-password',
+  },
   {
     name: 'superuserPasswordConfirmation',
-    label: 'Confirm password',
+    label: t('ui.setup.confirmPassword'),
     type: 'password',
     autocomplete: 'new-password',
   },
 ]
 
 const adminFields: Field[] = [
-  { name: 'adminFullName', label: 'Full name', type: 'text', autocomplete: 'off' },
-  { name: 'adminEmail', label: 'Email', type: 'email', autocomplete: 'off' },
-  { name: 'adminPassword', label: 'Password', type: 'password', autocomplete: 'new-password' },
+  { name: 'adminFullName', label: t('ui.setup.fullName'), type: 'text', autocomplete: 'off' },
+  { name: 'adminEmail', label: t('ui.setup.email'), type: 'email', autocomplete: 'off' },
+  {
+    name: 'adminPassword',
+    label: t('ui.setup.password'),
+    type: 'password',
+    autocomplete: 'new-password',
+  },
   {
     name: 'adminPasswordConfirmation',
-    label: 'Confirm password',
+    label: t('ui.setup.confirmPassword'),
     type: 'password',
     autocomplete: 'new-password',
   },
@@ -38,13 +49,13 @@ const adminFields: Field[] = [
 
 const sections = [
   {
-    title: 'Superuser',
-    help: 'Whoever installs and maintains this system. Manages Instance settings only.',
+    title: t('ui.setup.superuserTitle'),
+    help: t('ui.setup.superuserHelp'),
     fields: superuserFields,
   },
   {
-    title: 'Admin',
-    help: 'The business owner. Manages company settings, users and all business data.',
+    title: t('ui.setup.adminTitle'),
+    help: t('ui.setup.adminHelp'),
     fields: adminFields,
   },
 ]
@@ -52,8 +63,8 @@ const sections = [
 
 <template>
   <AuthLayout>
-    <h1 class="auth__title">Set up this Instance</h1>
-    <p class="auth__sub">Create the Superuser and the first Admin. This can only be done once.</p>
+    <h1 class="auth__title">{{ t('ui.setup.title') }}</h1>
+    <p class="auth__sub">{{ t('ui.setup.subtitle') }}</p>
 
     <Form v-slot="{ processing, errors }" route="setup.store">
       <div class="auth__form">
@@ -81,7 +92,7 @@ const sections = [
           :disabled="processing"
           :style="{ marginTop: '4px' }"
         >
-          {{ processing ? 'One moment…' : 'Complete setup' }}
+          {{ processing ? t('ui.common.processing') : t('ui.setup.submit') }}
         </button>
       </div>
     </Form>

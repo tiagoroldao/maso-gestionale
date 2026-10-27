@@ -11,10 +11,14 @@ const taxCodeMatchesType = vine.createRule((value: unknown, _: undefined, field:
   if (typeof value !== 'string') return
   const type = field.parent.type
   if (type === 'private' && value.length !== 16) {
-    field.report('A private individual needs a 16-character Codice Fiscale', 'taxCodeType', field)
+    field.report(
+      'A private individual needs a 16-character Codice Fiscale',
+      'taxCodeType.private',
+      field
+    )
   }
   if (type === 'condominium' && value.length !== 11) {
-    field.report('A condominium needs an 11-digit Codice Fiscale', 'taxCodeType', field)
+    field.report('A condominium needs an 11-digit Codice Fiscale', 'taxCodeType.condominium', field)
   }
 })
 

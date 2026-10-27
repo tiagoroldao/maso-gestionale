@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import User from '#models/user'
 import hash from '@adonisjs/core/services/hash'
 import { createUser } from '#tests/helpers/users'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 test.group('Users', () => {
   test('lists business users, editable only for Office and Technician', async ({ client }) => {
@@ -131,7 +132,7 @@ test.group('Users', () => {
         .loginAs(admin)
         .redirects(0)
       deactivate.assertHeader('location', '/users')
-      deactivate.assertFlashMessage('error', 'Access denied')
+      deactivate.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
     }
 
     for (const target of [admin, otherAdmin, superuser]) {
@@ -152,7 +153,7 @@ test.group('Users', () => {
         .withCsrfToken()
         .loginAs(user)
         .redirects(0)
-      create.assertFlashMessage('error', 'Access denied')
+      create.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
 
       const deactivate = await client
         .post(`/users/${target.id}/deactivate`)
@@ -160,7 +161,7 @@ test.group('Users', () => {
         .withCsrfToken()
         .loginAs(user)
         .redirects(0)
-      deactivate.assertFlashMessage('error', 'Access denied')
+      deactivate.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
 
       await target.refresh()
       assert.isTrue(target.isActive)

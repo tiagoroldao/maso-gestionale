@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import { createUser } from '#tests/helpers/users'
 import { GotenbergPdfConverter, PdfConversionError } from '#documents/pdf_converter'
+import { it } from '#tests/helpers/i18n'
 
 test.group('Letterhead preview', () => {
   test('the Admin sees the HTML preview', async ({ client }) => {
@@ -10,7 +11,7 @@ test.group('Letterhead preview', () => {
 
     response.assertStatus(200)
     response.assertHeader('content-type', 'text/html; charset=utf-8')
-    response.assertTextIncludes('Letterhead preview')
+    response.assertTextIncludes(it('documents.letterheadPreview.title'))
   })
 
   test('only the Admin can open the preview', async ({ client }) => {

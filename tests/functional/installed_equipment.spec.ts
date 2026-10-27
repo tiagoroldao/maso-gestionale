@@ -4,6 +4,7 @@ import InstalledEquipment from '#models/installed_equipment'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const boilerFields = {
   equipmentType: 'Boiler',
@@ -192,7 +193,7 @@ test.group('Installed Equipment', () => {
         .withCsrfToken()
         .loginAs(technician)
         .redirects(0)
-      response.assertFlashMessage('error', 'Access denied')
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
     }
 
     await boiler.refresh()

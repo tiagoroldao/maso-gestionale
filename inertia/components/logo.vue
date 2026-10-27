@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Link } from '@adonisjs/inertia/vue'
+import { t } from '~/i18n'
 
 withDefaults(defineProps<{ size?: number }>(), { size: 26 })
 </script>
@@ -7,7 +8,7 @@ withDefaults(defineProps<{ size?: number }>(), { size: 26 })
 <template>
   <Link
     route="dashboard"
-    aria-label="Maso Gestionale"
+    :aria-label="t('ui.appName')"
     :style="{
       display: 'inline-flex',
       alignItems: 'center',
@@ -17,6 +18,6 @@ withDefaults(defineProps<{ size?: number }>(), { size: 26 })
       textDecoration: 'none',
     }"
   >
-    Maso Gestionale
+    {{ t('ui.appName') }}
   </Link>
 </template>

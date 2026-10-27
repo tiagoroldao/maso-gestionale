@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 /**
  * Fields shared by the create and edit user forms. On edit, leaving the
  * password empty keeps the current one.
@@ -12,7 +13,7 @@ defineProps<{
 
 <template>
   <div class="field">
-    <label class="field__label" for="fullName">Full name</label>
+    <label class="field__label" for="fullName">{{ t('ui.users.fullName') }}</label>
     <input
       id="fullName"
       name="fullName"
@@ -25,7 +26,7 @@ defineProps<{
   </div>
 
   <div class="field">
-    <label class="field__label" for="email">Email</label>
+    <label class="field__label" for="email">{{ t('ui.users.email') }}</label>
     <input
       id="email"
       name="email"
@@ -39,17 +40,17 @@ defineProps<{
   </div>
 
   <div class="field">
-    <label class="field__label" for="role">Role</label>
+    <label class="field__label" for="role">{{ t('ui.users.role') }}</label>
     <select id="role" name="role" class="field__input" :value="user?.role ?? 'technician'">
-      <option value="technician">Technician</option>
-      <option value="office">Office</option>
+      <option value="technician">{{ t('ui.roles.technician') }}</option>
+      <option value="office">{{ t('ui.roles.office') }}</option>
     </select>
     <span v-if="errors.role" class="field__error">{{ errors.role }}</span>
   </div>
 
   <div class="field">
     <label class="field__label" for="password">
-      {{ passwordOptional ? 'New password' : 'Password' }}
+      {{ passwordOptional ? t('ui.users.newPassword') : t('ui.users.password') }}
     </label>
     <input
       id="password"
@@ -59,14 +60,16 @@ defineProps<{
       autocomplete="new-password"
       :aria-invalid="errors.password ? 'true' : 'false'"
     />
-    <span v-if="passwordOptional" class="field__hint"
-      >Leave empty to keep the current password.</span
-    >
+    <span v-if="passwordOptional" class="field__hint">
+      {{ t('ui.users.keepPasswordHint') }}
+    </span>
     <span v-if="errors.password" class="field__error">{{ errors.password }}</span>
   </div>
 
   <div class="field">
-    <label class="field__label" for="passwordConfirmation">Confirm password</label>
+    <label class="field__label" for="passwordConfirmation">{{
+      t('ui.users.confirmPassword')
+    }}</label>
     <input
       id="passwordConfirmation"
       name="passwordConfirmation"

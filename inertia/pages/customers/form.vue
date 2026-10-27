@@ -4,7 +4,8 @@ import { Form } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
-import { customerTypeLabels } from '~/components/customer_types'
+import { CUSTOMER_TYPES, customerTypeLabel } from '~/components/customer_types'
+import { t } from '~/i18n'
 
 type CustomerField =
   | 'firstName'
@@ -41,10 +42,18 @@ type Field = { name: CustomerField; label: string; hint?: string; type?: string 
 const nameFields = computed<Field[]>(() =>
   isPrivate.value
     ? [
-        { name: 'firstName', label: 'First name' },
-        { name: 'lastName', label: 'Last name' },
+        { name: 'firstName', label: t('ui.customers.firstName') },
+        { name: 'lastName', label: t('ui.customers.lastName') },
       ]
-    : [{ name: 'name', label: type.value === 'condominium' ? 'Condominium name' : 'Company name' }]
+    : [
+        {
+          name: 'name',
+          label:
+            type.value === 'condominium'
+              ? t('ui.customers.condominiumName')
+              : t('ui.customers.companyName'),
+        },
+      ]
 )
 
 const taxFields = computed<Field[]>(() => [
@@ -53,44 +62,41 @@ const taxFields = computed<Field[]>(() => [
     : [
         {
           name: 'vatNumber' as const,
-          label: 'Partita IVA',
-          hint: type.value === 'condominium' ? 'Usually empty for condominiums.' : undefined,
+          label: t('ui.customers.vatNumber'),
+          hint:
+            type.value === 'condominium' ? t('ui.customers.vatNumberCondominiumHint') : undefined,
         },
       ]),
   {
     name: 'taxCode',
-    label: 'Codice Fiscale',
-    hint: type.value === 'company' ? 'Optional when it is the same as the Partita IVA.' : undefined,
+    label: t('ui.customers.taxCode'),
+    hint: type.value === 'company' ? t('ui.customers.taxCodeCompanyHint') : undefined,
   },
-  {
-    name: 'sdiCode',
-    label: 'SDI code (codice destinatario)',
-    hint: 'Seven characters. Leave empty for 0000000.',
-  },
-  { name: 'pec', label: 'PEC', type: 'email' },
+  { name: 'sdiCode', label: t('ui.customers.sdiCode'), hint: t('ui.customers.sdiCodeHint') },
+  { name: 'pec', label: t('ui.customers.pec'), type: 'email' },
 ])
 
 const addressFields: Field[] = [
-  { name: 'street', label: 'Street' },
-  { name: 'streetNumber', label: 'Street number' },
-  { name: 'postalCode', label: 'CAP' },
-  { name: 'city', label: 'Comune' },
-  { name: 'province', label: 'Provincia', hint: 'Two letters, e.g. MI.' },
+  { name: 'street', label: t('ui.address.street') },
+  { name: 'streetNumber', label: t('ui.address.streetNumber') },
+  { name: 'postalCode', label: t('ui.address.postalCode') },
+  { name: 'city', label: t('ui.address.city') },
+  { name: 'province', label: t('ui.address.province'), hint: t('ui.address.provinceHint') },
 ]
 
 const contactFields: Field[] = [
-  { name: 'email', label: 'Email', type: 'email' },
-  { name: 'phone', label: 'Phone', type: 'tel' },
+  { name: 'email', label: t('ui.customers.email'), type: 'email' },
+  { name: 'phone', label: t('ui.customers.phone'), type: 'tel' },
 ]
 
 const sections = computed(() => [
-  { title: 'Name', fields: nameFields.value },
-  { title: 'Tax and electronic invoicing', fields: taxFields.value },
-  { title: 'Billing address', fields: addressFields },
-  { title: 'Contacts', fields: contactFields },
+  { key: 'name', title: t('ui.customers.nameSection'), fields: nameFields.value },
+  { key: 'tax', title: t('ui.customers.taxSection'), fields: taxFields.value },
+  { key: 'billing', title: t('ui.customers.billingSection'), fields: addressFields },
+  { key: 'contacts', title: t('ui.customers.contactsSection'), fields: contactFields },
 ])
 
-const title = props.customer ? 'Edit customer' : 'New customer'
+const title = props.customer ? t('ui.customers.editTitle') : t('ui.customers.newTitle')
 </script>
 
 <template>
@@ -101,18 +107,18 @@ const title = props.customer ? 'Edit customer' : 'New customer'
         :route="customer ? 'customers.update' : 'customers.store'"
         :params="customer ? { id: customer.id } : undefined"
       >
-        <Section title="Type">
+        <Section :title="t('ui.customers.typeSection')">
           <div class="field">
-            <label class="field__label" for="type">Customer type</label>
+            <label class="field__label" for="type">{{ t('ui.customers.typeLabel') }}</label>
             <select id="type" v-model="type" name="type" class="field__input">
-              <option v-for="(label, value) in customerTypeLabels" :key="value" :value="value">
-                {{ label }}
+              <option v-for="value in CUSTOMER_TYPES" :key="value" :value="value">
+                {{ customerTypeLabel(value) }}
               </option>
             </select>
           </div>
         </Section>
 
-        <Section v-for="section in sections" :key="section.title" :title="section.title">
+        <Section v-for="section in sections" :key="section.key" :title="section.title">
           <div v-for="field in section.fields" :key="field.name" class="field">
             <label class="field__label" :for="field.name">{{ field.label }}</label>
             <input
@@ -128,9 +134,11 @@ const title = props.customer ? 'Edit customer' : 'New customer'
           </div>
         </Section>
 
-        <Section title="Payment and notes">
+        <Section :title="t('ui.customers.paymentSection')">
           <div class="field">
-            <label class="field__label" for="paymentTermsId">Payment Terms</label>
+            <label class="field__label" for="paymentTermsId">
+              {{ t('ui.customers.paymentTerms') }}
+            </label>
             <select
               id="paymentTermsId"
               name="paymentTermsId"
@@ -146,7 +154,7 @@ const title = props.customer ? 'Edit customer' : 'New customer'
             </span>
           </div>
           <div class="field">
-            <label class="field__label" for="notes">Notes</label>
+            <label class="field__label" for="notes">{{ t('ui.customers.notes') }}</label>
             <textarea
               id="notes"
               name="notes"
@@ -160,7 +168,7 @@ const title = props.customer ? 'Edit customer' : 'New customer'
 
         <Section>
           <button type="submit" class="btn btn--primary" :disabled="processing">
-            Save customer
+            {{ t('ui.customers.save') }}
           </button>
         </Section>
       </Form>

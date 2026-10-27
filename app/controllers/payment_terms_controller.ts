@@ -33,40 +33,40 @@ export default class PaymentTermsController {
     })
   }
 
-  async store({ request, response, session }: HttpContext) {
+  async store({ request, response, session, i18n }: HttpContext) {
     const data = await request.validateUsing(paymentTermsValidator, { meta: {} })
     await PaymentTerms.create({ ...data, endOfMonth: data.endOfMonth ?? false })
 
-    session.flash('success', 'Payment Terms added.')
+    session.flash('success', i18n.t('flash.paymentTermsAdded'))
     response.redirect().toRoute('payment_terms.index')
   }
 
-  async update({ params, request, response, session }: HttpContext) {
+  async update({ params, request, response, session, i18n }: HttpContext) {
     const terms = await PaymentTerms.findOrFail(params.id)
     const data = await request.validateUsing(paymentTermsValidator, { meta: { id: terms.id } })
     await terms.merge({ ...data, endOfMonth: data.endOfMonth ?? false }).save()
 
-    session.flash('success', 'Payment Terms saved.')
+    session.flash('success', i18n.t('flash.paymentTermsSaved'))
     response.redirect().toRoute('payment_terms.index')
   }
 
-  async destroy({ params, response, session }: HttpContext) {
+  async destroy({ params, response, session, i18n }: HttpContext) {
     const terms = await PaymentTerms.findOrFail(params.id)
     const inUse = await db.from('customers').where('payment_terms_id', terms.id).first()
     const [{ total }] = await db.from('payment_terms').count('* as total')
 
     if (inUse) {
-      session.flash('error', `${terms.name} is used by Customers and can't be deleted.`)
+      session.flash('error', i18n.t('flash.paymentTermsInUse', { name: terms.name }))
     } else if (Number(total) <= 1) {
-      session.flash('error', 'There must always be at least one set of Payment Terms.')
+      session.flash('error', i18n.t('flash.paymentTermsLast'))
     } else {
       try {
         await terms.delete()
-        session.flash('success', `${terms.name} deleted.`)
+        session.flash('success', i18n.t('flash.paymentTermsDeleted', { name: terms.name }))
       } catch (error) {
         // A Customer was given these terms after the check above
         if ((error as { code?: string }).code !== FOREIGN_KEY_VIOLATION) throw error
-        session.flash('error', `${terms.name} is used by Customers and can't be deleted.`)
+        session.flash('error', i18n.t('flash.paymentTermsInUse', { name: terms.name }))
       }
     }
     response.redirect().toRoute('payment_terms.index')

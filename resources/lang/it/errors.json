@@ -1,0 +1,5 @@
+{
+  "E_AUTHORIZATION_FAILURE": "Non hai i permessi per questa operazione",
+  "E_INVALID_CREDENTIALS": "Email o password non corretti",
+  "pdfUnavailable": "Il servizio PDF non è disponibile. Riprova tra poco."
+}

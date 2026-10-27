@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import PlainLayout from '~/layouts/plain.vue'
+import { t } from '~/i18n'
 </script>
 
 <template>
@@ -12,12 +13,10 @@ import PlainLayout from '~/layouts/plain.vue'
           </span>
         </div>
         <div class="pc-lead">
-          <span>Not found.</span>
-          <em>That route hasn't been built yet.</em>
+          <span>{{ t('ui.errors.notFoundTitle') }}</span>
+          <em>{{ t('ui.errors.notFoundLead') }}</em>
         </div>
-        <p class="pc-para">
-          The page you tried to reach doesn't exist. Check the URL or go back to the dashboard.
-        </p>
+        <p class="pc-para">{{ t('ui.errors.notFoundText') }}</p>
       </article>
     </div>
   </PlainLayout>

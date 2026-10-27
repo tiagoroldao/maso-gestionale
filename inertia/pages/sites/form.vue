@@ -3,6 +3,7 @@ import { Form, Link } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
+import { t } from '~/i18n'
 
 type SiteField = 'label' | 'street' | 'streetNumber' | 'unit' | 'postalCode' | 'city' | 'province'
 
@@ -13,20 +14,20 @@ const props = defineProps<{
 }>()
 
 const fields: { name: SiteField; label: string; hint?: string }[] = [
-  { name: 'label', label: 'Label', hint: 'Optional, e.g. “Casa al mare” or “Negozio”.' },
-  { name: 'street', label: 'Street' },
-  { name: 'streetNumber', label: 'Street number' },
-  { name: 'unit', label: 'Unit', hint: 'Scala, piano, interno…' },
-  { name: 'postalCode', label: 'CAP' },
-  { name: 'city', label: 'Comune' },
-  { name: 'province', label: 'Provincia', hint: 'Two letters, e.g. MI.' },
+  { name: 'label', label: t('ui.sites.label'), hint: t('ui.sites.labelHint') },
+  { name: 'street', label: t('ui.address.street') },
+  { name: 'streetNumber', label: t('ui.address.streetNumber') },
+  { name: 'unit', label: t('ui.sites.unit') },
+  { name: 'postalCode', label: t('ui.address.postalCode') },
+  { name: 'city', label: t('ui.address.city') },
+  { name: 'province', label: t('ui.address.province'), hint: t('ui.address.provinceHint') },
 ]
 
 const title = props.site
-  ? 'Edit site'
+  ? t('ui.sites.editTitle')
   : props.forCustomer
-    ? `New site for ${props.forCustomer.displayName}`
-    : 'New site'
+    ? t('ui.sites.newForCustomer', { name: props.forCustomer.displayName })
+    : t('ui.sites.newTitle')
 </script>
 
 <template>
@@ -39,7 +40,7 @@ const title = props.site
       >
         <input v-if="forCustomer" type="hidden" name="customerId" :value="forCustomer.id" />
 
-        <Section title="Address">
+        <Section :title="t('ui.sites.addressSection')">
           <div v-for="field in fields" :key="field.name" class="field">
             <label class="field__label" :for="field.name">{{ field.label }}</label>
             <input
@@ -53,7 +54,7 @@ const title = props.site
             <span v-if="errors[field.name]" class="field__error">{{ errors[field.name] }}</span>
           </div>
           <div class="field">
-            <label class="field__label" for="accessNotes">Access notes</label>
+            <label class="field__label" for="accessNotes">{{ t('ui.sites.accessNotes') }}</label>
             <textarea
               id="accessNotes"
               name="accessNotes"
@@ -61,11 +62,11 @@ const title = props.site
               rows="3"
               :value="site?.accessNotes ?? ''"
             />
-            <span class="field__hint">Keys, gate codes, parking, who to ask for.</span>
+            <span class="field__hint">{{ t('ui.sites.accessNotesHint') }}</span>
           </div>
         </Section>
 
-        <Section v-if="site" title="Customers">
+        <Section v-if="site" :title="t('ui.sites.customers')">
           <ul v-if="customers.length" :style="{ margin: 0, paddingLeft: '18px' }">
             <li v-for="customer in customers" :key="customer.id">
               <Link route="customers.show" :params="{ id: customer.id }" class="il">
@@ -73,13 +74,13 @@ const title = props.site
               </Link>
             </li>
           </ul>
-          <p v-else :style="{ color: 'var(--subtle)' }">
-            Not linked to any Customer. Link it from a Customer's page.
-          </p>
+          <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.sites.notLinkedHint') }}</p>
         </Section>
 
         <Section>
-          <button type="submit" class="btn btn--primary" :disabled="processing">Save site</button>
+          <button type="submit" class="btn btn--primary" :disabled="processing">
+            {{ t('ui.sites.save') }}
+          </button>
         </Section>
       </Form>
     </Page>

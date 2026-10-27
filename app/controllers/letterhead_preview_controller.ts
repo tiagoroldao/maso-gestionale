@@ -1,41 +1,40 @@
 import DocumentRenderer, { type DocumentInput } from '#documents/document_renderer'
 import { PdfConversionError } from '#documents/pdf_converter'
+import type { I18n } from '@adonisjs/i18n'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
  * A sample document in the Base Layout, so the Admin can check how the
  * company letterhead prints.
  */
-const SAMPLE: DocumentInput = {
-  title: 'Letterhead preview',
-  recipient: {
-    name: 'Mario Rossi',
-    addressLines: ['Via Garibaldi, 5', '20121 Milano (MI)'],
-    taxCode: 'RSSMRA85T10A562S',
-  },
-  bodyHtml: `
-    <p>This sample shows how invoices and documents will look with the current
-    company settings: the letterhead at the top and the recipient block below it.</p>
-    <p>Change the company details or the logo in Settings, then download the
-    preview again.</p>`,
+function sample(i18n: I18n): DocumentInput {
+  return {
+    title: i18n.t('documents.letterheadPreview.title'),
+    recipient: {
+      name: 'Mario Rossi',
+      addressLines: ['Via Garibaldi, 5', '20121 Milano (MI)'],
+      taxCode: 'RSSMRA85T10A562S',
+    },
+    bodyHtml: i18n.t('documents.letterheadPreview.body'),
+  }
 }
 
 export default class LetterheadPreviewController {
-  async show({ response }: HttpContext) {
+  async show({ response, i18n }: HttpContext) {
     response.header('content-type', 'text/html; charset=utf-8')
-    return new DocumentRenderer().renderHtml(SAMPLE)
+    return new DocumentRenderer().renderHtml(sample(i18n))
   }
 
-  async pdf({ response, logger }: HttpContext) {
+  async pdf({ response, logger, i18n }: HttpContext) {
     try {
-      const pdf = await new DocumentRenderer().renderPdf(SAMPLE)
+      const pdf = await new DocumentRenderer().renderPdf(sample(i18n))
       response.header('content-type', 'application/pdf')
-      response.header('content-disposition', 'inline; filename="letterhead-preview.pdf"')
+      response.header('content-disposition', 'inline; filename="anteprima-carta-intestata.pdf"')
       return pdf
     } catch (error) {
       if (!(error instanceof PdfConversionError)) throw error
       logger.warn({ err: error }, 'PDF conversion failed')
-      return response.serviceUnavailable('The PDF service is not available. Try again shortly.')
+      return response.serviceUnavailable(i18n.t('errors.pdfUnavailable'))
     }
   }
 }

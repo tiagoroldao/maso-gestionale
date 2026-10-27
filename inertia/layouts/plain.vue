@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 import { usePage } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
 import Logo from '~/components/logo.vue'
@@ -15,9 +16,11 @@ const page = usePage()
       <div class="header__right">
         <ThemeToggle />
         <Link v-if="page.props.user" route="dashboard" class="btn btn--primary btn--sm">
-          Dashboard
+          {{ t('ui.errors.toDashboard') }}
         </Link>
-        <Link v-else route="session.create" class="btn btn--primary btn--sm">Sign in</Link>
+        <Link v-else route="session.create" class="btn btn--primary btn--sm">{{
+          t('ui.errors.signIn')
+        }}</Link>
       </div>
     </div>
   </header>

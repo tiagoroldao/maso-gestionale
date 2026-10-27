@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t, todayIso } from '~/i18n'
 import { Form } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
@@ -17,24 +18,24 @@ const props = defineProps<{
 }>()
 
 const textFields: { name: TextField; label: string; list?: string }[] = [
-  { name: 'equipmentType', label: 'Type', list: 'equipment-types' },
-  { name: 'make', label: 'Make' },
-  { name: 'model', label: 'Model' },
-  { name: 'serialNumber', label: 'Serial number' },
+  { name: 'equipmentType', label: t('ui.equipment.type'), list: 'equipment-types' },
+  { name: 'make', label: t('ui.equipment.make') },
+  { name: 'model', label: t('ui.equipment.model') },
+  { name: 'serialNumber', label: t('ui.equipment.serialNumber') },
 ]
 
 const commonTypes = [
-  'Boiler',
-  'Water heater',
-  'Air conditioner',
-  'Heat pump',
-  'Solar thermal system',
-  'Water softener',
-  'Pressure pump',
-]
+  'boiler',
+  'waterHeater',
+  'airConditioner',
+  'heatPump',
+  'solarThermal',
+  'waterSoftener',
+  'pressurePump',
+].map((key) => t(`ui.equipment.commonTypes.${key}`))
 
-const today = new Date().toISOString().slice(0, 10)
-const title = props.equipment ? 'Edit equipment' : 'Add equipment'
+const today = todayIso()
+const title = props.equipment ? t('ui.equipment.editTitle') : t('ui.equipment.addTitle')
 </script>
 
 <template>
@@ -45,7 +46,7 @@ const title = props.equipment ? 'Edit equipment' : 'Add equipment'
         :route="equipment ? 'installed_equipment.update' : 'installed_equipment.store'"
         :params="equipment ? { id: equipment.id } : { siteId: site.id }"
       >
-        <Section title="Equipment">
+        <Section :title="t('ui.equipment.section')">
           <datalist id="equipment-types">
             <option v-for="type in commonTypes" :key="type" :value="type" />
           </datalist>
@@ -62,7 +63,9 @@ const title = props.equipment ? 'Edit equipment' : 'Add equipment'
             <span v-if="errors[field.name]" class="field__error">{{ errors[field.name] }}</span>
           </div>
           <div class="field">
-            <label class="field__label" for="installedOn">Install date</label>
+            <label class="field__label" for="installedOn">{{
+              t('ui.equipment.installedOn')
+            }}</label>
             <input
               id="installedOn"
               name="installedOn"
@@ -76,12 +79,12 @@ const title = props.equipment ? 'Edit equipment' : 'Add equipment'
         </Section>
 
         <Section
-          title="Maintenance"
-          description="The next check is due one interval after the last service, or after installation."
+          :title="t('ui.equipment.maintenanceSection')"
+          :description="t('ui.equipment.maintenanceDescription')"
         >
           <div class="field">
             <label class="field__label" for="maintenanceIntervalMonths">
-              Maintenance Interval (months)
+              {{ t('ui.equipment.interval') }}
             </label>
             <input
               id="maintenanceIntervalMonths"
@@ -97,7 +100,9 @@ const title = props.equipment ? 'Edit equipment' : 'Add equipment'
             </span>
           </div>
           <div class="field">
-            <label class="field__label" for="lastServicedOn">Last serviced</label>
+            <label class="field__label" for="lastServicedOn">{{
+              t('ui.equipment.lastServicedOn')
+            }}</label>
             <input
               id="lastServicedOn"
               name="lastServicedOn"
@@ -111,7 +116,7 @@ const title = props.equipment ? 'Edit equipment' : 'Add equipment'
             </span>
           </div>
           <div class="field">
-            <label class="field__label" for="notes">Notes</label>
+            <label class="field__label" for="notes">{{ t('ui.equipment.notes') }}</label>
             <textarea
               id="notes"
               name="notes"
@@ -124,7 +129,7 @@ const title = props.equipment ? 'Edit equipment' : 'Add equipment'
 
         <Section>
           <button type="submit" class="btn btn--primary" :disabled="processing">
-            Save equipment
+            {{ t('ui.equipment.save') }}
           </button>
         </Section>
       </Form>

@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import type { Role } from '#models/user'
 import { createUser } from '#tests/helpers/users'
+import { it } from '#tests/helpers/i18n'
 
 /**
  * Expected status per role for one page of each kind of access.
@@ -58,7 +59,7 @@ test.group('Deactivated users', () => {
       .redirects(0)
 
     response.assertHeader('location', '/login')
-    response.assertFlashMessage('error', 'Invalid user credentials')
+    response.assertFlashMessage('error', it('errors.E_INVALID_CREDENTIALS'))
   })
 
   test('are signed out on their next request', async ({ client }) => {

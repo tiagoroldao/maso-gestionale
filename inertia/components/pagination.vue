@@ -4,6 +4,7 @@
  * string parameters (such as a search term).
  */
 import { computed } from 'vue'
+import { t } from '~/i18n'
 import { usePage } from '@inertiajs/vue3'
 // The links keep the current URL and only change ?page=, so there is no route name to pass
 // eslint-disable-next-line @adonisjs/prefer-adonisjs-inertia-link
@@ -29,13 +30,17 @@ const next = computed(() =>
 <template>
   <nav
     v-if="lastPage > 1"
-    aria-label="Pagination"
+    :aria-label="t('ui.common.paginationLabel')"
     :style="{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px' }"
   >
-    <Link v-if="previous" :href="previous" class="btn btn--secondary btn--sm">Previous</Link>
+    <Link v-if="previous" :href="previous" class="btn btn--secondary btn--sm">{{
+      t('ui.common.previous')
+    }}</Link>
     <span :style="{ color: 'var(--subtle)', fontSize: '13px' }">
-      Page {{ currentPage }} of {{ lastPage }} · {{ total }} results
+      {{ t('ui.common.pagination', { current: currentPage, last: lastPage, total }) }}
     </span>
-    <Link v-if="next" :href="next" class="btn btn--secondary btn--sm">Next</Link>
+    <Link v-if="next" :href="next" class="btn btn--secondary btn--sm">{{
+      t('ui.common.next')
+    }}</Link>
   </nav>
 </template>

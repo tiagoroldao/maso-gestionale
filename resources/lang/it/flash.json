@@ -1,0 +1,19 @@
+{
+  "setupComplete": "Configurazione completata. Ora puoi accedere.",
+  "userCreated": "{name} può ora accedere.",
+  "userSaved": "Modifiche salvate.",
+  "userDeactivated": "{name} non può più accedere.",
+  "userReactivated": "{name} può di nuovo accedere.",
+  "companySaved": "Dati aziendali salvati.",
+  "customerSaved": "Cliente «{name}» salvato.",
+  "paymentTermsAdded": "Condizioni di pagamento aggiunte.",
+  "paymentTermsSaved": "Condizioni di pagamento salvate.",
+  "paymentTermsDeleted": "Condizioni «{name}» eliminate.",
+  "paymentTermsInUse": "Le condizioni «{name}» sono assegnate ad almeno un cliente e non possono essere eliminate.",
+  "paymentTermsLast": "Deve esserci sempre almeno una condizione di pagamento.",
+  "siteSaved": "Immobile salvato.",
+  "siteLinked": "Immobile collegato.",
+  "siteUnlinked": "Immobile scollegato.",
+  "equipmentAdded": "Apparecchio aggiunto.",
+  "equipmentSaved": "Apparecchio salvato."
+}

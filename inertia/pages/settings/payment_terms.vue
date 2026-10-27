@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { t } from '~/i18n'
 import { Form } from '@adonisjs/inertia/vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
@@ -18,17 +19,14 @@ defineProps<{
 <template>
   <AppLayout>
     <SettingsLayout>
-      <Section
-        title="Payment Terms"
-        description="Each Customer has Payment Terms, which set the due date of their invoices."
-      >
+      <Section :title="t('ui.paymentTerms.title')" :description="t('ui.paymentTerms.description')">
         <table class="table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Days</th>
-              <th>End of month</th>
-              <th>Customers</th>
+              <th>{{ t('ui.paymentTerms.name') }}</th>
+              <th>{{ t('ui.paymentTerms.days') }}</th>
+              <th>{{ t('ui.paymentTerms.endOfMonth') }}</th>
+              <th>{{ t('ui.paymentTerms.customers') }}</th>
               <th />
             </tr>
           </thead>
@@ -45,7 +43,7 @@ defineProps<{
                     name="name"
                     class="field__input"
                     :value="terms.name"
-                    :aria-label="`Name of ${terms.name}`"
+                    :aria-label="t('ui.paymentTerms.nameOf', { name: terms.name })"
                     :style="{ maxWidth: '200px' }"
                   />
                   <input
@@ -55,7 +53,7 @@ defineProps<{
                     max="365"
                     class="field__input"
                     :value="terms.days"
-                    :aria-label="`Days for ${terms.name}`"
+                    :aria-label="t('ui.paymentTerms.daysFor', { name: terms.name })"
                     :style="{ maxWidth: '90px' }"
                   />
                   <label :style="{ display: 'flex', gap: '6px', alignItems: 'center' }">
@@ -65,14 +63,13 @@ defineProps<{
                       value="true"
                       :checked="terms.endOfMonth"
                     />
-                    End of month
+                    {{ t('ui.paymentTerms.endOfMonth') }}
                   </label>
-                  <span :style="{ color: 'var(--subtle)' }"
-                    >{{ terms.customerCount }}
-                    {{ terms.customerCount === 1 ? 'customer' : 'customers' }}</span
-                  >
+                  <span :style="{ color: 'var(--subtle)' }">{{
+                    t('ui.paymentTerms.customerCount', { count: terms.customerCount })
+                  }}</span>
                   <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
-                    Save
+                    {{ t('ui.common.save') }}
                   </button>
                   <span v-if="errors.name" class="field__error">{{ errors.name }}</span>
                   <span v-if="errors.days" class="field__error">{{ errors.days }}</span>
@@ -84,7 +81,9 @@ defineProps<{
                   route="payment_terms.destroy"
                   :params="{ id: terms.id }"
                 >
-                  <button type="submit" class="btn btn--ghost btn--sm">Delete</button>
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    {{ t('ui.common.delete') }}
+                  </button>
                 </Form>
               </td>
             </tr>
@@ -92,19 +91,22 @@ defineProps<{
         </table>
       </Section>
 
-      <Section title="Add Payment Terms" description="For example “30 days end of month”.">
+      <Section
+        :title="t('ui.paymentTerms.addTitle')"
+        :description="t('ui.paymentTerms.addDescription')"
+      >
         <Form
           v-slot="{ processing, errors }"
           route="payment_terms.store"
           :style="{ display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }"
         >
           <div class="field">
-            <label class="field__label" for="new-name">Name</label>
+            <label class="field__label" for="new-name">{{ t('ui.paymentTerms.name') }}</label>
             <input id="new-name" name="name" class="field__input" />
             <span v-if="errors.name" class="field__error">{{ errors.name }}</span>
           </div>
           <div class="field">
-            <label class="field__label" for="new-days">Days</label>
+            <label class="field__label" for="new-days">{{ t('ui.paymentTerms.days') }}</label>
             <input
               id="new-days"
               name="days"
@@ -117,7 +119,8 @@ defineProps<{
             <span v-if="errors.days" class="field__error">{{ errors.days }}</span>
           </div>
           <label :style="{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '28px' }">
-            <input type="checkbox" name="endOfMonth" value="true" /> End of month
+            <input type="checkbox" name="endOfMonth" value="true" />
+            {{ t('ui.paymentTerms.endOfMonth') }}
           </label>
           <button
             type="submit"
@@ -125,7 +128,7 @@ defineProps<{
             :disabled="processing"
             :style="{ marginTop: '22px' }"
           >
-            Add
+            {{ t('ui.paymentTerms.add') }}
           </button>
         </Form>
       </Section>

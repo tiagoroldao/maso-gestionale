@@ -20,7 +20,7 @@ export function privateCustomerFields(overrides: Record<string, string> = {}) {
 }
 
 export async function defaultPaymentTerms() {
-  return PaymentTerms.findByOrFail('name', 'Immediate')
+  return PaymentTerms.findByOrFail('name', 'Rimessa diretta')
 }
 
 export async function createCustomer(attributes: Partial<Customer> = {}) {

@@ -2,20 +2,18 @@
 import { Server } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
+import { t } from '~/i18n'
 </script>
 
 <template>
   <AppLayout>
-    <Page title="Instance" hide-title>
+    <Page :title="t('ui.instance.title')" hide-title>
       <div class="empty">
         <div class="empty__mark">
           <Server :size="22" />
         </div>
-        <h1>Instance settings</h1>
-        <p>
-          SDI mode, backups, the public URL and updates will be managed here. As the Superuser you
-          don't have access to business data.
-        </p>
+        <h1>{{ t('ui.instance.heading') }}</h1>
+        <p>{{ t('ui.instance.text') }}</p>
       </div>
     </Page>
   </AppLayout>
