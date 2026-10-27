@@ -7,6 +7,21 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class CategorySchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'markupPercent', 'name', 'updatedAt'] as const
+  $columns = CategorySchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare markupPercent: string
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class CompanySettingSchema extends BaseModel {
   static $columns = ['city', 'createdAt', 'email', 'iban', 'id', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
   $columns = CompanySettingSchema.$columns
@@ -129,6 +144,39 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ItemSchema extends BaseModel {
+  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'purchasePrice', 'reorderLevel', 'resalePrice', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatRate'] as const
+  $columns = ItemSchema.$columns
+  @column.dateTime()
+  declare archivedAt: DateTime | null
+  @column()
+  declare categoryId: number | null
+  @column()
+  declare code: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare purchasePrice: string
+  @column()
+  declare reorderLevel: string | null
+  @column()
+  declare resalePrice: string
+  @column()
+  declare supplierCode: string | null
+  @column()
+  declare supplierName: string | null
+  @column()
+  declare unit: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare vatRate: string
+}
+
 export class PaymentTermSchema extends BaseModel {
   static $columns = ['createdAt', 'days', 'endOfMonth', 'id', 'name', 'updatedAt'] as const
   $columns = PaymentTermSchema.$columns
@@ -171,6 +219,31 @@ export class SiteSchema extends BaseModel {
   declare unit: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class StockMovementSchema extends BaseModel {
+  static $columns = ['createdAt', 'createdBy', 'id', 'itemId', 'kind', 'occurredOn', 'quantity', 'reason', 'reference', 'unitCost'] as const
+  $columns = StockMovementSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdBy: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number
+  @column()
+  declare kind: string
+  @column.date()
+  declare occurredOn: DateTime
+  @column()
+  declare quantity: string
+  @column()
+  declare reason: string | null
+  @column()
+  declare reference: string | null
+  @column()
+  declare unitCost: string | null
 }
 
 export class UserSchema extends BaseModel {

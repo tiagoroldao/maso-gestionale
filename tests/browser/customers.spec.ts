@@ -30,4 +30,23 @@ test.group('Customers in the browser', () => {
     const customer = await Customer.firstOrFail()
     assert.equal(customer.type, 'company')
   })
+
+  test('changing the type keeps what was already typed', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+
+    const page = await visit('/customers/create')
+    await page.getByLabel(it('ui.address.street'), { exact: true }).fill('Corso Italia')
+    await page.getByLabel(it('ui.address.city')).fill('Torino')
+    await page.getByLabel(it('ui.customers.typeLabel')).selectOption('company')
+
+    assert.equal(
+      await page.getByLabel(it('ui.address.street'), { exact: true }).inputValue(),
+      'Corso Italia'
+    )
+    assert.equal(await page.getByLabel(it('ui.address.city')).inputValue(), 'Torino')
+  })
 })

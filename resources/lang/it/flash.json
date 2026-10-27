@@ -15,5 +15,15 @@
   "siteLinked": "Immobile collegato.",
   "siteUnlinked": "Immobile scollegato.",
   "equipmentAdded": "Apparecchio aggiunto.",
-  "equipmentSaved": "Apparecchio salvato."
+  "equipmentSaved": "Apparecchio salvato.",
+  "itemSaved": "Articolo «{code}» salvato.",
+  "categoryAdded": "Categoria aggiunta.",
+  "categorySaved": "Categoria salvata.",
+  "categoryDeleted": "Categoria «{name}» eliminata.",
+  "categoryInUse": "La categoria «{name}» è assegnata ad almeno un articolo e non può essere eliminata.",
+  "itemDeleted": "Articolo «{code}» eliminato.",
+  "itemInUse": "L'articolo «{code}» ha dei movimenti e non può essere eliminato: archivialo.",
+  "itemArchived": "Articolo «{code}» archiviato.",
+  "itemUnarchived": "Articolo «{code}» ripristinato.",
+  "alreadyTaken": "Un altro elemento con questo nome o codice è appena stato salvato. Ricarica la pagina e riprova."
 }

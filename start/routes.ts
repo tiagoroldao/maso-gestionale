@@ -31,6 +31,7 @@ router
       .group(() => {
         router.on('/dashboard').renderInertia('dashboard', {}).as('dashboard')
         router.get('company/logo', [controllers.CompanySettings, 'logo'])
+        router.get('items/search', [controllers.Items, 'search'])
       })
       .use(middleware.can('accessBusiness'))
 
@@ -94,6 +95,35 @@ router
 
     router
       .group(() => {
+        router.get('items', [controllers.Items, 'index'])
+        router.get('items/create', [controllers.Items, 'create'])
+        router.post('items', [controllers.Items, 'store'])
+        router
+          .get('items/:id/edit', [controllers.Items, 'edit'])
+          .where('id', router.matchers.number())
+        router.put('items/:id', [controllers.Items, 'update']).where('id', router.matchers.number())
+        router
+          .post('items/:id/archive', [controllers.Items, 'archive'])
+          .where('id', router.matchers.number())
+        router
+          .post('items/:id/unarchive', [controllers.Items, 'unarchive'])
+          .where('id', router.matchers.number())
+        router
+          .delete('items/:id', [controllers.Items, 'destroy'])
+          .where('id', router.matchers.number())
+      })
+      .use(middleware.can('manageItems'))
+
+    router
+      .group(() => {
+        router.get('settings/categories', [controllers.Categories, 'index'])
+        router.post('settings/categories', [controllers.Categories, 'store'])
+        router
+          .put('settings/categories/:id', [controllers.Categories, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .delete('settings/categories/:id', [controllers.Categories, 'destroy'])
+          .where('id', router.matchers.number())
         router.get('settings/company', [controllers.CompanySettings, 'edit'])
         router.post('settings/company', [controllers.CompanySettings, 'update'])
         router.get('settings/company/letterhead', [controllers.LetterheadPreview, 'show'])

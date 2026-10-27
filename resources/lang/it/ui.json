@@ -20,7 +20,8 @@
     "sites": "Immobili",
     "users": "Utenti",
     "settings": "Impostazioni",
-    "instance": "Istanza"
+    "instance": "Istanza",
+    "items": "Articoli"
   },
   "roles": {
     "superuser": "Superuser",
@@ -106,7 +107,8 @@
     "title": "Impostazioni",
     "description": "Dati aziendali e opzioni usate in tutta l'app.",
     "company": "Azienda",
-    "paymentTerms": "Condizioni di pagamento"
+    "paymentTerms": "Condizioni di pagamento",
+    "categories": "Categorie"
   },
   "company": {
     "companySection": "Azienda",
@@ -151,7 +153,7 @@
     "editTitle": "Modifica cliente",
     "searchLabel": "Cerca clienti",
     "searchPlaceholder": "Nome, Codice Fiscale o Partita IVA",
-    "noMatches": "Nessun cliente corrisponde a “{q}”.",
+    "noMatches": "Nessun cliente corrisponde a «{q}».",
     "empty": "Nessun cliente.",
     "name": "Nome",
     "type": "Tipo",
@@ -204,7 +206,7 @@
     "editSite": "Modifica immobile",
     "searchLabel": "Cerca immobili",
     "searchPlaceholder": "Via, comune o etichetta",
-    "noMatches": "Nessun immobile corrisponde a “{q}”.",
+    "noMatches": "Nessun immobile corrisponde a «{q}».",
     "empty": "Nessun immobile.",
     "site": "Immobile",
     "customers": "Clienti",
@@ -258,5 +260,53 @@
       "waterSoftener": "Addolcitore",
       "pressurePump": "Autoclave"
     }
+  },
+  "categories": {
+    "title": "Categorie",
+    "description": "Ogni categoria ha un ricarico, usato solo per suggerire il prezzo di vendita dei nuovi articoli.",
+    "name": "Nome",
+    "markup": "Ricarico (%)",
+    "items": "Articoli",
+    "itemCount": "{count, plural, one {# articolo} other {# articoli}}",
+    "nameOf": "Nome di {name}",
+    "markupFor": "Ricarico per {name}",
+    "addTitle": "Aggiungi categoria",
+    "add": "Aggiungi"
+  },
+  "items": {
+    "title": "Articoli",
+    "new": "Nuovo articolo",
+    "newTitle": "Nuovo articolo",
+    "editTitle": "Modifica articolo",
+    "searchLabel": "Cerca articoli",
+    "searchPlaceholder": "Codice, descrizione o codice fornitore",
+    "noMatches": "Nessun articolo corrisponde a «{q}».",
+    "empty": "Nessun articolo.",
+    "code": "Codice",
+    "description": "Descrizione",
+    "unit": "Unità di misura",
+    "unitHint": "Es. pz, m, kg, l.",
+    "category": "Categoria",
+    "noCategory": "Nessuna categoria",
+    "supplierSection": "Fornitore",
+    "supplierName": "Nome fornitore",
+    "supplierCode": "Codice fornitore",
+    "pricesSection": "Prezzi",
+    "vatRate": "Aliquota IVA predefinita (%)",
+    "purchasePrice": "Prezzo di acquisto",
+    "resalePrice": "Prezzo di vendita",
+    "suggested": "Suggerito dal ricarico della categoria ({markup} %): {price}",
+    "useSuggested": "Usa il prezzo suggerito",
+    "markup": "Ricarico attuale: {markup} %",
+    "pricesHint": "Il prezzo di vendita resta quello inserito: non cambia se cambiano il prezzo di acquisto o il ricarico della categoria.",
+    "save": "Salva articolo",
+    "itemSection": "Articolo",
+    "archived": "Archiviato",
+    "showArchived": "Mostra archiviati",
+    "hideArchived": "Nascondi archiviati",
+    "archive": "Archivia",
+    "unarchive": "Ripristina",
+    "delete": "Elimina",
+    "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli."
   }
 }

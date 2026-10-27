@@ -6,7 +6,7 @@
 import { IntlMessageFormat } from 'intl-messageformat'
 
 export const LOCALE = 'it'
-export const TIME_ZONE = 'Europe/Rome'
+export { TIME_ZONE, formatDate, todayIso } from '@shared/dates'
 
 const files = import.meta.glob<Record<string, unknown>>('../resources/lang/it/*.json', {
   eager: true,
@@ -63,32 +63,24 @@ const money = new Intl.NumberFormat(LOCALE, {
 })
 
 /**
- * An amount in euro, Italian style ("1.234,56 €").
+ * An amount in euro, Italian style ("1.234,56 €"). Accepts the decimal
+ * strings the server sends (ADR 0007) so no float rounding sneaks in.
  */
-export function formatMoney(amount: number) {
-  return money.format(amount)
+export function formatMoney(amount: string | number) {
+  return money.format(amount as Parameters<typeof money.format>[0])
 }
 
-/**
- * A calendar date ("2026-05-20") as the business writes it ("20/05/2026"),
- * without any timezone conversion.
- */
-export function formatDate(isoDate: string | null | undefined) {
-  if (!isoDate) return ''
-  const [year, month, day] = isoDate.slice(0, 10).split('-')
-  return `${day}/${month}/${year}`
-}
+const unitPrice = new Intl.NumberFormat(LOCALE, {
+  style: 'currency',
+  currency: 'EUR',
+  useGrouping: 'always',
+  maximumFractionDigits: 4,
+})
 
 /**
- * The date in the business's timezone at `now`, as "YYYY-MM-DD".
+ * A unit price, keeping up to 4 decimals ("0,0345 €") so cheap parts aren't
+ * shown rounded to the cent (ADR 0007).
  */
-export function todayIso(now = new Date()) {
-  const parts = new Intl.DateTimeFormat('en', {
-    timeZone: TIME_ZONE,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(now)
-  const part = (type: string) => parts.find((p) => p.type === type)!.value
-  return `${part('year')}-${part('month')}-${part('day')}`
+export function formatUnitPrice(amount: string | number) {
+  return unitPrice.format(amount as Parameters<typeof unitPrice.format>[0])
 }

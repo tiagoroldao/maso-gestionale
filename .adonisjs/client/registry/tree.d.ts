@@ -17,6 +17,17 @@ export interface ApiDefinition {
     edit: typeof routes['company_settings.edit']
     update: typeof routes['company_settings.update']
   }
+  items: {
+    search: typeof routes['items.search']
+    index: typeof routes['items.index']
+    create: typeof routes['items.create']
+    store: typeof routes['items.store']
+    edit: typeof routes['items.edit']
+    update: typeof routes['items.update']
+    archive: typeof routes['items.archive']
+    unarchive: typeof routes['items.unarchive']
+    destroy: typeof routes['items.destroy']
+  }
   users: {
     index: typeof routes['users.index']
     create: typeof routes['users.create']
@@ -52,6 +63,12 @@ export interface ApiDefinition {
     store: typeof routes['installed_equipment.store']
     edit: typeof routes['installed_equipment.edit']
     update: typeof routes['installed_equipment.update']
+  }
+  categories: {
+    index: typeof routes['categories.index']
+    store: typeof routes['categories.store']
+    update: typeof routes['categories.update']
+    destroy: typeof routes['categories.destroy']
   }
   letterheadPreview: {
     show: typeof routes['letterhead_preview.show']

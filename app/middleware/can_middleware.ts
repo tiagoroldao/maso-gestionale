@@ -8,7 +8,12 @@ import type * as abilities from '#abilities/main'
  */
 type RouteAbility = Extract<
   keyof typeof abilities,
-  'accessBusiness' | 'accessInstance' | 'manageUsers' | 'manageCompany' | 'manageCustomers'
+  | 'accessBusiness'
+  | 'accessInstance'
+  | 'manageUsers'
+  | 'manageCompany'
+  | 'manageCustomers'
+  | 'manageItems'
 >
 
 /**
