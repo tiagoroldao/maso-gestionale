@@ -6,5 +6,5 @@ The app runs on a single server at the business's premises (Docker Compose: app,
 
 - Availability depends on the office's power and connection; downtime during outages is accepted. A UPS is required.
 - Nightly encrypted off-site backups (EU object storage) and a tested restore procedure are mandatory before go-live.
-- The app is not the legal archive for electronic invoices; *conservazione a norma* is delegated to the Agenzia delle Entrate service or the SDI intermediary.
+- The app is not the legal archive for electronic invoices; _conservazione a norma_ is delegated to the Agenzia delle Entrate service or the SDI intermediary.
 - SDI outcomes are fetched by polling (see ADR 0004), so the app works without any public inbound route; webhooks through the tunnel are optional.

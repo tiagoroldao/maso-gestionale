@@ -10,4 +10,4 @@ The people using the app are Italian office staff and technicians, so the interf
 ## Consequences
 
 - Tests assert user-visible text through the catalogue (`tests/helpers/i18n.ts`), not literal Italian.
-- Some names are deliberate: the Admin role is shown as *Titolare*, because *Amministratore* would clash with a condominium's *amministratore*, who is a Customer.
+- Some names are deliberate: the Admin role is shown as _Titolare_, because _Amministratore_ would clash with a condominium's _amministratore_, who is a Customer.

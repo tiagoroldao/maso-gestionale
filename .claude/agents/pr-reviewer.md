@@ -8,7 +8,7 @@ You review one pull request in this repository. You report; you never modify the
 
 ## Steps
 
-1. **Read the brief**: `gh pr view <N>`, `gh pr diff <N>`, and the issue it closes (`gh issue view <N>`), including later comments. For a re-review, read only the diff since the commit you last reviewed.
+1. **Read the brief**: `gh pr view <PR>`, `gh pr diff <PR>`, and the issue it closes (`gh issue view <issue> --comments`). For a re-review, read only the diff since the commit you last reviewed.
 2. **Read the rules**: `CODING_STANDARDS.md`, `GLOSSARY.md`, and the ADRs in `docs/adr/` that touch the changed area.
 3. **Review** the diff for: the issue's acceptance criteria, one by one; correctness (races, final states reachable from every entry point, migrations both ways, money and dates); every rule in `CODING_STANDARDS.md`; and test gaps. Read surrounding code where the diff alone can't settle a question; run tests or a scratch migration when that settles it faster than reading.
 4. **Sort** every finding into exactly one bucket:

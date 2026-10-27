@@ -4,10 +4,10 @@ Automatic SDI Submission goes through Invoicetronic. It accepts our own FatturaP
 
 ## Considered Options
 
-- **Openapi**: equally capable, and it bundles *conservazione a norma* (~€105/yr total). Rejected in favour of Invoicetronic's developer experience.
+- **Openapi**: equally capable, and it bundles _conservazione a norma_ (~€105/yr total). Rejected in favour of Invoicetronic's developer experience.
 - **Fatture in Cloud**: rejected; it does not accept externally generated XML.
 - **A-Cube, Aruba**: technically capable, but pricing is not public and they target integrators.
 
 ## Consequences
 
-- Invoicetronic offers no *conservazione a norma*, so legal archiving must be handled outside the app (e.g. the Agenzia delle Entrate free service).
+- Invoicetronic offers no _conservazione a norma_, so legal archiving must be handled outside the app (e.g. the Agenzia delle Entrate free service).

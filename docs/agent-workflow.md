@@ -10,7 +10,7 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 4. **Check** locally: `npm run lint`, `npm run typecheck`, then `node ace test --files <touched specs>` while iterating and the full `node ace test` once before pushing.
 5. **Push and open the PR** (`Closes #N`). Wait for the CI run whose `headSha` is the pushed commit; fix until green.
 6. **Review** with the `pr-reviewer` agent. Fix what it marks to fix; send fixes back to the _same_ reviewer for a re-review. Merge only on a MERGE verdict for the latest commit.
-7. **File deferred findings** before merging: every item in the reviewer's Deferred section goes into an issue (if it is work) and `docs/follow-ups.md`, in this PR.
+7. **File deferred findings** before merging, in this PR, as `docs/follow-ups.md` describes.
 8. **Merge**: `gh pr merge N --merge --delete-branch`, then `git checkout main && git pull`.
 
 ## Gotchas
@@ -21,4 +21,4 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 - **Seeds** live in migrations (`this.defer`), so seeded rows (Payment Terms, VAT Codes) exist in every test.
 - **Playwright** `window.confirm()` dialogs need `page.on('dialog', (d) => d.accept())`.
 - **Money** is decimal strings through `shared/money.ts` (ADR 0007); dates and times are Europe/Rome (`shared/dates.ts`).
-- **Shared constants** used by both server and pages live in `shared/` (`#shared/*` on the server, `@shared/*` in pages).
+- **Imports from `shared/`**: `#shared/*` on the server, `@shared/*` in pages.
