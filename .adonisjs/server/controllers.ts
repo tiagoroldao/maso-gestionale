@@ -15,5 +15,7 @@ export const controllers = {
   Session: () => import('#controllers/session_controller'),
   Setup: () => import('#controllers/setup_controller'),
   Sites: () => import('#controllers/sites_controller'),
+  Stock: () => import('#controllers/stock_controller'),
+  StockMovements: () => import('#controllers/stock_movements_controller'),
   Users: () => import('#controllers/users_controller'),
 }

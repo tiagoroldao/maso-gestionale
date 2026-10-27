@@ -28,8 +28,8 @@ test.group('Items', () => {
       .loginAs(office)
       .redirects(0)
 
-    response.assertHeader('location', '/items')
     const item = await Item.firstOrFail()
+    response.assertHeader('location', `/items/${item.id}`)
     assert.equal(item.code, 'RAC-12')
     assert.equal(item.purchasePrice, '1.2345')
     assert.equal(item.resalePrice, '1.9000')

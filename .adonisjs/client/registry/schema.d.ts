@@ -488,6 +488,58 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'items.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/items/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['show']>>>
+    }
+  }
+  'stock_movements.receive': {
+    methods: ["POST"]
+    pattern: '/items/:id/receipts'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/stock').receiptValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/stock').receiptValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/stock_movements_controller').default['receive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/stock_movements_controller').default['receive']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/stock_movements_controller').default['receive']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'stock_movements.adjust': {
+    methods: ["POST"]
+    pattern: '/items/:id/adjustments'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/stock').adjustmentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/stock').adjustmentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/stock_movements_controller').default['adjust']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/stock_movements_controller').default['adjust']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/stock_movements_controller').default['adjust']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'stock.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/stock'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/stock_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/stock_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/stock_controller').default['index']>>>
+    }
+  }
   'items.edit': {
     methods: ["GET","HEAD"]
     pattern: '/items/:id/edit'

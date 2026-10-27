@@ -31,6 +31,7 @@
     "#fiscal/*": "./app/fiscal/*.js",
     "#documents/*": "./app/documents/*.js",
     "#shared/*": "./shared/*.js",
+    "#stock/*": "./app/stock/*.js",
     "#providers/*": "./providers/*.js",
     "#policies/*": "./app/policies/*.js",
     "#abilities/*": "./app/abilities/*.js",

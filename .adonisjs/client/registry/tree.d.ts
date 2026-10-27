@@ -22,6 +22,7 @@ export interface ApiDefinition {
     index: typeof routes['items.index']
     create: typeof routes['items.create']
     store: typeof routes['items.store']
+    show: typeof routes['items.show']
     edit: typeof routes['items.edit']
     update: typeof routes['items.update']
     archive: typeof routes['items.archive']
@@ -63,6 +64,13 @@ export interface ApiDefinition {
     store: typeof routes['installed_equipment.store']
     edit: typeof routes['installed_equipment.edit']
     update: typeof routes['installed_equipment.update']
+  }
+  stockMovements: {
+    receive: typeof routes['stock_movements.receive']
+    adjust: typeof routes['stock_movements.adjust']
+  }
+  stock: {
+    index: typeof routes['stock.index']
   }
   categories: {
     index: typeof routes['categories.index']

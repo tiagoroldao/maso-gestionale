@@ -2,7 +2,17 @@
 import { t } from '~/i18n'
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
-import { Building2, Contact, House, LogOut, MapPin, Package, Server, Users } from 'lucide-vue-next'
+import {
+  Boxes,
+  Building2,
+  Contact,
+  House,
+  LogOut,
+  MapPin,
+  Package,
+  Server,
+  Users,
+} from 'lucide-vue-next'
 import { Form } from '@adonisjs/inertia/vue'
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
@@ -20,6 +30,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
     { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },
+    { label: t('ui.nav.stock'), route: 'stock.index', icon: Boxes },
     { label: t('ui.nav.users'), route: 'users.index', icon: Users },
     { label: t('ui.nav.settings'), route: 'company_settings.edit', icon: Building2 },
   ],
@@ -28,6 +39,7 @@ const navByRole: Record<string, NavItem[]> = {
     { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
     { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
     { label: t('ui.nav.items'), route: 'items.index', icon: Package },
+    { label: t('ui.nav.stock'), route: 'stock.index', icon: Boxes },
   ],
   technician: [{ label: t('ui.nav.dashboard'), route: 'dashboard', icon: House }],
 }

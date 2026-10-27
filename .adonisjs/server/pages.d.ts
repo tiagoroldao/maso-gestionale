@@ -21,6 +21,7 @@ declare module '@adonisjs/inertia/types' {
     'instance': ExtractProps<(typeof import('../../inertia/pages/instance.vue'))['default']>
     'items/form': ExtractProps<(typeof import('../../inertia/pages/items/form.vue'))['default']>
     'items/index': ExtractProps<(typeof import('../../inertia/pages/items/index.vue'))['default']>
+    'items/show': ExtractProps<(typeof import('../../inertia/pages/items/show.vue'))['default']>
     'settings/categories': ExtractProps<(typeof import('../../inertia/pages/settings/categories.vue'))['default']>
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
@@ -28,6 +29,7 @@ declare module '@adonisjs/inertia/types' {
     'sites/form': ExtractProps<(typeof import('../../inertia/pages/sites/form.vue'))['default']>
     'sites/index': ExtractProps<(typeof import('../../inertia/pages/sites/index.vue'))['default']>
     'sites/show': ExtractProps<(typeof import('../../inertia/pages/sites/show.vue'))['default']>
+    'stock/index': ExtractProps<(typeof import('../../inertia/pages/stock/index.vue'))['default']>
     'users/create': ExtractProps<(typeof import('../../inertia/pages/users/create.vue'))['default']>
     'users/edit': ExtractProps<(typeof import('../../inertia/pages/users/edit.vue'))['default']>
     'users/index': ExtractProps<(typeof import('../../inertia/pages/users/index.vue'))['default']>

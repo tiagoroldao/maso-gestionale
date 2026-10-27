@@ -25,6 +25,7 @@ type ItemProps = {
   purchasePrice: string
   resalePrice: string
   archived: boolean
+  reorderLevel: string | null
 }
 
 const props = defineProps<{
@@ -43,6 +44,9 @@ const values = reactive({
   supplierName: props.item?.supplierName ?? '',
   supplierCode: props.item?.supplierCode ?? '',
   vatRate: props.item ? String(Number(props.item.vatRate)) : '22',
+  reorderLevel: props.item?.reorderLevel
+    ? amountForInput(props.item.reorderLevel).replace(/,?0+$/, '').replace(/,$/, '')
+    : '',
 })
 const categoryId = ref<number | ''>(props.item?.categoryId ?? '')
 const purchasePrice = ref(props.item ? amountForInput(props.item.purchasePrice) : '')
@@ -221,6 +225,22 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
               {{ t('ui.items.markup', { markup: percent(currentMarkup) }) }}
             </span>
             <span v-if="errors.resalePrice" class="field__error">{{ errors.resalePrice }}</span>
+          </div>
+        </Section>
+
+        <Section :title="t('ui.items.stock')">
+          <div class="field">
+            <label class="field__label" for="reorderLevel">{{ t('ui.items.reorderLevel') }}</label>
+            <input
+              id="reorderLevel"
+              v-model="values.reorderLevel"
+              name="reorderLevel"
+              inputmode="decimal"
+              class="field__input"
+              :style="{ maxWidth: '180px' }"
+            />
+            <span class="field__hint">{{ t('ui.items.reorderLevelHint') }}</span>
+            <span v-if="errors.reorderLevel" class="field__error">{{ errors.reorderLevel }}</span>
           </div>
         </Section>
 

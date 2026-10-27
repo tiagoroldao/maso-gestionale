@@ -1,6 +1,7 @@
 import vine from '@vinejs/vine'
 import { UNIT_PRICE_DECIMALS, VAT_RATES } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
+import { quantityRule } from '#validators/rules/quantity'
 
 const price = () =>
   vine.string().use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: '9999999999' }))
@@ -33,6 +34,10 @@ export const itemValidator = vine.withMetaData<{ id?: number }>().create({
   vatRate: vine.enum(VAT_RATES),
   purchasePrice: price(),
   resalePrice: price(),
+  reorderLevel: vine
+    .string()
+    .use(quantityRule({ allowNegative: false }))
+    .optional(),
 })
 
 export const itemSearchValidator = vine.create({

@@ -14,7 +14,7 @@ export const amountRule = vine.createRule(
 
     const amount = parseAmount(String(value))
     // More decimals than are stored would be rounded without anyone noticing
-    const decimals = String(value).trim().split(/[.,]/)[1]?.length ?? 0
+    const decimals = (String(value).trim().split(/[.,]/)[1] ?? '').replace(/0+$/, '').length
     if (!amount || amount.lt(0) || amount.gt(options.max) || decimals > options.decimals) {
       field.report('The {{ field }} field must be a valid amount', 'amount', field)
       return
