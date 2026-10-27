@@ -43,8 +43,15 @@ export interface ApiDefinition {
     search: typeof routes['sites.search']
     create: typeof routes['sites.create']
     store: typeof routes['sites.store']
+    show: typeof routes['sites.show']
     edit: typeof routes['sites.edit']
     update: typeof routes['sites.update']
+  }
+  installedEquipment: {
+    create: typeof routes['installed_equipment.create']
+    store: typeof routes['installed_equipment.store']
+    edit: typeof routes['installed_equipment.edit']
+    update: typeof routes['installed_equipment.update']
   }
   letterheadPreview: {
     show: typeof routes['letterhead_preview.show']

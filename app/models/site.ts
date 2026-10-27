@@ -1,7 +1,8 @@
-import { manyToMany, scope } from '@adonisjs/lucid/orm'
-import type { ManyToMany } from '@adonisjs/lucid/types/relations'
+import { hasMany, manyToMany, scope } from '@adonisjs/lucid/orm'
+import type { HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { SiteSchema } from '#database/schema'
 import Customer from '#models/customer'
+import InstalledEquipment from '#models/installed_equipment'
 import { likePattern } from '#services/search'
 
 /**
@@ -11,6 +12,9 @@ import { likePattern } from '#services/search'
 export default class Site extends SiteSchema {
   @manyToMany(() => Customer, { pivotTable: 'customer_site' })
   declare customers: ManyToMany<typeof Customer>
+
+  @hasMany(() => InstalledEquipment)
+  declare installedEquipment: HasMany<typeof InstalledEquipment>
 
   /**
    * Matches the label or any part of the address.

@@ -26,8 +26,8 @@ test.group('Sites', () => {
       .loginAs(office)
       .redirects(0)
 
-    response.assertHeader('location', '/sites')
     const site = await Site.firstOrFail()
+    response.assertHeader('location', `/sites/${site.id}`)
     assert.equal(site.province, 'GE')
     assert.equal(
       site.summary,

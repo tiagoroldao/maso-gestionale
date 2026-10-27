@@ -89,7 +89,7 @@ function linkSite(site: PickedSite) {
           <tbody>
             <tr v-for="site in sites" :key="site.id">
               <td>
-                <Link route="sites.edit" :params="{ id: site.id }" class="il">{{
+                <Link route="sites.show" :params="{ id: site.id }" class="il">{{
                   site.summary
                 }}</Link>
               </td>

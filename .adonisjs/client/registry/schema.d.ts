@@ -345,6 +345,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'sites.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['show']>>>
+    }
+  }
   'sites.edit': {
     methods: ["GET","HEAD"]
     pattern: '/sites/:id/edit'
@@ -369,6 +382,58 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'installed_equipment.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites/:siteId/equipment/create'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { siteId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['create']>>>
+    }
+  }
+  'installed_equipment.store': {
+    methods: ["POST"]
+    pattern: '/sites/:siteId/equipment'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { siteId: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'installed_equipment.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/equipment/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['edit']>>>
+    }
+  }
+  'installed_equipment.update': {
+    methods: ["PUT"]
+    pattern: '/equipment/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'company_settings.edit': {
@@ -440,10 +505,10 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/settings/payment-terms'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      body: ExtractBody<InferInput<(typeof import('#validators/payment_terms').paymentTermsValidator)>>
       paramsTuple: []
       params: {}
-      query: ExtractQuery<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      query: ExtractQuery<InferInput<(typeof import('#validators/payment_terms').paymentTermsValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['store']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
@@ -453,10 +518,10 @@ export interface Registry {
     methods: ["PUT"]
     pattern: '/settings/payment-terms/:id'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      body: ExtractBody<InferInput<(typeof import('#validators/payment_terms').paymentTermsValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/customer').paymentTermsValidator)>>
+      query: ExtractQuery<InferInput<(typeof import('#validators/payment_terms').paymentTermsValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/payment_terms_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
