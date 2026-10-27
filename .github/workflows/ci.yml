@@ -1,0 +1,55 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: maso
+          POSTGRES_PASSWORD: maso
+          POSTGRES_DB: maso_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U maso"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      TZ: UTC
+      PORT: 3333
+      HOST: localhost
+      LOG_LEVEL: info
+      APP_KEY: ci-only-app-key-not-secret-000000
+      SESSION_DRIVER: memory
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: maso
+      DB_PASSWORD: maso
+      DB_DATABASE: maso_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx playwright install --with-deps chromium
+
+      - name: Tests (unit, functional, browser)
+        run: node ace test
+        env:
+          NODE_ENV: test
