@@ -80,6 +80,13 @@ export interface ApiDefinition {
     update: typeof routes['jobs.update']
     cancel: typeof routes['jobs.cancel']
   }
+  quotes: {
+    edit: typeof routes['quotes.edit']
+    update: typeof routes['quotes.update']
+    accept: typeof routes['quotes.accept']
+    decline: typeof routes['quotes.decline']
+    pdf: typeof routes['quotes.pdf']
+  }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']
     adjust: typeof routes['stock_movements.adjust']
@@ -96,6 +103,13 @@ export interface ApiDefinition {
   letterheadPreview: {
     show: typeof routes['letterhead_preview.show']
     pdf: typeof routes['letterhead_preview.pdf']
+  }
+  rates: {
+    index: typeof routes['rates.index']
+    store: typeof routes['rates.store']
+    update: typeof routes['rates.update']
+    archive: typeof routes['rates.archive']
+    updateCallOutFee: typeof routes['rates.update_call_out_fee']
   }
   paymentTerms: {
     index: typeof routes['payment_terms.index']

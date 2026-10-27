@@ -78,3 +78,19 @@ export function isBelowMarkup(purchasePrice: string, resalePrice: string, markup
  * as parseAmount.
  */
 export const parseQuantity = parseAmount
+
+/**
+ * A priced line's total: quantity × unit price, rounded half-up to the
+ * cent. Quotes and invoices both use this, so the same lines always give
+ * the same totals.
+ */
+export function lineTotal(quantity: string, unitPrice: string) {
+  return new Big(quantity).times(unitPrice).round(2, Big.roundHalfUp).toFixed(2)
+}
+
+/**
+ * The sum of line totals (or any 2-decimal amounts), as "1234.56".
+ */
+export function sumAmounts(amounts: string[]) {
+  return amounts.reduce((sum, amount) => sum.plus(amount), new Big(0)).toFixed(2)
+}

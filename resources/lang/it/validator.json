@@ -99,7 +99,12 @@
       "itemId": "articolo",
       "attachment": "documento",
       "kind": "tipo",
-      "status": "stato"
+      "status": "stato",
+      "lines": "righe",
+      "labourRateId": "tariffa",
+      "unitPrice": "prezzo unitario",
+      "hourlyPrice": "prezzo orario",
+      "callOutFee": "diritto di chiamata"
     }
   }
 }

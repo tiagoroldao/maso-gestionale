@@ -33,5 +33,13 @@
   "jobCreated": "Commessa {number} aperta.",
   "jobSaved": "Commessa {number} salvata.",
   "jobCancelled": "Commessa {number} annullata.",
-  "jobNotEditable": "Una commessa annullata non si può modificare."
+  "jobNotEditable": "Una commessa annullata non si può modificare.",
+  "labourRateAdded": "Tariffa aggiunta.",
+  "labourRateSaved": "Tariffa salvata.",
+  "labourRateArchived": "Tariffa «{name}» archiviata.",
+  "callOutFeeSaved": "Diritto di chiamata salvato.",
+  "quoteSaved": "Preventivo salvato.",
+  "quoteNotEditable": "Il preventivo non è più modificabile.",
+  "quoteAccepted": "Preventivo accettato: la commessa è accettata.",
+  "quoteDeclined": "Preventivo rifiutato: la commessa è annullata."
 }

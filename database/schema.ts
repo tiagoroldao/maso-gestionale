@@ -23,8 +23,10 @@ export class CategorySchema extends BaseModel {
 }
 
 export class CompanySettingSchema extends BaseModel {
-  static $columns = ['city', 'createdAt', 'email', 'iban', 'id', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
+  static $columns = ['callOutFee', 'city', 'createdAt', 'email', 'iban', 'id', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
   $columns = CompanySettingSchema.$columns
+  @column()
+  declare callOutFee: string | null
   @column()
   declare city: string | null
   @column.dateTime({ autoCreate: true })
@@ -231,6 +233,23 @@ export class JobSchema extends BaseModel {
   declare year: number
 }
 
+export class LabourRateSchema extends BaseModel {
+  static $columns = ['archivedAt', 'createdAt', 'hourlyPrice', 'id', 'name', 'updatedAt'] as const
+  $columns = LabourRateSchema.$columns
+  @column.dateTime()
+  declare archivedAt: DateTime | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare hourlyPrice: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class PaymentTermSchema extends BaseModel {
   static $columns = ['createdAt', 'days', 'endOfMonth', 'id', 'name', 'updatedAt'] as const
   $columns = PaymentTermSchema.$columns
@@ -244,6 +263,52 @@ export class PaymentTermSchema extends BaseModel {
   declare id: number
   @column()
   declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class QuoteLineSchema extends BaseModel {
+  static $columns = ['description', 'id', 'itemId', 'kind', 'labourRateId', 'lineTotal', 'position', 'quantity', 'quoteId', 'unit', 'unitPrice'] as const
+  $columns = QuoteLineSchema.$columns
+  @column()
+  declare description: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare itemId: number | null
+  @column()
+  declare kind: string
+  @column()
+  declare labourRateId: number | null
+  @column()
+  declare lineTotal: string | null
+  @column()
+  declare position: number
+  @column()
+  declare quantity: string | null
+  @column()
+  declare quoteId: number
+  @column()
+  declare unit: string | null
+  @column()
+  declare unitPrice: string | null
+}
+
+export class QuoteSchema extends BaseModel {
+  static $columns = ['createdAt', 'decidedAt', 'id', 'jobId', 'notes', 'status', 'updatedAt'] as const
+  $columns = QuoteSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column.dateTime()
+  declare decidedAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare jobId: number
+  @column()
+  declare notes: string | null
+  @column()
+  declare status: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

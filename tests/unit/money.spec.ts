@@ -1,5 +1,12 @@
 import { test } from '@japa/runner'
-import { amountForInput, markupPercent, parseAmount, suggestedResalePrice } from '#shared/money'
+import {
+  amountForInput,
+  lineTotal,
+  markupPercent,
+  parseAmount,
+  suggestedResalePrice,
+  sumAmounts,
+} from '#shared/money'
 
 test.group('Money', () => {
   test('parses {$self}')
@@ -32,5 +39,17 @@ test.group('Money', () => {
     assert.equal(amountForInput('12.5000'), '12,50')
     assert.equal(amountForInput('0.1250'), '0,125')
     assert.equal(amountForInput('7'), '7,00')
+  })
+
+  test('line totals round half-up to the cent', ({ assert }) => {
+    assert.equal(lineTotal('3', '1.2345'), '3.70')
+    assert.equal(lineTotal('2.5', '0.0345'), '0.09')
+    assert.equal(lineTotal('1', '0.005'), '0.01')
+    assert.equal(lineTotal('1.333', '3'), '4.00')
+  })
+
+  test('sums amounts exactly', ({ assert }) => {
+    assert.equal(sumAmounts(['0.10', '0.20']), '0.30')
+    assert.equal(sumAmounts([]), '0.00')
   })
 })

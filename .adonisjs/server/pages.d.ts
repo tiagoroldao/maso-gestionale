@@ -25,9 +25,11 @@ declare module '@adonisjs/inertia/types' {
     'jobs/form': ExtractProps<(typeof import('../../inertia/pages/jobs/form.vue'))['default']>
     'jobs/index': ExtractProps<(typeof import('../../inertia/pages/jobs/index.vue'))['default']>
     'jobs/show': ExtractProps<(typeof import('../../inertia/pages/jobs/show.vue'))['default']>
+    'quotes/edit': ExtractProps<(typeof import('../../inertia/pages/quotes/edit.vue'))['default']>
     'settings/categories': ExtractProps<(typeof import('../../inertia/pages/settings/categories.vue'))['default']>
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
+    'settings/rates': ExtractProps<(typeof import('../../inertia/pages/settings/rates.vue'))['default']>
     'setup': ExtractProps<(typeof import('../../inertia/pages/setup.vue'))['default']>
     'sites/form': ExtractProps<(typeof import('../../inertia/pages/sites/form.vue'))['default']>
     'sites/index': ExtractProps<(typeof import('../../inertia/pages/sites/index.vue'))['default']>

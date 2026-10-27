@@ -77,6 +77,12 @@ defineProps<{
         </dl>
       </Section>
 
+      <Section v-if="job.kind === 'quoted'" :title="t('ui.quotes.section')">
+        <Link route="quotes.edit" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
+          {{ job.status === 'open' ? t('ui.quotes.write') : t('ui.quotes.open') }}
+        </Link>
+      </Section>
+
       <Section v-if="job.status !== 'cancelled'">
         <Form
           route="jobs.cancel"
