@@ -16,7 +16,8 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit && vue-tsc --noEmit --project inertia/tsconfig.json",
     "codegen": "node ace codegen && node ace schema:generate",
-    "check:issue-refs": "node scripts/check_issue_refs.mjs"
+    "check:issue-refs": "node scripts/check_issue_refs.mjs",
+    "dev:reset": "node ace migration:fresh && node ace db:seed"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",
