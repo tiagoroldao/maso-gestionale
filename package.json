@@ -14,7 +14,9 @@
     "test": "node ace test",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit && vue-tsc --noEmit --project inertia/tsconfig.json"
+    "typecheck": "tsc --noEmit && vue-tsc --noEmit --project inertia/tsconfig.json",
+    "codegen": "node ace codegen && node ace schema:generate",
+    "check:issue-refs": "node scripts/check_issue_refs.mjs"
   },
   "imports": {
     "#controllers/*": "./app/controllers/*.js",

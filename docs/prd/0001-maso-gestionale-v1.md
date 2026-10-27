@@ -1,5 +1,5 @@
 ---
-title: "PRD: Maso Gestionale v1"
+title: 'PRD: Maso Gestionale v1'
 labels: [ready-for-agent]
 ---
 
@@ -92,7 +92,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 49. As an Office user, I want to create an Invoice without a Job (for example selling Items over the counter), so that direct sales are possible.
 50. As an Office user, I want Items invoiced without a Visit taken off stock when the Invoice is finalised, so that direct sales keep stock correct.
 51. As an Office user, I want to edit any line of a draft Invoice (description, quantity, price, line discount, VAT code), so that I can correct before issuing.
-52. As an Office user, I want each line's VAT code to default from the Customer type and Job type while staying editable, so that the 10% rate on residential maintenance, reverse charge (*inversione contabile*) and similar cases are handled.
+52. As an Office user, I want each line's VAT code to default from the Customer type and Job type while staying editable, so that the 10% rate on residential maintenance, reverse charge (_inversione contabile_) and similar cases are handled.
 53. As an Office user, I want to apply a percentage discount to the whole Invoice, so that I can give a global discount.
 54. As an Office user, I want the global discount applied before VAT and split across VAT rates in proportion, so that the FatturaPA totals stay correct.
 55. As an Office user, I want to issue Advance Invoices for part of a Job, so that I can bill deposits and progress payments.
@@ -152,9 +152,9 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 97. As a Superuser, I want to configure the off-site backup target and encryption key, and see when the last backup succeeded, so that the business's data is safe.
 98. As a Superuser, I want to set the Instance's public URL, so that links and the tunnel line up.
 99. As a Superuser, I want to recover an Admin account, so that a business locked out of its own system can get back in.
-100. As a Superuser, I want to apply an update by hand, with an automatic backup taken first and database migrations run, so that updates are safe and happen when I choose.
-101. As a Superuser, I don't want access to business data unless the Admin gives me a business role, so that GDPR roles stay clear.
-102. As a Superuser, I want a first-run setup that creates the first Admin, so that a new Instance can be handed over to a business.
+100.  As a Superuser, I want to apply an update by hand, with an automatic backup taken first and database migrations run, so that updates are safe and happen when I choose.
+101.  As a Superuser, I don't want access to business data unless the Admin gives me a business role, so that GDPR roles stay clear.
+102.  As a Superuser, I want a first-run setup that creates the first Admin, so that a new Instance can be handed over to a business.
 
 ## Implementation Decisions
 
@@ -175,7 +175,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
   - An **Invoice lifecycle** module (a state machine): Draft → Finalised → Submitted → Delivered | Not deliverable | Rejected, with Rejected → (edit) → Submitted again. Finalising takes the next number in a sequence and the date in one transaction, and makes the document unchangeable. Rejected allows edits but keeps its number and date. Credit Notes use the same machine and, for now, the invoice sequence.
   - A **FatturaPA XML builder**: a pure function from a Finalised Invoice or Credit Note (plus company settings and Customer) to XML conforming to the FPR12 schema (no FPA12 public-sector format in v1).
   - **Numbering sequences** per year. The Admin sets the starting number, which locks once the sequence's first document of that year is finalised.
-- **SDI**: an `SdiGateway` interface with two implementations. *Manual*: XML download, confirming the upload, recording the outcome by hand. *Invoicetronic*: added later. Scheduled polling is the source of truth for outcomes. A webhook, if enabled, only triggers an immediate poll. Every Submission and outcome is stored as a history entry on the Invoice.
+- **SDI**: an `SdiGateway` interface with two implementations. _Manual_: XML download, confirming the upload, recording the outcome by hand. _Invoicetronic_: added later. Scheduled polling is the source of truth for outcomes. A webhook, if enabled, only triggers an immediate poll. Every Submission and outcome is stored as a history entry on the Invoice.
 - **Documents**: Base Layout (fixed, in code), Document Template (versioned), template fields, Issued Document. A template is one Customer plus an ordered list of fields. Field types: text, long text, number, date, yes/no, fixed list, repeating table, and the entity fields Site, Installed Equipment, Item (one or many) and Job. The body is TipTap rich-text JSON with placeholder chips. An Issued Document stores the template version, a snapshot of every value used (entity data copied, not referenced), its yearly number per template, the rendered PDF, and an optional reference to the Issued Document it replaces.
 - **Rendering**: a `DocumentRenderer` interface that renders HTML (Base Layout + body) and converts it to PDF through Gotenberg. Invoice PDFs are fixed templates in code on the same Base Layout.
 - **Access**: roles Superuser, Admin, Office, Technician, enforced through AdonisJS policies. Technicians see only their assigned Visits and never price, cost or total fields. These are removed on the server, not just hidden in Vue. The Superuser sees only Instance settings.
@@ -198,12 +198,12 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 - Importing Supplier Invoices from SDI.
 - The list of upcoming maintenance checks driven by Maintenance Intervals (the data is captured in v1; the list comes later).
 - Attachments on Issued Documents and the company document library.
-- Work Reports (*Rapportino*) and Customer signatures.
+- Work Reports (_Rapportino_) and Customer signatures.
 - Emailing anything to Customers.
 - Public-sector invoicing (FPA12, CIG/CUP, split payment).
 - Vans as stock locations; customer-specific price lists.
 - Offline use.
-- Legal archiving (*conservazione a norma*): handled outside the app through the Agenzia delle Entrate's free service.
+- Legal archiving (_conservazione a norma_): handled outside the app through the Agenzia delle Entrate's free service.
 - Multi-tenancy.
 
 ## Further Notes
@@ -214,5 +214,5 @@ A single web app per business ("Instance"), self-hosted on the business's own se
   2. Work and scheduling, with the Technician screens.
   3. Invoicing, Payments and Legacy import.
   4. Document Templates.
-- The VAT code rules (10% for residential work, *beni significativi*, reverse charge, *ritenuta d'acconto* for condominiums) must be confirmed with the business's *commercialista* before the invoicing module is built.
+- The VAT code rules (10% for residential work, _beni significativi_, reverse charge, _ritenuta d'acconto_ for condominiums) must be confirmed with the business's _commercialista_ before the invoicing module is built.
 - Glossary: `GLOSSARY.md`. Decisions: `docs/adr/0001`–`0005`. Use glossary terms in code, UI and tests.
