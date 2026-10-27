@@ -3,7 +3,7 @@
  * "until VAT codes exist (#17)" or "TODO(#22)": the work they wait for
  * landed, so the comment is probably stale. Only closed issues are
  * caught; a re-scoped issue stays open, so review checks those comments.
- * Pull requests and lookups that fail are counted, never flagged.
+ * Pull requests are skipped; lookups that fail are counted, never flagged.
  * Warnings only; run in CI (annotations) or locally (`gh` auth or a token).
  */
 import { execFileSync } from 'node:child_process'
