@@ -49,11 +49,11 @@
   "visitStatusSaved": "Stato aggiornato.",
   "visitNoteAdded": "Nota salvata.",
   "visitPhotoAdded": "Foto caricata.",
-  "visitDone": "L'intervento è completato e non si può più modificare.",
+  "visitDone": "L'intervento è chiuso e non si può più modificare.",
   "visitHoursAdded": "Ore registrate.",
   "visitItemAdded": "Materiale registrato.",
   "fieldWorkRefused": {
-    "done": "L'intervento è completato e non si può più modificare.",
+    "done": "L'intervento è chiuso e non si può più modificare.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
     "noSite": "La commessa non ha un immobile: non si può registrare un'installazione."
   }

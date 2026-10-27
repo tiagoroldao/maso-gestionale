@@ -11,7 +11,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
 import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
-import { it } from '#tests/helpers/i18n'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 async function setup() {
   const anna = await createUser('technician')
@@ -174,6 +174,83 @@ test.group('Field work', () => {
     assert.equal(await StockLedger.levelOf(item), '3.000')
   })
 
+  test('needing another visit also takes the Items off stock and closes the Visit', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, item, job, rate } = await setup()
+    await client
+      .post(`/my-visits/${visit.id}/items`)
+      .form({ itemId: String(item.id), quantity: '2' })
+      .withCsrfToken()
+      .loginAs(anna)
+
+    await client
+      .post(`/my-visits/${visit.id}/status`)
+      .form({ status: 'needs_return' })
+      .withCsrfToken()
+      .loginAs(anna)
+
+    assert.equal(await StockLedger.levelOf(item), '-2.000')
+    const usage = await StockMovement.query().where('kind', 'usage').firstOrFail()
+    assert.equal(usage.reference, job.number)
+    assert.equal(usage.occurredOn.toISODate(), visit.startsAt.toISODate())
+    const more = await client
+      .post(`/my-visits/${visit.id}/hours`)
+      .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '1' })
+      .withCsrfToken()
+      .loginAs(anna)
+      .redirects(0)
+    more.assertFlashMessage('error', it('flash.fieldWorkRefused.done'))
+  })
+
+  test('recorded work keeps its price when the rate changes later', async ({ client }) => {
+    const { anna, job, visit, rate } = await setup()
+    const admin = await createUser('admin')
+    await client
+      .post(`/my-visits/${visit.id}/hours`)
+      .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '2' })
+      .withCsrfToken()
+      .loginAs(anna)
+
+    await client
+      .put(`/settings/rates/${rate.id}`)
+      .form({ name: rate.name, hourlyPrice: '45' })
+      .withCsrfToken()
+      .loginAs(admin)
+
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(admin)
+    page.assertInertiaPropsContains({ timeAndMaterials: { total: '80.00' } })
+  })
+
+  test("Technicians not on the Visit can't record or remove anything", async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, rate, item } = await setup()
+    const outsider = await createUser('technician')
+    const hour = await visit
+      .related('hours')
+      .create({ userId: anna.id, labourRateId: rate.id, hours: '1', unitPrice: '40' })
+
+    for (const request of [
+      client
+        .post(`/my-visits/${visit.id}/hours`)
+        .form({ technicianId: String(outsider.id), labourRateId: String(rate.id), hours: '1' }),
+      client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
+      client.delete(`/visit-hours/${hour.id}`),
+    ]) {
+      const response = await request
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(outsider)
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+    await visit.load('hours')
+    assert.lengthOf(visit.hours, 1)
+  })
+
   test('Office sees the running total and Work Complete; Technicians see no prices', async ({
     client,
     assert,
@@ -206,5 +283,15 @@ test.group('Field work', () => {
       timeAndMaterials: { total: '1300.00' },
       job: { status: 'work_complete' },
     })
+
+    const titles = async (status: string) => {
+      const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
+      return (list.inertiaProps.jobs as { id: number }[]).map((row) => row.id)
+    }
+    assert.deepEqual(await titles('work_complete'), [job.id])
+    assert.deepEqual(await titles('in_progress'), [])
+
+    const technicianJob = await client.get(`/jobs/${job.id}`).withInertia().loginAs(anna)
+    technicianJob.assertStatus(403)
   })
 })

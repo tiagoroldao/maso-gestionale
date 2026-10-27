@@ -5,7 +5,7 @@ import Visit from '#models/visit'
 import VisitHour from '#models/visit_hour'
 import VisitItem from '#models/visit_item'
 import LabourRate from '#models/labour_rate'
-import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import FieldWork, { CLOSED_VISIT_STATUSES, FieldWorkRefusedError } from '#services/field_work'
 import { localDateTime } from '#services/dates'
 import { storagePath } from '#services/storage'
 import {
@@ -57,7 +57,7 @@ export default class MyVisitsController {
     })
   }
 
-  async show({ params, inertia, bouncer }: HttpContext) {
+  async show({ params, inertia, bouncer, auth }: HttpContext) {
     const visit = await this.load(params.id)
     await bouncer.authorize('viewVisit', visit)
 
@@ -93,7 +93,8 @@ export default class MyVisitsController {
             })),
           }
         : null,
-      done: visit.status === 'done',
+      done: CLOSED_VISIT_STATUSES.includes(visit.status),
+      currentUserId: auth.getUserOrFail().id,
       team: visit.technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
       // Rate names only: Technicians never see prices
       labourRates: rates.map((rate) => ({ id: rate.id, name: rate.name })),
@@ -126,20 +127,10 @@ export default class MyVisitsController {
     await bouncer.authorize('viewVisit', visit)
     const { status } = await request.validateUsing(visitStatusValidator)
 
-    // A done Visit's hours, Items and stock are final
-    if (visit.status === 'done') {
-      session.flash('error', i18n.t('flash.visitDone'))
-      return response.redirect().toRoute('my_visits.show', { id: visit.id })
-    }
-    if (status === 'done') {
-      await FieldWork.complete(visit, auth.getUserOrFail())
-    } else {
-      visit.status = status
-      await visit.save()
-    }
-
-    session.flash('success', i18n.t('flash.visitStatusSaved'))
-    response.redirect().toRoute('my_visits.show', { id: visit.id })
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.setStatus(visit, status, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.visitStatusSaved'))
+    })
   }
 
   async addNote({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {

@@ -15,7 +15,7 @@ export const jobValidator = vine.create({
  */
 export const jobSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
-  status: vine.enum([...JOB_STATUSES, 'all'] as const).optional(),
+  status: vine.enum([...JOB_STATUSES, 'work_complete', 'all'] as const).optional(),
   page: vine.number().min(1).optional(),
 })
 

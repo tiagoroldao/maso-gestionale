@@ -426,12 +426,13 @@
       "accepted": "Accettate",
       "in_progress": "In corso",
       "cancelled": "Annullate",
-      "all": "Tutte"
+      "all": "Tutte",
+      "work_complete": "Lavori completati"
     },
     "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
     "cancelledNotEditable": "Una commessa annullata non si può modificare.",
     "timeAndMaterials": "Ore e materiali registrati",
-    "timeAndMaterialsHint": "IVA esclusa, a tariffe e prezzi di vendita attuali"
+    "timeAndMaterialsHint": "IVA esclusa, ai prezzi del momento in cui sono stati registrati"
   },
   "rates": {
     "labourTitle": "Tariffe orarie",
@@ -556,9 +557,10 @@
     "addItem": "Aggiungi materiale",
     "noItems": "Nessun materiale registrato.",
     "remove": "Rimuovi",
-    "doneNotice": "Intervento completato: ore e materiali non sono più modificabili.",
-    "completeConfirm": "Segnare l'intervento come completato? I materiali verranno scaricati dal magazzino e non si potranno più modificare.",
-    "installedTag": "installato"
+    "doneNotice": "Intervento chiuso: ore e materiali non sono più modificabili.",
+    "completeConfirm": "Chiudere l'intervento? I materiali verranno scaricati dal magazzino e ore e materiali non si potranno più modificare.",
+    "installedTag": "installato",
+    "removeConfirm": "Rimuovere questa riga?"
   },
   "toSchedule": {
     "title": "Da ripianificare",

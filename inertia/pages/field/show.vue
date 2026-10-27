@@ -36,6 +36,7 @@ defineProps<{
   notes: { id: number; body: string; author: string | null; createdAt: string }[]
   photos: { id: number }[]
   done: boolean
+  currentUserId: number
   team: { id: number; name: string }[]
   labourRates: { id: number; name: string }[]
   hours: { id: number; technician: string; labourRate: string; hours: string }[]
@@ -50,9 +51,12 @@ defineProps<{
 }>()
 
 const picked = ref<PickedItem | null>(null)
+const installed = ref(false)
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
+const closing = ['done', 'needs_return']
 const confirmDone = (status: string) => () =>
-  status !== 'done' || window.confirm(t('ui.field.completeConfirm'))
+  !closing.includes(status) || window.confirm(t('ui.field.completeConfirm'))
+const confirmRemove = () => window.confirm(t('ui.field.removeConfirm'))
 
 const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const
 const page = usePage()
@@ -150,7 +154,12 @@ const page = usePage()
             <strong>{{ quantity(hour.hours) }} h</strong> · {{ hour.technician }} ·
             {{ hour.labourRate }}
           </span>
-          <Form v-if="!done" route="my_visits.remove_hours" :params="{ hourId: hour.id }">
+          <Form
+            v-if="!done"
+            route="my_visits.remove_hours"
+            :params="{ hourId: hour.id }"
+            :on-before="confirmRemove"
+          >
             <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.field.remove') }}</button>
           </Form>
         </div>
@@ -167,7 +176,14 @@ const page = usePage()
             <label class="field__label" for="hours-technician">{{
               t('ui.field.technician')
             }}</label>
-            <select id="hours-technician" name="technicianId" class="field__input">
+            <select
+              id="hours-technician"
+              name="technicianId"
+              class="field__input"
+              :value="
+                team.some((member) => member.id === currentUserId) ? currentUserId : team[0]?.id
+              "
+            >
               <option v-for="member in team" :key="member.id" :value="member.id">
                 {{ member.name }}
               </option>
@@ -181,6 +197,7 @@ const page = usePage()
               </option>
             </select>
             <span v-if="errors.labourRateId" class="field__error">{{ errors.labourRateId }}</span>
+            <span v-if="errors.technicianId" class="field__error">{{ errors.technicianId }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="hours-amount">{{ t('ui.field.hours') }}</label>
@@ -200,7 +217,12 @@ const page = usePage()
             <span class="mono">{{ line.code }}</span> {{ line.description }}
             <span v-if="line.installed" class="tag">{{ t('ui.field.installedTag') }}</span>
           </span>
-          <Form v-if="!done" route="my_visits.remove_item" :params="{ itemId: line.id }">
+          <Form
+            v-if="!done"
+            route="my_visits.remove_item"
+            :params="{ itemId: line.id }"
+            :on-before="confirmRemove"
+          >
             <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.field.remove') }}</button>
           </Form>
         </div>
@@ -213,7 +235,7 @@ const page = usePage()
             route="my_visits.add_item"
             :params="{ id: visit.id }"
             class="field-form"
-            @success="picked = null"
+            @success="((picked = null), (installed = false))"
           >
             <input type="hidden" name="itemId" :value="picked.id" />
             <p :style="{ margin: 0 }">
@@ -233,12 +255,15 @@ const page = usePage()
               <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
             </div>
             <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input type="checkbox" name="installed" value="true" /> {{ t('ui.field.installed') }}
+              <input v-model="installed" type="checkbox" name="installed" value="true" />
+              {{ t('ui.field.installed') }}
             </label>
-            <div class="field">
+            <div v-if="installed" class="field">
               <label class="field__label" for="item-serial">{{ t('ui.field.serialNumber') }}</label>
               <input id="item-serial" name="serialNumber" class="field__input" />
+              <span v-if="errors.serialNumber" class="field__error">{{ errors.serialNumber }}</span>
             </div>
+            <span v-if="errors.itemId" class="field__error">{{ errors.itemId }}</span>
             <div :style="{ display: 'flex', gap: '8px' }">
               <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
                 {{ t('ui.field.addItem') }}

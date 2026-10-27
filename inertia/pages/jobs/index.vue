@@ -20,7 +20,16 @@ const props = defineProps<{
 const search = ref(props.q)
 const status = ref(props.status)
 
-const statuses = ['active', 'open', 'quoted', 'accepted', 'in_progress', 'cancelled', 'all']
+const statuses = [
+  'active',
+  'open',
+  'quoted',
+  'accepted',
+  'in_progress',
+  'work_complete',
+  'cancelled',
+  'all',
+]
 
 function submitSearch() {
   router.get(

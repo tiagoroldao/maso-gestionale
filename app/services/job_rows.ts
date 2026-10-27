@@ -15,7 +15,7 @@ export function jobRow(job: Job) {
       'visits' in job.$preloaded
         ? deriveJobStatus(
             job.status,
-            job.visits.map((visit) => visit.status)
+            job.visits.map((visit) => ({ status: visit.status, startsAt: visit.startsAt }))
           )
         : job.status,
     customer: job.customer ? { id: job.customer.id, displayName: job.customer.displayName } : null,

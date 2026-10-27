@@ -387,7 +387,7 @@ export class UserSchema extends BaseModel {
 }
 
 export class VisitHourSchema extends BaseModel {
-  static $columns = ['createdAt', 'hours', 'id', 'labourRateId', 'userId', 'visitId'] as const
+  static $columns = ['createdAt', 'hours', 'id', 'labourRateId', 'unitPrice', 'userId', 'visitId'] as const
   $columns = VisitHourSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -398,13 +398,15 @@ export class VisitHourSchema extends BaseModel {
   @column()
   declare labourRateId: number
   @column()
+  declare unitPrice: string
+  @column()
   declare userId: number
   @column()
   declare visitId: number
 }
 
 export class VisitItemSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'installed', 'installedEquipmentId', 'itemId', 'quantity', 'stockMovementId', 'visitId'] as const
+  static $columns = ['createdAt', 'id', 'installed', 'installedEquipmentId', 'itemId', 'quantity', 'stockMovementId', 'unitPrice', 'visitId'] as const
   $columns = VisitItemSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -420,6 +422,8 @@ export class VisitItemSchema extends BaseModel {
   declare quantity: string
   @column()
   declare stockMovementId: number | null
+  @column()
+  declare unitPrice: string
   @column()
   declare visitId: number
 }

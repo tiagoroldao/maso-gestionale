@@ -13,6 +13,9 @@ export default class extends BaseSchema {
         .inTable('labour_rates')
         .onDelete('RESTRICT')
       table.decimal('hours', 7, 3).notNullable()
+      // The rate's price when recorded, so later rate changes don't reprice
+      // work already done; never sent to Technicians
+      table.decimal('unit_price', 14, 4).notNullable()
       table.check('hours > 0')
       table.timestamp('created_at').notNullable()
       table.index(['visit_id'])
@@ -24,6 +27,8 @@ export default class extends BaseSchema {
       table.integer('item_id').notNullable().references('id').inTable('items').onDelete('RESTRICT')
       table.decimal('quantity', 14, 3).notNullable()
       table.check('quantity > 0')
+      // The Item's resale price when recorded (see visit_hours.unit_price)
+      table.decimal('unit_price', 14, 4).notNullable()
       table.boolean('installed').notNullable().defaultTo(false)
       table
         .integer('installed_equipment_id')
