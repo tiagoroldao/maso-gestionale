@@ -25,7 +25,7 @@ npm run dev                     # http://localhost:3333
 
 On a fresh database every page redirects to `/setup`, which creates the Superuser and the first Admin.
 
-The dev database is published on host port 5433, Gotenberg on 3010. Override with `DB_HOST_PORT` / `GOTENBERG_PORT`.
+The dev database is published on host port 5433, Gotenberg on 3010, both on localhost only. Override with `DB_HOST_PORT` / `GOTENBERG_PORT`. When pulling changes, compare your `.env` with `.env.example`: new required variables (such as `GOTENBERG_URL`) stop the app from booting until they are set.
 
 ### Route registry
 

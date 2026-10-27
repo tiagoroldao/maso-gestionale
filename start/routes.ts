@@ -50,6 +50,8 @@ router
       .group(() => {
         router.get('settings/company', [controllers.CompanySettings, 'edit'])
         router.post('settings/company', [controllers.CompanySettings, 'update'])
+        router.get('settings/company/letterhead', [controllers.LetterheadPreview, 'show'])
+        router.get('settings/company/letterhead.pdf', [controllers.LetterheadPreview, 'pdf'])
       })
       .use(middleware.can('manageCompany'))
 

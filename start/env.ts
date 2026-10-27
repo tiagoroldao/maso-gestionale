@@ -33,4 +33,7 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // Files
   STORAGE_PATH: Env.schema.string.optional(),
+
+  // PDF conversion
+  GOTENBERG_URL: Env.schema.string({ format: 'url', tld: false }),
 })

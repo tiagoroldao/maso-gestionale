@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="it">
+  <head>
+    <meta charset="utf-8" />
+    <title>{{ title }}</title>
+    <style>
+      @page {
+        size: A4;
+        margin: 18mm 16mm 20mm;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        font-family: 'Helvetica Neue', Arial, 'Liberation Sans', sans-serif;
+        font-size: 10pt;
+        line-height: 1.45;
+        color: #1f2328;
+      }
+      .letterhead {
+        display: flex;
+        justify-content: space-between;
+        gap: 12mm;
+        padding-bottom: 6mm;
+        border-bottom: 0.4mm solid #1f2328;
+      }
+      .letterhead__logo {
+        max-height: 22mm;
+        max-width: 60mm;
+        object-fit: contain;
+      }
+      .letterhead__company {
+        text-align: right;
+        font-size: 9pt;
+      }
+      .letterhead__name {
+        font-size: 12pt;
+        font-weight: 700;
+      }
+      .recipient {
+        margin: 10mm 0 8mm auto;
+        width: 85mm;
+      }
+      .recipient__label {
+        font-size: 8pt;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #6a737d;
+      }
+      .recipient__name {
+        font-weight: 700;
+      }
+      .document__title {
+        font-size: 14pt;
+        margin: 0 0 6mm;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="letterhead">
+      <div>
+        @if(company.logoDataUri)
+          <img class="letterhead__logo" src="{{ company.logoDataUri }}" alt="" />
+        @end
+      </div>
+      <div class="letterhead__company" data-test="company">
+        <div class="letterhead__name">{{ company.name }}</div>
+        @each(line in company.addressLines)
+          <div>{{ line }}</div>
+        @end
+        @if(company.vatNumber)
+          <div>P.IVA {{ company.vatNumber }}</div>
+        @end
+        @if(company.taxCode)
+          <div>C.F. {{ company.taxCode }}</div>
+        @end
+        @if(company.phone)
+          <div>Tel. {{ company.phone }}</div>
+        @end
+        @if(company.email)
+          <div>{{ company.email }}</div>
+        @end
+      </div>
+    </header>
+
+    @if(recipient)
+      <section class="recipient" data-test="recipient">
+        <div class="recipient__label">Spett.le</div>
+        <div class="recipient__name">{{ recipient.name }}</div>
+        @each(line in recipient.addressLines)
+          <div>{{ line }}</div>
+        @end
+        @if(recipient.vatNumber)
+          <div>P.IVA {{ recipient.vatNumber }}</div>
+        @end
+        @if(recipient.taxCode && recipient.taxCode !== recipient.vatNumber)
+          <div>C.F. {{ recipient.taxCode }}</div>
+        @end
+      </section>
+    @end
+
+    <main>
+      <h1 class="document__title">{{ title }}</h1>
+      {{{ bodyHtml }}}
+    </main>
+  </body>
+</html>

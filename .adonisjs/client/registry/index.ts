@@ -102,6 +102,18 @@ const routes = {
     tokens: [[0,"settings"],[0,"company"]],
     types: placeholder as Registry['company_settings.update']['types'],
   },
+  'letterhead_preview.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/company/letterhead',
+    tokens: [[0,"settings"],[0,"company"],[0,"letterhead"]],
+    types: placeholder as Registry['letterhead_preview.show']['types'],
+  },
+  'letterhead_preview.pdf': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/company/letterhead.pdf',
+    tokens: [[0,"settings"],[0,"company"],[0,"letterhead.pdf"]],
+    types: placeholder as Registry['letterhead_preview.pdf']['types'],
+  },
   'instance': {
     methods: ["GET","HEAD"],
     pattern: '/instance',

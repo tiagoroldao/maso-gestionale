@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { Form } from '@adonisjs/inertia/vue'
+import { urlFor } from '~/client'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import SettingsLayout from '~/layouts/settings.vue'
@@ -129,9 +130,19 @@ const logoUrl = props.settings.updatedAt
         </Section>
 
         <Section>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
-            Save company settings
-          </button>
+          <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
+            <button type="submit" class="btn btn--primary" :disabled="processing">
+              Save company settings
+            </button>
+            <a
+              :href="urlFor('letterhead_preview.pdf')"
+              target="_blank"
+              rel="noopener"
+              class="btn btn--secondary"
+            >
+              Preview letterhead (PDF)
+            </a>
+          </div>
         </Section>
       </Form>
     </SettingsLayout>

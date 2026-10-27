@@ -20,6 +20,8 @@ export type ScannedRoutes = {
     'users.reactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
+    'letterhead_preview.show': { paramsTuple?: []; params?: {} }
+    'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
   }
   GET: {
@@ -31,6 +33,8 @@ export type ScannedRoutes = {
     'users.create': { paramsTuple?: []; params?: {} }
     'users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
+    'letterhead_preview.show': { paramsTuple?: []; params?: {} }
+    'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
   }
   HEAD: {
@@ -42,6 +46,8 @@ export type ScannedRoutes = {
     'users.create': { paramsTuple?: []; params?: {} }
     'users.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
+    'letterhead_preview.show': { paramsTuple?: []; params?: {} }
+    'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
   }
   POST: {

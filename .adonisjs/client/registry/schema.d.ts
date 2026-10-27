@@ -215,6 +215,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'letterhead_preview.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/company/letterhead'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['show']>>>
+    }
+  }
+  'letterhead_preview.pdf': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/company/letterhead.pdf'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
+    }
+  }
   'instance': {
     methods: ["GET","HEAD"]
     pattern: '/instance'

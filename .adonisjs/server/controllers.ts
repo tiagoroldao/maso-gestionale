@@ -5,6 +5,7 @@
 
 export const controllers = {
   CompanySettings: () => import('#controllers/company_settings_controller'),
+  LetterheadPreview: () => import('#controllers/letterhead_preview_controller'),
   Session: () => import('#controllers/session_controller'),
   Setup: () => import('#controllers/setup_controller'),
   Users: () => import('#controllers/users_controller'),
