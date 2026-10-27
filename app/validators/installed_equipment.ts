@@ -23,4 +23,5 @@ export const installedEquipmentValidator = vine.create({
     .afterOrSameAs('installedOn')
     .optional(),
   notes: optionalText(5000),
+  itemId: vine.number().exists({ table: 'items', column: 'id' }).optional(),
 })

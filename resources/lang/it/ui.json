@@ -260,7 +260,12 @@
       "solarThermal": "Impianto solare termico",
       "waterSoftener": "Addolcitore",
       "pressurePump": "Autoclave"
-    }
+    },
+    "itemSection": "Articolo",
+    "itemHint": "Facoltativo. Collegare l'articolo venduto mostra i suoi documenti e propone il suo intervallo di manutenzione.",
+    "linkItem": "Collega un articolo",
+    "unlinkItem": "Scollega",
+    "documents": "{count, plural, one {# documento} other {# documenti}}"
   },
   "categories": {
     "title": "Categorie",
@@ -337,7 +342,22 @@
     "adjustmentTitle": "Registra una rettifica",
     "adjustmentDescription": "Inventario, rotture o smarrimenti. Usa un numero negativo per togliere merce.",
     "adjust": "Registra rettifica",
-    "negativeStock": "Giacenza negativa"
+    "negativeStock": "Giacenza negativa",
+    "picker": {
+      "label": "Cerca un articolo",
+      "placeholder": "Codice, descrizione o codice fornitore",
+      "noMatches": "Nessun articolo corrisponde.",
+      "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
+    },
+    "maintenanceSection": "Manutenzione",
+    "maintenanceInterval": "Intervallo di manutenzione predefinito (mesi)",
+    "maintenanceIntervalHint": "Facoltativo. Proposto quando l'articolo viene collegato a un apparecchio installato.",
+    "documentsTitle": "Documenti",
+    "documentsDescription": "Manuali, schede tecniche e certificazioni (PDF o immagini, massimo 20 MB).",
+    "noDocuments": "Nessun documento.",
+    "documentTitle": "Titolo",
+    "documentFile": "File",
+    "upload": "Carica documento"
   },
   "stock": {
     "title": "Magazzino",
@@ -348,6 +368,21 @@
     "nothing": "Niente da segnalare.",
     "negative": "negativa",
     "low": "sotto scorta",
-    "categoryMarkup": "Ricarico categoria"
+    "categoryMarkup": "Ricarico categoria",
+    "picker": {
+      "label": "Cerca un articolo",
+      "placeholder": "Codice, descrizione o codice fornitore",
+      "noMatches": "Nessun articolo corrisponde.",
+      "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
+    },
+    "maintenanceSection": "Manutenzione",
+    "maintenanceInterval": "Intervallo di manutenzione predefinito (mesi)",
+    "maintenanceIntervalHint": "Facoltativo. Proposto quando l'articolo viene collegato a un apparecchio installato.",
+    "documentsTitle": "Documenti",
+    "documentsDescription": "Manuali, schede tecniche e certificazioni (PDF o immagini, massimo 20 MB).",
+    "noDocuments": "Nessun documento.",
+    "documentTitle": "Titolo",
+    "documentFile": "File",
+    "upload": "Carica documento"
   }
 }

@@ -32,7 +32,8 @@
       "taxCodeType.condominium": "Per un condominio serve il Codice Fiscale numerico di 11 cifre",
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
       "amount": "Il campo {field} deve essere un importo valido",
-      "quantity": "Il campo {field} deve essere una quantità valida"
+      "quantity": "Il campo {field} deve essere una quantità valida",
+      "file.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)"
     },
     "fields": {
       "email": "email",
@@ -93,7 +94,10 @@
       "occurredOn": "data",
       "reference": "riferimento",
       "reason": "motivo",
-      "reorderLevel": "scorta minima"
+      "reorderLevel": "scorta minima",
+      "title": "titolo",
+      "file": "file",
+      "itemId": "articolo"
     }
   }
 }

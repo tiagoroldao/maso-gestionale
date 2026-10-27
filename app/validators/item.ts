@@ -38,6 +38,7 @@ export const itemValidator = vine.withMetaData<{ id?: number }>().create({
     .string()
     .use(quantityRule({ allowNegative: false, allowZero: true }))
     .optional(),
+  maintenanceIntervalMonths: vine.number().withoutDecimals().min(1).max(120).optional(),
 })
 
 export const itemSearchValidator = vine.create({

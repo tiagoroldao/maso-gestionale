@@ -25,6 +25,7 @@ function toAttributes(data: Infer<typeof itemValidator>) {
     purchasePrice: data.purchasePrice,
     resalePrice: data.resalePrice,
     reorderLevel: data.reorderLevel ?? null,
+    maintenanceIntervalMonths: data.maintenanceIntervalMonths ?? null,
   }
 }
 
@@ -70,7 +71,11 @@ export default class ItemsController {
   }
 
   async create({ inertia }: HttpContext) {
-    return inertia.render('items/form', { item: null, categories: await categoryOptions() })
+    return inertia.render('items/form', {
+      item: null,
+      documents: [],
+      categories: await categoryOptions(),
+    })
   }
 
   async store({ request, response, session, i18n }: HttpContext) {
@@ -92,7 +97,11 @@ export default class ItemsController {
    * The Item with its current stock and Stock Movement history.
    */
   async show({ params, inertia }: HttpContext) {
-    const item = await Item.query().where('id', params.id).preload('category').firstOrFail()
+    const item = await Item.query()
+      .where('id', params.id)
+      .preload('category')
+      .preload('documents', (documents) => documents.orderBy('title'))
+      .firstOrFail()
     const movements = await StockMovement.query()
       .where('itemId', item.id)
       .preload('author')
@@ -120,6 +129,7 @@ export default class ItemsController {
         markupPercent: item.category?.markupPercent ?? null,
       },
       stock: await StockLedger.levelOf(item),
+      documents: item.documents.map((document) => ({ id: document.id, title: document.title })),
       movements: movements.map((movement) => ({
         id: movement.id,
         kind: movement.kind,
@@ -134,7 +144,10 @@ export default class ItemsController {
   }
 
   async edit({ params, inertia }: HttpContext) {
-    const item = await Item.findOrFail(params.id)
+    const item = await Item.query()
+      .where('id', params.id)
+      .preload('documents', (documents) => documents.orderBy('title'))
+      .firstOrFail()
 
     return inertia.render('items/form', {
       item: {
@@ -150,7 +163,14 @@ export default class ItemsController {
         resalePrice: item.resalePrice,
         archived: item.archivedAt !== null,
         reorderLevel: item.reorderLevel,
+        maintenanceIntervalMonths: item.maintenanceIntervalMonths,
       },
+      documents: item.documents.map((document) => ({
+        id: document.id,
+        title: document.title,
+        originalName: document.originalName,
+        sizeBytes: document.sizeBytes,
+      })),
       categories: await categoryOptions(),
     })
   }
@@ -193,6 +213,7 @@ export default class ItemsController {
         code: item.code,
         description: item.description,
         unit: item.unit,
+        maintenanceIntervalMonths: item.maintenanceIntervalMonths,
         ...(withPrices && {
           purchasePrice: item.purchasePrice,
           resalePrice: item.resalePrice,

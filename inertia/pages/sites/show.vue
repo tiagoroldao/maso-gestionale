@@ -16,6 +16,8 @@ defineProps<{
     installedOn: string | null
     maintenanceIntervalMonths: number | null
     nextDueOn: string | null
+    itemCode: string | null
+    documentCount: number
   }[]
 }>()
 
@@ -59,7 +61,13 @@ const today = todayIso()
           </thead>
           <tbody>
             <tr v-for="equipment in installedEquipment" :key="equipment.id">
-              <td>{{ equipment.description }}</td>
+              <td>
+                {{ equipment.description }}
+                <span v-if="equipment.itemCode" class="mono tag">{{ equipment.itemCode }}</span>
+                <span v-if="equipment.documentCount" class="field__hint">
+                  · {{ t('ui.equipment.documents', { count: equipment.documentCount }) }}
+                </span>
+              </td>
               <td class="mono">{{ equipment.serialNumber }}</td>
               <td>{{ formatDate(equipment.installedOn) }}</td>
               <td>

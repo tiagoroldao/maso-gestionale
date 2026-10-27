@@ -29,6 +29,11 @@ export interface ApiDefinition {
     unarchive: typeof routes['items.unarchive']
     destroy: typeof routes['items.destroy']
   }
+  itemDocuments: {
+    show: typeof routes['item_documents.show']
+    store: typeof routes['item_documents.store']
+    destroy: typeof routes['item_documents.destroy']
+  }
   users: {
     index: typeof routes['users.index']
     create: typeof routes['users.create']

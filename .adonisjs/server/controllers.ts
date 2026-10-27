@@ -9,6 +9,7 @@ export const controllers = {
   CustomerSites: () => import('#controllers/customer_sites_controller'),
   Customers: () => import('#controllers/customers_controller'),
   InstalledEquipment: () => import('#controllers/installed_equipment_controller'),
+  ItemDocuments: () => import('#controllers/item_documents_controller'),
   Items: () => import('#controllers/items_controller'),
   LetterheadPreview: () => import('#controllers/letterhead_preview_controller'),
   PaymentTerms: () => import('#controllers/payment_terms_controller'),

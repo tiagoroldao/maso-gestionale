@@ -84,7 +84,11 @@ export default class SitesController {
     const site = await Site.query()
       .where('id', params.id)
       .preload('customers')
-      .preload('installedEquipment', (equipment) => equipment.orderBy(['equipment_type', 'id']))
+      .preload('installedEquipment', (equipment) =>
+        equipment
+          .orderBy(['equipment_type', 'id'])
+          .preload('item', (item) => item.withCount('documents'))
+      )
       .firstOrFail()
 
     return inertia.render('sites/show', {
@@ -104,6 +108,8 @@ export default class SitesController {
         installedOn: equipment.installedOn?.toISODate() ?? null,
         maintenanceIntervalMonths: equipment.maintenanceIntervalMonths,
         nextDueOn: equipment.nextDueOn?.toISODate() ?? null,
+        itemCode: equipment.item?.code ?? null,
+        documentCount: equipment.item ? Number(equipment.item.$extras.documents_count) : 0,
       })),
     })
   }
