@@ -49,10 +49,24 @@ export function t(key: string, values?: Record<string, string | number | null | 
 
   let formatter = formatters.get(key)
   if (!formatter) {
-    formatter = new IntlMessageFormat(message, LOCALE)
+    // Same option as the server's formatter, so markup in a message is plain text
+    formatter = new IntlMessageFormat(message, LOCALE, undefined, { ignoreTag: true })
     formatters.set(key, formatter)
   }
   return String(formatter.format(values as Record<string, string | number>))
+}
+
+const money = new Intl.NumberFormat(LOCALE, {
+  style: 'currency',
+  currency: 'EUR',
+  useGrouping: 'always',
+})
+
+/**
+ * An amount in euro, Italian style ("1.234,56 €").
+ */
+export function formatMoney(amount: number) {
+  return money.format(amount)
 }
 
 /**
@@ -65,15 +79,16 @@ export function formatDate(isoDate: string | null | undefined) {
   return `${day}/${month}/${year}`
 }
 
-const money = new Intl.NumberFormat(LOCALE, { style: 'currency', currency: 'EUR' })
-
-export function formatMoney(amount: number) {
-  return money.format(amount)
-}
-
 /**
- * Today's date in the business's timezone, as "YYYY-MM-DD".
+ * The date in the business's timezone at `now`, as "YYYY-MM-DD".
  */
-export function todayIso() {
-  return new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE }).format(new Date())
+export function todayIso(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now)
+  const part = (type: string) => parts.find((p) => p.type === type)!.value
+  return `${part('year')}-${part('month')}-${part('day')}`
 }

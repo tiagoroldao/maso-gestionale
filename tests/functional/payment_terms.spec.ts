@@ -59,7 +59,11 @@ test.group('Payment Terms', () => {
       .withCsrfToken()
       .loginAs(admin)
       .redirects(0)
-    response.assertFlashMessage('error', it('flash.paymentTermsInUse', { name: 'Rimessa diretta' }))
+    // The literal text, to catch grammar the catalogue lookup can't
+    response.assertFlashMessage(
+      'error',
+      'Le condizioni «Rimessa diretta» sono assegnate ad almeno un cliente e non possono essere eliminate.'
+    )
     assert.isNotNull(await PaymentTerms.find(customer.paymentTermsId))
   })
 

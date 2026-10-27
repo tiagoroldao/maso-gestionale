@@ -152,7 +152,10 @@ test.group('Company settings', (group) => {
       .loginAs(admin)
       .redirects(0)
 
-    assert.properties(response.flashMessage('inputErrorsBag'), ['logo'])
+    // The literal text, so formatting problems (such as a list of extensions) show up
+    assert.deepEqual(response.flashMessage('inputErrorsBag').logo, [
+      "Il logo deve essere un'immagine PNG, JPEG o WebP",
+    ])
     assert.isNull(await CompanySettings.find(1))
   })
 

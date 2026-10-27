@@ -2,6 +2,5 @@
   "letterheadPreview": {
     "title": "Anteprima carta intestata",
     "body": "<p>Questo esempio mostra come appariranno fatture e documenti con i dati aziendali attuali: la carta intestata in alto e il destinatario sotto.</p><p>Modifica i dati aziendali o il logo nelle Impostazioni, poi scarica di nuovo l'anteprima.</p>"
-  },
-  "recipientLabel": "Spett.le"
+  }
 }

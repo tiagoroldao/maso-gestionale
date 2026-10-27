@@ -30,7 +30,7 @@ const next = computed(() =>
 <template>
   <nav
     v-if="lastPage > 1"
-    :aria-label="t('ui.common.pagination', { current: currentPage, last: lastPage, total })"
+    :aria-label="t('ui.common.paginationLabel')"
     :style="{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '16px' }"
   >
     <Link v-if="previous" :href="previous" class="btn btn--secondary btn--sm">{{

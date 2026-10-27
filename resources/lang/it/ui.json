@@ -9,11 +9,10 @@
     "previous": "Precedente",
     "next": "Successiva",
     "pagination": "Pagina {current} di {last} · {total, plural, one {# risultato} other {# risultati}}",
-    "optional": "Facoltativo",
     "logout": "Esci",
-    "theme": "Cambia tema",
     "lightTheme": "Passa al tema chiaro",
-    "darkTheme": "Passa al tema scuro"
+    "darkTheme": "Passa al tema scuro",
+    "paginationLabel": "Paginazione"
   },
   "nav": {
     "dashboard": "Bacheca",
@@ -234,7 +233,7 @@
     "installed": "Installato",
     "nextDue": "Prossimo controllo",
     "overdue": "scaduto",
-    "noDate": "Ogni {months} mesi, nessuna data da cui contare",
+    "noDate": "{months, plural, one {Ogni mese} other {Ogni # mesi}}, nessuna data da cui contare",
     "empty": "Nessun apparecchio registrato.",
     "add": "Aggiungi apparecchio",
     "addTitle": "Aggiungi apparecchio",

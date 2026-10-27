@@ -8,7 +8,7 @@ import { t } from '~/i18n'
     <div class="home">
       <article class="prose-card">
         <div class="pc-top">
-          <span class="pc-status mono tag" :style="{ color: 'var(--subtle)' }">
+          <span class="pc-status mono tag" :style="{ color: '#c0392b' }">
             <span class="dot" /> 500
           </span>
         </div>
