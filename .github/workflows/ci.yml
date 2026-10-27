@@ -2,11 +2,18 @@ name: CI
 
 on:
   push:
+    branches: [main]
   pull_request:
 
 jobs:
   test:
     runs-on: ubuntu-24.04
+
+    # Chromium and its system packages come preinstalled. The tag must
+    # match the exact `playwright` version in package.json (checked below).
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --ipc=host
 
     services:
       postgres:
@@ -15,8 +22,6 @@ jobs:
           POSTGRES_USER: maso
           POSTGRES_PASSWORD: maso
           POSTGRES_DB: maso_test
-        ports:
-          - 5432:5432
         options: >-
           --health-cmd "pg_isready -U maso"
           --health-interval 5s
@@ -26,11 +31,12 @@ jobs:
     env:
       TZ: UTC
       PORT: 3333
-      HOST: localhost
+      # Explicit IPv4: inside the container "localhost" resolves to ::1 first
+      HOST: 127.0.0.1
       LOG_LEVEL: info
       APP_KEY: ci-only-app-key-not-secret-000000
       SESSION_DRIVER: memory
-      DB_HOST: 127.0.0.1
+      DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: maso
       DB_PASSWORD: maso
@@ -45,9 +51,17 @@ jobs:
           cache: npm
 
       - run: npm ci
+
+      - name: Check the container matches the installed Playwright version
+        run: |
+          installed="$(node -p "require('playwright/package.json').version")"
+          if ! grep -q "mcr.microsoft.com/playwright:v$installed-" .github/workflows/ci.yml; then
+            echo "::error::package.json has playwright $installed; update the container tag in ci.yml to match."
+            exit 1
+          fi
+
       - run: npm run lint
       - run: npm run typecheck
-      - run: npx playwright install --with-deps chromium
 
       - name: Tests (unit, functional, browser)
         run: node ace test
