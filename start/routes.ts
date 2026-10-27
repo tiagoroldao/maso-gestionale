@@ -110,6 +110,21 @@ router
         router
           .post('jobs/:id/cancel', [controllers.Jobs, 'cancel'])
           .where('id', router.matchers.number())
+        router
+          .get('jobs/:id/quote', [controllers.Quotes, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('jobs/:id/quote', [controllers.Quotes, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .post('jobs/:id/quote/accept', [controllers.Quotes, 'accept'])
+          .where('id', router.matchers.number())
+        router
+          .post('jobs/:id/quote/decline', [controllers.Quotes, 'decline'])
+          .where('id', router.matchers.number())
+        router
+          .get('jobs/:id/quote.pdf', [controllers.Quotes, 'pdf'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageJobs'))
 
@@ -162,6 +177,15 @@ router
         router.post('settings/company', [controllers.CompanySettings, 'update'])
         router.get('settings/company/letterhead', [controllers.LetterheadPreview, 'show'])
         router.get('settings/company/letterhead.pdf', [controllers.LetterheadPreview, 'pdf'])
+        router.get('settings/rates', [controllers.Rates, 'index'])
+        router.post('settings/rates', [controllers.Rates, 'store'])
+        router
+          .put('settings/rates/:id', [controllers.Rates, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .post('settings/rates/:id/archive', [controllers.Rates, 'archive'])
+          .where('id', router.matchers.number())
+        router.put('settings/call-out-fee', [controllers.Rates, 'updateCallOutFee'])
         router.get('settings/payment-terms', [controllers.PaymentTerms, 'index'])
         router.post('settings/payment-terms', [controllers.PaymentTerms, 'store'])
         router.put('settings/payment-terms/:id', [controllers.PaymentTerms, 'update'])

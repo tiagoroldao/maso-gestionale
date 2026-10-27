@@ -110,7 +110,8 @@
     "description": "Dati aziendali e opzioni usate in tutta l'app.",
     "company": "Azienda",
     "paymentTerms": "Condizioni di pagamento",
-    "categories": "Categorie"
+    "categories": "Categorie",
+    "rates": "Tariffe"
   },
   "company": {
     "companySection": "Azienda",
@@ -426,5 +427,69 @@
     },
     "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
     "cancelledNotEditable": "Una commessa annullata non si può modificare."
+  },
+  "rates": {
+    "labourTitle": "Tariffe orarie",
+    "labourDescription": "Prezzo all'ora per tipo di manodopera, usato in preventivi e interventi.",
+    "empty": "Nessuna tariffa.",
+    "name": "Nome",
+    "hourlyPrice": "Prezzo orario (€)",
+    "nameOf": "Nome di {name}",
+    "priceOf": "Prezzo orario di {name}",
+    "add": "Aggiungi tariffa",
+    "archive": "Archivia",
+    "callOutTitle": "Diritto di chiamata",
+    "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
+    "callOutFee": "Diritto di chiamata (€)"
+  },
+  "quotes": {
+    "section": "Preventivo",
+    "write": "Scrivi il preventivo",
+    "open": "Apri il preventivo",
+    "title": "Preventivo {number}",
+    "backToJob": "Torna alla commessa",
+    "pdf": "PDF",
+    "notEditable": "Il preventivo non è più modificabile.",
+    "description": "Descrizione",
+    "quantity": "Quantità",
+    "unitPrice": "Prezzo unitario",
+    "amount": "Importo",
+    "total": "Totale",
+    "vatExcluded": "IVA esclusa",
+    "descriptionOf": "Descrizione della riga {position}",
+    "quantityOf": "Quantità della riga {position}",
+    "unitPriceOf": "Prezzo unitario della riga {position}",
+    "moveUp": "Sposta su",
+    "moveDown": "Sposta giù",
+    "removeLine": "Rimuovi riga",
+    "noLines": "Nessuna riga. Aggiungi articoli, manodopera o testo qui sotto.",
+    "addTitle": "Aggiungi righe",
+    "addItem": "Aggiungi un articolo",
+    "addLabour": "Manodopera",
+    "chooseRate": "Scegli una tariffa",
+    "addLabourButton": "Aggiungi manodopera",
+    "addCallOut": "Aggiungi diritto di chiamata",
+    "addText": "Aggiungi testo",
+    "callOutDescription": "Diritto di chiamata",
+    "notes": "Note",
+    "save": "Salva preventivo",
+    "decisionTitle": "Esito",
+    "accept": "Preventivo accettato",
+    "decline": "Preventivo rifiutato",
+    "kinds": {
+      "item": "Articolo",
+      "labour": "Manodopera",
+      "call_out": "Diritto di chiamata",
+      "text": "Testo"
+    },
+    "statuses": {
+      "draft": "Bozza",
+      "accepted": "Accettato",
+      "declined": "Rifiutato"
+    },
+    "unsaved": "Modifiche non salvate.",
+    "saveBeforeDeciding": "Salva il preventivo prima di registrarne l'esito.",
+    "acceptConfirm": "Confermi che il cliente ha accettato il preventivo di {total}? Non sarà più modificabile.",
+    "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo? La commessa {number} verrà annullata."
   }
 }

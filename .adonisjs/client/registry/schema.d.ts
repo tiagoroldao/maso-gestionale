@@ -566,6 +566,71 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
     }
   }
+  'quotes.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/jobs/:id/quote'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['edit']>>>
+    }
+  }
+  'quotes.update': {
+    methods: ["PUT"]
+    pattern: '/jobs/:id/quote'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/quote').quoteValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/quote').quoteValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'quotes.accept': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/quote/accept'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['accept']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['accept']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['accept']>>>
+    }
+  }
+  'quotes.decline': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/quote/decline'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['decline']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['decline']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['decline']>>>
+    }
+  }
+  'quotes.pdf': {
+    methods: ["GET","HEAD"]
+    pattern: '/jobs/:id/quote.pdf'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['pdf']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['pdf']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['pdf']>>>
+    }
+  }
   'items.index': {
     methods: ["GET","HEAD"]
     pattern: '/items'
@@ -850,6 +915,71 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/letterhead_preview_controller').default['pdf']>>>
+    }
+  }
+  'rates.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/rates'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['index']>>>
+    }
+  }
+  'rates.store': {
+    methods: ["POST"]
+    pattern: '/settings/rates'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/quote').labourRateValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/quote').labourRateValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'rates.update': {
+    methods: ["PUT"]
+    pattern: '/settings/rates/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/quote').labourRateValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/quote').labourRateValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'rates.archive': {
+    methods: ["POST"]
+    pattern: '/settings/rates/:id/archive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['archive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['archive']>>>
+    }
+  }
+  'rates.update_call_out_fee': {
+    methods: ["PUT"]
+    pattern: '/settings/call-out-fee'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/quote').callOutFeeValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/quote').callOutFeeValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['updateCallOutFee']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['updateCallOutFee']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/rates_controller').default['updateCallOutFee']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'payment_terms.index': {

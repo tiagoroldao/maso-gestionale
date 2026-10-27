@@ -264,6 +264,36 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"cancel"]],
     types: placeholder as Registry['jobs.cancel']['types'],
   },
+  'quotes.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id/quote',
+    tokens: [[0,"jobs"],[1,"id"],[0,"quote"]],
+    types: placeholder as Registry['quotes.edit']['types'],
+  },
+  'quotes.update': {
+    methods: ["PUT"],
+    pattern: '/jobs/:id/quote',
+    tokens: [[0,"jobs"],[1,"id"],[0,"quote"]],
+    types: placeholder as Registry['quotes.update']['types'],
+  },
+  'quotes.accept': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/quote/accept',
+    tokens: [[0,"jobs"],[1,"id"],[0,"quote"],[0,"accept"]],
+    types: placeholder as Registry['quotes.accept']['types'],
+  },
+  'quotes.decline': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/quote/decline',
+    tokens: [[0,"jobs"],[1,"id"],[0,"quote"],[0,"decline"]],
+    types: placeholder as Registry['quotes.decline']['types'],
+  },
+  'quotes.pdf': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id/quote.pdf',
+    tokens: [[0,"jobs"],[1,"id"],[0,"quote.pdf"]],
+    types: placeholder as Registry['quotes.pdf']['types'],
+  },
   'items.index': {
     methods: ["GET","HEAD"],
     pattern: '/items',
@@ -395,6 +425,36 @@ const routes = {
     pattern: '/settings/company/letterhead.pdf',
     tokens: [[0,"settings"],[0,"company"],[0,"letterhead.pdf"]],
     types: placeholder as Registry['letterhead_preview.pdf']['types'],
+  },
+  'rates.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/rates',
+    tokens: [[0,"settings"],[0,"rates"]],
+    types: placeholder as Registry['rates.index']['types'],
+  },
+  'rates.store': {
+    methods: ["POST"],
+    pattern: '/settings/rates',
+    tokens: [[0,"settings"],[0,"rates"]],
+    types: placeholder as Registry['rates.store']['types'],
+  },
+  'rates.update': {
+    methods: ["PUT"],
+    pattern: '/settings/rates/:id',
+    tokens: [[0,"settings"],[0,"rates"],[1,"id"]],
+    types: placeholder as Registry['rates.update']['types'],
+  },
+  'rates.archive': {
+    methods: ["POST"],
+    pattern: '/settings/rates/:id/archive',
+    tokens: [[0,"settings"],[0,"rates"],[1,"id"],[0,"archive"]],
+    types: placeholder as Registry['rates.archive']['types'],
+  },
+  'rates.update_call_out_fee': {
+    methods: ["PUT"],
+    pattern: '/settings/call-out-fee',
+    tokens: [[0,"settings"],[0,"call-out-fee"]],
+    types: placeholder as Registry['rates.update_call_out_fee']['types'],
   },
   'payment_terms.index': {
     methods: ["GET","HEAD"],

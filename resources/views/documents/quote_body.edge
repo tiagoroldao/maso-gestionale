@@ -1,0 +1,47 @@
+<style>
+  .quote-lines { width: 100%; border-collapse: collapse; margin-top: 4mm; }
+  .quote-lines th, .quote-lines td { padding: 2mm 1.5mm; border-bottom: 0.2mm solid #d0d7de; text-align: left; vertical-align: top; }
+  .quote-lines th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #57606a; }
+  .quote-lines .num { text-align: right; white-space: nowrap; }
+  .quote-lines .text-line td { color: #57606a; font-style: italic; }
+  .quote-total { margin-top: 4mm; text-align: right; font-size: 11pt; }
+  .quote-total strong { font-size: 12pt; }
+  .quote-note { margin-top: 6mm; white-space: pre-line; }
+  .quote-lines tr { page-break-inside: avoid; }
+</style>
+
+<p>{{ t('documents.quote.issuedOn', { date: issuedOn }) }}<br />{{ t('documents.quote.subject', { title: job.title }) }}</p>
+
+<table class="quote-lines">
+  <thead>
+    <tr>
+      <th>{{ t('documents.quote.description') }}</th>
+      <th class="num">{{ t('documents.quote.quantity') }}</th>
+      <th class="num">{{ t('documents.quote.unitPrice') }}</th>
+      <th class="num">{{ t('documents.quote.amount') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @each(line in lines)
+      @if(line.kind === 'text')
+        <tr class="text-line"><td colspan="4">{{ line.description }}</td></tr>
+      @else
+        <tr>
+          <td>{{ line.description }}</td>
+          <td class="num">{{ line.quantity }} {{ line.unit }}</td>
+          <td class="num">{{ line.unitPrice }}</td>
+          <td class="num">{{ line.lineTotal }}</td>
+        </tr>
+      @end
+    @end
+  </tbody>
+</table>
+
+<p class="quote-total">
+  {{ t('documents.quote.total') }} <strong>{{ total }}</strong><br />
+  <small>{{ t('documents.quote.vatExcluded') }}</small>
+</p>
+
+@if(notes)
+  <p class="quote-note">{{ notes }}</p>
+@end

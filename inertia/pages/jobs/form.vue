@@ -14,6 +14,7 @@ const props = defineProps<{
     number: string
     kind: string
     status: string
+    kindLocked: boolean
     title: string
     description: string | null
   } | null
@@ -43,7 +44,7 @@ function pickSite(picked: PickedSite) {
   site.value = picked
 }
 
-const kindLocked = props.job !== null && props.job.status !== 'open'
+const kindLocked = props.job?.kindLocked ?? false
 const title = props.job
   ? t('ui.jobs.editTitle', { number: props.job.number })
   : t('ui.jobs.newTitle')
