@@ -76,6 +76,8 @@ jobs:
             echo "::error::Generated files are stale. Run 'npm run codegen' (with migrations applied) and commit the result."
             exit 1
           fi
+        env:
+          NODE_ENV: test
 
       - name: Comments waiting on closed issues
         run: npm run check:issue-refs
