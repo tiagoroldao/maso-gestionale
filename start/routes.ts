@@ -51,18 +51,31 @@ router
         router.get('customers', [controllers.Customers, 'index'])
         router.get('customers/create', [controllers.Customers, 'create'])
         router.post('customers', [controllers.Customers, 'store'])
-        router.get('customers/:id', [controllers.Customers, 'show'])
-        router.get('customers/:id/edit', [controllers.Customers, 'edit'])
-        router.put('customers/:id', [controllers.Customers, 'update'])
-        router.post('customers/:customerId/sites', [controllers.CustomerSites, 'store'])
-        router.delete('customers/:customerId/sites/:siteId', [controllers.CustomerSites, 'destroy'])
+        router
+          .get('customers/:id', [controllers.Customers, 'show'])
+          .where('id', router.matchers.number())
+        router
+          .get('customers/:id/edit', [controllers.Customers, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('customers/:id', [controllers.Customers, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .post('customers/:customerId/sites', [controllers.CustomerSites, 'store'])
+          .where('customerId', router.matchers.number())
+        router
+          .delete('customers/:customerId/sites/:siteId', [controllers.CustomerSites, 'destroy'])
+          .where('customerId', router.matchers.number())
+          .where('siteId', router.matchers.number())
 
         router.get('sites', [controllers.Sites, 'index'])
         router.get('sites/search', [controllers.Sites, 'search'])
         router.get('sites/create', [controllers.Sites, 'create'])
         router.post('sites', [controllers.Sites, 'store'])
-        router.get('sites/:id/edit', [controllers.Sites, 'edit'])
-        router.put('sites/:id', [controllers.Sites, 'update'])
+        router
+          .get('sites/:id/edit', [controllers.Sites, 'edit'])
+          .where('id', router.matchers.number())
+        router.put('sites/:id', [controllers.Sites, 'update']).where('id', router.matchers.number())
       })
       .use(middleware.can('manageCustomers'))
 

@@ -107,6 +107,7 @@ function linkSite(site: PickedSite) {
         <p v-else :style="{ color: 'var(--subtle)' }">No Sites linked yet.</p>
 
         <SitePicker
+          :customer-id="customer.id"
           label="Link an existing Site"
           :exclude-ids="sites.map((site) => site.id)"
           @select="linkSite"

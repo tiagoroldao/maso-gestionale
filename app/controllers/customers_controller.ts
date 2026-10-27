@@ -58,7 +58,7 @@ export default class CustomersController {
       })
     }
     const results = await query
-      .orderByRaw(`lower(coalesce(name, concat_ws(' ', last_name, first_name)))`)
+      .orderByRaw(`lower(coalesce(name, concat_ws(' ', last_name, first_name))), id`)
       .paginate(page, PER_PAGE)
 
     return inertia.render('customers/index', {

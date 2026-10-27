@@ -139,14 +139,46 @@ test.group('Sites', () => {
     assert.lengthOf(await search('nowhere'), 0)
   })
 
-  test('only Admin and Office manage Sites', async ({ client }) => {
+  test('only Admin and Office manage Sites', async ({ client, assert }) => {
+    const customer = await createCustomer()
+    const site = await createSite()
+
     for (const role of ['technician', 'superuser'] as const) {
       const user = await createUser(role)
-      for (const url of ['/sites', '/sites/search']) {
+      for (const url of ['/sites', '/sites/search', `/sites/${site.id}/edit`]) {
         const response = await client.get(url).withInertia().loginAs(user)
         response.assertStatus(403)
       }
+
+      const refused = [
+        client.post('/sites').form(siteFields),
+        client.post(`/customers/${customer.id}/sites`).form({ siteId: String(site.id) }),
+      ]
+      for (const request of refused) {
+        const response = await request
+          .header('referer', '/')
+          .withCsrfToken()
+          .loginAs(user)
+          .redirects(0)
+        response.assertFlashMessage('error', 'Access denied')
+      }
     }
+
+    assert.lengthOf(await Site.all(), 1)
+    await customer.load('sites')
+    assert.lengthOf(customer.sites, 0)
+  })
+
+  test('non-numeric ids are not found', async ({ client }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+
+    const response = await client
+      .delete(`/customers/${customer.id}/sites/abc`)
+      .withCsrfToken()
+      .loginAs(office)
+
+    response.assertStatus(404)
   })
 })
 
@@ -154,8 +186,9 @@ test.group('Site picker', () => {
   test("lists the Customer's Sites first, then other matches", async ({ client, assert }) => {
     const office = await createUser('office')
     const customer = await createCustomer()
-    const linked = await createSite({ street: 'Via Verdi', city: 'Milano' })
-    const other = await createSite({ street: 'Via Verdi', city: 'Torino', province: 'TO' })
+    // The linked Site sorts after the other one by address, so ordering by address alone fails
+    const linked = await createSite({ street: 'Via Verdi', city: 'Torino', province: 'TO' })
+    const other = await createSite({ street: 'Via Verdi', city: 'Milano' })
     await createSite({ street: 'Via Rossini', city: 'Milano' })
     await customer.related('sites').attach([linked.id])
 
@@ -171,6 +204,31 @@ test.group('Site picker', () => {
         [other.id, false],
       ]
     )
+  })
+
+  test("the Customer's many linked Sites don't crowd out other matches", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    for (let i = 0; i < 25; i++) {
+      const site = await createSite({ street: `Via Milano`, streetNumber: String(i + 1) })
+      await customer.related('sites').attach([site.id])
+    }
+    const unlinked = await createSite({ street: 'Via Milano', streetNumber: '99', city: 'Monza' })
+
+    const response = await client
+      .get('/sites/search')
+      .qs({ customerId: customer.id, q: 'milano' })
+      .loginAs(office)
+
+    const sites = response.body().sites as { id: number; linked: boolean }[]
+    assert.lengthOf(
+      sites.filter((site) => site.linked),
+      25
+    )
+    assert.deepInclude(sites, { id: unlinked.id, summary: unlinked.summary, linked: false })
   })
 
   test("without a search term, shows only the Customer's Sites", async ({ client, assert }) => {

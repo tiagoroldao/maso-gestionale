@@ -8,6 +8,12 @@ import type { Infer } from '@vinejs/vine/types'
 const PER_PAGE = 25
 const PICKER_LIMIT = 20
 
+/**
+ * Address order with a final tie-breaker, so flats in the same building
+ * keep a stable order across pages.
+ */
+const ADDRESS_ORDER = ['city', 'street', 'street_number', 'unit', 'id']
+
 function toAttributes(data: Infer<typeof siteValidator>) {
   return {
     label: data.label ?? null,
@@ -27,7 +33,7 @@ export default class SitesController {
 
     const query = Site.query().withCount('customers')
     if (q) query.withScopes((scopes) => scopes.search(q))
-    const results = await query.orderBy('city').orderBy('street').paginate(page, PER_PAGE)
+    const results = await query.orderBy(ADDRESS_ORDER).paginate(page, PER_PAGE)
 
     return inertia.render('sites/index', {
       q: q ?? '',
@@ -57,11 +63,13 @@ export default class SitesController {
 
   async store({ request, response, session }: HttpContext) {
     const data = await request.validateUsing(siteValidator)
-    const site = await Site.create(toAttributes(data))
+    await db.transaction(async (trx) => {
+      const site = await Site.create(toAttributes(data), { client: trx })
+      if (data.customerId) await site.related('customers').attach([data.customerId])
+    })
 
     session.flash('success', 'Site saved.')
     if (data.customerId) {
-      await site.related('customers').attach([data.customerId])
       return response.redirect().toRoute('customers.show', { id: data.customerId })
     }
     response.redirect().toRoute('sites.index')
@@ -114,14 +122,13 @@ export default class SitesController {
 
     const linkedQuery = Site.query().whereIn('id', linkedIds)
     if (q) linkedQuery.withScopes((scopes) => scopes.search(q))
-    const linked = await linkedQuery.orderBy('city').orderBy('street')
+    const linked = await linkedQuery.orderBy(ADDRESS_ORDER)
 
     const others = q
       ? await Site.query()
           .withScopes((scopes) => scopes.search(q))
           .whereNotIn('id', linkedIds)
-          .orderBy('city')
-          .orderBy('street')
+          .orderBy(ADDRESS_ORDER)
           .limit(PICKER_LIMIT)
       : []
 
