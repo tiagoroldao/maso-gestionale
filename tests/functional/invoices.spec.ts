@@ -96,6 +96,89 @@ test.group('Draft Invoices', () => {
     list.assertInertiaPropsContains({ invoices: [{ id: invoice.id, total: '147.88' }] })
   })
 
+  test('very large lines are stored with the same rounding as the totals', async ({
+    client,
+    assert,
+  }) => {
+    const { office, standard, invoice } = await setup()
+
+    await save(client, invoice, {
+      lines: [
+        {
+          description: 'Impianto',
+          quantity: '60000,006',
+          unitPrice: '20005,0005',
+          discountPercent: '0,01',
+          vatCodeId: standard.id,
+        },
+      ],
+    }).loginAs(office)
+
+    const [line] = await lines(invoice)
+    assert.equal(line.lineTotal, '1200180120.01')
+  })
+
+  test('archived Items can not be added, but lines already on the draft keep theirs', async ({
+    client,
+    assert,
+  }) => {
+    const { office, item, standard, invoice } = await setup()
+    const other = await createItem({ code: 'OLD-1' })
+    await save(client, invoice, {
+      lines: [
+        {
+          itemId: item.id,
+          description: 'Rubinetto',
+          quantity: '1',
+          unitPrice: '45',
+          vatCodeId: standard.id,
+        },
+      ],
+    }).loginAs(office)
+    for (const archived of [item, other]) {
+      archived.archivedAt = DateTime.now()
+      await archived.save()
+    }
+
+    const refused = await save(client, invoice, {
+      lines: [
+        {
+          itemId: item.id,
+          description: 'Rubinetto',
+          quantity: '2',
+          unitPrice: '45',
+          vatCodeId: standard.id,
+        },
+        {
+          itemId: other.id,
+          description: 'Vecchio',
+          quantity: '1',
+          unitPrice: '1',
+          vatCodeId: standard.id,
+        },
+      ],
+    })
+      .header('referer', `/invoices/${invoice.id}/edit`)
+      .loginAs(office)
+      .redirects(0)
+    const errors = refused.flashMessage('inputErrorsBag') as Record<string, unknown>
+    assert.deepEqual(Object.keys(errors), ['lines.1.itemId'])
+
+    await save(client, invoice, {
+      lines: [
+        {
+          itemId: item.id,
+          description: 'Rubinetto',
+          quantity: '2',
+          unitPrice: '45',
+          vatCodeId: standard.id,
+        },
+      ],
+    }).loginAs(office)
+    const [line] = await lines(invoice)
+    assert.equal(line.quantity, '2.000')
+  })
+
   test('later VAT Code changes leave saved lines as they were', async ({ client, assert }) => {
     const { office, reduced, invoice } = await setup()
     await save(client, invoice, {
@@ -198,8 +281,10 @@ test.group('Draft Invoices', () => {
     const { standard, invoice, customer } = await setup()
     const technician = await createUser('technician')
 
-    const index = await client.get('/invoices').withInertia().loginAs(technician)
-    index.assertStatus(403)
+    for (const url of ['/invoices', '/invoices/create', `/invoices/${invoice.id}/edit`]) {
+      const page = await client.get(url).withInertia().loginAs(technician)
+      page.assertStatus(403)
+    }
     for (const request of [
       client.post('/invoices').form({ customerId: String(customer.id) }),
       client.put(`/invoices/${invoice.id}`).json({

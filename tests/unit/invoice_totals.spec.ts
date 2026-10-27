@@ -16,6 +16,8 @@ test.group('Invoice line total', () => {
     assert.equal(invoiceLineTotal('1.5', '0.3333'), '0.50')
     // 3 × 9.99 × 0.875 = 26.22375 → 26.22
     assert.equal(invoiceLineTotal('3', '9.99', '12.5'), '26.22')
+    // Large amounts round once: exact 1200180120.0149999997…
+    assert.equal(invoiceLineTotal('60000.006', '20005.0005', '0.01'), '1200180120.01')
   })
 })
 

@@ -52,8 +52,10 @@ export default class extends BaseSchema {
       table.string('natura', 4).nullable()
       table.check('(vat_rate = 0) = (natura IS NOT NULL)')
       table.decimal('line_total', 14, 2).notNullable()
-      // Same rounding as invoiceLineTotal: half away from zero, to the cent
-      table.check('line_total = round(quantity * unit_price * (100 - discount_percent) / 100, 2)')
+      // Same rounding as invoiceLineTotal: half away from zero, to the cent.
+      // × 0.01 rather than / 100: numeric division rounds large quotients
+      // to 9 decimals first, and would then round twice
+      table.check('line_total = round(quantity * unit_price * (100 - discount_percent) * 0.01, 2)')
       table.index(['invoice_id', 'position'])
     })
   }
