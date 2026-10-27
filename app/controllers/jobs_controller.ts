@@ -6,6 +6,7 @@ import { nextJobSequence } from '#services/job_numbers'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
+import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const PER_PAGE = 25
@@ -94,6 +95,13 @@ export default class JobsController {
       .where('id', params.id)
       .preload('customer')
       .preload('site')
+      .preload('visits', (visits) =>
+        visits
+          .preload('technicians')
+          .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
+          .preload('photos', (photos) => photos.orderBy('createdAt'))
+          .orderBy('startsAt')
+      )
       .firstOrFail()
 
     return inertia.render('jobs/show', {
@@ -102,6 +110,19 @@ export default class JobsController {
         description: job.description,
         cancelledAt: job.cancelledAt?.toISODate() ?? null,
       },
+      visits: job.visits.map((visit) => ({
+        id: visit.id,
+        startsAt: localDateTime(visit.startsAt),
+        endsAt: localDateTime(visit.endsAt),
+        status: visit.status,
+        technicians: visit.technicians.map((technician) => technician.fullName ?? technician.email),
+        notes: visit.fieldNotes.map((note) => ({
+          id: note.id,
+          body: note.body,
+          author: note.author?.fullName ?? note.author?.email ?? null,
+        })),
+        photoIds: visit.photos.map((photo) => photo.id),
+      })),
     })
   }
 

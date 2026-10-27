@@ -12,6 +12,11 @@ export type ScannedRoutes = {
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
     'items.search': { paramsTuple?: []; params?: {} }
+    'visit_photos.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.update_status': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.add_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.add_photo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.index': { paramsTuple?: []; params?: {} }
     'users.create': { paramsTuple?: []; params?: {} }
@@ -40,6 +45,7 @@ export type ScannedRoutes = {
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.index': { paramsTuple?: []; params?: {} }
     'jobs.index': { paramsTuple?: []; params?: {} }
     'jobs.create': { paramsTuple?: []; params?: {} }
     'jobs.store': { paramsTuple?: []; params?: {} }
@@ -47,6 +53,11 @@ export type ScannedRoutes = {
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.schedule': { paramsTuple?: []; params?: {} }
+    'visits.to_schedule': { paramsTuple?: []; params?: {} }
+    'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -91,6 +102,8 @@ export type ScannedRoutes = {
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
     'items.search': { paramsTuple?: []; params?: {} }
+    'visit_photos.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.index': { paramsTuple?: []; params?: {} }
     'users.create': { paramsTuple?: []; params?: {} }
@@ -107,10 +120,14 @@ export type ScannedRoutes = {
     'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.create': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.index': { paramsTuple?: []; params?: {} }
     'jobs.index': { paramsTuple?: []; params?: {} }
     'jobs.create': { paramsTuple?: []; params?: {} }
     'jobs.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.schedule': { paramsTuple?: []; params?: {} }
+    'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
@@ -132,6 +149,8 @@ export type ScannedRoutes = {
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
     'items.search': { paramsTuple?: []; params?: {} }
+    'visit_photos.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.index': { paramsTuple?: []; params?: {} }
     'users.create': { paramsTuple?: []; params?: {} }
@@ -148,10 +167,14 @@ export type ScannedRoutes = {
     'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.create': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.index': { paramsTuple?: []; params?: {} }
     'jobs.index': { paramsTuple?: []; params?: {} }
     'jobs.create': { paramsTuple?: []; params?: {} }
     'jobs.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.schedule': { paramsTuple?: []; params?: {} }
+    'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
@@ -171,6 +194,9 @@ export type ScannedRoutes = {
     'setup.store': { paramsTuple?: []; params?: {} }
     'session.store': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
+    'my_visits.update_status': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.add_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.add_photo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.store': { paramsTuple?: []; params?: {} }
     'users.deactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.reactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -180,6 +206,7 @@ export type ScannedRoutes = {
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'jobs.store': { paramsTuple?: []; params?: {} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -213,6 +240,9 @@ export type ScannedRoutes = {
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+  }
+  PATCH: {
+    'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
 }
 declare module '@adonisjs/core/types/http' {

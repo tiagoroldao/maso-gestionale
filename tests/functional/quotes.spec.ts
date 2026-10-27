@@ -246,6 +246,33 @@ test.group('Quotes', () => {
     ])
   })
 
+  test('lines already on a Quote keep an Item or rate archived since', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, item, rate } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    item.archivedAt = DateTime.now()
+    await item.save()
+    rate.archivedAt = DateTime.now()
+    await rate.save()
+
+    const response = await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ notes: 'Aggiornato', lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('success', it('flash.quoteSaved'))
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.equal(quote.notes, 'Aggiornato')
+  })
+
   test('the kind of a Job with a Quote can not change', async ({ client, assert }) => {
     const { office, customer, job } = await setup()
     await client

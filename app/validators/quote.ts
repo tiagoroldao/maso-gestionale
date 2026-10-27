@@ -12,50 +12,55 @@ const LINE_PRICE_MAX = '9999999'
  * The whole Quote as edited on the page: notes and the ordered lines.
  * Priced lines need a quantity and unit price; text lines only words.
  */
-export const quoteValidator = vine.create({
-  notes: vine.string().trim().maxLength(5000).optional(),
-  lines: vine
-    .array(
-      vine.object({
-        kind: vine.enum(QUOTE_LINE_KINDS),
-        itemId: vine
-          .number()
-          .exists({
-            table: 'items',
-            column: 'id',
-            filter: (db) => {
-              db.whereNull('archived_at')
-            },
-          })
-          .optional()
-          .requiredWhen('kind', '=', 'item'),
-        labourRateId: vine
-          .number()
-          .exists({
-            table: 'labour_rates',
-            column: 'id',
-            filter: (db) => {
-              db.whereNull('archived_at')
-            },
-          })
-          .optional()
-          .requiredWhen('kind', '=', 'labour'),
-        description: vine.string().trim().minLength(1).maxLength(1000),
-        quantity: vine
-          .string()
-          // Capped with the price so a line total fits numeric(14,2)
-          .use(quantityRule({ allowNegative: false, max: LINE_QUANTITY_MAX }))
-          .optional()
-          .requiredWhen('kind', '!=', 'text'),
-        unitPrice: vine
-          .string()
-          .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: LINE_PRICE_MAX }))
-          .optional()
-          .requiredWhen('kind', '!=', 'text'),
-      })
-    )
-    .maxLength(200),
-})
+export const quoteValidator = vine
+  .withMetaData<{ itemIds: number[]; labourRateIds: number[] }>()
+  .create({
+    notes: vine.string().trim().maxLength(5000).optional(),
+    lines: vine
+      .array(
+        vine.object({
+          kind: vine.enum(QUOTE_LINE_KINDS),
+          itemId: vine
+            .number()
+            .exists({
+              table: 'items',
+              column: 'id',
+              // Archived Items can't be added, but lines already on the Quote keep theirs
+              filter: (db, _, field) => {
+                db.where((q) => q.whereNull('archived_at').orWhereIn('id', field.meta.itemIds))
+              },
+            })
+            .optional()
+            .requiredWhen('kind', '=', 'item'),
+          labourRateId: vine
+            .number()
+            .exists({
+              table: 'labour_rates',
+              column: 'id',
+              filter: (db, _, field) => {
+                db.where((q) =>
+                  q.whereNull('archived_at').orWhereIn('id', field.meta.labourRateIds)
+                )
+              },
+            })
+            .optional()
+            .requiredWhen('kind', '=', 'labour'),
+          description: vine.string().trim().minLength(1).maxLength(1000),
+          quantity: vine
+            .string()
+            // Capped with the price so a line total fits numeric(14,2)
+            .use(quantityRule({ allowNegative: false, max: LINE_QUANTITY_MAX }))
+            .optional()
+            .requiredWhen('kind', '!=', 'text'),
+          unitPrice: vine
+            .string()
+            .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: LINE_PRICE_MAX }))
+            .optional()
+            .requiredWhen('kind', '!=', 'text'),
+        })
+      )
+      .maxLength(200),
+  })
 
 export const labourRateValidator = vine.withMetaData<{ id?: number }>().create({
   name: vine

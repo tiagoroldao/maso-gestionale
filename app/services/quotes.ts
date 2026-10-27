@@ -101,6 +101,22 @@ export default class Quotes {
 
       job.status = jobStatus
       if (jobStatus === 'cancelled') job.cancelledAt = DateTime.now()
+      // Work booked while waiting for the signature starts the Job at once
+      if (jobStatus === 'accepted') {
+        // Upcoming or ongoing work only: a past survey doesn't count
+        const pending = await trx
+          .from('visits')
+          .where('job_id', job.id)
+          .where((visits) =>
+            visits
+              .where('status', 'in_progress')
+              .orWhere((planned) =>
+                planned.where('status', 'planned').where('starts_at', '>=', new Date())
+              )
+          )
+          .first()
+        if (pending) job.status = 'in_progress'
+      }
       await job.save()
     })
   }

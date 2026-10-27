@@ -111,6 +111,71 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['search']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'visit_photos.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/visit-photos/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visit_photos_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visit_photos_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visit_photos_controller').default['show']>>>
+    }
+  }
+  'my_visits.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/my-visits/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['show']>>>
+    }
+  }
+  'my_visits.update_status': {
+    methods: ["POST"]
+    pattern: '/my-visits/:id/status'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitStatusValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitStatusValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['updateStatus']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['updateStatus']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['updateStatus']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'my_visits.add_note': {
+    methods: ["POST"]
+    pattern: '/my-visits/:id/notes'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitNoteValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitNoteValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addNote']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addNote']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addNote']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'my_visits.add_photo': {
+    methods: ["POST"]
+    pattern: '/my-visits/:id/photos'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitPhotoValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitPhotoValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addPhoto']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addPhoto']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addPhoto']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'item_documents.show': {
     methods: ["GET","HEAD"]
     pattern: '/item-documents/:id'
@@ -475,6 +540,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'my_visits.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/my-visits'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['index']>>>
+    }
+  }
   'jobs.index': {
     methods: ["GET","HEAD"]
     pattern: '/jobs'
@@ -564,6 +642,71 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
+    }
+  }
+  'visits.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/jobs/:id/visits/create'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+    }
+  }
+  'visits.store': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/visits'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').visitValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').visitValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'visits.schedule': {
+    methods: ["GET","HEAD"]
+    pattern: '/agenda'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/visit').scheduleValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['schedule']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['schedule']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['schedule']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'visits.to_schedule': {
+    methods: ["GET","HEAD"]
+    pattern: '/agenda/to-schedule'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['toSchedule']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['toSchedule']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['toSchedule']>>>
+    }
+  }
+  'visits.move': {
+    methods: ["PATCH"]
+    pattern: '/visits/:id/move'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').moveVisitValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').moveVisitValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['move']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['move']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['move']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'quotes.edit': {

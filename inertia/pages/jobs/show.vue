@@ -5,6 +5,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, t } from '~/i18n'
+import { urlFor } from '~/client'
 
 const confirm = (message: string) => window.confirm(message)
 
@@ -21,6 +22,15 @@ defineProps<{
     createdAt: string
     cancelledAt: string | null
   }
+  visits: {
+    id: number
+    startsAt: string
+    endsAt: string
+    status: string
+    technicians: string[]
+    notes: { id: number; body: string; author: string | null }[]
+    photoIds: number[]
+  }[]
 }>()
 </script>
 
@@ -75,6 +85,56 @@ defineProps<{
             <dd :style="{ whiteSpace: 'pre-line' }">{{ job.description }}</dd>
           </template>
         </dl>
+      </Section>
+
+      <Section :title="t('ui.visits.title')">
+        <table v-if="visits.length" class="table">
+          <tbody>
+            <tr v-for="visit in visits" :key="visit.id">
+              <td>
+                <Link
+                  route="visits.schedule"
+                  :qs="{ date: visit.startsAt.slice(0, 10) }"
+                  class="il"
+                >
+                  {{ formatDate(visit.startsAt) }} {{ visit.startsAt.slice(11, 16) }}–{{
+                    visit.endsAt.slice(11, 16)
+                  }}
+                </Link>
+              </td>
+              <td>
+                {{ visit.technicians.join(', ') }}
+                <div v-for="note in visit.notes" :key="note.id" class="field__hint">
+                  {{ note.author }}: {{ note.body }}
+                </div>
+                <div v-if="visit.photoIds.length" class="field-photos">
+                  <a
+                    v-for="photoId in visit.photoIds"
+                    :key="photoId"
+                    :href="urlFor('visit_photos.show', { id: photoId })"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img
+                      :src="urlFor('visit_photos.show', { id: photoId })"
+                      :alt="t('ui.field.photo')"
+                      loading="lazy"
+                    />
+                  </a>
+                </div>
+              </td>
+              <td>
+                <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.visits.none') }}</p>
+        <div v-if="job.status !== 'cancelled'">
+          <Link route="visits.create" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
+            {{ t('ui.visits.plan') }}
+          </Link>
+        </div>
       </Section>
 
       <Section v-if="job.kind === 'quoted'" :title="t('ui.quotes.section')">
