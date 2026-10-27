@@ -1,22 +1,19 @@
 <script setup lang="ts">
 import Page from '~/components/page.vue'
+import { Building2 } from 'lucide-vue-next'
 import NavLink, { type NavItem } from '~/components/nav_link.vue'
 
 /**
- * The pages of the settings area, listed in the sidebar. Register a route
- * for each page and add it here, for example:
- *
- * `{ label: 'Profile', route: 'settings.profile', icon: User }`
- *
- * Each settings page renders inside the app layout and this layout:
+ * The pages of the settings area, listed in the sidebar. Each settings
+ * page renders inside the app layout and this layout:
  *
  * `<AppLayout><SettingsLayout>…</SettingsLayout></AppLayout>`
  */
-const items: NavItem[] = []
+const items: NavItem[] = [{ label: 'Company', route: 'company_settings.edit', icon: Building2 }]
 </script>
 
 <template>
-  <Page title="Settings" description="Manage your account settings and preferences.">
+  <Page title="Settings" description="Company details printed on invoices and documents.">
     <div class="sidebar-layout">
       <nav class="sidebar-layout__nav" aria-label="Settings">
         <NavLink

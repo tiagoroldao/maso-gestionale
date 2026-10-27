@@ -7,6 +7,43 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class CompanySettingSchema extends BaseModel {
+  static $columns = ['city', 'createdAt', 'email', 'iban', 'id', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
+  $columns = CompanySettingSchema.$columns
+  @column()
+  declare city: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare email: string | null
+  @column()
+  declare iban: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare logoFile: string | null
+  @column()
+  declare name: string | null
+  @column()
+  declare phone: string | null
+  @column()
+  declare postalCode: string | null
+  @column()
+  declare province: string | null
+  @column()
+  declare street: string | null
+  @column()
+  declare streetNumber: string | null
+  @column()
+  declare taxCode: string | null
+  @column()
+  declare taxRegime: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare vatNumber: string | null
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'isActive', 'password', 'role', 'updatedAt'] as const
   $columns = UserSchema.$columns

@@ -13,6 +13,9 @@ services:
       DB_HOST: db
       DB_PORT: 5432
       GOTENBERG_URL: http://gotenberg:3000
+      STORAGE_PATH: /app/storage
+    volumes:
+      - app-storage:/app/storage
     ports:
       - '${APP_PORT:-3333}:3333'
     depends_on:
@@ -47,3 +50,4 @@ services:
 
 volumes:
   db-data:
+  app-storage:

@@ -85,6 +85,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<unknown>
     }
   }
+  'company_settings.logo': {
+    methods: ["GET","HEAD"]
+    pattern: '/company/logo'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['logo']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['logo']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['logo']>>>
+    }
+  }
   'users.index': {
     methods: ["GET","HEAD"]
     pattern: '/users'
@@ -174,6 +187,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/users_controller').default['reactivate']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/users_controller').default['reactivate']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/users_controller').default['reactivate']>>>
+    }
+  }
+  'company_settings.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/company'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['edit']>>>
+    }
+  }
+  'company_settings.update': {
+    methods: ["POST"]
+    pattern: '/settings/company'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/company_settings').companySettingsValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/company_settings').companySettingsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/company_settings_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'instance': {
