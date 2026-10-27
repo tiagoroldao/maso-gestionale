@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { House, LogOut } from 'lucide-vue-next'
+import { computed } from 'vue'
+import { usePage } from '@inertiajs/vue3'
+import { House, LogOut, Server, Users } from 'lucide-vue-next'
 import { Form } from '@adonisjs/inertia/vue'
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
@@ -7,10 +9,21 @@ import ThemeToggle from '~/components/theme_toggle.vue'
 import NavLink, { type NavItem } from '~/components/nav_link.vue'
 
 /**
- * Top-level app navigation. Add an entry here for every new area of your
- * app, and it shows up in the navigation bar with its active state handled.
+ * Top-level app navigation, per role. The server enforces access; this
+ * only hides links a role can't use.
  */
-const nav: NavItem[] = [{ label: 'Dashboard', route: 'dashboard', icon: House }]
+const navByRole: Record<string, NavItem[]> = {
+  superuser: [{ label: 'Instance', route: 'instance', icon: Server }],
+  admin: [
+    { label: 'Dashboard', route: 'dashboard', icon: House },
+    { label: 'Users', route: 'users.index', icon: Users },
+  ],
+  office: [{ label: 'Dashboard', route: 'dashboard', icon: House }],
+  technician: [{ label: 'Dashboard', route: 'dashboard', icon: House }],
+}
+
+const page = usePage()
+const nav = computed(() => navByRole[page.props.user?.role ?? ''] ?? [])
 </script>
 
 <template>

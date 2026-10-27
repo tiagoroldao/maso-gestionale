@@ -30,17 +30,65 @@ const routes = {
     tokens: [[0,"login"]],
     types: placeholder as Registry['session.store']['types'],
   },
+  'session.destroy': {
+    methods: ["POST"],
+    pattern: '/logout',
+    tokens: [[0,"logout"]],
+    types: placeholder as Registry['session.destroy']['types'],
+  },
   'dashboard': {
     methods: ["GET","HEAD"],
     pattern: '/dashboard',
     tokens: [[0,"dashboard"]],
     types: placeholder as Registry['dashboard']['types'],
   },
-  'session.destroy': {
+  'users.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/users',
+    tokens: [[0,"users"]],
+    types: placeholder as Registry['users.index']['types'],
+  },
+  'users.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/users/create',
+    tokens: [[0,"users"],[0,"create"]],
+    types: placeholder as Registry['users.create']['types'],
+  },
+  'users.store': {
     methods: ["POST"],
-    pattern: '/logout',
-    tokens: [[0,"logout"]],
-    types: placeholder as Registry['session.destroy']['types'],
+    pattern: '/users',
+    tokens: [[0,"users"]],
+    types: placeholder as Registry['users.store']['types'],
+  },
+  'users.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/users/:id/edit',
+    tokens: [[0,"users"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['users.edit']['types'],
+  },
+  'users.update': {
+    methods: ["PUT"],
+    pattern: '/users/:id',
+    tokens: [[0,"users"],[1,"id"]],
+    types: placeholder as Registry['users.update']['types'],
+  },
+  'users.deactivate': {
+    methods: ["POST"],
+    pattern: '/users/:id/deactivate',
+    tokens: [[0,"users"],[1,"id"],[0,"deactivate"]],
+    types: placeholder as Registry['users.deactivate']['types'],
+  },
+  'users.reactivate': {
+    methods: ["POST"],
+    pattern: '/users/:id/reactivate',
+    tokens: [[0,"users"],[1,"id"],[0,"reactivate"]],
+    types: placeholder as Registry['users.reactivate']['types'],
+  },
+  'instance': {
+    methods: ["GET","HEAD"],
+    pattern: '/instance',
+    tokens: [[0,"instance"]],
+    types: placeholder as Registry['instance']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

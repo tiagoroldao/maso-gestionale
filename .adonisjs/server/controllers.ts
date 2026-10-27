@@ -6,4 +6,5 @@
 export const controllers = {
   Session: () => import('#controllers/session_controller'),
   Setup: () => import('#controllers/setup_controller'),
+  Users: () => import('#controllers/users_controller'),
 }

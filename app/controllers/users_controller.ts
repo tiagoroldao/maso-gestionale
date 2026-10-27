@@ -1,0 +1,86 @@
+import User from '#models/user'
+import UserTransformer from '#transformers/user_transformer'
+import { createUserValidator, updateUserValidator } from '#validators/user'
+import type { HttpContext } from '@adonisjs/core/http'
+
+/**
+ * Admin management of Office and Technician accounts. Admins and the
+ * Superuser are listed for reference but can't be edited here.
+ */
+export default class UsersController {
+  async index({ inertia, bouncer }: HttpContext) {
+    const users = await User.query()
+      .whereNot('role', 'superuser')
+      .orderBy('isActive', 'desc')
+      .orderBy('fullName')
+
+    return inertia.render('users/index', {
+      users: await Promise.all(
+        users.map(async (user) => ({
+          id: user.id,
+          fullName: user.fullName,
+          email: user.email,
+          role: user.role,
+          isActive: user.isActive,
+          canEdit: await bouncer.allows('editUser', user),
+        }))
+      ),
+    })
+  }
+
+  async create({ inertia }: HttpContext) {
+    return inertia.render('users/create', {})
+  }
+
+  async store({ request, response, session }: HttpContext) {
+    const { fullName, email, role, password } = await request.validateUsing(createUserValidator)
+    await User.create({ fullName, email, role, password })
+
+    session.flash('success', `${fullName} can now sign in.`)
+    response.redirect().toRoute('users.index')
+  }
+
+  async edit({ params, inertia, bouncer }: HttpContext) {
+    const user = await User.findOrFail(params.id)
+    await bouncer.authorize('editUser', user)
+
+    return inertia.render('users/edit', { user: UserTransformer.transform(user) })
+  }
+
+  async update({ params, request, response, session, bouncer }: HttpContext) {
+    const user = await User.findOrFail(params.id)
+    await bouncer.authorize('editUser', user)
+
+    const { fullName, email, role, password } = await request.validateUsing(updateUserValidator, {
+      meta: { userId: user.id },
+    })
+    user.merge({ fullName, email, role })
+    if (password) user.password = password
+    await user.save()
+
+    session.flash('success', 'Changes saved.')
+    response.redirect().toRoute('users.index')
+  }
+
+  async deactivate({ params, response, session, bouncer }: HttpContext) {
+    const user = await User.findOrFail(params.id)
+    await bouncer.authorize('editUser', user)
+
+    user.isActive = false
+    await user.save()
+
+    session.flash('success', `${user.fullName} can no longer sign in.`)
+    response.redirect().toRoute('users.index')
+  }
+
+  async reactivate({ params, response, session, bouncer }: HttpContext) {
+    const user = await User.findOrFail(params.id)
+    await bouncer.authorize('editUser', user)
+
+    user.isActive = true
+    await user.save()
+
+    session.flash('success', `${user.fullName} can sign in again.`)
+    response.redirect().toRoute('users.index')
+  }
+}

@@ -11,8 +11,13 @@ declare module '@adonisjs/inertia/types' {
   export interface InertiaPages {
     'auth/login': ExtractProps<(typeof import('../../inertia/pages/auth/login.vue'))['default']>
     'dashboard': ExtractProps<(typeof import('../../inertia/pages/dashboard.vue'))['default']>
+    'errors/forbidden': ExtractProps<(typeof import('../../inertia/pages/errors/forbidden.vue'))['default']>
     'errors/not_found': ExtractProps<(typeof import('../../inertia/pages/errors/not_found.vue'))['default']>
     'errors/server_error': ExtractProps<(typeof import('../../inertia/pages/errors/server_error.vue'))['default']>
+    'instance': ExtractProps<(typeof import('../../inertia/pages/instance.vue'))['default']>
     'setup': ExtractProps<(typeof import('../../inertia/pages/setup.vue'))['default']>
+    'users/create': ExtractProps<(typeof import('../../inertia/pages/users/create.vue'))['default']>
+    'users/edit': ExtractProps<(typeof import('../../inertia/pages/users/edit.vue'))['default']>
+    'users/index': ExtractProps<(typeof import('../../inertia/pages/users/index.vue'))['default']>
   }
 }
