@@ -63,7 +63,11 @@ function submitSearch() {
         </thead>
         <tbody>
           <tr v-for="site in sites" :key="site.id">
-            <td>{{ site.summary }}</td>
+            <td>
+              <Link route="sites.show" :params="{ id: site.id }" class="il">{{
+                site.summary
+              }}</Link>
+            </td>
             <td>{{ site.customerCount }}</td>
             <td class="table__actions">
               <Link route="sites.edit" :params="{ id: site.id }" class="btn btn--ghost btn--sm">

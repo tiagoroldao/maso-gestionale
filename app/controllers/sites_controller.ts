@@ -63,16 +63,49 @@ export default class SitesController {
 
   async store({ request, response, session }: HttpContext) {
     const data = await request.validateUsing(siteValidator)
-    await db.transaction(async (trx) => {
-      const site = await Site.create(toAttributes(data), { client: trx })
-      if (data.customerId) await site.related('customers').attach([data.customerId])
+    const site = await db.transaction(async (trx) => {
+      const created = await Site.create(toAttributes(data), { client: trx })
+      if (data.customerId) await created.related('customers').attach([data.customerId])
+      return created
     })
 
     session.flash('success', 'Site saved.')
     if (data.customerId) {
       return response.redirect().toRoute('customers.show', { id: data.customerId })
     }
-    response.redirect().toRoute('sites.index')
+    response.redirect().toRoute('sites.show', { id: site.id })
+  }
+
+  /**
+   * The Site's history: its Customers and Installed Equipment (Jobs and
+   * documents are added by later features).
+   */
+  async show({ params, inertia }: HttpContext) {
+    const site = await Site.query()
+      .where('id', params.id)
+      .preload('customers')
+      .preload('installedEquipment', (equipment) => equipment.orderBy(['equipment_type', 'id']))
+      .firstOrFail()
+
+    return inertia.render('sites/show', {
+      site: {
+        id: site.id,
+        summary: site.summary,
+        accessNotes: site.accessNotes,
+      },
+      customers: site.customers.map((customer) => ({
+        id: customer.id,
+        displayName: customer.displayName,
+      })),
+      installedEquipment: site.installedEquipment.map((equipment) => ({
+        id: equipment.id,
+        description: equipment.description,
+        serialNumber: equipment.serialNumber,
+        installedOn: equipment.installedOn?.toISODate() ?? null,
+        maintenanceIntervalMonths: equipment.maintenanceIntervalMonths,
+        nextDueOn: equipment.nextDueOn?.toISODate() ?? null,
+      })),
+    })
   }
 
   async edit({ params, inertia }: HttpContext) {
@@ -105,7 +138,7 @@ export default class SitesController {
     await site.merge(toAttributes(data)).save()
 
     session.flash('success', 'Site saved.')
-    response.redirect().toRoute('sites.edit', { id: site.id })
+    response.redirect().toRoute('sites.show', { id: site.id })
   }
 
   /**

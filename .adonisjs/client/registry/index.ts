@@ -162,6 +162,12 @@ const routes = {
     tokens: [[0,"sites"]],
     types: placeholder as Registry['sites.store']['types'],
   },
+  'sites.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites/:id',
+    tokens: [[0,"sites"],[1,"id"]],
+    types: placeholder as Registry['sites.show']['types'],
+  },
   'sites.edit': {
     methods: ["GET","HEAD"],
     pattern: '/sites/:id/edit',
@@ -173,6 +179,30 @@ const routes = {
     pattern: '/sites/:id',
     tokens: [[0,"sites"],[1,"id"]],
     types: placeholder as Registry['sites.update']['types'],
+  },
+  'installed_equipment.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites/:siteId/equipment/create',
+    tokens: [[0,"sites"],[1,"siteId"],[0,"equipment"],[0,"create"]],
+    types: placeholder as Registry['installed_equipment.create']['types'],
+  },
+  'installed_equipment.store': {
+    methods: ["POST"],
+    pattern: '/sites/:siteId/equipment',
+    tokens: [[0,"sites"],[1,"siteId"],[0,"equipment"]],
+    types: placeholder as Registry['installed_equipment.store']['types'],
+  },
+  'installed_equipment.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/equipment/:id/edit',
+    tokens: [[0,"equipment"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['installed_equipment.edit']['types'],
+  },
+  'installed_equipment.update': {
+    methods: ["PUT"],
+    pattern: '/equipment/:id',
+    tokens: [[0,"equipment"],[1,"id"]],
+    types: placeholder as Registry['installed_equipment.update']['types'],
   },
   'company_settings.edit': {
     methods: ["GET","HEAD"],

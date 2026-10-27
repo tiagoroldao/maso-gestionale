@@ -72,10 +72,23 @@ router
         router.get('sites/search', [controllers.Sites, 'search'])
         router.get('sites/create', [controllers.Sites, 'create'])
         router.post('sites', [controllers.Sites, 'store'])
+        router.get('sites/:id', [controllers.Sites, 'show']).where('id', router.matchers.number())
         router
           .get('sites/:id/edit', [controllers.Sites, 'edit'])
           .where('id', router.matchers.number())
         router.put('sites/:id', [controllers.Sites, 'update']).where('id', router.matchers.number())
+        router
+          .get('sites/:siteId/equipment/create', [controllers.InstalledEquipment, 'create'])
+          .where('siteId', router.matchers.number())
+        router
+          .post('sites/:siteId/equipment', [controllers.InstalledEquipment, 'store'])
+          .where('siteId', router.matchers.number())
+        router
+          .get('equipment/:id/edit', [controllers.InstalledEquipment, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('equipment/:id', [controllers.InstalledEquipment, 'update'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageCustomers'))
 

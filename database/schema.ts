@@ -100,6 +100,35 @@ export class CustomerSchema extends BaseModel {
   declare vatNumber: string | null
 }
 
+export class InstalledEquipmentSchema extends BaseModel {
+  static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'serialNumber', 'siteId', 'updatedAt'] as const
+  $columns = InstalledEquipmentSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare equipmentType: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column.date()
+  declare installedOn: DateTime | null
+  @column.date()
+  declare lastServicedOn: DateTime | null
+  @column()
+  declare maintenanceIntervalMonths: number | null
+  @column()
+  declare make: string | null
+  @column()
+  declare model: string | null
+  @column()
+  declare notes: string | null
+  @column()
+  declare serialNumber: string | null
+  @column()
+  declare siteId: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class PaymentTermSchema extends BaseModel {
   static $columns = ['createdAt', 'days', 'endOfMonth', 'id', 'name', 'updatedAt'] as const
   $columns = PaymentTermSchema.$columns
