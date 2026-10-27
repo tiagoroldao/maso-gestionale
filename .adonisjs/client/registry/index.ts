@@ -84,6 +84,30 @@ const routes = {
     tokens: [[0,"my-visits"],[1,"id"],[0,"photos"]],
     types: placeholder as Registry['my_visits.add_photo']['types'],
   },
+  'my_visits.add_hours': {
+    methods: ["POST"],
+    pattern: '/my-visits/:id/hours',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"hours"]],
+    types: placeholder as Registry['my_visits.add_hours']['types'],
+  },
+  'my_visits.remove_hours': {
+    methods: ["DELETE"],
+    pattern: '/visit-hours/:hourId',
+    tokens: [[0,"visit-hours"],[1,"hourId"]],
+    types: placeholder as Registry['my_visits.remove_hours']['types'],
+  },
+  'my_visits.add_item': {
+    methods: ["POST"],
+    pattern: '/my-visits/:id/items',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"items"]],
+    types: placeholder as Registry['my_visits.add_item']['types'],
+  },
+  'my_visits.remove_item': {
+    methods: ["DELETE"],
+    pattern: '/visit-items/:itemId',
+    tokens: [[0,"visit-items"],[1,"itemId"]],
+    types: placeholder as Registry['my_visits.remove_item']['types'],
+  },
   'item_documents.show': {
     methods: ["GET","HEAD"],
     pattern: '/item-documents/:id',

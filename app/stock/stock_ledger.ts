@@ -98,6 +98,26 @@ export default class StockLedger {
   }
 
   /**
+   * Items used on a Visit: removes stock (negative stock is allowed).
+   */
+  static async use(item: Item, input: Common & { quantity: string }) {
+    const quantity = new Big(input.quantity)
+    if (quantity.lte(0)) throw new RangeError('Usage must remove a positive quantity')
+
+    return StockMovement.create(
+      {
+        itemId: item.id,
+        kind: 'usage',
+        quantity: quantity.neg().toFixed(QUANTITY_DECIMALS),
+        occurredOn: input.occurredOn,
+        reference: input.reference ?? null,
+        createdBy: input.user?.id ?? null,
+      },
+      { client: input.client }
+    )
+  }
+
+  /**
    * A correction after a stocktake, breakage or loss: adds or removes
    * stock. A reason is always required.
    */

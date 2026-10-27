@@ -37,6 +37,10 @@ export interface ApiDefinition {
     updateStatus: typeof routes['my_visits.update_status']
     addNote: typeof routes['my_visits.add_note']
     addPhoto: typeof routes['my_visits.add_photo']
+    addHours: typeof routes['my_visits.add_hours']
+    removeHours: typeof routes['my_visits.remove_hours']
+    addItem: typeof routes['my_visits.add_item']
+    removeItem: typeof routes['my_visits.remove_item']
     index: typeof routes['my_visits.index']
   }
   itemDocuments: {

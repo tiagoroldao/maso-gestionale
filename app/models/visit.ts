@@ -6,6 +6,8 @@ import Job from '#models/job'
 import User from '#models/user'
 import VisitNote from '#models/visit_note'
 import VisitPhoto from '#models/visit_photo'
+import VisitHour from '#models/visit_hour'
+import VisitItem from '#models/visit_item'
 
 export const VISIT_STATUSES = ['planned', 'in_progress', 'done', 'needs_return'] as const
 export type VisitStatus = (typeof VISIT_STATUSES)[number]
@@ -28,6 +30,12 @@ export default class Visit extends VisitSchema {
 
   @hasMany(() => VisitPhoto)
   declare photos: HasMany<typeof VisitPhoto>
+
+  @hasMany(() => VisitHour)
+  declare hours: HasMany<typeof VisitHour>
+
+  @hasMany(() => VisitItem)
+  declare items: HasMany<typeof VisitItem>
 
   /**
    * Whether `user` is one of the Technicians assigned to this Visit.

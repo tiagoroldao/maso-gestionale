@@ -1095,3 +1095,10 @@ input {
   object-fit: cover;
   border-radius: 6px;
 }
+
+.field-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}

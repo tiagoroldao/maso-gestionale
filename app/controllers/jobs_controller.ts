@@ -6,6 +6,8 @@ import { nextJobSequence } from '#services/job_numbers'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
+import { WORK_COMPLETE_SQL } from '#services/job_status'
+import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -15,8 +17,12 @@ export default class JobsController {
   async index({ request, inertia }: HttpContext) {
     const { q, status, page = 1 } = await jobSearchValidator.validate(request.qs())
 
-    const query = Job.query().preload('customer').preload('site')
+    const query = Job.query().preload('customer').preload('site').preload('visits')
+    // Work Complete is derived from the Visits, so it's a condition, not a column
     if (!status) query.whereNot('status', 'cancelled')
+    else if (status === 'work_complete') query.whereRaw(WORK_COMPLETE_SQL)
+    else if (status === 'in_progress')
+      query.where('status', status).whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
     else if (status !== 'all') query.where('status', status)
     if (q) {
       const pattern = likePattern(q)
@@ -100,11 +106,20 @@ export default class JobsController {
           .preload('technicians')
           .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
           .preload('photos', (photos) => photos.orderBy('createdAt'))
+          .preload('hours', (hours) => hours.preload('labourRate'))
+          .preload('items', (items) => items.preload('item'))
           .orderBy('startsAt')
       )
       .firstOrFail()
 
+    // Time and materials recorded so far, at the prices when recorded
+    const amounts = job.visits.flatMap((visit) => [
+      ...visit.hours.map((hour) => lineTotal(hour.hours, hour.unitPrice)),
+      ...visit.items.map((line) => lineTotal(line.quantity, line.unitPrice)),
+    ])
+
     return inertia.render('jobs/show', {
+      timeAndMaterials: { total: sumAmounts(amounts), lines: amounts.length },
       job: {
         ...jobRow(job),
         description: job.description,

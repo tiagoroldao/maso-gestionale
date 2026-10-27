@@ -26,6 +26,7 @@ test.group('Technician screens in the browser', () => {
 
     const page = await visit('/my-visits')
     await page.setViewportSize({ width: 390, height: 844 })
+    page.on('dialog', (dialog) => dialog.accept())
     await page.getByRole('link', { name: /Condominio Verdi/ }).click()
     await page.getByRole('button', { name: it('ui.visits.statuses.done') }).click()
     await page.getByRole('button', { name: it('ui.visits.statuses.done'), pressed: true }).waitFor()

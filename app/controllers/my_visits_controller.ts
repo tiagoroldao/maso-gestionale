@@ -2,9 +2,19 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { DateTime } from 'luxon'
 import Visit from '#models/visit'
+import VisitHour from '#models/visit_hour'
+import VisitItem from '#models/visit_item'
+import LabourRate from '#models/labour_rate'
+import FieldWork, { CLOSED_VISIT_STATUSES, FieldWorkRefusedError } from '#services/field_work'
 import { localDateTime } from '#services/dates'
 import { storagePath } from '#services/storage'
-import { visitNoteValidator, visitPhotoValidator, visitStatusValidator } from '#validators/field'
+import {
+  visitHoursValidator,
+  visitItemValidator,
+  visitNoteValidator,
+  visitPhotoValidator,
+  visitStatusValidator,
+} from '#validators/field'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const UPCOMING_DAYS = 14
@@ -47,11 +57,12 @@ export default class MyVisitsController {
     })
   }
 
-  async show({ params, inertia, bouncer }: HttpContext) {
+  async show({ params, inertia, bouncer, auth }: HttpContext) {
     const visit = await this.load(params.id)
     await bouncer.authorize('viewVisit', visit)
 
     const { job } = visit
+    const rates = await LabourRate.query().whereNull('archived_at').orderBy('name')
     return inertia.render('field/show', {
       visit: {
         id: visit.id,
@@ -82,6 +93,25 @@ export default class MyVisitsController {
             })),
           }
         : null,
+      done: CLOSED_VISIT_STATUSES.includes(visit.status),
+      currentUserId: auth.getUserOrFail().id,
+      team: visit.technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
+      // Rate names only: Technicians never see prices
+      labourRates: rates.map((rate) => ({ id: rate.id, name: rate.name })),
+      hours: visit.hours.map((hour) => ({
+        id: hour.id,
+        technician: hour.technician.fullName ?? hour.technician.email,
+        labourRate: hour.labourRate.name,
+        hours: hour.hours,
+      })),
+      items: visit.items.map((line) => ({
+        id: line.id,
+        code: line.item.code,
+        description: line.item.description,
+        unit: line.item.unit,
+        quantity: line.quantity,
+        installed: line.installed,
+      })),
       notes: visit.fieldNotes.map((note) => ({
         id: note.id,
         body: note.body,
@@ -92,16 +122,15 @@ export default class MyVisitsController {
     })
   }
 
-  async updateStatus({ params, request, response, session, bouncer, i18n }: HttpContext) {
+  async updateStatus({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
     await bouncer.authorize('viewVisit', visit)
     const { status } = await request.validateUsing(visitStatusValidator)
 
-    visit.status = status
-    await visit.save()
-
-    session.flash('success', i18n.t('flash.visitStatusSaved'))
-    response.redirect().toRoute('my_visits.show', { id: visit.id })
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.setStatus(visit, status, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.visitStatusSaved'))
+    })
   }
 
   async addNote({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
@@ -140,12 +169,72 @@ export default class MyVisitsController {
     response.redirect().toRoute('my_visits.show', { id: visit.id })
   }
 
+  async addHours({ params, request, response, session, bouncer, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    await bouncer.authorize('viewVisit', visit)
+    const data = await request.validateUsing(visitHoursValidator)
+
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.recordHours(visit, data)
+      session.flash('success', i18n.t('flash.visitHoursAdded'))
+    })
+  }
+
+  async removeHours({ params, response, session, bouncer, i18n }: HttpContext) {
+    const hour = await VisitHour.findOrFail(params.hourId)
+    const visit = await Visit.findOrFail(hour.visitId)
+    await bouncer.authorize('viewVisit', visit)
+
+    return this.refusable(visit, { response, session, i18n }, () => FieldWork.removeHours(hour))
+  }
+
+  async addItem({ params, request, response, session, bouncer, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    await bouncer.authorize('viewVisit', visit)
+    const data = await request.validateUsing(visitItemValidator)
+
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.recordItem(visit, data)
+      session.flash('success', i18n.t('flash.visitItemAdded'))
+    })
+  }
+
+  async removeItem({ params, response, session, bouncer, i18n }: HttpContext) {
+    const line = await VisitItem.findOrFail(params.itemId)
+    const visit = await Visit.findOrFail(line.visitId)
+    await bouncer.authorize('viewVisit', visit)
+
+    return this.refusable(visit, { response, session, i18n }, () => FieldWork.removeItem(line))
+  }
+
+  /**
+   * Runs `work`, turning a refusal (done Visit, Technician not on it, no
+   * Site to install at) into a message on the Visit page.
+   */
+  private async refusable(
+    visit: Visit,
+    { response, session, i18n }: Pick<HttpContext, 'response' | 'session' | 'i18n'>,
+    work: () => Promise<unknown>
+  ) {
+    try {
+      await work()
+    } catch (error) {
+      if (!(error instanceof FieldWorkRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.fieldWorkRefused.${error.reason}`))
+    }
+    return response.redirect().toRoute('my_visits.show', { id: visit.id })
+  }
+
   private load(id: number) {
     return Visit.query()
       .where('id', id)
       .preload('technicians')
       .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
       .preload('photos', (photos) => photos.orderBy('createdAt'))
+      .preload('hours', (hours) =>
+        hours.preload('technician').preload('labourRate').orderBy('createdAt')
+      )
+      .preload('items', (items) => items.preload('item').orderBy('createdAt'))
       .preload('job', (job) =>
         job
           .preload('customer')

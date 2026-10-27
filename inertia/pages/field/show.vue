@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Phone } from 'lucide-vue-next'
@@ -6,6 +7,8 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { urlFor } from '~/client'
+import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
+import { amountForInput } from '@shared/money'
 import { formatDate, t } from '~/i18n'
 
 defineProps<{
@@ -32,7 +35,28 @@ defineProps<{
   } | null
   notes: { id: number; body: string; author: string | null; createdAt: string }[]
   photos: { id: number }[]
+  done: boolean
+  currentUserId: number
+  team: { id: number; name: string }[]
+  labourRates: { id: number; name: string }[]
+  hours: { id: number; technician: string; labourRate: string; hours: string }[]
+  items: {
+    id: number
+    code: string
+    description: string
+    unit: string
+    quantity: string
+    installed: boolean
+  }[]
 }>()
+
+const picked = ref<PickedItem | null>(null)
+const installed = ref(false)
+const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
+const closing = ['done', 'needs_return']
+const confirmDone = (status: string) => () =>
+  !closing.includes(status) || window.confirm(t('ui.field.completeConfirm'))
+const confirmRemove = () => window.confirm(t('ui.field.removeConfirm'))
 
 const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const
 const page = usePage()
@@ -64,6 +88,7 @@ const page = usePage()
             :key="status"
             route="my_visits.update_status"
             :params="{ id: visit.id }"
+            :on-before="confirmDone(status)"
           >
             <input type="hidden" name="status" :value="status" />
             <button
@@ -71,6 +96,7 @@ const page = usePage()
               class="btn btn--sm"
               :class="status === visit.status ? 'btn--primary' : 'btn--secondary'"
               :aria-pressed="status === visit.status"
+              :disabled="done"
             >
               {{ t(`ui.visits.statuses.${status}`) }}
             </button>
@@ -118,6 +144,136 @@ const page = usePage()
             {{ document.title }}
           </a>
         </div>
+      </Section>
+
+      <p v-if="done" class="field__hint">{{ t('ui.field.doneNotice') }}</p>
+
+      <Section :title="t('ui.field.hoursTitle')">
+        <div v-for="hour in hours" :key="hour.id" class="field-note">
+          <span>
+            <strong>{{ quantity(hour.hours) }} h</strong> · {{ hour.technician }} ·
+            {{ hour.labourRate }}
+          </span>
+          <Form
+            v-if="!done"
+            route="my_visits.remove_hours"
+            :params="{ hourId: hour.id }"
+            :on-before="confirmRemove"
+          >
+            <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.field.remove') }}</button>
+          </Form>
+        </div>
+        <p v-if="hours.length === 0" class="field__hint">{{ t('ui.field.noHours') }}</p>
+        <Form
+          v-if="!done"
+          v-slot="{ processing, errors }"
+          route="my_visits.add_hours"
+          :params="{ id: visit.id }"
+          reset-on-success
+          class="field-form"
+        >
+          <div class="field">
+            <label class="field__label" for="hours-technician">{{
+              t('ui.field.technician')
+            }}</label>
+            <select
+              id="hours-technician"
+              name="technicianId"
+              class="field__input"
+              :value="
+                team.some((member) => member.id === currentUserId) ? currentUserId : team[0]?.id
+              "
+            >
+              <option v-for="member in team" :key="member.id" :value="member.id">
+                {{ member.name }}
+              </option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="hours-rate">{{ t('ui.field.labourRate') }}</label>
+            <select id="hours-rate" name="labourRateId" class="field__input">
+              <option v-for="rate in labourRates" :key="rate.id" :value="rate.id">
+                {{ rate.name }}
+              </option>
+            </select>
+            <span v-if="errors.labourRateId" class="field__error">{{ errors.labourRateId }}</span>
+            <span v-if="errors.technicianId" class="field__error">{{ errors.technicianId }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="hours-amount">{{ t('ui.field.hours') }}</label>
+            <input id="hours-amount" name="hours" inputmode="decimal" class="field__input" />
+            <span v-if="errors.hours" class="field__error">{{ errors.hours }}</span>
+          </div>
+          <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
+            {{ t('ui.field.addHours') }}
+          </button>
+        </Form>
+      </Section>
+
+      <Section :title="t('ui.field.itemsTitle')">
+        <div v-for="line in items" :key="line.id" class="field-note">
+          <span>
+            <strong>{{ quantity(line.quantity) }} {{ line.unit }}</strong> ·
+            <span class="mono">{{ line.code }}</span> {{ line.description }}
+            <span v-if="line.installed" class="tag">{{ t('ui.field.installedTag') }}</span>
+          </span>
+          <Form
+            v-if="!done"
+            route="my_visits.remove_item"
+            :params="{ itemId: line.id }"
+            :on-before="confirmRemove"
+          >
+            <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.field.remove') }}</button>
+          </Form>
+        </div>
+        <p v-if="items.length === 0" class="field__hint">{{ t('ui.field.noItems') }}</p>
+        <template v-if="!done">
+          <ItemPicker v-if="!picked" :label="t('ui.field.addItem')" @select="picked = $event" />
+          <Form
+            v-else
+            v-slot="{ processing, errors }"
+            route="my_visits.add_item"
+            :params="{ id: visit.id }"
+            class="field-form"
+            @success="((picked = null), (installed = false))"
+          >
+            <input type="hidden" name="itemId" :value="picked.id" />
+            <p :style="{ margin: 0 }">
+              <span class="mono">{{ picked.code }}</span> · {{ picked.description }}
+            </p>
+            <div class="field">
+              <label class="field__label" for="item-quantity">
+                {{ t('ui.field.quantity') }} ({{ picked.unit }})
+              </label>
+              <input
+                id="item-quantity"
+                name="quantity"
+                inputmode="decimal"
+                class="field__input"
+                value="1"
+              />
+              <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
+            </div>
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input v-model="installed" type="checkbox" name="installed" value="true" />
+              {{ t('ui.field.installed') }}
+            </label>
+            <div v-if="installed" class="field">
+              <label class="field__label" for="item-serial">{{ t('ui.field.serialNumber') }}</label>
+              <input id="item-serial" name="serialNumber" class="field__input" />
+              <span v-if="errors.serialNumber" class="field__error">{{ errors.serialNumber }}</span>
+            </div>
+            <span v-if="errors.itemId" class="field__error">{{ errors.itemId }}</span>
+            <div :style="{ display: 'flex', gap: '8px' }">
+              <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
+                {{ t('ui.field.addItem') }}
+              </button>
+              <button type="button" class="btn btn--ghost btn--sm" @click="picked = null">
+                {{ t('ui.field.remove') }}
+              </button>
+            </div>
+          </Form>
+        </template>
       </Section>
 
       <Section :title="t('ui.field.notes')">
