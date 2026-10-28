@@ -50,13 +50,18 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * The draft can't be finalised (or the deductions saved) yet: it has no
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
- * advance than is left, or an advance corrected below what issued
- * Invoices already took back of it.
+ * advance than is left, an advance corrected below what issued
+ * Invoices already took back of it, or an advance for a Job since closed.
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
     readonly reason:
-      'empty' | 'companyIncomplete' | 'negativeTotal' | 'deductionTooLarge' | 'belowDeducted'
+      | 'empty'
+      | 'companyIncomplete'
+      | 'negativeTotal'
+      | 'deductionTooLarge'
+      | 'belowDeducted'
+      | 'jobClosed'
   ) {
     super(reason)
   }
@@ -674,6 +679,12 @@ export default class Invoices {
   static async finalise(invoice: Invoice, user: User | null = null) {
     const finalisable = (status: InvoiceStatus) => canTransition(status, 'finalise')
     return this.whileIn(finalisable, invoice, async (trx, locked) => {
+      // An advance is for work to come: not once its Job is closed or
+      // cancelled, as when drafting one (the Job is locked by whileIn)
+      if (locked.advance) {
+        const job = await Job.findOrFail(locked.jobId, { client: trx })
+        if (!job.isActive) throw new InvoiceNotFinalisableError('jobClosed')
+      }
       // Issued Invoices may have taken advances back since the draft was
       // saved: its deductions must still fit, their lines as they are now
       const regular = await InvoiceLine.query({ client: trx })

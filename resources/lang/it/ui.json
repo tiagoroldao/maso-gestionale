@@ -486,7 +486,8 @@
       "charges": "{count, plural, one {# addebito da fatturare} other {# addebiti da fatturare}}",
       "unpaid": "{count, plural, one {# fattura da incassare} other {# fatture da incassare}}",
       "overpaid": "{count, plural, one {# fattura pagata in eccesso} other {# fatture pagate in eccesso}}",
-      "advances": "{count, plural, one {# acconto non ancora detratto} other {# acconti non ancora detratti}}"
+      "advances": "{count, plural, one {# acconto non ancora detratto} other {# acconti non ancora detratti}}",
+      "drafts": "{count, plural, one {# bozza di fattura} other {# bozze di fattura}}"
     },
     "statuses": {
       "open": "Aperta",

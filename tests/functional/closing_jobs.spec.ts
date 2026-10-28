@@ -138,25 +138,29 @@ test.group('Closing and reopening Jobs', () => {
     await issued(job)
     const overpaid = await issued(job)
     await Payments.record(overpaid, { amount: '130', paidOn: DateTime.now() })
-    // An advance nobody took back
-    const advance = await Invoices.createAdvance(job)
-    await advance.load('lines')
-    await Invoices.save(advance, {
-      lines: [
-        {
-          description: advance.lines[0].description,
-          quantity: '1',
-          unitPrice: '50',
-          vatCodeId: advance.lines[0].vatCodeId,
-        },
-      ],
-    })
-    await Invoices.finalise(advance)
+    // An advance nobody took back, and another still a draft
+    const pricedAdvance = async () => {
+      const advance = await Invoices.createAdvance(job)
+      await advance.load('lines')
+      await Invoices.save(advance, {
+        lines: [
+          {
+            description: advance.lines[0].description,
+            quantity: '1',
+            unitPrice: '50',
+            vatCodeId: advance.lines[0].vatCodeId,
+          },
+        ],
+      })
+      return advance
+    }
+    await Invoices.finalise(await pricedAdvance())
+    const draftAdvance = await pricedAdvance()
 
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     // The needs-return Visit has the planned one after it: one Visit to do
     page.assertInertiaPropsContains({
-      leftToClose: { visits: 1, charges: 1, unpaid: 2, overpaid: 1, advances: 1 },
+      leftToClose: { visits: 1, charges: 1, unpaid: 2, overpaid: 1, advances: 1, drafts: 1 },
     })
 
     const response = await post(client, office, `/jobs/${job.id}/close`)
@@ -170,11 +174,18 @@ test.group('Closing and reopening Jobs', () => {
           it('ui.jobs.leftToClose.unpaid', { count: 2 }),
           it('ui.jobs.leftToClose.overpaid', { count: 1 }),
           it('ui.jobs.leftToClose.advances', { count: 1 }),
+          it('ui.jobs.leftToClose.drafts', { count: 1 }),
         ].join(', '),
       })
     )
     await job.refresh()
     assert.equal(job.status, 'closed')
+
+    // The draft advance is no longer issued: an advance is for work to come
+    const finalised = await post(client, office, `/invoices/${draftAdvance.id}/finalise`)
+    finalised.assertFlashMessage('error', it('flash.invoiceNotFinalisable.jobClosed'))
+    await draftAdvance.refresh()
+    assert.equal(draftAdvance.status, 'draft')
   })
 
   test('a finished, invoiced and paid Job has nothing left', async ({ client }) => {
@@ -183,7 +194,7 @@ test.group('Closing and reopening Jobs', () => {
 
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
-      leftToClose: { visits: 0, charges: 0, unpaid: 0, overpaid: 0, advances: 0 },
+      leftToClose: { visits: 0, charges: 0, unpaid: 0, overpaid: 0, advances: 0, drafts: 0 },
       job: { indicators: { workComplete: true, invoiced: true, paid: true } },
     })
     const response = await post(client, office, `/jobs/${job.id}/close`)
@@ -347,7 +358,10 @@ test.group('A closed Job takes no new work', () => {
     page.assertInertiaPropsContains({ canWriteQuote: false, canInvoiceAdvance: false })
   })
 
-  test("its Visits leave the Agenda and the Technicians' lists", async ({ client, assert }) => {
+  test("its Visits stay on the Agenda, read-only, and leave the Technicians' lists", async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
     const anna = await createUser('technician')
     const job = await createJob(await createCustomer(), { status: 'in_progress' })
@@ -382,7 +396,14 @@ test.group('A closed Job takes no new work', () => {
     assert.deepEqual(await shown(), [[visit.id], [returning.id], [visit.id]])
 
     await post(client, office, `/jobs/${job.id}/close`)
-    assert.deepEqual(await shown(), [[], [], []])
+    // Still on the Agenda as history, but no longer movable
+    assert.deepEqual(await shown(), [[visit.id], [], []])
+    const agenda = await client
+      .get('/agenda')
+      .qs({ date: startsAt.toISODate() })
+      .withInertia()
+      .loginAs(office)
+    agenda.assertInertiaPropsContains({ visits: [{ id: visit.id, movable: false }] })
   })
 
   test('Payments are still recorded on its Invoices, refunds too', async ({ client, assert }) => {

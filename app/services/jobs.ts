@@ -174,8 +174,9 @@ export default class Jobs {
    * What is left on a Job, which closing shows but never refuses for (ADR
    * 0015): Visits still to do (planned or under way, or needing another
    * visit with none planned), Charges still to bill (in a draft or not),
-   * issued Invoices unpaid or overpaid, and issued Advance Invoices not
-   * yet fully taken back.
+   * issued Invoices unpaid or overpaid, issued Advance Invoices not yet
+   * fully taken back, and draft Invoices (a draft advance can't be
+   * finalised once the Job is closed).
    */
   static async leftToClose(jobId: number, client?: TransactionClientContract) {
     const row = await (client ?? db)
@@ -192,7 +193,9 @@ export default class Jobs {
           WHERE i.job_id = jobs.id AND i.status <> 'draft' AND ${OWED_SQL('i')} < 0)::int AS overpaid`),
         db.raw(`(SELECT count(*) FROM invoices a
           WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
-            AND a.total > ${ADVANCE_DEDUCTED_SQL('a')})::int AS advances`)
+            AND a.total > ${ADVANCE_DEDUCTED_SQL('a')})::int AS advances`),
+        db.raw(`(SELECT count(*) FROM invoices d
+          WHERE d.job_id = jobs.id AND d.status = 'draft')::int AS drafts`)
       )
       .firstOrFail()
     return row as JobLeftovers
@@ -208,4 +211,5 @@ export type JobLeftovers = {
   unpaid: number
   overpaid: number
   advances: number
+  drafts: number
 }

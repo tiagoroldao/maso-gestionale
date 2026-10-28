@@ -91,8 +91,9 @@ export default class VisitsController {
     const visits = await Visit.query()
       .where('startsAt', '<', to.toJSDate())
       .where('endsAt', '>', from.toJSDate())
-      // A closed or cancelled Job's Visits leave the Agenda; they stay in its history
-      .whereHas('job', (job) => job.whereIn('status', [...ACTIVE_JOB_STATUSES]))
+      // A cancelled Job's Visits leave the Agenda (abandoned work); a closed
+      // Job's stay, as history that no longer moves (ADR 0015)
+      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
       .preload('technicians')
       .preload('job', (job) => job.preload('customer').preload('site'))
       .orderBy('startsAt')
@@ -127,6 +128,8 @@ export default class VisitsController {
         status: visit.status,
         survey: visit.survey,
         technicianIds: visit.technicians.map((technician) => technician.id),
+        // Closed Visits and a closed Job's Visits can't move (Scheduling)
+        movable: !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
         job: {
           id: visit.job.id,
           number: visit.job.number,

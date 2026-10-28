@@ -54,6 +54,7 @@ const props = defineProps<{
     unpaid: number
     overpaid: number
     advances: number
+    drafts: number
   } | null
   invoicedSoFar: { amount: string; of: string; quoted: string | null }
   timeAndMaterials: { total: string; billed: string; inDraft: string; lines: number }
