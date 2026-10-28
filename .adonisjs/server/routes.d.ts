@@ -79,6 +79,9 @@ export type ScannedRoutes = {
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -111,6 +114,7 @@ export type ScannedRoutes = {
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_codes.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
@@ -251,6 +255,9 @@ export type ScannedRoutes = {
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store': { paramsTuple?: []; params?: {} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
     'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -290,6 +297,7 @@ export type ScannedRoutes = {
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update_call_out_fee': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }

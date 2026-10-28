@@ -872,10 +872,10 @@ export interface Registry {
       body: {}
       paramsTuple: []
       params: {}
-      query: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/invoice').invoiceStageValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['index']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['index']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'invoices.create': {
@@ -980,6 +980,45 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
+    }
+  }
+  'invoices.prepare_submission': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/submissions'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['prepareSubmission']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['prepareSubmission']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['prepareSubmission']>>>
+    }
+  }
+  'invoices.confirm_submission': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/submissions/confirm'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['confirmSubmission']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['confirmSubmission']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['confirmSubmission']>>>
+    }
+  }
+  'invoices.record_outcome': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/submissions/outcome'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').submissionOutcomeValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').submissionOutcomeValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'items.index': {
@@ -1396,6 +1435,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['index']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['index']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['index']>>>
+    }
+  }
+  'invoice_numbering.update_sdi_prefix': {
+    methods: ["PUT"]
+    pattern: '/settings/invoice-numbering/sdi-prefix'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').sdiPrefixValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').sdiPrefixValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'invoice_numbering.update': {

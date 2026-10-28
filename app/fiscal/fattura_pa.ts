@@ -337,18 +337,21 @@ export function buildFatturaPA(input: FatturaInput): string {
 }
 
 /**
- * A finalised Invoice (lines preloaded) as the builder's input. The
- * progressive is the Invoice id in base 36, five characters, so every
- * Invoice has its own file name.
+ * A finalised Invoice (lines preloaded) as the builder's input, for the
+ * Submission whose progressive it carries.
  */
-export function fatturaInputFor(invoice: Invoice, discountLabel: string): FatturaInput {
+export function fatturaInputFor(
+  invoice: Invoice,
+  progressive: string,
+  discountLabel: string
+): FatturaInput {
   const company = invoice.companySnapshot
   const customer = invoice.customerSnapshot
   if (invoice.status === 'draft' || !company || !customer) {
     throw new Error('Only finalised Invoices have FatturaPA XML')
   }
   return {
-    progressive: invoice.id.toString(36).toUpperCase().padStart(5, '0'),
+    progressive,
     number: invoice.formattedNumber!,
     issuedOn: invoice.issuedOn!.toISODate()!,
     dueOn: invoice.dueOn!.toISODate()!,

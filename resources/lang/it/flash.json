@@ -75,5 +75,13 @@
   "visitSaved": "Intervento salvato.",
   "visitDeleted": "Intervento eliminato.",
   "visitHasWork": "L'intervento ha già ore, materiali, foto o note: non si può eliminare.",
-  "visitNotEditable": "L'intervento è chiuso o la commessa è annullata: non si può modificare né eliminare."
+  "visitNotEditable": "L'intervento è chiuso o la commessa è annullata: non si può modificare né eliminare.",
+  "submissionConfirmed": "Invio a SDI registrato.",
+  "submissionOutcome": {
+    "delivered": "Fattura consegnata.",
+    "not_deliverable": "Mancata consegna registrata: la fattura è nel cassetto fiscale del cliente.",
+    "rejected": "Scarto registrato: correggi e reinvia la fattura entro 5 giorni."
+  },
+  "submissionRefused": "Questa operazione non è possibile nello stato attuale della fattura.",
+  "sdiPrefixSaved": "Lettera dei file SDI salvata."
 }

@@ -570,7 +570,11 @@
     "total": "Totale",
     "statuses": {
       "draft": "Bozza",
-      "finalised": "Emessa"
+      "finalised": "Emessa, da inviare",
+      "submitted": "Inviata a SDI",
+      "delivered": "Consegnata",
+      "not_deliverable": "Non consegnata (nel cassetto fiscale)",
+      "rejected": "Scartata"
     },
     "newTitle": "Nuova fattura",
     "newDescription": "Fattura senza commessa, ad esempio una vendita al banco.",
@@ -618,7 +622,33 @@
     "issued": "Emessa il {date}, scadenza {due}.",
     "finalise": "Emetti fattura",
     "finaliseConfirm": "Emettere la fattura? Prenderà il prossimo numero e la data di oggi e non sarà più modificabile.",
-    "xml": "XML"
+    "xml": "XML",
+    "stage": "Mostra",
+    "stages": {
+      "all": "Tutte",
+      "draft": "Bozze",
+      "finalised": "Emesse da inviare",
+      "submitted": "Inviate, in attesa di esito",
+      "rejected": "Scartate"
+    },
+    "resubmitBy": "Scartata: correggi e reinvia entro il {date}.",
+    "sdiTitle": "Invio a SDI",
+    "prepareSubmission": "Prepara l'invio",
+    "downloadXml": "Scarica {file}",
+    "confirmUpload": "Confermo di aver caricato il file su SDI",
+    "confirmUploadConfirm": "Hai caricato questo file sul portale SDI? La fattura risulterà inviata.",
+    "outcome": "Esito",
+    "outcomes": {
+      "delivered": "Consegnata",
+      "not_deliverable": "Mancata consegna",
+      "rejected": "Scartata"
+    },
+    "outcomeNotes": "Note sull'esito",
+    "outcomeNotesHint": "Per uno scarto, i codici e la descrizione della notifica di SDI.",
+    "recordOutcome": "Registra esito",
+    "file": "File",
+    "uploadedOn": "Caricato il",
+    "unsubmittedWarning": "{count, plural, one {C'è # fattura emessa} other {Ci sono # fatture emesse}} non ancora {count, plural, one {inviata} other {inviate}} a SDI."
   },
   "visits": {
     "title": "Interventi",
@@ -712,6 +742,8 @@
     "description": "Il numero che prenderà la prossima fattura emessa. Si può cambiare finché nell'anno non è stata emessa nessuna fattura, ad esempio per proseguire la numerazione del vecchio gestionale.",
     "nextNumber": "Prossimo numero {year}",
     "hint": "Modificabile finché non si emette la prima fattura dell'anno.",
-    "locked": "Bloccato: nell'anno è già stata emessa una fattura."
+    "locked": "Bloccato: nell'anno è già stata emessa una fattura.",
+    "sdiPrefix": "Lettera iniziale dei file SDI",
+    "sdiPrefixHint": "Ogni file inviato a SDI ha un progressivo che inizia con questa lettera, così non si confonde con i file inviati dal vecchio gestionale."
   }
 }

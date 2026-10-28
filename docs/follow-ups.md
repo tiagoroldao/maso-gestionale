@@ -4,26 +4,29 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Tracked as issues
 
-| Issue | What                                                                                           | Waiting on                                       |
-| ----- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| #17   | Commercialista review of VAT settings and invoicing assumptions                                | The business (`needs-human`)                     |
-| #28   | Bulk import from the old accounting software                                                   | The business (`needs-human`)                     |
-| #34   | How updates are applied                                                                        | The business (`needs-human`)                     |
-| #35   | Cloudflare Tunnel and Access setup                                                             | The business (`needs-human`)                     |
-| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                      | Review of proposal                               |
-| #57   | Proposal: withholding tax on condominium Invoices                                              | Review of proposal, #17                          |
-| #58   | Proposal: assisted _beni significativi_ VAT split                                              | Review of proposal; its rule is confirmed in #17 |
-| #59   | Proposal: payment in instalments                                                               | Review of proposal                               |
-| #60   | Proposal: virtual stamp duty                                                                   | Review of proposal                               |
-| #61   | Proposal: tax bonus wording on Invoices                                                        | Review of proposal                               |
-| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                               | The UX pass                                      |
-| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73      | —                                                |
-| #67   | VAT Codes and VAT summary on Quotes (needed by #22)                                            | —                                                |
-| #68   | Edit and delete Visits; deactivated Technicians' Visits stay visible                           | —                                                |
-| #69   | Archive Customers and Sites; mark Installed Equipment removed or replaced                      | —                                                |
-| #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)           | —                                                |
-| #72   | Stable issue date and validity on Quote PDFs                                                   | —                                                |
-| #73   | UX backlog: polish found in reviews (`ui-later`)                                               | The UX pass                                      |
+| Issue | What                                                                                      | Waiting on                                        |
+| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                      |
+| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                      |
+| #34   | How updates are applied                                                                   | The business (`needs-human`)                      |
+| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                      |
+| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                                |
+| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                           |
+| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17  |
+| #59   | Proposal: payment in instalments                                                          | Review of proposal                                |
+| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                                |
+| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                |
+| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                       |
+| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
+| #67   | VAT Codes and VAT summary on Quotes (needed by #22)                                       | —                                                 |
+| #68   | Edit and delete Visits; deactivated Technicians' Visits stay visible                      | —                                                 |
+| #69   | Archive Customers and Sites; mark Installed Equipment removed or replaced                 | —                                                 |
+| #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)      | —                                                 |
+| #72   | Stable issue date and validity on Quote PDFs                                              | —                                                 |
+| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
+| #90   | Record SDI's notice date with each outcome (5-day deadline from the notice)               | —                                                 |
+| #91   | Keep the XML sent with each Submission (archiving)                                        | —                                                 |
+| #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 
 ## Added to existing issues
 

@@ -1,12 +1,17 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
+import { urlFor } from '~/client'
+import { INVOICE_STAGES } from '@shared/invoice_lifecycle'
 import { Plus } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate } from '@shared/dates'
 import { formatMoney, t } from '~/i18n'
 
-defineProps<{
+const props = defineProps<{
+  stage: string
   invoices: {
     id: number
     number: string | null
@@ -17,6 +22,15 @@ defineProps<{
     total: string
   }[]
 }>()
+
+const stage = ref(props.stage)
+
+function filter() {
+  router.get(urlFor('invoices.index'), stage.value === 'all' ? {} : { stage: stage.value }, {
+    preserveState: true,
+    replace: true,
+  })
+}
 </script>
 
 <template>
@@ -27,6 +41,15 @@ defineProps<{
           <Plus :size="15" /> {{ t('ui.invoices.new') }}
         </Link>
       </template>
+
+      <div class="field" :style="{ maxWidth: '280px' }">
+        <label class="field__label" for="stage">{{ t('ui.invoices.stage') }}</label>
+        <select id="stage" v-model="stage" class="field__input" @change="filter">
+          <option v-for="code in INVOICE_STAGES" :key="code" :value="code">
+            {{ t(`ui.invoices.stages.${code}`) }}
+          </option>
+        </select>
+      </div>
 
       <table v-if="invoices.length" class="table">
         <thead>

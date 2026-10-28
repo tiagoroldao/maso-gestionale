@@ -1,6 +1,7 @@
 import { DateTime } from 'luxon'
 import Invoices, { NumberingLockedError } from '#services/invoices'
-import { invoiceNumberingValidator } from '#validators/invoice'
+import CompanySettings from '#models/company_settings'
+import { invoiceNumberingValidator, sdiPrefixValidator } from '#validators/invoice'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -8,10 +9,24 @@ import type { HttpContext } from '@adonisjs/core/http'
  * for the current year and the next.
  */
 export default class InvoiceNumberingController {
+  /**
+   * The letter SDI file progressives start with (see Submissions).
+   */
+  async updateSdiPrefix({ request, response, session, i18n }: HttpContext) {
+    const { sdiFilePrefix } = await request.validateUsing(sdiPrefixValidator)
+    const settings = await CompanySettings.current()
+    settings.sdiFilePrefix = sdiFilePrefix
+    await settings.save()
+    session.flash('success', i18n.t('flash.sdiPrefixSaved'))
+    response.redirect().toRoute('invoice_numbering.index')
+  }
+
   async index({ inertia }: HttpContext) {
     const year = DateTime.now().year
+    const settings = await CompanySettings.current()
     return inertia.render('settings/invoice_numbering', {
       years: [await Invoices.numbering(year), await Invoices.numbering(year + 1)],
+      sdiFilePrefix: settings.sdiFilePrefix ?? 'M',
     })
   }
 
