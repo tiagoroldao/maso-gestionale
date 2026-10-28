@@ -82,9 +82,10 @@ export function exceedsCredit(
  * carries as its Invoice does). A line's Credit Notes together never
  * credit more than it, and a Credit Note line is never negative, except
  * one giving back a deduction (`deduction`), which copies the deduction
- * line exactly (ADR 0011, 0014).
+ * line exactly and only once (`deductionGivenBack` otherwise; ADR 0011,
+ * 0014).
  */
-export type LineCreditRefusal = 'lineCreditTooLarge' | 'negativeCredit'
+export type LineCreditRefusal = 'lineCreditTooLarge' | 'negativeCredit' | 'deductionGivenBack'
 
 export function lineCreditRefusal(credited: {
   /** The Invoice line's amount */
@@ -100,7 +101,7 @@ export function lineCreditRefusal(credited: {
   if (credited.deduction) {
     // Given back once, as it was
     const once = credited.lines.length === 1 && new Big(credited.creditedByOthers).eq(0)
-    return once && sum.eq(credited.lineTotal) ? null : 'lineCreditTooLarge'
+    return once && sum.eq(credited.lineTotal) ? null : 'deductionGivenBack'
   }
   const negative = credited.lines.some(
     (line) => new Big(line.unitPrice).lt(0) || new Big(line.lineTotal).lt(0)

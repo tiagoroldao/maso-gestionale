@@ -34,11 +34,11 @@ test.group('Credit Note lines', () => {
     assert.isNull(lineCreditRefusal({ ...line, lines: [credit('-100')], creditedByOthers: '0' }))
     assert.equal(
       lineCreditRefusal({ ...line, lines: [credit('-100')], creditedByOthers: '-100.00' }),
-      'lineCreditTooLarge'
+      'deductionGivenBack'
     )
     assert.equal(
       lineCreditRefusal({ ...line, lines: [credit('-50')], creditedByOthers: '0' }),
-      'lineCreditTooLarge'
+      'deductionGivenBack'
     )
     assert.equal(
       lineCreditRefusal({
@@ -46,7 +46,7 @@ test.group('Credit Note lines', () => {
         lines: [credit('-100'), credit('-100')],
         creditedByOthers: '0',
       }),
-      'lineCreditTooLarge'
+      'deductionGivenBack'
     )
   })
 

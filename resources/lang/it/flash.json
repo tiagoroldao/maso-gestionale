@@ -98,7 +98,7 @@
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",
     "negativeTotal": "Il totale sarebbe negativo: gli acconti detratti superano quanto fatturato (in una nota di credito, le detrazioni restituite superano quanto si storna). Detrai meno, o togli le righe di detrazione.",
-    "deductionTooLarge": "Si detrae più di quanto resta di un acconto: riduci la detrazione.",
+    "deductionTooLarge": "Si detrae più di quanto resta di un acconto (anche togliendo da una nota di credito la restituzione di una detrazione): riduci la detrazione, o lascia la restituzione.",
     "jobClosed": "La commessa è chiusa o annullata: un acconto non si emette più. Elimina la bozza, o riapri la commessa.",
     "belowDeducted": "L'acconto è già stato detratto da fatture emesse per più di questo importo.",
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture.",
@@ -106,7 +106,8 @@
     "uncreditedLine": "Ogni riga della nota di credito deve stornare una riga della fattura.",
     "lineCreditTooLarge": "Una riga storna più di quanto resta della riga della fattura (il suo importo meno quanto già stornato da altre note di credito emesse): riduci l'importo.",
     "negativeCredit": "Le righe di una nota di credito non possono avere prezzi o importi negativi.",
-    "partialDeduction": "Una detrazione d'acconto si restituisce per intero: tieni tutte le sue righe o nessuna."
+    "partialDeduction": "Una detrazione d'acconto si restituisce per intero: tieni tutte le sue righe o nessuna.",
+    "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata."
   },
   "creditNoteCreated": "Bozza di nota di credito creata: riduci gli importi a quanto va stornato.",
   "creditNoteRefused": {

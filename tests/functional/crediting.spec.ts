@@ -29,6 +29,7 @@ import { vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { history, sqlStateOf, stateOf } from '#tests/helpers/charges'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { fatturaSchemaErrors } from '#tests/helpers/fattura_xsd'
 
 /**
  * A Job (a sale: 22% on labour) with a closed Visit, on which Anna
@@ -707,6 +708,124 @@ test.group('Credit Notes credit Advance Invoices', () => {
     await Invoices.finalise(advanceNote)
     assert.equal(await advanceStateOf(assert, advance), 'fully_deducted')
     assert.isFalse(await billingOpen(job))
+  })
+
+  test('a rejected Credit Note corrected to keep a deduction must fit what is left of the advance', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, pipe } = await setup()
+    const advance = await issuedAdvance(job, '100')
+    const final = await invoiced(job)
+    // The whole Invoice credited, its deduction given back, then rejected
+    const note = await Invoices.createCreditNote(final)
+    await Invoices.finalise(note)
+    await sentTo(note, 'rejected')
+    assert.equal(await advanceStateOf(assert, advance), 'not_deducted')
+    // Meanwhile the advance is credited in full
+    await Invoices.finalise(await Invoices.createCreditNote(advance))
+    assert.equal(await advanceStateOf(assert, advance), 'fully_deducted')
+
+    // Corrected without the deduction lines, the deduction would count again
+    const corrected = await put(client, note, office, {
+      lines: creditLines([[await lineOf(final, pipe), '60']]),
+    })
+    corrected.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionTooLarge'))
+    const kept = await linesOf(note)
+    assert.isTrue(kept.some((line) => line.deductsInvoiceId === advance.id))
+    const state = await advanceOf(assert, advance)
+    assert.equal(state.deducted, '0.00')
+    assert.equal(state.credited, '122.00')
+  })
+
+  test('a Credit Note of 0.00 that gives a deduction back is issued, as valid TD04 XML', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, hours, valve } = await setup()
+    await completeCompany({ taxCode: '01987654322' })
+    const advance = await issuedAdvance(job, '100')
+    const final = await invoiced(job)
+    const finalLines = await linesOf(final)
+    const deduction = finalLines.find((line) => line.deductsInvoiceId === advance.id)!
+
+    // 80 + 20 of work credited, the 100 taken back given back: 0.00
+    const note = await Invoices.createCreditNote(final)
+    await Invoices.save(note, {
+      lines: creditLines([
+        [await lineOf(final, hours), '80'],
+        [await lineOf(final, valve), '20'],
+        [deduction, '-100'],
+      ]),
+    })
+    const finalised = await post(client, `/invoices/${note.id}/finalise`, office)
+    await note.refresh()
+    finalised.assertFlashMessage(
+      'success',
+      it('flash.creditNoteFinalised', { number: note.formattedNumber })
+    )
+    assert.equal(note.total, '0.00')
+    assert.equal(await bothStates(assert, hours), 'credited')
+    assert.equal(await bothStates(assert, valve), 'billed')
+    assert.equal(await advanceStateOf(assert, advance), 'not_deducted')
+
+    await client.post(`/invoices/${note.id}/submissions`).withCsrfToken().loginAs(office)
+    const xml = await client.get(`/invoices/${note.id}/xml`).loginAs(office)
+    xml.assertStatus(200)
+    assert.include(xml.text(), '<TipoDocumento>TD04</TipoDocumento>')
+    assert.include(xml.text(), '-100.00')
+    assert.deepEqual(await fatturaSchemaErrors(xml.text()), [])
+
+    // The advance, given back, can now be refunded
+    await Invoices.finalise(await Invoices.createCreditNote(advance))
+    assert.equal(await advanceStateOf(assert, advance), 'fully_deducted')
+  })
+
+  test('an advance over several VAT rows starts with no more than what is left of it', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await setup()
+    // 50 at 22% and 50 at 10%: 116.00
+    const advance = await Invoices.createAdvance(job)
+    const [line] = await linesOf(advance)
+    const reduced = await vatCode('10%')
+    await Invoices.save(advance, {
+      lines: [
+        {
+          id: line.id,
+          description: 'Acconto',
+          quantity: '1',
+          unitPrice: '50',
+          vatCodeId: line.vatCodeId,
+        },
+        { description: 'Acconto', quantity: '1', unitPrice: '50', vatCodeId: reduced.id },
+      ],
+    })
+    await Invoices.finalise(advance)
+    await sentTo(advance, 'delivered')
+    // 0.58 taken back leaves 115.42, where each row's share rounds over
+    const draft = await Invoices.fromJob(job)
+    await Invoices.save(draft, {
+      lines: await workLines(draft),
+      deductions: [{ advanceId: advance.id, amount: '0.58' }],
+    })
+    await Invoices.finalise(draft)
+
+    const note = await Invoices.createCreditNote(advance)
+    assert.isAtMost(Number(await draftTotal(note)), 115.42)
+    assert.isAtLeast(Number(await draftTotal(note)), 115.4)
+    const prefilled = await linesOf(note)
+    const saved = await put(client, note, office, {
+      lines: prefilled.map((credit) => ({
+        id: credit.id,
+        description: credit.description,
+        quantity: credit.quantity,
+        unitPrice: credit.unitPrice,
+        vatCodeId: credit.vatCodeId,
+      })),
+    })
+    saved.assertFlashMessage('success', it('flash.invoiceSaved'))
   })
 
   test('a deduction over several VAT rows is given back whole or not at all', async ({
