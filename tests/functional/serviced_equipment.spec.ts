@@ -10,7 +10,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
 import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
-import { it } from '#tests/helpers/i18n'
+import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 async function setup() {
   const anna = await createUser('technician')
@@ -197,5 +197,82 @@ test.group('Servicing equipment', () => {
       const row = rows.find((r) => r.id === model.id)
       assert.equal(row.next_due, model.nextDueOn?.toISODate() ?? null, model.equipmentType)
     }
+  })
+
+  test('equipment another Visit relies on stays when the line that created it goes', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, item, site } = await setup()
+    await client
+      .post(`/my-visits/${visit.id}/items`)
+      .form({
+        itemId: String(item.id),
+        quantity: '1',
+        installed: 'true',
+        equipmentType: 'Caldaia nuova',
+      })
+      .withCsrfToken()
+      .loginAs(anna)
+    const created = await InstalledEquipment.query()
+      .where('siteId', site.id)
+      .orderBy('id', 'desc')
+      .firstOrFail()
+    // A second Visit services it
+    const start = DateTime.fromISO('2026-10-22T09:00')
+    const later = await Visit.create({
+      jobId: visit.jobId,
+      startsAt: start,
+      endsAt: start.plus({ hours: 1 }),
+      status: 'planned',
+    })
+    await later.related('technicians').attach([anna.id])
+    await FieldWork.setServiced(later, [created.id])
+
+    const line = await VisitItem.query().where('visitId', visit.id).firstOrFail()
+    await client.delete(`/visit-items/${line.id}`).withCsrfToken().loginAs(anna)
+
+    assert.isNotNull(await InstalledEquipment.find(created.id))
+    const serviced = await db.from('visit_serviced_equipment').where('visit_id', later.id)
+    assert.lengthOf(serviced, 1)
+  })
+
+  test('serviced equipment: outsiders, closed Visits and cancelled Jobs are refused', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, boiler } = await setup()
+    const outsider = await createUser('technician')
+    const denied = await client
+      .post(`/my-visits/${visit.id}/serviced`)
+      .json({ equipmentIds: [boiler.id] })
+      .header('referer', '/')
+      .withCsrfToken()
+      .loginAs(outsider)
+      .redirects(0)
+    denied.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+
+    await FieldWork.setStatus(visit, 'done', anna)
+    const closed = await client
+      .post(`/my-visits/${visit.id}/serviced`)
+      .json({ equipmentIds: [boiler.id] })
+      .withCsrfToken()
+      .loginAs(anna)
+      .redirects(0)
+    closed.assertFlashMessage('error', it('flash.fieldWorkRefused.done'))
+
+    const other = await setup()
+    await client
+      .post(`/jobs/${other.visit.jobId}/cancel`)
+      .withCsrfToken()
+      .loginAs(await createUser('office'))
+    const cancelled = await client
+      .post(`/my-visits/${other.visit.id}/serviced`)
+      .json({ equipmentIds: [other.boiler.id] })
+      .withCsrfToken()
+      .loginAs(other.anna)
+      .redirects(0)
+    cancelled.assertFlashMessage('error', it('flash.fieldWorkRefused.cancelled'))
+    assert.lengthOf(await db.from('visit_serviced_equipment'), 0)
   })
 })

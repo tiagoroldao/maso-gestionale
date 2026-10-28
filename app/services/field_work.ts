@@ -173,8 +173,19 @@ export default class FieldWork {
       // Already off stock: the line is part of the record
       if (current.stockMovementId) throw new FieldWorkRefusedError('done')
       await current.useTransaction(trx).delete()
-      // Only equipment this line created goes with it; linked equipment stays
-      if (current.installedEquipmentId && current.createdEquipment) {
+      // Only equipment this line created goes with it, and only while no
+      // other Visit has linked to it or serviced it since
+      const sharedSince =
+        current.installedEquipmentId &&
+        ((await trx
+          .from('visit_items')
+          .where('installed_equipment_id', current.installedEquipmentId)
+          .first()) ||
+          (await trx
+            .from('visit_serviced_equipment')
+            .where('installed_equipment_id', current.installedEquipmentId)
+            .first()))
+      if (current.installedEquipmentId && current.createdEquipment && !sharedSince) {
         await InstalledEquipment.query({ client: trx })
           .where('id', current.installedEquipmentId)
           .delete()
@@ -195,6 +206,9 @@ export default class FieldWork {
             .whereIn('id', equipmentIds)
             .where('siteId', locked.job.siteId ?? 0)
             .whereNull('removedOn')
+            .orderBy('id')
+            // Locked so a concurrent removal can't slip in before the insert
+            .forShare()
         : []
       const ids = found.map((equipment) => equipment.id)
       if (ids.length !== equipmentIds.length) throw new FieldWorkRefusedError('notAtSite')
