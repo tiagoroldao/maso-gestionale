@@ -139,7 +139,7 @@ test.group('Payments', () => {
     const invoice = await issued()
     await Submissions.prepare(invoice)
     await Submissions.confirm(invoice, 'Sconto')
-    await Submissions.recordOutcome(invoice, 'rejected', null)
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
     const standard = await vatCode()
 
     await Invoices.save(invoice, {

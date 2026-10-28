@@ -96,6 +96,10 @@ _Avoid_: Issued invoice, confirmed invoice
 The sending of a Finalised Invoice to SDI, either through the intermediary or as a manually confirmed upload of its XML.
 _Avoid_: Upload, transmission, export
 
+**SDI Notice** (_Notifica SDI_):
+SDI's answer to a Submission (delivered, not deliverable, or rejected), dated and carrying SDI's identifier for the file; a Rejection's resubmission deadline counts from its date.
+_Avoid_: Receipt, response
+
 **Rejection** (_Scarto_):
 SDI's refusal of a Submission; the invoice keeps its number and date and becomes editable for resubmission.
 _Avoid_: Error, failure

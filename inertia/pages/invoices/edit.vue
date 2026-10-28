@@ -62,8 +62,10 @@ const props = defineProps<{
     preparedAt: string
     submittedAt: string | null
     outcome: string | null
-    outcomeAt: string | null
+    noticeOn: string | null
+    sdiId: string | null
     outcomeNotes: string | null
+    hasFile: boolean
   }[]
   openSubmission: { id: number; fileName: string; submitted: boolean } | null
   resubmitBy: string | null
@@ -526,6 +528,32 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             </select>
           </div>
           <div class="field">
+            <label class="field__label" for="notice-on">{{ t('ui.invoices.noticeOn') }}</label>
+            <input
+              id="notice-on"
+              name="noticeOn"
+              type="date"
+              class="field__input"
+              :value="today"
+              :max="today"
+              :style="{ maxWidth: '200px' }"
+            />
+            <span v-if="outcomeErrors.noticeOn" class="field__error">{{
+              outcomeErrors.noticeOn
+            }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="sdi-id">{{ t('ui.invoices.sdiId') }}</label>
+            <input
+              id="sdi-id"
+              name="sdiId"
+              class="field__input"
+              inputmode="numeric"
+              :style="{ maxWidth: '200px' }"
+            />
+            <span v-if="outcomeErrors.sdiId" class="field__error">{{ outcomeErrors.sdiId }}</span>
+          </div>
+          <div class="field">
             <label class="field__label" for="outcome-notes">{{
               t('ui.invoices.outcomeNotes')
             }}</label>
@@ -548,12 +576,26 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
           </thead>
           <tbody>
             <tr v-for="submission in submissions" :key="submission.id">
-              <td class="mono">{{ submission.fileName }}</td>
+              <td class="mono">
+                <a
+                  v-if="submission.hasFile"
+                  :href="
+                    urlFor('invoices.submission_xml', {
+                      id: invoice.id,
+                      submissionId: submission.id,
+                    })
+                  "
+                  :title="t('ui.invoices.downloadSent')"
+                  >{{ submission.fileName }}</a
+                >
+                <template v-else>{{ submission.fileName }}</template>
+              </td>
               <td>{{ dateTime(submission.submittedAt) }}</td>
               <td>
                 <template v-if="submission.outcome">
                   {{ t(`ui.invoices.outcomes.${submission.outcome}`) }}
-                  · {{ dateTime(submission.outcomeAt) }}
+                  · {{ formatDate(submission.noticeOn) }}
+                  <span v-if="submission.sdiId" class="mono">· {{ submission.sdiId }}</span>
                   <span v-if="submission.outcomeNotes" class="field__hint">
                     {{ submission.outcomeNotes }}
                   </span>

@@ -215,7 +215,7 @@ export class InvoiceSequenceSchema extends BaseModel {
 }
 
 export class InvoiceSubmissionSchema extends BaseModel {
-  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'submittedAt', 'submittedBy', 'updatedAt'] as const
+  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'noticeOn', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'sdiId', 'submittedAt', 'submittedBy', 'updatedAt', 'xml'] as const
   $columns = InvoiceSubmissionSchema.$columns
   @column()
   declare channel: string
@@ -227,6 +227,8 @@ export class InvoiceSubmissionSchema extends BaseModel {
   declare id: number
   @column()
   declare invoiceId: number
+  @column.date()
+  declare noticeOn: DateTime | null
   @column()
   declare outcome: string | null
   @column.dateTime()
@@ -241,12 +243,16 @@ export class InvoiceSubmissionSchema extends BaseModel {
   declare preparedBy: number | null
   @column()
   declare progressive: string
+  @column()
+  declare sdiId: string | null
   @column.dateTime()
   declare submittedAt: DateTime | null
   @column()
   declare submittedBy: number | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare xml: string | null
 }
 
 export class InvoiceSchema extends BaseModel {
