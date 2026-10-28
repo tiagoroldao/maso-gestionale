@@ -195,6 +195,15 @@ router
         router
           .get('invoices/:id/xml', [controllers.Invoices, 'xml'])
           .where('id', router.matchers.number())
+        router
+          .post('invoices/:id/submissions', [controllers.Invoices, 'prepareSubmission'])
+          .where('id', router.matchers.number())
+        router
+          .post('invoices/:id/submissions/confirm', [controllers.Invoices, 'confirmSubmission'])
+          .where('id', router.matchers.number())
+        router
+          .post('invoices/:id/submissions/outcome', [controllers.Invoices, 'recordOutcome'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageInvoices'))
 
@@ -265,6 +274,10 @@ router
           .post('settings/vat-codes/:id/archive', [controllers.VatCodes, 'archive'])
           .where('id', router.matchers.number())
         router.get('settings/invoice-numbering', [controllers.InvoiceNumbering, 'index'])
+        router.put('settings/invoice-numbering/sdi-prefix', [
+          controllers.InvoiceNumbering,
+          'updateSdiPrefix',
+        ])
         router
           .put('settings/invoice-numbering/:year', [controllers.InvoiceNumbering, 'update'])
           .where('year', router.matchers.number())

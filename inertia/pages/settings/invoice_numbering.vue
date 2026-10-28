@@ -5,7 +5,10 @@ import AppLayout from '~/layouts/app.vue'
 import SettingsLayout from '~/layouts/settings.vue'
 import { t } from '~/i18n'
 
-defineProps<{ years: { year: number; nextNumber: number; locked: boolean }[] }>()
+defineProps<{
+  years: { year: number; nextNumber: number; locked: boolean }[]
+  sdiFilePrefix: string
+}>()
 </script>
 
 <template>
@@ -50,6 +53,35 @@ defineProps<{ years: { year: number; nextNumber: number; locked: boolean }[] }>(
             {{ entry.locked ? t('ui.invoiceNumbering.locked') : t('ui.invoiceNumbering.hint') }}
           </span>
           <span v-if="errors.nextNumber" class="field__error">{{ errors.nextNumber }}</span>
+        </Form>
+      </Section>
+
+      <Section
+        :title="t('ui.invoiceNumbering.sdiPrefix')"
+        :description="t('ui.invoiceNumbering.sdiPrefixHint')"
+      >
+        <Form
+          v-slot="{ processing, errors }"
+          route="invoice_numbering.update_sdi_prefix"
+          class="field"
+        >
+          <label class="field__label" for="sdi-prefix">{{
+            t('ui.invoiceNumbering.sdiPrefix')
+          }}</label>
+          <div :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+            <input
+              id="sdi-prefix"
+              name="sdiFilePrefix"
+              maxlength="1"
+              class="field__input mono"
+              :value="sdiFilePrefix"
+              :style="{ maxWidth: '60px' }"
+            />
+            <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
+              {{ t('ui.common.save') }}
+            </button>
+          </div>
+          <span v-if="errors.sdiFilePrefix" class="field__error">{{ errors.sdiFilePrefix }}</span>
         </Form>
       </Section>
     </SettingsLayout>

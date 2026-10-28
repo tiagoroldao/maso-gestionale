@@ -47,7 +47,20 @@ const props = defineProps<{
     }[]
   }
   editable: boolean
+  canSubmit: boolean
   vatCodes: VatCodeOption[]
+  submissions: {
+    id: number
+    fileName: string
+    preparedAt: string
+    submittedAt: string | null
+    outcome: string | null
+    outcomeAt: string | null
+    outcomeNotes: string | null
+  }[]
+  openSubmission: { id: number; fileName: string; submitted: boolean } | null
+  resubmitBy: string | null
+  unsubmittedCount: number
 }>()
 
 const page = usePage()
@@ -198,7 +211,15 @@ function save() {
 
 const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
 const confirmDelete = () => window.confirm(t('ui.invoices.deleteConfirm'))
-const confirmFinalise = () => window.confirm(t('ui.invoices.finaliseConfirm'))
+const confirmFinalise = () =>
+  window.confirm(
+    props.unsubmittedCount
+      ? `${t('ui.invoices.unsubmittedWarning', { count: props.unsubmittedCount })}\n\n${t('ui.invoices.finaliseConfirm')}`
+      : t('ui.invoices.finaliseConfirm')
+  )
+const confirmUpload = () => window.confirm(t('ui.invoices.confirmUploadConfirm'))
+const OUTCOMES = ['delivered', 'not_deliverable', 'rejected']
+const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '')
 </script>
 
 <template>
@@ -234,6 +255,12 @@ const confirmFinalise = () => window.confirm(t('ui.invoices.finaliseConfirm'))
       </template>
 
       <Section>
+        <p>
+          <span class="tag">{{ t(`ui.invoices.statuses.${invoice.status}`) }}</span>
+        </p>
+        <p v-if="resubmitBy" class="field__error">
+          {{ t('ui.invoices.resubmitBy', { date: formatDate(resubmitBy) }) }}
+        </p>
         <p v-if="invoice.number" class="field__hint">
           {{
             t('ui.invoices.issued', {
@@ -436,6 +463,88 @@ const confirmFinalise = () => window.confirm(t('ui.invoices.finaliseConfirm'))
         </table>
       </Section>
 
+      <Section v-if="invoice.number" :title="t('ui.invoices.sdiTitle')">
+        <template v-if="openSubmission && !openSubmission.submitted">
+          <p>
+            <a
+              :href="urlFor('invoices.xml', { id: invoice.id })"
+              class="btn btn--secondary btn--sm"
+            >
+              {{ t('ui.invoices.downloadXml', { file: openSubmission.fileName }) }}
+            </a>
+          </p>
+          <Form
+            route="invoices.confirm_submission"
+            :params="{ id: invoice.id }"
+            :on-before="confirmUpload"
+          >
+            <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
+              {{ t('ui.invoices.confirmUpload') }}
+            </button>
+          </Form>
+        </template>
+        <Form
+          v-else-if="canSubmit"
+          route="invoices.prepare_submission"
+          :params="{ id: invoice.id }"
+        >
+          <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
+            {{ t('ui.invoices.prepareSubmission') }}
+          </button>
+        </Form>
+        <Form
+          v-if="openSubmission?.submitted"
+          v-slot="{ processing: recording, errors: outcomeErrors }"
+          route="invoices.record_outcome"
+          :params="{ id: invoice.id }"
+        >
+          <div class="field">
+            <label class="field__label" for="outcome">{{ t('ui.invoices.outcome') }}</label>
+            <select id="outcome" name="outcome" class="field__input" :style="{ maxWidth: '260px' }">
+              <option v-for="code in OUTCOMES" :key="code" :value="code">
+                {{ t(`ui.invoices.outcomes.${code}`) }}
+              </option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="outcome-notes">{{
+              t('ui.invoices.outcomeNotes')
+            }}</label>
+            <textarea id="outcome-notes" name="notes" class="field__input" rows="2" />
+            <span class="field__hint">{{ t('ui.invoices.outcomeNotesHint') }}</span>
+            <span v-if="outcomeErrors.notes" class="field__error">{{ outcomeErrors.notes }}</span>
+          </div>
+          <button type="submit" class="btn btn--secondary btn--sm" :disabled="recording">
+            {{ t('ui.invoices.recordOutcome') }}
+          </button>
+        </Form>
+
+        <table v-if="submissions.length" class="table">
+          <thead>
+            <tr>
+              <th>{{ t('ui.invoices.file') }}</th>
+              <th>{{ t('ui.invoices.uploadedOn') }}</th>
+              <th>{{ t('ui.invoices.outcome') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="submission in submissions" :key="submission.id">
+              <td class="mono">{{ submission.fileName }}</td>
+              <td>{{ dateTime(submission.submittedAt) }}</td>
+              <td>
+                <template v-if="submission.outcome">
+                  {{ t(`ui.invoices.outcomes.${submission.outcome}`) }}
+                  · {{ dateTime(submission.outcomeAt) }}
+                  <span v-if="submission.outcomeNotes" class="field__hint">
+                    {{ submission.outcomeNotes }}
+                  </span>
+                </template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </Section>
+
       <Section :title="t('ui.invoices.notes')">
         <textarea
           v-model="notes"
@@ -453,12 +562,18 @@ const confirmFinalise = () => window.confirm(t('ui.invoices.finaliseConfirm'))
             {{ t('ui.invoices.save') }}
           </button>
           <span v-if="dirty" class="field__hint">{{ t('ui.invoices.unsaved') }}</span>
-          <Form route="invoices.finalise" :params="{ id: invoice.id }" :on-before="confirmFinalise">
+          <Form
+            v-if="invoice.status === 'draft'"
+            route="invoices.finalise"
+            :params="{ id: invoice.id }"
+            :on-before="confirmFinalise"
+          >
             <button type="submit" class="btn btn--secondary" :disabled="dirty || !lines.length">
               {{ t('ui.invoices.finalise') }}
             </button>
           </Form>
           <Form
+            v-if="invoice.status === 'draft'"
             route="invoices.destroy"
             :params="{ id: invoice.id }"
             :on-before="confirmDelete"

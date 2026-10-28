@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon'
+import Big from 'big.js'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import CompanySettings from '#models/company_settings'
@@ -12,9 +13,17 @@ import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal } from '#shared/invoice_totals'
+import {
+  canTransition,
+  isDeletable,
+  isEditable,
+  transition,
+  type InvoiceStatus,
+} from '#services/invoice_lifecycle'
 
 /**
- * The Invoice is no longer a draft, so it can't be changed or deleted.
+ * The Invoice's status doesn't allow the change: only drafts and rejected
+ * Invoices are edited, only drafts deleted or finalised.
  */
 export class InvoiceNotEditableError extends Error {}
 
@@ -58,14 +67,18 @@ export default class Invoices {
   }
 
   /**
-   * Replaces the draft's lines, copying each VAT Code's rate and Natura
-   * and each Item's unit onto the line.
+   * Replaces the lines of a draft, or of a rejected Invoice being corrected
+   * (which keeps its number and date), copying each VAT Code's rate and
+   * Natura and each Item's unit onto the line. A rejected Invoice already
+   * took its Items off stock, so the difference is booked in the stock.
    */
   static async save(
     invoice: Invoice,
-    input: { discountPercent?: string; notes?: string | null; lines: InvoiceLineInput[] }
+    input: { discountPercent?: string; notes?: string | null; lines: InvoiceLineInput[] },
+    user: User | null = null
   ) {
-    await this.whileDraft(invoice, async (trx, locked) => {
+    await this.whileIn(isEditable, invoice, async (trx, locked) => {
+      const soldBefore = locked.status === 'rejected' ? await this.itemsSold(trx, locked.id) : null
       locked.merge({ discountPercent: input.discountPercent ?? '0', notes: input.notes ?? null })
       await locked.save()
 
@@ -101,7 +114,57 @@ export default class Invoices {
         }),
         { client: trx }
       )
+
+      if (soldBefore) {
+        await this.rebookSale(trx, locked, soldBefore, await this.itemsSold(trx, locked.id), user)
+      }
     })
+  }
+
+  /**
+   * Quantity of each Item on the Invoice's lines.
+   */
+  private static async itemsSold(trx: TransactionClientContract, invoiceId: number) {
+    const lines = await InvoiceLine.query({ client: trx })
+      .where('invoiceId', invoiceId)
+      .whereNotNull('itemId')
+    const sold = new Map<number, Big>()
+    for (const line of lines) {
+      sold.set(line.itemId!, (sold.get(line.itemId!) ?? new Big(0)).plus(line.quantity))
+    }
+    return sold
+  }
+
+  /**
+   * Books in the stock what a corrected (rejected) Invoice now sells
+   * compared with before: more sold is a sale, less sold comes back as an
+   * adjustment. The ledger is never rewritten.
+   */
+  private static async rebookSale(
+    trx: TransactionClientContract,
+    invoice: Invoice,
+    before: Map<number, Big>,
+    after: Map<number, Big>,
+    user: User | null
+  ) {
+    const ids = [...new Set([...before.keys(), ...after.keys()])].sort((a, b) => a - b)
+    if (!ids.length) return
+    const items = await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()
+    const today = DateTime.now().startOf('day')
+    for (const item of items) {
+      const change = (after.get(item.id) ?? new Big(0)).minus(before.get(item.id) ?? new Big(0))
+      if (change.eq(0)) continue
+      const common = { occurredOn: today, reference: invoice.formattedNumber, user, client: trx }
+      if (change.gt(0)) {
+        await StockLedger.sell(item, { ...common, quantity: change.toFixed() })
+      } else {
+        await StockLedger.adjust(item, {
+          ...common,
+          quantity: change.neg().toFixed(),
+          reason: `Fattura ${invoice.formattedNumber} corretta dopo lo scarto`,
+        })
+      }
+    }
   }
 
   /**
@@ -112,7 +175,8 @@ export default class Invoices {
    * concurrent finalising can't skip or repeat a number.
    */
   static async finalise(invoice: Invoice, user: User | null = null) {
-    return this.whileDraft(invoice, async (trx, locked) => {
+    const finalisable = (status: InvoiceStatus) => canTransition(status, 'finalise')
+    return this.whileIn(finalisable, invoice, async (trx, locked) => {
       const lines = await InvoiceLine.query({ client: trx })
         .where('invoiceId', locked.id)
         .orderBy('position')
@@ -130,7 +194,7 @@ export default class Invoices {
       await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
       const today = DateTime.now().startOf('day')
       locked.merge({
-        status: 'finalised',
+        status: transition(locked.status, 'finalise'),
         year: today.year,
         number: await this.takeNumber(trx, today.year),
         issuedOn: today,
@@ -263,10 +327,15 @@ export default class Invoices {
   }
 
   static async destroy(invoice: Invoice) {
-    await this.whileDraft(invoice, (_, locked) => locked.delete())
+    await this.whileIn(isDeletable, invoice, (_, locked) => locked.delete())
   }
 
-  private static whileDraft<T>(
+  /**
+   * Runs `work` with the Invoice locked and re-read, refusing unless its
+   * status passes `allowed`.
+   */
+  private static whileIn<T>(
+    allowed: (status: InvoiceStatus) => boolean,
     invoice: Invoice,
     work: (trx: TransactionClientContract, locked: Invoice) => Promise<T>
   ) {
@@ -275,7 +344,7 @@ export default class Invoices {
         .where('id', invoice.id)
         .forUpdate()
         .firstOrFail()
-      if (locked.status !== 'draft') throw new InvoiceNotEditableError()
+      if (!allowed(locked.status)) throw new InvoiceNotEditableError()
       return work(trx, locked)
     })
   }

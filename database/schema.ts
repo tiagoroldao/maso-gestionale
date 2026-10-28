@@ -23,7 +23,7 @@ export class CategorySchema extends BaseModel {
 }
 
 export class CompanySettingSchema extends BaseModel {
-  static $columns = ['callOutFee', 'city', 'createdAt', 'email', 'iban', 'id', 'liquidationStatus', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'reaNumber', 'reaOffice', 'shareCapital', 'soleShareholder', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
+  static $columns = ['callOutFee', 'city', 'createdAt', 'email', 'iban', 'id', 'liquidationStatus', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'reaNumber', 'reaOffice', 'sdiFilePrefix', 'shareCapital', 'soleShareholder', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
   $columns = CompanySettingSchema.$columns
   @column()
   declare callOutFee: string | null
@@ -53,6 +53,8 @@ export class CompanySettingSchema extends BaseModel {
   declare reaNumber: string | null
   @column()
   declare reaOffice: string | null
+  @column()
+  declare sdiFilePrefix: string
   @column()
   declare shareCapital: string | null
   @column()
@@ -204,6 +206,41 @@ export class InvoiceSequenceSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare year: number
+}
+
+export class InvoiceSubmissionSchema extends BaseModel {
+  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'submittedAt', 'submittedBy', 'updatedAt'] as const
+  $columns = InvoiceSubmissionSchema.$columns
+  @column()
+  declare channel: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare fileName: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceId: number
+  @column()
+  declare outcome: string | null
+  @column.dateTime()
+  declare outcomeAt: DateTime | null
+  @column()
+  declare outcomeBy: number | null
+  @column()
+  declare outcomeNotes: string | null
+  @column.dateTime()
+  declare preparedAt: DateTime
+  @column()
+  declare preparedBy: number | null
+  @column()
+  declare progressive: string
+  @column.dateTime()
+  declare submittedAt: DateTime | null
+  @column()
+  declare submittedBy: number | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
 }
 
 export class InvoiceSchema extends BaseModel {
