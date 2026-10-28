@@ -131,6 +131,42 @@ export class CustomerSchema extends BaseModel {
   declare vatNumber: string | null
 }
 
+export class DocumentTemplateVersionSchema extends BaseModel {
+  static $columns = ['body', 'createdAt', 'createdBy', 'documentTemplateId', 'fields', 'id', 'name', 'version'] as const
+  $columns = DocumentTemplateVersionSchema.$columns
+  @column()
+  declare body: any
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdBy: number | null
+  @column()
+  declare documentTemplateId: number
+  @column()
+  declare fields: any
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare version: number
+}
+
+export class DocumentTemplateSchema extends BaseModel {
+  static $columns = ['archivedAt', 'createdAt', 'id', 'name', 'updatedAt'] as const
+  $columns = DocumentTemplateSchema.$columns
+  @column.dateTime()
+  declare archivedAt: DateTime | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
 export class InstalledEquipmentSchema extends BaseModel {
   static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'itemId', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'removedOn', 'replacedById', 'serialNumber', 'siteId', 'updatedAt'] as const
   $columns = InstalledEquipmentSchema.$columns

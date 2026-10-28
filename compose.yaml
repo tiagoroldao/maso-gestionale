@@ -46,6 +46,12 @@ services:
   gotenberg:
     image: gotenberg/gotenberg:8
     restart: unless-stopped
+    # Documents hold user-written template text: no JavaScript, and nothing
+    # loaded but the page itself and inline (data:) images
+    command:
+      - gotenberg
+      - --chromium-disable-javascript=true
+      - --chromium-allow-list=^(file:///tmp/|data:)
     ports:
       # Published on localhost only, for development; the app reaches it
       # over the Compose network

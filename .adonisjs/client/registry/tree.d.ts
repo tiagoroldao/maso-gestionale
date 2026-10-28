@@ -166,6 +166,14 @@ export interface ApiDefinition {
     update: typeof routes['vat_codes.update']
     archive: typeof routes['vat_codes.archive']
   }
+  documentTemplates: {
+    index: typeof routes['document_templates.index']
+    create: typeof routes['document_templates.create']
+    store: typeof routes['document_templates.store']
+    preview: typeof routes['document_templates.preview']
+    edit: typeof routes['document_templates.edit']
+    update: typeof routes['document_templates.update']
+  }
   vatRules: {
     index: typeof routes['vat_rules.index']
     update: typeof routes['vat_rules.update']

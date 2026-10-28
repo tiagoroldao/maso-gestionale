@@ -1567,6 +1567,84 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['archive']>>>
     }
   }
+  'document_templates.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/document-templates'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['index']>>>
+    }
+  }
+  'document_templates.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/document-templates/new'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['create']>>>
+    }
+  }
+  'document_templates.store': {
+    methods: ["POST"]
+    pattern: '/settings/document-templates'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/document_template').documentTemplateValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/document_template').documentTemplateValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'document_templates.preview': {
+    methods: ["POST"]
+    pattern: '/settings/document-templates/preview'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/document_template').documentTemplatePreviewValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/document_template').documentTemplatePreviewValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['preview']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['preview']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['preview']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'document_templates.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/document-templates/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['edit']>>>
+    }
+  }
+  'document_templates.update': {
+    methods: ["PUT"]
+    pattern: '/settings/document-templates/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/document_template').documentTemplateValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/document_template').documentTemplateValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'vat_rules.index': {
     methods: ["GET","HEAD"]
     pattern: '/settings/vat-rules'

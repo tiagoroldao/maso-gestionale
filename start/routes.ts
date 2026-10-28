@@ -319,6 +319,19 @@ router
         router
           .post('settings/vat-codes/:id/archive', [controllers.VatCodes, 'archive'])
           .where('id', router.matchers.number())
+        router.get('settings/document-templates', [controllers.DocumentTemplates, 'index'])
+        router.get('settings/document-templates/new', [controllers.DocumentTemplates, 'create'])
+        router.post('settings/document-templates', [controllers.DocumentTemplates, 'store'])
+        router.post('settings/document-templates/preview', [
+          controllers.DocumentTemplates,
+          'preview',
+        ])
+        router
+          .get('settings/document-templates/:id/edit', [controllers.DocumentTemplates, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('settings/document-templates/:id', [controllers.DocumentTemplates, 'update'])
+          .where('id', router.matchers.number())
         router.get('settings/vat-rules', [controllers.VatRules, 'index'])
         router.put('settings/vat-rules', [controllers.VatRules, 'update'])
         router.get('settings/invoice-numbering', [controllers.InvoiceNumbering, 'index'])
