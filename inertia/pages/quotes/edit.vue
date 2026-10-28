@@ -79,7 +79,8 @@ const standardCode = computed(() => props.vatCodes.find((code) => !code.natura)?
 
 const lines = reactive<Line[]>(linesFromProps())
 const notes = ref(props.quote?.notes ?? '')
-const validityDays = ref(props.quote?.validityDays ? String(props.quote.validityDays) : '')
+// A number input's v-model gives numbers; '' while empty
+const validityDays = ref<number | ''>(props.quote?.validityDays ?? '')
 
 /**
  * What the server has, in the same shape as the editor's state, so unsaved
@@ -88,7 +89,7 @@ const validityDays = ref(props.quote?.validityDays ? String(props.quote.validity
 const snapshot = () =>
   JSON.stringify({
     notes: notes.value,
-    validityDays: validityDays.value,
+    validityDays: String(validityDays.value),
     lines: lines.map(({ key: _key, ...line }) => line),
   })
 const saved = ref(snapshot())
@@ -104,7 +105,7 @@ watch(
     if (Object.keys(errors.value).length) return
     lines.splice(0, lines.length, ...linesFromProps())
     notes.value = props.quote?.notes ?? ''
-    validityDays.value = props.quote?.validityDays ? String(props.quote.validityDays) : ''
+    validityDays.value = props.quote?.validityDays ?? ''
     saved.value = snapshot()
   }
 )
@@ -210,7 +211,7 @@ function save() {
     urlFor('quotes.update', { id: props.job.id }),
     {
       notes: notes.value,
-      ...(validityDays.value && { validityDays: Number(validityDays.value) }),
+      ...(validityDays.value !== '' && { validityDays: validityDays.value }),
       lines: lines.map((line) => ({
         kind: line.kind,
         ...(line.itemId && { itemId: line.itemId }),

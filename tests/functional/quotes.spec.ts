@@ -520,6 +520,23 @@ test.group('Quote dates and validity', () => {
     assert.equal(quote.issuedOn?.toISODate(), issued.toISODate())
   })
 
+  test('declining leaves the date alone too', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    const issued = DateTime.now().minus({ days: 3 }).startOf('day')
+    await Quote.query().where('jobId', job.id).update({ issued_on: issued.toISODate() })
+
+    await client.post(`/jobs/${job.id}/quote/decline`).withCsrfToken().loginAs(office)
+
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.equal(quote.status, 'declined')
+    assert.equal(quote.issuedOn?.toISODate(), issued.toISODate())
+  })
+
   test('the validity is optional and between 1 and 365 days', async ({ client, assert }) => {
     const { office, job, item, rate } = await setup()
 
@@ -531,6 +548,7 @@ test.group('Quote dates and validity', () => {
       .loginAs(office)
       .redirects(0)
     assert.properties(refused.flashMessage('inputErrorsBag'), ['validityDays'])
+    assert.isNull(await Quote.findBy('jobId', job.id))
 
     await client
       .put(`/jobs/${job.id}/quote`)

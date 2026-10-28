@@ -16,7 +16,8 @@ export default class extends BaseSchema {
     // the decision, so use their creation date
     this.defer(async (db) => {
       await db.rawQuery(
-        "UPDATE quotes SET issued_on = (CASE WHEN status = 'draft' THEN coalesce(updated_at, created_at) ELSE created_at END)::date"
+        `UPDATE quotes SET issued_on = ((CASE WHEN status = 'draft' THEN coalesce(updated_at, created_at)
+          ELSE created_at END) AT TIME ZONE 'Europe/Rome')::date`
       )
     })
   }
