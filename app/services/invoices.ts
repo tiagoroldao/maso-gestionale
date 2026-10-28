@@ -8,6 +8,8 @@ import Invoice, { type CompanySnapshot, type CustomerSnapshot } from '#models/in
 import InvoiceSequence from '#models/invoice_sequence'
 import InvoiceLine from '#models/invoice_line'
 import Item from '#models/item'
+import Job from '#models/job'
+import Quote from '#models/quote'
 import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
@@ -38,7 +40,7 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * details an invoice must carry are missing from Company settings.
  */
 export class InvoiceNotFinalisableError extends Error {
-  constructor(readonly reason: 'empty' | 'companyIncomplete') {
+  constructor(readonly reason: 'empty' | 'companyIncomplete' | 'noAcceptedQuote') {
     super(reason)
   }
 }
@@ -67,6 +69,60 @@ export default class Invoices {
   }
 
   /**
+   * A draft Invoice for a Quoted Job, mirroring its accepted Quote: the
+   * same prices and the VAT treatment the Customer accepted (copied from
+   * the Quote's lines, not re-read from today's VAT Codes). Text lines and
+   * the Quote's notes become the Invoice's notes. If the Job already has a
+   * draft, that one is returned instead of a second.
+   */
+  static async fromQuote(job: Job) {
+    return db.transaction(async (trx) => {
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      const quote = await Quote.query({ client: trx })
+        .where('jobId', locked.id)
+        .preload('lines', (lines) => lines.orderBy('position'))
+        .first()
+      if (locked.kind !== 'quoted' || quote?.status !== 'accepted') {
+        throw new InvoiceNotFinalisableError('noAcceptedQuote')
+      }
+      const existing = await Invoice.query({ client: trx })
+        .where('jobId', locked.id)
+        .where('status', 'draft')
+        .first()
+      if (existing) return existing
+
+      const texts = quote.lines.filter((line) => line.kind === 'text')
+      const notes = [quote.notes, ...texts.map((line) => line.description)]
+        .filter(Boolean)
+        .join('\n')
+      const invoice = await Invoice.create(
+        { customerId: locked.customerId, jobId: locked.id, status: 'draft', notes: notes || null },
+        { client: trx }
+      )
+      const priced = quote.lines.filter((line) => line.kind !== 'text')
+      await InvoiceLine.createMany(
+        priced.map((line, position) => ({
+          invoiceId: invoice.id,
+          position,
+          itemId: line.itemId,
+          description: line.description,
+          quantity: line.quantity!,
+          unit: line.unit,
+          unitPrice: line.unitPrice!,
+          discountPercent: '0',
+          vatCodeId: line.vatCodeId!,
+          vatRate: line.vatRate!,
+          natura: line.natura,
+          legalNote: line.legalNote,
+          lineTotal: invoiceLineTotal(line.quantity!, line.unitPrice!),
+        })),
+        { client: trx }
+      )
+      return invoice
+    })
+  }
+
+  /**
    * Replaces the lines of a draft, or of a rejected Invoice being corrected
    * (which keeps its number and date), copying each VAT Code's rate and
    * Natura and each Item's unit onto the line. A rejected Invoice already
@@ -86,7 +142,9 @@ export default class Invoices {
         .first()
       if (open) throw new InvoiceNotEditableError()
 
-      const soldBefore = locked.status === 'rejected' ? await this.itemsSold(trx, locked.id) : null
+      // Only Invoices without a Job move stock (see finalise)
+      const soldBefore =
+        locked.status === 'rejected' && !locked.jobId ? await this.itemsSold(trx, locked.id) : null
       if (locked.status === 'rejected') {
         // Rejections are often about the parties' data (a VAT number, the
         // recipient code): the correction takes the current Customer and
@@ -223,9 +281,10 @@ export default class Invoices {
       })
       await locked.save()
 
-      // Items sold without a Visit leave the Warehouse now; locked in id
-      // order so two Invoices sharing Items can't deadlock
-      const sold = lines.filter((line) => line.itemId)
+      // Items sold without a Job leave the Warehouse now (a Job's Items left
+      // through its Visits); locked in id order so two Invoices sharing
+      // Items can't deadlock
+      const sold = locked.jobId ? [] : lines.filter((line) => line.itemId)
       const ids = [...new Set(sold.map((line) => line.itemId!))].sort((a, b) => a - b)
       const items = ids.length
         ? await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()

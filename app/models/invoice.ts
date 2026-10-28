@@ -2,6 +2,7 @@ import { belongsTo, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { InvoiceSchema } from '#database/schema'
 import Customer from '#models/customer'
+import Job from '#models/job'
 import InvoiceLine from '#models/invoice_line'
 import { invoiceTotals } from '#shared/invoice_totals'
 import { formatInvoiceNumber } from '#shared/invoice_numbers'
@@ -77,6 +78,10 @@ export default class Invoice extends InvoiceSchema {
 
   @belongsTo(() => Customer)
   declare customer: BelongsTo<typeof Customer>
+
+  /** The Job invoiced; Invoices without one are direct sales */
+  @belongsTo(() => Job)
+  declare job: BelongsTo<typeof Job>
 
   @hasMany(() => InvoiceLine)
   declare lines: HasMany<typeof InvoiceLine>

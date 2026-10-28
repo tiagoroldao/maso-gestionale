@@ -40,6 +40,7 @@ const props = defineProps<{
     issuedOn: string | null
     dueOn: string | null
     customer: { id: number; displayName: string }
+    job: { id: number; number: string } | null
     discountPercent: string
     notes: string | null
     lines: {
@@ -254,6 +255,14 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
         >
           {{ t('ui.invoices.xml') }}
         </a>
+        <Link
+          v-if="invoice.job"
+          route="jobs.show"
+          :params="{ id: invoice.job.id }"
+          class="btn btn--ghost btn--sm"
+        >
+          {{ t('ui.invoices.job', { number: invoice.job.number }) }}
+        </Link>
         <Link route="invoices.index" class="btn btn--ghost btn--sm">
           {{ t('ui.invoices.backToList') }}
         </Link>

@@ -1,4 +1,5 @@
 import Customer from '#models/customer'
+import Job from '#models/job'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
@@ -85,10 +86,28 @@ export default class InvoicesController {
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }
 
+  /**
+   * A draft Invoice from a Quoted Job's accepted Quote (or the Job's
+   * existing draft).
+   */
+  async storeFromJob({ params, response, session, i18n }: HttpContext) {
+    const job = await Job.findOrFail(params.id)
+    try {
+      const invoice = await Invoices.fromQuote(job)
+      session.flash('success', i18n.t('flash.invoiceCreated'))
+      return response.redirect().toRoute('invoices.edit', { id: invoice.id })
+    } catch (error) {
+      if (!(error instanceof InvoiceNotFinalisableError)) throw error
+      session.flash('error', i18n.t('flash.invoiceNotFinalisable.noAcceptedQuote'))
+      return response.redirect().toRoute('jobs.show', { id: job.id })
+    }
+  }
+
   async edit({ params, inertia }: HttpContext) {
     const invoice = await Invoice.query()
       .where('id', params.id)
       .preload('customer')
+      .preload('job')
       .preload('lines', (lines) => lines.orderBy('position'))
       .preload('submissions', (submissions) => submissions.orderBy('preparedAt'))
       .firstOrFail()
@@ -111,6 +130,7 @@ export default class InvoicesController {
         issuedOn: invoice.issuedOn?.toISODate() ?? null,
         dueOn: invoice.dueOn?.toISODate() ?? null,
         customer: { id: invoice.customer.id, displayName: invoice.customer.displayName },
+        job: invoice.job ? { id: invoice.job.id, number: invoice.job.number } : null,
         discountPercent: invoice.discountPercent,
         notes: invoice.notes,
         lines: invoice.lines.map((line) => ({

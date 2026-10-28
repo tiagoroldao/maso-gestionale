@@ -865,6 +865,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'invoices.store_from_job': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/invoices'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
+    }
+  }
   'invoices.edit': {
     methods: ["GET","HEAD"]
     pattern: '/invoices/:id/edit'
