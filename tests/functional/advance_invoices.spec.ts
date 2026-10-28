@@ -205,7 +205,7 @@ test.group('Advance Invoices', () => {
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
       invoicedSoFar: { amount: '1000.00', of: '1000.00' },
-      job: { status: 'invoiced' },
+      job: { indicators: { invoiced: true } },
       invoices: [
         { id: advance.id, deduction: { deducted: '366.00', state: 'fully_deducted' } },
         { id: final.id, deduction: null },
@@ -359,8 +359,8 @@ test.group('Advance Invoices', () => {
     page.assertInertiaPropsContains({
       invoices: [{ id: advance.id, deduction: { deducted: '42.70', state: 'partly_deducted' } }],
     })
-    assert.notEqual(page.inertiaProps.job.status, 'invoiced')
-    // The Job lists agree: not Invoiced nor Closed, still in progress
+    assert.isFalse(page.inertiaProps.job.indicators.invoiced)
+    // The Job lists agree: not invoiced, still in progress
     const listed = async (status: string) => {
       const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
       return (list.inertiaProps.jobs as { id: number }[]).map((row) => row.id)
@@ -378,7 +378,7 @@ test.group('Advance Invoices', () => {
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
       invoices: [{ id: advance.id, deduction: { deducted: '610.00', state: 'fully_deducted' } }],
-      job: { status: 'invoiced' },
+      job: { indicators: { invoiced: true } },
     })
     assert.deepEqual(await listed('invoiced'), [job.id])
   })
@@ -552,7 +552,7 @@ test.group('Advance Invoices', () => {
     await Invoices.finalise(last)
 
     const after = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    after.assertInertiaPropsContains({ job: { status: 'invoiced' } })
+    after.assertInertiaPropsContains({ job: { indicators: { invoiced: true } } })
   })
 
   test('without a Quote: advances wait for the draft that bills the last of the work', async ({
@@ -625,18 +625,23 @@ test.group('Advance Invoices', () => {
     assert.properties(response.flashMessage('inputErrorsBag'), ['lines.0.unitPrice'])
   })
 
-  test('no advance for a cancelled Job, and only Office or the Admin issue them', async ({
+  test('no advance for a closed or cancelled Job, and only Office or the Admin issue them', async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
-    const cancelled = await createJob(await createCustomer(), { status: 'cancelled' })
-    const refused = await client
-      .post(`/jobs/${cancelled.id}/advance-invoices`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    refused.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
+    for (const status of ['closed', 'cancelled'] as const) {
+      const ended = await createJob(await createCustomer(), { status })
+      const refused = await client
+        .post(`/jobs/${ended.id}/advance-invoices`)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      refused.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
+      const page = await client.get(`/jobs/${ended.id}`).withInertia().loginAs(office)
+      page.assertInertiaPropsContains({ canInvoiceAdvance: false })
+      assert.isNull(await Invoice.findBy('jobId', ended.id), status)
+    }
 
     const job = await createJob(await createCustomer())
     for (const role of ['technician', 'superuser'] as const) {

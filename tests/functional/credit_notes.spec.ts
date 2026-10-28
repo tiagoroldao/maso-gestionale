@@ -18,7 +18,8 @@ import CreditNoteNumbering from '#services/credit_note_numbering'
 import DocumentRenderer from '#documents/document_renderer'
 import { invoiceDocument } from '#documents/invoice_document'
 import type { PdfConverter } from '#documents/pdf_converter'
-import { OWED_SQL } from '#services/job_status'
+import { JOB_PAID_SQL, OWED_SQL } from '#services/job_status'
+import Jobs from '#services/jobs'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
@@ -719,7 +720,7 @@ test.group('Credit Notes', () => {
     })
   })
 
-  test("a Job's Invoice credited and paid for the rest settles the Job, in TS and SQL", async ({
+  test("a Job's Invoice credited and paid for the rest makes the Job paid, in TS and SQL", async ({
     client,
     assert,
   }) => {
@@ -728,25 +729,140 @@ test.group('Credit Notes', () => {
     const customer = await createCustomer()
     const job = await createJob(customer)
     const invoice = await issued(customer, job.id)
-    const ids = async (status: string) => {
-      const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
-      return (list.inertiaProps.jobs as { id: number; status: string }[]).map((j) => [
-        j.id,
-        j.status,
-      ])
+    const paid = async () => {
+      const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+      const shown = (page.inertiaProps.job as { indicators: { paid: boolean } }).indicators.paid
+      const rows = await db.from('jobs').where('id', job.id).whereRaw(JOB_PAID_SQL).select('id')
+      // The page and the SQL filter agree
+      assert.equal(rows.length > 0, shown)
+      return shown
     }
     await Payments.record(invoice, { amount: '100', paidOn: DateTime.now() })
-    assert.deepEqual(await ids('invoiced'), [[job.id, 'invoiced']])
+    assert.isFalse(await paid())
+    const before = await Jobs.leftToClose(job.id)
+    assert.equal(before.unpaid, 1)
 
     // 18.03 + 3.97 VAT = 22.00 credited: nothing left owed
     const note = await creditNote(invoice, ['18.03', '0'])
     await Invoices.finalise(note)
     await note.refresh()
     assert.equal(note.total, '22.00')
-    assert.deepEqual(await ids('closed'), [[job.id, 'closed']])
-    assert.deepEqual(await ids('invoiced'), [])
+    assert.isTrue(await paid())
+    const left = await Jobs.leftToClose(job.id)
+    assert.equal(left.unpaid, 0)
+    assert.equal(left.overpaid, 0)
     const page = await client.get(`/customers/${customer.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ balance: '0.00', overpaid: [] })
+  })
+
+  test("a closed Job's Invoice can still be credited (ADR 0015)", async ({ assert }) => {
+    await completeCompany()
+    const customer = await createCustomer()
+    const job = await createJob(customer)
+    const invoice = await issued(customer, job.id)
+    await Jobs.close(job.id)
+    await job.refresh()
+    assert.equal(job.status, 'closed')
+
+    const note = await creditNote(invoice, ['10', '0'])
+    await Invoices.finalise(note)
+    await note.refresh()
+    assert.equal(note.status, 'finalised')
+  })
+
+  test('Credit Note lines reverse VAT at the rate the Invoice charged', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+    const standard = await vatCode()
+    const reduced = await vatCode('10%')
+    // The VAT Code changes after the Invoice was issued
+    await standard.merge({ rate: '23' }).save()
+
+    // The untouched prefill saves at 22% and finalises within the cap
+    const note = await Invoices.createCreditNote(invoice)
+    const lines = await linesOf(note)
+    const response = await saveLines(
+      client,
+      note,
+      office,
+      lines.map((line) => ({
+        id: line.id,
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        vatCodeId: line.vatCodeId,
+      }))
+    )
+    response.assertFlashMessage('success', it('flash.invoiceSaved'))
+    const saved = await linesOf(note)
+    assert.deepEqual(
+      saved.map((line) => [line.vatCodeId, line.vatRate]),
+      [
+        [standard.id, '22.00'],
+        [standard.id, '22.00'],
+      ]
+    )
+    // Another VAT Code (on a second draft) sent in the request is ignored
+    const other = await Invoice.create({
+      customerId: invoice.customerId,
+      status: 'draft',
+      documentType: 'credit_note',
+      creditsInvoiceId: invoice.id,
+    })
+    await saveLines(client, other, office, [
+      {
+        description: lines[0].description,
+        quantity: '1',
+        unitPrice: '1',
+        vatCodeId: reduced.id,
+        creditsLineId: lines[0].creditsLineId,
+      },
+    ])
+    const [kept] = await linesOf(other)
+    assert.deepEqual([kept.vatCodeId, kept.vatRate], [standard.id, '22.00'])
+
+    await Invoices.finalise(note)
+    await note.refresh()
+    assert.equal(note.total, '122.00')
+  })
+
+  test('correcting a rejected Credit Note warns when its Invoice is now overpaid', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+    await Payments.record(invoice, { amount: '112.24', paidOn: DateTime.now() })
+    // 8 + VAT = 9.76: exactly what was left
+    const note = await creditNote(invoice, ['8', '0'])
+    await Invoices.finalise(note)
+    await sentTo(note, 'rejected')
+
+    const [line] = await linesOf(note)
+    const response = await saveLines(client, note, office, [
+      {
+        id: line.id,
+        description: line.description,
+        quantity: '1',
+        unitPrice: '10',
+        vatCodeId: line.vatCodeId,
+      },
+    ])
+    // 12.20 credited now: 2.44 overpaid
+    response.assertFlashMessage(
+      'warning',
+      `${it('flash.invoiceSaved')} ${it('flash.creditNoteOverpaid', {
+        number: invoice.formattedNumber,
+        amount: formatMoney('2.44'),
+      })}`
+    )
+    await note.refresh()
+    assert.equal(note.total, '12.20')
   })
 
   test('shared numbering: Credit Notes take the next Invoice number', async ({ assert }) => {
@@ -982,6 +1098,9 @@ test.group('Credit Notes concurrently', () => {
     // Separate pooled connections: real row locks, unlike the global transaction
     const results = await Promise.allSettled([Invoices.finalise(first), Invoices.finalise(second)])
     assert.deepEqual(results.map((result) => result.status).sort(), ['fulfilled', 'rejected'])
+    const refused = results.find((result) => result.status === 'rejected') as PromiseRejectedResult
+    assert.instanceOf(refused.reason, InvoiceNotFinalisableError)
+    assert.equal((refused.reason as InvoiceNotFinalisableError).reason, 'creditTooLarge')
     const issuedNotes = await Invoice.query()
       .where('creditsInvoiceId', invoice.id)
       .whereNot('status', 'draft')

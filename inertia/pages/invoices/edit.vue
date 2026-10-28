@@ -39,6 +39,9 @@ type Line = {
   chargeIds: number[]
   // On a Credit Note, the credited Invoice's line it credits
   creditsLineId: number | null
+  // The VAT the line was saved with: a Credit Note line keeps its Invoice's
+  vatRate: string | null
+  natura: string | null
 }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
@@ -71,6 +74,8 @@ const props = defineProps<{
       deductsInvoiceId: number | null
       chargeIds: number[]
       creditsLineId: number | null
+      vatRate: string
+      natura: string | null
     }[]
   }
   editable: boolean
@@ -133,6 +138,8 @@ function linesFromProps(): Line[] {
     deductsInvoiceId: line.deductsInvoiceId,
     chargeIds: line.chargeIds,
     creditsLineId: line.creditsLineId,
+    vatRate: line.vatRate,
+    natura: line.natura,
   }))
 }
 
@@ -197,7 +204,11 @@ function totalsLine(line: Line): TotalsLine | null {
   const quantity = parseQuantity(line.quantity)
   const price = parseAmount(line.unitPrice)
   const discount = line.discountPercent ? parseAmount(line.discountPercent) : null
-  const code = codes.value.get(line.vatCodeId)
+  // A Credit Note line keeps the VAT its Invoice charged
+  const code =
+    creditNote.value && line.vatRate !== null
+      ? { rate: line.vatRate, natura: line.natura }
+      : codes.value.get(line.vatCodeId)
   if (!quantity || !price || !code || (line.discountPercent && !discount)) return null
   return {
     quantity: quantity.toFixed(),
@@ -243,6 +254,8 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     deductsInvoiceId: null,
     chargeIds: [],
     creditsLineId: null,
+    vatRate: null,
+    natura: null,
   })
 }
 
@@ -261,6 +274,8 @@ function addFreeLine() {
     deductsInvoiceId: null,
     chargeIds: [],
     creditsLineId: null,
+    vatRate: null,
+    natura: null,
   })
 }
 
@@ -529,7 +544,13 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                 </span>
               </td>
               <td>
+                <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
+                <span v-if="creditNote" data-testid="credited-vat">
+                  {{ codes.get(line.vatCodeId)?.name ?? '' }}
+                  ({{ vatLabel({ vatRate: line.vatRate ?? '0', natura: line.natura }) }})
+                </span>
                 <select
+                  v-else
                   v-model="line.vatCodeId"
                   class="field__input"
                   :disabled="!editable || line.deductsInvoiceId !== null"

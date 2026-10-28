@@ -10,6 +10,7 @@ import IssuedDocument from '#models/issued_document'
 import LabourRate from '#models/labour_rate'
 import FieldWork, { CLOSED_VISIT_STATUSES, FieldWorkRefusedError } from '#services/field_work'
 import { localDateTime } from '#services/dates'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import { storagePath } from '#services/storage'
 import {
   visitHoursValidator,
@@ -43,8 +44,8 @@ export default class MyVisitsController {
       .whereHas('technicians', (users) => users.where('users.id', technician.id))
       .where('endsAt', '>', from.toJSDate())
       .where('startsAt', '<', from.plus({ days: UPCOMING_DAYS }).toJSDate())
-      // A cancelled Job's Visits no longer send anyone out
-      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      // A closed or cancelled Job's Visits no longer send anyone out
+      .whereHas('job', (job) => job.whereIn('status', [...ACTIVE_JOB_STATUSES]))
       .preload('job', (job) => job.preload('customer').preload('site'))
       .orderBy('startsAt')
 
@@ -114,8 +115,8 @@ export default class MyVisitsController {
             })),
           }
         : null,
-      // Closed, or frozen because the Job was cancelled: read-only either way
-      done: CLOSED_VISIT_STATUSES.includes(visit.status) || job.status === 'cancelled',
+      // Closed, or frozen because the Job was closed or cancelled: read-only
+      done: CLOSED_VISIT_STATUSES.includes(visit.status) || !job.isActive,
       servicedIds: serviced.map((row) => row.installed_equipment_id as number),
       currentUserId: auth.getUserOrFail().id,
       team: visit.technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),

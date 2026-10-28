@@ -1,7 +1,12 @@
 import Job from '#models/job'
 import { hasBillableWork, isClosedVisit } from '#shared/visits'
 import { isVisitBilled, type ChargeState } from '#shared/charges'
-import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
+import Jobs, {
+  JobClosedError,
+  JobInvoicedError,
+  JobNotEditableError,
+  type JobLeftovers,
+} from '#services/jobs'
 import Invoice from '#models/invoice'
 import Invoices from '#services/invoices'
 import Quotes from '#services/quotes'
@@ -13,7 +18,8 @@ import Customer from '#models/customer'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
-import { CLOSED_SQL, INVOICED_SQL, NOT_INVOICED_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
+import { INVOICED_SQL, READY_TO_CLOSE_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
 import { quoteNumber } from '#shared/quotes'
@@ -32,27 +38,21 @@ export default class JobsController {
       .preload('visits')
       .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('quotes', (quotes) => quotes.orderBy('sequence'))
-    // Work Complete, Invoiced and Closed are derived, so they're conditions,
-    // not columns; the active list leaves out cancelled and closed Jobs
-    if (!status) query.whereNot('status', 'cancelled').whereRaw(`NOT (${CLOSED_SQL})`)
-    else if (status === 'work_complete') query.whereRaw(WORK_COMPLETE_SQL)
-    else if (status === 'invoiced') query.whereRaw(INVOICED_SQL)
-    else if (status === 'closed') query.whereRaw(CLOSED_SQL)
-    else if (status === 'in_progress')
-      query
-        .where('status', status)
-        .whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
-        .whereRaw(NOT_INVOICED_SQL)
-    else if (status === 'cancelled') query.where('status', status)
+    // The active list (the default) leaves out closed and cancelled Jobs;
+    // the indicators (ADR 0015) are derived, so they're conditions on the
+    // active Jobs, not columns
+    const active = () => query.whereIn('status', [...ACTIVE_JOB_STATUSES])
+    if (!status) active()
+    else if (status === 'work_complete') active().whereRaw(WORK_COMPLETE_SQL)
+    else if (status === 'invoiced') active().whereRaw(INVOICED_SQL)
+    else if (status === 'ready_to_close') active().whereRaw(READY_TO_CLOSE_SQL)
     // By their Quotes (ADR 0013): one waiting for the Customer (never on a
-    // cancelled Job, where no answer is recorded), or one accepted
+    // closed or cancelled Job, where no answer is recorded), or one accepted
     else if (status === 'quote_sent')
-      query
-        .whereNot('status', 'cancelled')
-        .whereHas('quotes', (quotes) => quotes.where('status', 'sent'))
+      active().whereHas('quotes', (quotes) => quotes.where('status', 'sent'))
     else if (status === 'quote_accepted')
       query.whereHas('quotes', (quotes) => quotes.where('status', 'accepted'))
-    else if (status !== 'all') query.where('status', status).whereRaw(NOT_INVOICED_SQL)
+    else if (status !== 'all') query.where('status', status)
     if (q) {
       const pattern = likePattern(q)
       query.where((builder) => {
@@ -196,10 +196,10 @@ export default class JobsController {
             }
           : null,
       })),
-      // Every Job invoices from its Charges, Quote or not (ADR 0012): never
-      // a cancelled one, and only while some is to bill and no draft waits
+      // Every Job invoices from its Charges, Quote or not (ADR 0012), even
+      // once closed or cancelled (#111), while some is to bill and no draft
+      // waits
       canInvoice:
-        job.status !== 'cancelled' &&
         !ownInvoices.some((invoice) => invoice.status === 'draft') &&
         (hasBillableWork(
           job.visits.map((visit) => ({
@@ -211,7 +211,10 @@ export default class JobsController {
         ) ||
           // Charges on the Job itself are billable at once
           work.some((line) => line.visitId === null && line.state === 'to_bill')),
-      canInvoiceAdvance: job.status !== 'cancelled',
+      // An advance is for work to come
+      canInvoiceAdvance: job.isActive,
+      // What closing would leave behind, shown as a warning (ADR 0015)
+      leftToClose: job.isActive ? await Jobs.leftToClose(job.id) : null,
       // Taxable amounts: what issued Invoices billed (deductions net out the
       // advances) against the work recorded, and the sum of the accepted
       // Quotes for comparison only, since they don't bind the bill (ADR
@@ -250,6 +253,7 @@ export default class JobsController {
         ...jobRow(job),
         description: job.description,
         cancelledAt: job.cancelledAt?.toISODate() ?? null,
+        closedAt: job.closedAt?.toISODate() ?? null,
       },
       visits: job.visits.map((visit) => ({
         id: visit.id,
@@ -325,9 +329,61 @@ export default class JobsController {
       const job = await Jobs.cancel(params.id)
       session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
     } catch (error) {
-      if (!(error instanceof JobInvoicedError)) throw error
-      session.flash('error', i18n.t('flash.jobInvoiced'))
+      if (error instanceof JobInvoicedError) session.flash('error', i18n.t('flash.jobInvoiced'))
+      else if (error instanceof JobClosedError) session.flash('error', i18n.t('flash.jobClosed'))
+      else throw error
     }
     response.redirect().toRoute('jobs.show', { id: params.id })
   }
+
+  /**
+   * Closes the Job by hand (ADR 0015): never refused for what is left,
+   * which turns the confirmation into a warning listing it.
+   */
+  async close({ params, response, session, i18n }: HttpContext) {
+    try {
+      const { job, left } = await Jobs.close(params.id)
+      const parts = leftovers(left).map(([key, count]) =>
+        i18n.t(`ui.jobs.leftToClose.${key}`, { count })
+      )
+      if (parts.length) {
+        session.flash(
+          'warning',
+          i18n.t('flash.jobClosedWithLeft', { number: job.number, left: parts.join(', ') })
+        )
+      } else {
+        session.flash('success', i18n.t('flash.jobClosedNow', { number: job.number }))
+      }
+    } catch (error) {
+      if (!(error instanceof JobNotEditableError)) throw error
+      session.flash('error', i18n.t('flash.jobNotEditable'))
+    }
+    response.redirect().toRoute('jobs.show', { id: params.id })
+  }
+
+  /**
+   * Reopens a closed Job when more work turns up.
+   */
+  async reopen({ params, response, session, i18n }: HttpContext) {
+    try {
+      const job = await Jobs.reopen(params.id)
+      session.flash('success', i18n.t('flash.jobReopened', { number: job.number }))
+    } catch (error) {
+      if (error instanceof JobNotEditableError) {
+        session.flash('error', i18n.t('flash.jobNotEditable'))
+      } else if (error instanceof ArchivedRecordError) {
+        session.flash('error', i18n.t('flash.jobReopenArchived'))
+      } else {
+        throw error
+      }
+    }
+    response.redirect().toRoute('jobs.show', { id: params.id })
+  }
+}
+
+/**
+ * The things left on a Job that closing warns about, with their counts.
+ */
+function leftovers(left: JobLeftovers) {
+  return Object.entries(left).filter(([, count]) => count > 0)
 }

@@ -113,6 +113,8 @@ export interface ApiDefinition {
     edit: typeof routes['jobs.edit']
     update: typeof routes['jobs.update']
     cancel: typeof routes['jobs.cancel']
+    close: typeof routes['jobs.close']
+    reopen: typeof routes['jobs.reopen']
   }
   visits: {
     create: typeof routes['visits.create']

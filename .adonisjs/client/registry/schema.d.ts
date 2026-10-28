@@ -865,6 +865,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
     }
   }
+  'jobs.close': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/close'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['close']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['close']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['close']>>>
+    }
+  }
+  'jobs.reopen': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/reopen'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['reopen']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['reopen']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['reopen']>>>
+    }
+  }
   'visits.create': {
     methods: ["GET","HEAD"]
     pattern: '/jobs/:id/visits/create'

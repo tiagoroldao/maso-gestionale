@@ -19,15 +19,16 @@ import { CHARGE_STATE_SQL } from '#services/job_status'
 
 /**
  * An Invoice holds or bills the Charge, so what is billed changes only
- * through billing (ADR 0010); only a billed Charge is set back to bill;
- * its Job was cancelled, which freezes billing; or a correction picked an
- * archived Labour Rate or Item, or a Technician who is inactive or not on
- * the Visit; or it would change the Item of equipment the Charge doesn't
- * own alone.
+ * through billing (ADR 0010); only a billed Charge is set back to bill; a
+ * new Charge on a closed or cancelled Job, which takes no new work (ADR
+ * 0015); or a correction picked an archived Labour Rate or Item, or a
+ * Technician who is inactive or not on the Visit; or it would change the
+ * Item of equipment the Charge doesn't own alone.
  */
 export class ChargeRefusedError extends Error {
   constructor(
-    readonly reason: 'billed' | 'notBilled' | 'cancelled' | 'archived' | 'worker' | 'installed'
+    readonly reason:
+      'billed' | 'notBilled' | 'closed' | 'cancelled' | 'archived' | 'worker' | 'installed'
   ) {
     super(reason)
   }
@@ -63,13 +64,15 @@ type Billing = {
 export default class Charges {
   /**
    * Adds another cost to the Job itself (a call-out, a contractor's day,
-   * materials bought for the Job), priced by Office. Not on a cancelled
-   * Job.
+   * materials bought for the Job), priced by Office. Not on a closed or
+   * cancelled Job (ADR 0015).
    */
   static async add(job: Job, input: Required<Billing>, user: User) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forShare().firstOrFail()
-      if (locked.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+      if (locked.status === 'closed' || locked.status === 'cancelled') {
+        throw new ChargeRefusedError(locked.status)
+      }
       const charge = await Charge.create(
         {
           jobId: locked.id,
@@ -94,9 +97,10 @@ export default class Charges {
   /**
    * Corrects what was recorded, at any time. An Item already taken off
    * stock moves stock by the difference, with new Stock Movements. While
-   * nothing billed it, its Job isn't cancelled and Office never edited its
-   * billing, what is billed follows: the quantity, the description and,
-   * for a new Labour Rate or Item, its current price.
+   * nothing billed it and Office never edited its billing, what is billed
+   * follows: the quantity, the description and, for a new Labour Rate or
+   * Item, its current price. Its Job's status plays no part: a closed or
+   * cancelled Job's Charges are still billed (#111).
    */
   static async correct(
     charge: Charge,
@@ -107,7 +111,6 @@ export default class Charges {
     await this.whileLocked(charge, async (trx, locked, job) => {
       const before = await this.recordedValues(trx, locked)
       const billingFollows =
-        job.status !== 'cancelled' &&
         !isHeld(await this.stateOf(trx, locked.id)) &&
         !(await this.hasEvent(trx, locked.id, 'billing_edited'))
       let repriced = false
@@ -170,8 +173,7 @@ export default class Charges {
    * edited it, follows what was recorded (see release).
    */
   static async setBackToBill(charge: Charge, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
-      if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+    await this.whileLocked(charge, async (trx, locked) => {
       const billed = await ChargeEvent.query({ client: trx })
         .where('chargeId', locked.id)
         .whereIn('kind', ['billed', 'unbilled'])
@@ -188,7 +190,7 @@ export default class Charges {
         { client: trx }
       )
       const heldSince = line ? DateTime.fromJSDate(line.created_at) : billed.createdAt
-      await this.rederive(trx, locked, job, heldSince)
+      await this.rederive(trx, locked, heldSince)
     })
   }
 
@@ -214,23 +216,20 @@ export default class Charges {
       .orderBy('id')
       .forUpdate()
     for (const charge of charges) {
-      const job = await Job.findOrFail(charge.jobId, { client: trx })
       const { heldSince } = held.find(({ chargeId }) => chargeId === charge.id)!
-      await this.rederive(trx, charge, job, heldSince)
+      await this.rederive(trx, charge, heldSince)
     }
   }
 
   /**
    * What is billed follows what was recorded again, for a Charge just
-   * released: unless its Job is cancelled or Office edited its billing.
+   * released: unless Office edited its billing.
    */
   private static async rederive(
     trx: TransactionClientContract,
     charge: Charge,
-    job: Job,
     heldSince: DateTime
   ) {
-    if (job.status === 'cancelled') return
     if (await this.hasEvent(trx, charge.id, 'billing_edited')) return
     const corrections = await ChargeEvent.query({ client: trx })
       .where('chargeId', charge.id)
@@ -283,8 +282,8 @@ export default class Charges {
    * Edits what is billed, until an Invoice holds the Charge.
    */
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
-      await this.refuseBillingChange(trx, locked, job)
+    await this.whileLocked(charge, async (trx, locked) => {
+      await this.refuseBillingChange(trx, locked)
       const quotedCode = locked.vatCodeId
         ? await VatCode.findOrFail(locked.vatCodeId, { client: trx })
         : null
@@ -316,8 +315,8 @@ export default class Charges {
    * holds it. Marking it as it already is changes nothing.
    */
   static async setBillable(charge: Charge, billable: boolean, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
-      await this.refuseBillingChange(trx, locked, job)
+    await this.whileLocked(charge, async (trx, locked) => {
+      await this.refuseBillingChange(trx, locked)
       const notBillable = (await this.stateOf(trx, locked.id)) === 'not_billable'
       if (notBillable !== billable) return
       await this.addEvent(trx, locked, billable ? 'billable' : 'not_billable', user, null)
@@ -325,15 +324,11 @@ export default class Charges {
   }
 
   /**
-   * What is billed is frozen while an Invoice holds or bills the Charge,
-   * and on a cancelled Job (what was recorded can still be corrected).
+   * What is billed is frozen while an Invoice holds or bills the Charge.
+   * A closed or cancelled Job's Charges are still billed, or marked not
+   * billable, by Office (#111).
    */
-  private static async refuseBillingChange(
-    trx: TransactionClientContract,
-    charge: Charge,
-    job: Job
-  ) {
-    if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+  private static async refuseBillingChange(trx: TransactionClientContract, charge: Charge) {
     if (isHeld(await this.stateOf(trx, charge.id))) throw new ChargeRefusedError('billed')
   }
 

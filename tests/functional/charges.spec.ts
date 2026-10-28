@@ -205,36 +205,52 @@ test.group('Charges', () => {
     kept.assertFlashMessage('success', it('flash.chargeCorrected'))
   })
 
-  test("a cancelled Job's Charges can be corrected, but their billing is frozen", async ({
-    client,
-    assert,
-  }) => {
-    const { office, job, rate, hours } = await setup()
-    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+  test("a {$self} Job's Charges are still corrected and billed by Office (#111)")
+    .with(['closed', 'cancelled'] as const)
+    .run(async ({ client, assert }, status) => {
+      const { office, job, rate, hours, line } = await setup()
+      await client
+        .post(`/jobs/${job.id}/${status === 'closed' ? 'close' : 'cancel'}`)
+        .withCsrfToken()
+        .loginAs(office)
+      await job.refresh()
+      assert.equal(job.status, status)
 
-    for (const request of [
-      client
+      // A correction still reaches what is billed
+      const corrected = await client
+        .put(`/charges/${hours.id}/recorded`)
+        .form({ labourRateId: String(rate.id), workerName: 'Marco', quantity: '1' })
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      corrected.assertFlashMessage('success', it('flash.chargeCorrected'))
+      await hours.refresh()
+      assert.equal(hours.quantity, '1.000', status)
+      assert.equal(hours.billQuantity, '1.000', status)
+      assert.equal(hours.description, 'Idraulico – Marco', status)
+
+      const edited = await client
         .put(`/charges/${hours.id}/billing`)
-        .form({ quantity: '1', unitPrice: '1', description: 'x' }),
-      client.post(`/charges/${hours.id}/not-billable`),
-    ]) {
-      const refused = await request.withCsrfToken().loginAs(office).redirects(0)
-      refused.assertFlashMessage('error', it('flash.chargeRefused.cancelled'))
-    }
-    assert.deepEqual(await history(hours), ['recorded'])
+        .form({ quantity: '1.5', unitPrice: '40', description: 'Ore' })
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      edited.assertFlashMessage('success', it('flash.chargeBillingSaved'))
+      const notBillable = await client
+        .post(`/charges/${line.id}/not-billable`)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      notBillable.assertFlashMessage('success', it('flash.chargeNotBillable'))
+      await hours.refresh()
+      assert.equal(hours.billQuantity, '1.500', status)
+      assert.deepEqual(await history(hours), ['recorded', 'corrected', 'billing_edited'], status)
+      assert.equal(await stateOf(line), 'not_billable', status)
 
-    const corrected = await client
-      .put(`/charges/${hours.id}/recorded`)
-      .form({ labourRateId: String(rate.id), workerName: 'Marco', quantity: '1' })
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    corrected.assertFlashMessage('success', it('flash.chargeCorrected'))
-    await hours.refresh()
-    assert.equal(hours.quantity, '1.000')
-    assert.equal(hours.billQuantity, '2.000')
-    assert.equal(hours.description, 'Idraulico – Anna')
-  })
+      const page = await client.get(`/charges/${hours.id}/edit`).withInertia().loginAs(office)
+      page.assertInertiaPropsContains({ job: { id: job.id } })
+      assert.notProperty(page.inertiaProps.job, 'cancelled')
+    })
 
   test('correcting an Item off stock moves stock by the difference', async ({ client, assert }) => {
     const { anna, office, job, visit, valve, line } = await setup()
@@ -572,7 +588,10 @@ test.group('Charges on the Job itself', () => {
     })
   })
 
-  test('a cost needs a VAT kind, and a cancelled Job takes none', async ({ client, assert }) => {
+  test('a cost needs a VAT kind, and a closed or cancelled Job takes none', async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
     const job = await createJob(await createCustomer())
     const cost = { description: 'Uscita', quantity: '1', unitPrice: '35' }
@@ -594,6 +613,16 @@ test.group('Charges on the Job itself', () => {
       .loginAs(office)
       .redirects(0)
     refused.assertFlashMessage('error', it('flash.chargeRefused.cancelled'))
+
+    const closed = await createJob(await createCustomer())
+    await client.post(`/jobs/${closed.id}/close`).withCsrfToken().loginAs(office)
+    const refusedClosed = await client
+      .post(`/jobs/${closed.id}/charges`)
+      .form({ ...cost, vatKind: 'labour' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refusedClosed.assertFlashMessage('error', it('flash.chargeRefused.closed'))
     assert.lengthOf(await Charge.all(), 0)
   })
 

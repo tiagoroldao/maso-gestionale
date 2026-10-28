@@ -402,6 +402,18 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"cancel"]],
     types: placeholder as Registry['jobs.cancel']['types'],
   },
+  'jobs.close': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/close',
+    tokens: [[0,"jobs"],[1,"id"],[0,"close"]],
+    types: placeholder as Registry['jobs.close']['types'],
+  },
+  'jobs.reopen': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/reopen',
+    tokens: [[0,"jobs"],[1,"id"],[0,"reopen"]],
+    types: placeholder as Registry['jobs.reopen']['types'],
+  },
   'visits.create': {
     methods: ["GET","HEAD"],
     pattern: '/jobs/:id/visits/create',

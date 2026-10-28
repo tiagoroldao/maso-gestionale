@@ -582,10 +582,12 @@ export class ItemSchema extends BaseModel {
 }
 
 export class JobSchema extends BaseModel {
-  static $columns = ['cancelledAt', 'createdAt', 'customerId', 'description', 'id', 'sequence', 'siteId', 'status', 'title', 'updatedAt', 'workCategory', 'year'] as const
+  static $columns = ['cancelledAt', 'closedAt', 'createdAt', 'customerId', 'description', 'id', 'sequence', 'siteId', 'status', 'title', 'updatedAt', 'workCategory', 'year'] as const
   $columns = JobSchema.$columns
   @column.dateTime()
   declare cancelledAt: DateTime | null
+  @column.dateTime()
+  declare closedAt: DateTime | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()

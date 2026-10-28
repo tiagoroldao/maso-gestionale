@@ -271,6 +271,8 @@ export default class InvoicesController {
         lines: invoice.lines.map((line) => ({
           id: line.id,
           creditsLineId: line.creditsLineId,
+          vatRate: line.vatRate,
+          natura: line.natura,
           itemId: line.itemId,
           description: line.description,
           quantity: line.quantity,
@@ -369,7 +371,7 @@ export default class InvoicesController {
     })
 
     try {
-      const { belowPaid } = await Invoices.save(
+      const { belowPaid, creditedOverpaidBy } = await Invoices.save(
         invoice,
         {
           discountPercent: data.discountPercent,
@@ -382,6 +384,15 @@ export default class InvoicesController {
       // Saved all the same: the Invoice is now overpaid (ADR 0014)
       if (belowPaid) {
         session.flash('warning', i18n.t('flash.invoiceBelowPaid', { paid: formatMoney(belowPaid) }))
+      } else if (creditedOverpaidBy) {
+        const credited = await Invoice.findOrFail(invoice.creditsInvoiceId)
+        session.flash(
+          'warning',
+          `${i18n.t('flash.invoiceSaved')} ${i18n.t('flash.creditNoteOverpaid', {
+            number: credited.formattedNumber,
+            amount: formatMoney(creditedOverpaidBy),
+          })}`
+        )
       } else {
         session.flash('success', i18n.t('flash.invoiceSaved'))
       }
@@ -430,16 +441,8 @@ export default class InvoicesController {
     creditNote: Invoice,
     { session, i18n }: Pick<HttpContext, 'session' | 'i18n'>
   ) {
-    const credited = await Invoice.query()
-      .where('id', creditNote.creditsInvoiceId!)
-      .preload('payments')
-      .preload('creditNotes')
-      .firstOrFail()
-    const by = overpaidBy({
-      total: credited.total!,
-      credited: credited.credited,
-      paid: credited.paid,
-    })
+    const credited = await Invoice.findOrFail(creditNote.creditsInvoiceId)
+    const by = await db.transaction((trx) => Invoices.overpaidBy(trx, credited.id))
     const done = i18n.t('flash.creditNoteFinalised', { number: creditNote.formattedNumber })
     if (by) {
       session.flash(

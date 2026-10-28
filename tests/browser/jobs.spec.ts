@@ -3,6 +3,7 @@ import Job from '#models/job'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
+import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
 
 test.group('Jobs in the browser', () => {
@@ -28,5 +29,22 @@ test.group('Jobs in the browser', () => {
     assert.equal(job.customerId, customer.id)
     assert.equal(job.siteId, site.id)
     await page.getByText(it('ui.jobs.statuses.open'), { exact: true }).waitFor()
+  })
+
+  test('Office closes a Job, then reopens it', async ({ browserContext, visit, assert }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const job = await createJob(await createCustomer())
+
+    const page = await visit(`/jobs/${job.id}`)
+    await page.getByText(it('ui.jobs.nothingLeft')).waitFor()
+    await page.getByRole('button', { name: it('ui.jobs.close') }).click()
+    await page.getByText(it('ui.jobs.statuses.closed'), { exact: true }).waitFor()
+    await job.refresh()
+    assert.equal(job.status, 'closed')
+
+    await page.getByRole('button', { name: it('ui.jobs.reopen') }).click()
+    await page.getByText(it('ui.jobs.statuses.open'), { exact: true }).waitFor()
+    await job.refresh()
+    assert.equal(job.status, 'open')
   })
 })

@@ -1,7 +1,5 @@
 import { test } from '@japa/runner'
-import { DateTime } from 'luxon'
 import { isSettled, overpaidBy, owed, paymentStatus } from '#shared/payment_status'
-import { deriveJobStatus } from '#services/job_status'
 
 const due = '2026-11-30'
 const status = (paid: string, today: string, credited = '0') =>
@@ -48,35 +46,5 @@ test.group('Payment status', () => {
     assert.isTrue(isSettled(amounts('100')))
     assert.isFalse(isSettled(amounts('99.99')))
     assert.isFalse(isSettled(amounts('100.01')))
-  })
-})
-
-test.group('Job status from Invoices', () => {
-  const done = [
-    { status: 'done' as const, startsAt: DateTime.fromISO('2026-10-01'), survey: false },
-  ]
-
-  test('Invoiced once an Invoice is past draft; Closed when all are settled', ({ assert }) => {
-    const issued = (paid: string, credited = '0') => ({
-      status: 'finalised',
-      total: '100.00',
-      credited,
-      paid,
-    })
-    assert.equal(
-      deriveJobStatus('in_progress', done, [
-        { status: 'draft', total: null, credited: '0', paid: '0' },
-      ]),
-      'work_complete'
-    )
-    assert.equal(deriveJobStatus('in_progress', done, [issued('0')]), 'invoiced')
-    assert.equal(deriveJobStatus('in_progress', done, [issued('100')]), 'closed')
-    assert.equal(deriveJobStatus('open', [], [issued('100'), issued('40')]), 'invoiced')
-    assert.equal(deriveJobStatus('cancelled', done, [issued('100')]), 'cancelled')
-    // An overpaid Invoice isn't settled
-    assert.equal(deriveJobStatus('in_progress', done, [issued('100.01')]), 'invoiced')
-    // Credit Notes settle what they credit; crediting a paid Invoice overpays it
-    assert.equal(deriveJobStatus('in_progress', done, [issued('60', '40')]), 'closed')
-    assert.equal(deriveJobStatus('in_progress', done, [issued('100', '40')]), 'invoiced')
   })
 })

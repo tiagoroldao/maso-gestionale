@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { isClosedVisit } from '@shared/visits'
 import { computed, ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
@@ -16,6 +15,8 @@ type CalendarVisit = {
   status: string
   survey: boolean
   technicianIds: number[]
+  // Open, on a Job that takes new work: the server refuses moving the rest
+  movable: boolean
   job: { id: number; number: string; title: string; customer: string; site: string | null }
 }
 
@@ -140,11 +141,11 @@ const dragging = ref<{
 } | null>(null)
 
 /**
- * Closed Visits (done, or needing another visit) can't move: the server
- * refuses them too.
+ * Closed Visits (done, or needing another visit) and a closed Job's Visits
+ * can't move: the server refuses them too.
  */
 function isOpen(visit: CalendarVisit) {
-  return !isClosedVisit(visit.status)
+  return visit.movable
 }
 
 function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number) {

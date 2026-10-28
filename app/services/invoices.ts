@@ -29,6 +29,7 @@ import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
 import {
   creditRefusal,
+  credits,
   exceedsCredit,
   type CreditRefusal,
   type NumberingSeries,
@@ -51,11 +52,11 @@ export class InvoiceNotEditableError extends Error {}
  * The draft can't be finalised (or the deductions saved) yet: it has no
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
- * advance than is left, or an advance corrected below what issued
- * Invoices already took back of it. A Credit Note can't credit more than
- * is left of its Invoice's total after its other Credit Notes
- * (`creditTooLarge`), and each of its lines credits a line of that Invoice
- * (`uncreditedLine`).
+ * advance than is left, an advance corrected below what issued
+ * Invoices already took back of it, or an advance for a Job since closed.
+ * A Credit Note can't credit more than is left of its Invoice's total
+ * after its other Credit Notes (`creditTooLarge`), and each of its lines
+ * credits a line of that Invoice (`uncreditedLine`).
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
@@ -65,6 +66,7 @@ export class InvoiceNotFinalisableError extends Error {
       | 'negativeTotal'
       | 'deductionTooLarge'
       | 'belowDeducted'
+      | 'jobClosed'
       | 'creditTooLarge'
       | 'uncreditedLine'
   ) {
@@ -88,7 +90,7 @@ export type Deduction = { advanceId: number; amount: string }
 
 /**
  * The Job has nothing to invoice yet (no Charge to bill on the Job or its
- * closed Visits), or it was cancelled.
+ * closed Visits), or, for an Advance Invoice, it is closed or cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 
@@ -139,7 +141,8 @@ export default class Invoices {
   static async createAdvance(job: Job) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
+      // An advance is for work to come: none on a closed or cancelled Job
+      if (!locked.isActive) throw new JobNotInvoiceableError()
       const { labour: code } = await VatDefaults.forJob(locked, trx)
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft', advance: true },
@@ -246,14 +249,17 @@ export default class Invoices {
     const original = await Invoice.query({ client: trx })
       .where('id', creditNote.creditsInvoiceId!)
       .firstOrFail()
-    const others = await trx
+    // All that credits the Invoice, less this Credit Note as stored when it
+    // already counts (a rejected one being corrected)
+    const own = await trx
       .from('invoices')
-      .where('credits_invoice_id', original.id)
-      .whereNot('id', creditNote.id)
-      .whereNot('status', 'draft')
-      .sum('total as credited')
-      .first()
-    if (exceedsCredit(total, original.total!, new Big(others?.credited ?? 0).toFixed(2))) {
+      .where('id', creditNote.id)
+      .select('status', 'total')
+      .firstOrFail()
+    const others = new Big(await Payments.credited(trx, original.id)).minus(
+      credits(own.status) ? own.total : 0
+    )
+    if (exceedsCredit(total, original.total!, others.toFixed(2))) {
       throw new InvoiceNotFinalisableError('creditTooLarge')
     }
   }
@@ -454,8 +460,8 @@ export default class Invoices {
    */
   static async fromJob(job: Job) {
     return db.transaction(async (trx) => {
+      // Recorded work is billed whatever the Job's status (#111)
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
       const draft = await Invoice.query({ client: trx })
         .where('jobId', locked.id)
         .where('status', 'draft')
@@ -569,9 +575,10 @@ export default class Invoices {
       deductions?: Deduction[]
     },
     user: User | null = null
-  ): Promise<{ belowPaid: string | null }> {
+  ): Promise<{ belowPaid: string | null; creditedOverpaidBy: string | null }> {
     return this.whileIn(isEditable, invoice, async (trx, locked) => {
       let belowPaid: string | null = null
+      let creditedOverpaidBy: string | null = null
       // A prepared Submission's file may already be on SDI: no changes under it
       const open = await trx
         .from('invoice_submissions')
@@ -624,19 +631,32 @@ export default class Invoices {
             .where('invoiceId', locked.creditsInvoiceId!)
             .whereNull('deductsInvoiceId')
         : null
-      const creditable = creditedLines ? new Set(creditedLines.map((line) => line.id)) : null
-      const creditsLineOf = (line: InvoiceLineInput) => {
+      const creditable = creditedLines
+        ? new Map(creditedLines.map((line) => [line.id, line]))
+        : null
+      const creditedLineOf = (line: InvoiceLineInput) => {
         if (!creditable) return null
         const id = line.creditsLineId ?? (line.id ? byId.get(line.id)?.creditsLineId : null)
-        if (!id || !creditable.has(id)) throw new InvoiceNotFinalisableError('uncreditedLine')
-        return id
+        const credited = id ? creditable.get(id) : undefined
+        if (!credited) throw new InvoiceNotFinalisableError('uncreditedLine')
+        return credited
       }
       const values = entries.map((line, position) => {
-        const code = vat.get(line.vatCodeId)!
+        const credited = creditedLineOf(line)
+        // A Credit Note reverses VAT as the Invoice charged it, whatever
+        // the request says and whatever the VAT Code says now
+        const code = credited
+          ? {
+              id: credited.vatCodeId,
+              rate: credited.vatRate,
+              natura: credited.natura,
+              legalNote: credited.legalNote,
+            }
+          : vat.get(line.vatCodeId)!
         const discountPercent = line.discountPercent ?? '0'
         return {
           invoiceId: locked.id,
-          creditsLineId: creditsLineOf(line),
+          creditsLineId: credited?.id ?? null,
           position,
           itemId: line.itemId ?? null,
           description: line.description,
@@ -735,13 +755,34 @@ export default class Invoices {
           if (new Big(owed({ total: locked.total, credited, paid })).lt(0)) belowPaid = paid
         }
         await locked.save()
+        // A corrected Credit Note may leave its Invoice overpaid: warned
+        // about, as when finalising one
+        if (locked.isCreditNote) {
+          creditedOverpaidBy = await this.overpaidBy(trx, locked.creditsInvoiceId!)
+        }
       }
 
       if (soldBefore) {
         await this.rebookSale(trx, locked, soldBefore, await this.itemsSold(trx, locked.id), user)
       }
-      return { belowPaid }
+      return { belowPaid, creditedOverpaidBy }
     })
+  }
+
+  /**
+   * How much the Invoice `invoiceId` is overpaid by after its Credit Notes
+   * and Payments, read in `trx`; null when it isn't.
+   */
+  static async overpaidBy(trx: TransactionClientContract, invoiceId: number) {
+    const invoice = await Invoice.query({ client: trx }).where('id', invoiceId).firstOrFail()
+    const left = new Big(
+      owed({
+        total: invoice.total!,
+        credited: await Payments.credited(trx, invoiceId),
+        paid: await Payments.paid(trx, invoiceId),
+      })
+    )
+    return left.lt(0) ? left.abs().toFixed(2) : null
   }
 
   /**
@@ -810,6 +851,12 @@ export default class Invoices {
   static async finalise(invoice: Invoice, user: User | null = null) {
     const finalisable = (status: InvoiceStatus) => canTransition(status, 'finalise')
     return this.whileIn(finalisable, invoice, async (trx, locked) => {
+      // An advance is for work to come: not once its Job is closed or
+      // cancelled, as when drafting one (the Job is locked by whileIn)
+      if (locked.advance) {
+        const job = await Job.findOrFail(locked.jobId, { client: trx })
+        if (!job.isActive) throw new InvoiceNotFinalisableError('jobClosed')
+      }
       // Issued Invoices may have taken advances back since the draft was
       // saved: its deductions must still fit, their lines as they are now
       const regular = await InvoiceLine.query({ client: trx })
