@@ -57,6 +57,7 @@
   "visitItemAdded": "Materiale registrato.",
   "fieldWorkRefused": {
     "done": "L'intervento è chiuso e non si può più modificare.",
+    "cancelled": "La commessa è stata annullata: l'intervento non si può più modificare.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
     "noSite": "La commessa non ha un immobile: non si può registrare un'installazione."
   },

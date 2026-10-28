@@ -194,7 +194,8 @@ export default class JobsController {
 
   async cancel({ params, response, session, i18n }: HttpContext) {
     const job = await db.transaction(async (trx) => {
-      // Locked, so a Quote save or decision can't overwrite the cancellation
+      // Locked, so a Quote save or decision can't overwrite the cancellation.
+      // The Job's Visits are kept as history and closed to field work (FieldWork)
       const locked = await Job.query({ client: trx })
         .where('id', params.id)
         .forUpdate()

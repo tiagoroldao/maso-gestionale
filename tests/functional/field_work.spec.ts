@@ -1,5 +1,9 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import { existsSync, readdirSync } from 'node:fs'
+import { rm } from 'node:fs/promises'
+import app from '@adonisjs/core/services/app'
+import { storagePath } from '#services/storage'
 import Visit from '#models/visit'
 import VisitItem from '#models/visit_item'
 import LabourRate from '#models/labour_rate'
@@ -293,5 +297,92 @@ test.group('Field work', () => {
 
     const technicianJob = await client.get(`/jobs/${job.id}`).withInertia().loginAs(anna)
     technicianJob.assertStatus(403)
+  })
+})
+
+test.group("Field work on a cancelled Job's Visits", () => {
+  test('hours, Items, status changes, notes and photos are all refused', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, job, visit, rate, item } = await setup()
+    const hour = await visit
+      .related('hours')
+      .create({ userId: anna.id, labourRateId: rate.id, hours: '1', unitPrice: '40' })
+    const line = await visit
+      .related('items')
+      .create({ itemId: item.id, quantity: '1', unitPrice: '1200', installed: false })
+    await client
+      .post(`/jobs/${job.id}/cancel`)
+      .withCsrfToken()
+      .loginAs(await createUser('office'))
+
+    for (const request of [
+      client
+        .post(`/my-visits/${visit.id}/hours`)
+        .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '1' }),
+      client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
+      client.delete(`/visit-hours/${hour.id}`),
+      client.delete(`/visit-items/${line.id}`),
+      client.post(`/my-visits/${visit.id}/status`).form({ status: 'done' }),
+      client.post(`/my-visits/${visit.id}/notes`).form({ body: 'Lavoro finito' }),
+      client
+        .post(`/my-visits/${visit.id}/photos`)
+        .file('photo', app.makePath('tests/fixtures/logo.png')),
+    ]) {
+      const response = await request.withCsrfToken().loginAs(anna).redirects(0)
+      response.assertFlashMessage('error', it('flash.fieldWorkRefused.cancelled'))
+    }
+
+    await visit.refresh()
+    await visit.load('hours')
+    await visit.load('items')
+    await visit.load('fieldNotes')
+    await visit.load('photos')
+    assert.equal(visit.status, 'planned')
+    assert.lengthOf(visit.hours, 1)
+    assert.lengthOf(visit.items, 1)
+    // The refused photo's file was removed again
+    const folder = storagePath(`visits/${visit.id}`)
+    assert.isTrue(!existsSync(folder) || readdirSync(folder).length === 0)
+    assert.lengthOf(visit.fieldNotes, 0)
+    assert.lengthOf(visit.photos, 0)
+    assert.lengthOf(await StockMovement.all(), 0)
+  })
+
+  test('notes and photos still go on a closed Visit of an active Job', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit } = await setup()
+    visit.status = 'done'
+    await visit.save()
+
+    await client
+      .post(`/my-visits/${visit.id}/notes`)
+      .form({ body: 'Ricontrollato il giorno dopo' })
+      .withCsrfToken()
+      .loginAs(anna)
+    await client
+      .post(`/my-visits/${visit.id}/photos`)
+      .file('photo', app.makePath('tests/fixtures/logo.png'))
+      .withCsrfToken()
+      .loginAs(anna)
+
+    await visit.load('fieldNotes')
+    await visit.load('photos')
+    assert.lengthOf(visit.fieldNotes, 1)
+    assert.lengthOf(visit.photos, 1)
+    await rm(storagePath(), { recursive: true, force: true })
+  })
+
+  test("the Visit page shows a cancelled Job's Visit as read-only", async ({ client }) => {
+    const { anna, job, visit } = await setup()
+    job.merge({ status: 'cancelled', cancelledAt: DateTime.now() })
+    await job.save()
+
+    const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
+
+    page.assertInertiaPropsContains({ done: true })
   })
 })
