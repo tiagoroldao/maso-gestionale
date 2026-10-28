@@ -224,8 +224,10 @@ export class InstanceSettingSchema extends BaseModel {
 }
 
 export class InvoiceLineSchema extends BaseModel {
-  static $columns = ['description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
+  static $columns = ['deductsInvoiceId', 'description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
   $columns = InvoiceLineSchema.$columns
+  @column()
+  declare deductsInvoiceId: number | null
   @column()
   declare description: string
   @column()
@@ -313,8 +315,10 @@ export class InvoiceSubmissionSchema extends BaseModel {
 }
 
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'total', 'updatedAt', 'year'] as const
+  static $columns = ['advance', 'companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'deductedInId', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'total', 'updatedAt', 'year'] as const
   $columns = InvoiceSchema.$columns
+  @column()
+  declare advance: boolean
   @column()
   declare companySnapshot: any | null
   @column.dateTime({ autoCreate: true })
@@ -323,6 +327,8 @@ export class InvoiceSchema extends BaseModel {
   declare customerId: number
   @column()
   declare customerSnapshot: any | null
+  @column()
+  declare deductedInId: number | null
   @column()
   declare discountPercent: string
   @column.date()

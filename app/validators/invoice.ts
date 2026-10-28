@@ -1,8 +1,18 @@
 import vine from '@vinejs/vine'
+import type { FieldContext } from '@vinejs/vine/types'
 import { INVOICE_STAGES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
+
+/**
+ * An Item is never sold at a negative price; only deduction lines are.
+ */
+const noNegativeItemPrice = vine.createRule((value: unknown, _, field: FieldContext) => {
+  if (typeof value === 'string' && value.startsWith('-') && field.parent.itemId) {
+    field.report('The {{ field }} field must be a valid amount', 'amount', field)
+  }
+})
 
 // Capped with the price so a line total fits numeric(14,2)
 const LINE_QUANTITY_MAX = '99999'
@@ -49,13 +59,16 @@ export const invoiceValidator = vine
           quantity: vine
             .string()
             .use(quantityRule({ allowNegative: false, max: LINE_QUANTITY_MAX })),
+          // Negative only on a line without an Item: a deduction (Advance Invoices)
           unitPrice: vine
             .string()
-            .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: LINE_PRICE_MAX })),
+            .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: LINE_PRICE_MAX, signed: true }))
+            .use(noNegativeItemPrice()),
           discountPercent: vine
             .string()
             .use(amountRule({ decimals: 2, max: '100' }))
             .optional(),
+          deductsInvoiceId: vine.number().withoutDecimals().optional(),
           vatCodeId: vine.number().exists({
             table: 'vat_codes',
             column: 'id',

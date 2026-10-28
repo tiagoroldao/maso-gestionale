@@ -212,7 +212,7 @@ test.group('Draft Invoices', () => {
     const refused = await save(client, invoice, {
       discountPercent: '100',
       lines: [
-        { description: '', quantity: '0', unitPrice: '-1', vatCodeId: reduced.id },
+        { description: '', quantity: '0', unitPrice: '1,2,3', vatCodeId: reduced.id },
         { description: 'Nuova', quantity: '1', unitPrice: '1', vatCodeId: standard.id },
         { description: 'Senza IVA', quantity: '1', unitPrice: '1' },
       ],

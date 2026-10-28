@@ -121,6 +121,7 @@ export interface ApiDefinition {
     index: typeof routes['invoices.index']
     create: typeof routes['invoices.create']
     store: typeof routes['invoices.store']
+    storeAdvance: typeof routes['invoices.store_advance']
     storeFromJob: typeof routes['invoices.store_from_job']
     edit: typeof routes['invoices.edit']
     update: typeof routes['invoices.update']

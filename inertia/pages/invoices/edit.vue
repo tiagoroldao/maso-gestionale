@@ -30,6 +30,8 @@ type Line = {
   discountPercent: string
   vatCodeId: number
   significantGood: boolean
+  // Set on a line taking back an Advance Invoice
+  deductsInvoiceId: number | null
 }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
@@ -43,6 +45,7 @@ const props = defineProps<{
     dueOn: string | null
     customer: { id: number; displayName: string }
     job: { id: number; number: string } | null
+    advance: boolean
     discountPercent: string
     notes: string | null
     lines: {
@@ -54,6 +57,7 @@ const props = defineProps<{
       discountPercent: string
       vatCodeId: number
       significantGood: boolean
+      deductsInvoiceId: number | null
     }[]
   }
   editable: boolean
@@ -97,6 +101,7 @@ function linesFromProps(): Line[] {
     discountPercent: Number(line.discountPercent) ? trim(line.discountPercent) : '',
     vatCodeId: line.vatCodeId,
     significantGood: line.significantGood,
+    deductsInvoiceId: line.deductsInvoiceId,
   }))
 }
 
@@ -156,6 +161,7 @@ function totalsLine(line: Line): TotalsLine | null {
     discountPercent: discount?.toFixed() ?? '0',
     vatRate: code.rate,
     natura: code.natura,
+    deduction: line.deductsInvoiceId !== null,
   }
 }
 
@@ -189,6 +195,7 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     discountPercent: '',
     vatCodeId: defaultCode(item),
     significantGood: item.significantGood,
+    deductsInvoiceId: null,
   })
 }
 
@@ -203,6 +210,7 @@ function addFreeLine() {
     discountPercent: '',
     vatCodeId: defaultCode(null),
     significantGood: false,
+    deductsInvoiceId: null,
   })
 }
 
@@ -227,6 +235,7 @@ function save() {
         unitPrice: line.unitPrice,
         ...(line.discountPercent && { discountPercent: line.discountPercent }),
         vatCodeId: line.vatCodeId,
+        ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
       })),
     },
     {
@@ -290,6 +299,10 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
           {{ t('ui.invoices.backToList') }}
         </Link>
       </template>
+
+      <p v-if="invoice.advance" class="field__hint" data-testid="advance">
+        {{ t('ui.invoices.advanceHint') }}
+      </p>
 
       <Section>
         <p>

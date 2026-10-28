@@ -11,6 +11,8 @@ export type TotalsLine = {
   discountPercent?: string
   vatRate: string
   natura: string | null
+  /** Takes back an Advance Invoice: the global discount never applies */
+  deduction?: boolean
 }
 
 /**
@@ -49,8 +51,10 @@ export function invoiceLineTotal(quantity: string, unitPrice: string, discountPe
 
 /**
  * Splits `amount` (in cents) across `weights` in proportion, so the parts
- * add up exactly: each gets its rounded-down share, and the cents left go
- * to the largest remainders (ties to the first).
+ * add up exactly. Weights may be negative (a deduction line's VAT row):
+ * each part is first rounded toward zero, then the cents left go, in the
+ * direction they're missing, to the parts whose exact share is furthest
+ * that way (ties to the first).
  */
 function splitProportionally(amount: Big, weights: Big[]) {
   const sum = weights.reduce((acc, weight) => acc.plus(weight), new Big(0))
@@ -58,32 +62,40 @@ function splitProportionally(amount: Big, weights: Big[]) {
   const exact = weights.map((weight) => amount.times(weight).div(sum))
   const parts = exact.map((value) => value.round(2, Big.roundDown))
   let left = amount.minus(parts.reduce((acc, part) => acc.plus(part), new Big(0)))
+  const step = new Big(left.lt(0) ? '-0.01' : '0.01')
   const byRemainder = exact
-    .map((value, index) => ({ index, remainder: value.minus(parts[index]) }))
+    .map((value, index) => ({ index, remainder: value.minus(parts[index]).times(step.s) }))
     .sort((a, b) => b.remainder.cmp(a.remainder) || a.index - b.index)
   for (const { index } of byRemainder) {
-    if (left.lte(0)) break
-    parts[index] = parts[index].plus('0.01')
-    left = left.minus('0.01')
+    if (left.eq(0)) break
+    parts[index] = parts[index].plus(step)
+    left = left.minus(step)
   }
   return parts
 }
 
 /**
  * The Invoice's totals and VAT summary. The global discount percentage is
- * applied to the lines' total before VAT and split across the summary
- * rows in proportion to their amounts; VAT is then worked out per row,
- * rounded half-up to the cent.
+ * applied to the total before VAT of the lines billing work (deduction
+ * lines excluded) and split across the summary rows in proportion to
+ * those amounts; VAT is then worked out per row, rounded half-up to the
+ * cent.
  */
 export function invoiceTotals(lines: TotalsLine[], discountPercent = '0'): InvoiceTotals {
-  const groups = new Map<string, { vatRate: string; natura: string | null; amount: Big }>()
+  type Group = { vatRate: string; natura: string | null; amount: Big; discountable: Big }
+  const groups = new Map<string, Group>()
   for (const line of lines) {
     const vatRate = new Big(line.vatRate).toFixed(2)
     const key = `${vatRate}|${line.natura ?? ''}`
-    const group = groups.get(key) ?? { vatRate, natura: line.natura, amount: new Big(0) }
-    group.amount = group.amount.plus(
-      invoiceLineTotal(line.quantity, line.unitPrice, line.discountPercent)
-    )
+    const group = groups.get(key) ?? {
+      vatRate,
+      natura: line.natura,
+      amount: new Big(0),
+      discountable: new Big(0),
+    }
+    const amount = new Big(invoiceLineTotal(line.quantity, line.unitPrice, line.discountPercent))
+    group.amount = group.amount.plus(amount)
+    if (!line.deduction) group.discountable = group.discountable.plus(amount)
     groups.set(key, group)
   }
 
@@ -92,10 +104,12 @@ export function invoiceTotals(lines: TotalsLine[], discountPercent = '0'): Invoi
     (a, b) => new Big(b.vatRate).cmp(a.vatRate) || (a.natura ?? '').localeCompare(b.natura ?? '')
   )
   const linesTotal = rows.reduce((sum, row) => sum.plus(row.amount), new Big(0))
-  const discount = cents(linesTotal.times(discountPercent).div(100))
+  // On the work billed; an advance is always taken back in full
+  const discountable = rows.reduce((sum, row) => sum.plus(row.discountable), new Big(0))
+  const discount = cents(discountable.times(discountPercent).div(100))
   const shares = splitProportionally(
     discount,
-    rows.map((row) => row.amount)
+    rows.map((row) => row.discountable)
   )
 
   const summary = rows.map((row, index) => {

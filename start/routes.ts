@@ -205,6 +205,9 @@ router
         router.get('invoices/create', [controllers.Invoices, 'create'])
         router.post('invoices', [controllers.Invoices, 'store'])
         router
+          .post('jobs/:id/advance-invoices', [controllers.Invoices, 'storeAdvance'])
+          .where('id', router.matchers.number())
+        router
           .post('jobs/:id/invoices', [controllers.Invoices, 'storeFromJob'])
           .where('id', router.matchers.number())
         router

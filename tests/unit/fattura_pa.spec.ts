@@ -45,6 +45,7 @@ type Line = {
   natura?: string | null
   discountPercent?: string
   legalNote?: string | null
+  deduction?: boolean
 }
 
 function input(lines: Line[], extra: Partial<FatturaInput> = {}, discount = '0'): FatturaInput {
@@ -58,9 +59,11 @@ function input(lines: Line[], extra: Partial<FatturaInput> = {}, discount = '0')
     natura: line.natura ?? null,
     lineTotal: invoiceLineTotal(line.quantity, line.unitPrice, line.discountPercent ?? '0'),
     legalNote: line.legalNote ?? null,
+    deduction: line.deduction,
   }))
   return {
     progressive: '0000A',
+    documentType: 'TD01',
     number: '12/2026',
     issuedOn: '2026-10-28',
     dueOn: '2026-11-30',
@@ -116,6 +119,64 @@ test.group('FatturaPA XML', () => {
     assert.deepEqual(tag(xml, 'ModalitaPagamento'), ['MP05'])
     assert.deepEqual(tag(xml, 'IBAN'), ['IT60X0542811101000000123456'])
     assert.deepEqual(tag(xml, 'EsigibilitaIVA'), ['I'])
+  })
+
+  test('an Advance Invoice is TD02', async ({ assert }) => {
+    const xml = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '300', vatRate: '22' }], { documentType: 'TD02' })
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assert.deepEqual(tag(xml, 'TipoDocumento'), ['TD02'])
+  })
+
+  test('the final Invoice takes an advance back with a negative line', async ({ assert }) => {
+    const xml = buildFatturaPA(
+      input(
+        [
+          { quantity: '1', unitPrice: '1000', vatRate: '22' },
+          {
+            description: 'Detrazione acconto fattura 3/2026 del 01/10/2026',
+            quantity: '1',
+            unitPrice: '-300',
+            vatRate: '22',
+            deduction: true,
+          },
+        ],
+        {},
+        '10'
+      )
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assertSummaryAddsUp(xml, assert)
+    // 1000 less 10% = 900, less the 300 advance = 600, plus 22% VAT
+    assert.deepEqual(tag(xml, 'ImportoTotaleDocumento'), ['732.00'])
+  })
+
+  test('an advance taken back at a rate the work does not use: a negative row', async ({
+    assert,
+  }) => {
+    const xml = buildFatturaPA(
+      input(
+        [
+          { quantity: '1', unitPrice: '1000', vatRate: '10' },
+          {
+            description: 'Detrazione acconto',
+            quantity: '1',
+            unitPrice: '-300',
+            vatRate: '22',
+            deduction: true,
+          },
+        ],
+        {},
+        '10'
+      )
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assertSummaryAddsUp(xml, assert)
+    assert.deepEqual(tag(xml, 'ImponibileImporto'), ['-300.00', '900.00'])
   })
 
   test('10% residential maintenance', async ({ assert }) => {

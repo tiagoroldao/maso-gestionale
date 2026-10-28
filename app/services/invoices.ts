@@ -54,7 +54,10 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * details an invoice must carry are missing from Company settings.
  */
 export class InvoiceNotFinalisableError extends Error {
-  constructor(readonly reason: 'empty' | 'companyIncomplete') {
+  constructor(
+    readonly reason:
+      'empty' | 'companyIncomplete' | 'negativeTotal' | 'deductionsChanged' | 'jobInvoiced'
+  ) {
     super(reason)
   }
 }
@@ -78,6 +81,8 @@ export type InvoiceLineInput = {
   unitPrice: string
   discountPercent?: string
   vatCodeId: number
+  // A deduction line keeps the Advance Invoice it takes back
+  deductsInvoiceId?: number
 }
 
 /**
@@ -95,6 +100,101 @@ export default class Invoices {
    */
   static fromJob(job: Job) {
     return job.kind === 'quoted' ? this.fromQuote(job) : this.fromTimeAndMaterials(job)
+  }
+
+  /**
+   * A draft Advance Invoice for part of a Job (FatturaPA TD02): one line
+   * for Office to price, on the Job's default VAT for labour.
+   */
+  static async createAdvance(job: Job) {
+    return db.transaction(async (trx) => {
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
+      // Once the Quote's Invoice exists, nothing could take an advance back
+      if (locked.kind === 'quoted') {
+        const own = await Invoice.query({ client: trx })
+          .where('jobId', locked.id)
+          .where('advance', false)
+          .first()
+        if (own) throw new JobNotInvoiceableError()
+      }
+      const { labour: code } = await VatDefaults.forJob(locked, trx)
+      const invoice = await Invoice.create(
+        { customerId: locked.customerId, jobId: locked.id, status: 'draft', advance: true },
+        { client: trx }
+      )
+      await InvoiceLine.create(
+        {
+          invoiceId: invoice.id,
+          position: 0,
+          description: `Acconto – ${locked.number} ${locked.title}`,
+          quantity: '1',
+          unitPrice: '0',
+          discountPercent: '0',
+          vatCodeId: code.id,
+          vatRate: code.rate,
+          natura: code.natura,
+          legalNote: code.legalNote,
+          lineTotal: '0.00',
+        },
+        { client: trx }
+      )
+      return invoice
+    })
+  }
+
+  /**
+   * Takes back the Job's issued Advance Invoices on its final Invoice: one
+   * negative line per Advance Invoice and VAT treatment, for its taxable
+   * amount, naming the Advance Invoice. Each is marked as deducted here,
+   * and freed again if this draft is deleted. Runs with the Job locked.
+   */
+  private static async addDeductions(
+    trx: TransactionClientContract,
+    jobId: number,
+    invoice: Invoice,
+    firstPosition: number
+  ) {
+    const advances = await Invoice.query({ client: trx })
+      .where('jobId', jobId)
+      .where('advance', true)
+      .whereNot('status', 'draft')
+      .whereNull('deductedInId')
+      .preload('lines', (lines) => lines.orderBy('position'))
+      .orderBy('id')
+      .forUpdate()
+    let position = firstPosition
+    for (const advance of advances) {
+      const label = `Detrazione acconto fattura ${advance.formattedNumber} del ${advance.issuedOn!.toFormat('dd/MM/yyyy')}`
+      for (const row of advance.totals.summary) {
+        if (new Big(row.taxable).eq(0)) continue
+        // The VAT Code of a line in that row, copied as the advance had it
+        const source = advance.lines.find(
+          (line) => Number(line.vatRate) === Number(row.vatRate) && line.natura === row.natura
+        )!
+        const unitPrice = new Big(row.taxable).neg().toFixed(2)
+        await InvoiceLine.create(
+          {
+            invoiceId: invoice.id,
+            position: position++,
+            deductsInvoiceId: advance.id,
+            description: label,
+            quantity: '1',
+            unitPrice,
+            discountPercent: '0',
+            vatCodeId: source.vatCodeId,
+            vatRate: source.vatRate,
+            natura: source.natura,
+            legalNote: source.legalNote,
+            lineTotal: invoiceLineTotal('1', unitPrice),
+          },
+          { client: trx }
+        )
+      }
+      await Invoice.query({ client: trx })
+        .where('id', advance.id)
+        .update({ deducted_in_id: invoice.id })
+    }
   }
 
   /**
@@ -116,6 +216,7 @@ export default class Invoices {
       const draft = await Invoice.query({ client: trx })
         .where('jobId', locked.id)
         .where('status', 'draft')
+        .where('advance', false)
         .first()
       if (draft) return draft
 
@@ -177,6 +278,13 @@ export default class Invoices {
       const itemIds = work.flatMap(({ line }) => (line ? [line.id] : []))
       await trx.from('visit_hours').whereIn('id', hourIds).update({ invoice_id: invoice.id })
       await trx.from('visit_items').whereIn('id', itemIds).update({ invoice_id: invoice.id })
+      // The advances are taken back by the draft that bills the last of the
+      // work: none while Visits are still to come
+      const moreWork = await Visit.query({ client: trx })
+        .where('jobId', locked.id)
+        .whereIn('status', ['planned', 'in_progress'])
+        .first()
+      if (!moreWork) await this.addDeductions(trx, locked.id, invoice, work.length)
       return invoice
     })
   }
@@ -186,8 +294,9 @@ export default class Invoices {
    * same prices and the VAT treatment the Customer accepted (copied from
    * the Quote's lines, not re-read from today's VAT Codes). Text lines and
    * the Quote's notes become the Invoice's notes. The Quote is invoiced
-   * once: if the Job already has an Invoice, whatever its stage, that one
-   * is returned instead of a second.
+   * once: if the Job already has its Invoice (Advance Invoices don't
+   * count), whatever its stage, that one is returned instead of a second.
+   * Issued Advance Invoices are taken back on it.
    */
   static async fromQuote(job: Job) {
     return db.transaction(async (trx) => {
@@ -203,7 +312,11 @@ export default class Invoices {
       ) {
         throw new JobNotInvoiceableError()
       }
-      const existing = await Invoice.query({ client: trx }).where('jobId', locked.id).first()
+      // The Quote is invoiced once; Advance Invoices are taken back on it
+      const existing = await Invoice.query({ client: trx })
+        .where('jobId', locked.id)
+        .where('advance', false)
+        .first()
       if (existing) return existing
 
       const texts = quote.lines.filter((line) => line.kind === 'text')
@@ -233,6 +346,7 @@ export default class Invoices {
         })),
         { client: trx }
       )
+      await this.addDeductions(trx, locked.id, invoice, priced.length)
       return invoice
     })
   }
@@ -281,6 +395,10 @@ export default class Invoices {
       const items = itemIds.length ? await Item.query({ client: trx }).whereIn('id', itemIds) : []
       const units = new Map(items.map((item) => [item.id, item.unit]))
 
+      // Only advances this Invoice takes back can have deduction lines
+      const advances = await trx.from('invoices').where('deducted_in_id', locked.id).select('id')
+      const deducted = new Set(advances.map((row) => row.id as number))
+
       await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id).delete()
       await InvoiceLine.createMany(
         input.lines.map((line, position) => {
@@ -290,6 +408,10 @@ export default class Invoices {
             invoiceId: locked.id,
             position,
             itemId: line.itemId ?? null,
+            deductsInvoiceId:
+              line.deductsInvoiceId && deducted.has(line.deductsInvoiceId)
+                ? line.deductsInvoiceId
+                : null,
             description: line.description,
             quantity: line.quantity,
             // An Item's own unit; otherwise what the line carried (e.g. "h")
@@ -306,10 +428,13 @@ export default class Invoices {
         { client: trx }
       )
 
-      // A corrected Invoice's total changes with its lines
+      // A corrected Invoice's total changes with its lines; it must still
+      // be one that could be issued
       if (locked.status !== 'draft') {
         const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
         locked.total = this.totalOf(lines, locked.discountPercent)
+        if (new Big(locked.total).lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+        await this.checkDeductions(trx, locked, lines)
         // Payments are recorded with this Invoice locked: the sum is current
         const paid = await trx
           .from('payments')
@@ -331,13 +456,7 @@ export default class Invoices {
    */
   private static totalOf(lines: InvoiceLine[], discountPercent: string) {
     return invoiceTotals(
-      lines.map((line) => ({
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountPercent: line.discountPercent,
-        vatRate: line.vatRate,
-        natura: line.natura,
-      })),
+      lines.map((line) => line.totalsLine),
       discountPercent
     ).total
   }
@@ -397,57 +516,127 @@ export default class Invoices {
    */
   static async finalise(invoice: Invoice, user: User | null = null) {
     const finalisable = (status: InvoiceStatus) => canTransition(status, 'finalise')
-    return this.whileIn(finalisable, invoice, async (trx, locked) => {
-      const lines = await InvoiceLine.query({ client: trx })
-        .where('invoiceId', locked.id)
-        .orderBy('position')
-      if (!lines.length) throw new InvoiceNotFinalisableError('empty')
-      const issuer = this.companySnapshot(await CompanySettings.current())
-      if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
-      const customer = await Customer.query({ client: trx })
-        .where('id', locked.customerId)
-        .preload('paymentTerms')
-        .firstOrFail()
+    return this.whileIn(
+      finalisable,
+      invoice,
+      async (trx, locked) => {
+        const lines = await InvoiceLine.query({ client: trx })
+          .where('invoiceId', locked.id)
+          .orderBy('position')
+        if (!lines.length) throw new InvoiceNotFinalisableError('empty')
+        const total = new Big(this.totalOf(lines, locked.discountPercent))
+        if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+        // An advance of nothing would only add empty deduction lines
+        if (locked.advance && total.eq(0)) throw new InvoiceNotFinalisableError('empty')
+        await this.checkDeductions(trx, locked, lines)
+        if (locked.advance) await this.checkAdvanceStillDeductible(trx, locked)
+        const issuer = this.companySnapshot(await CompanySettings.current())
+        if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
+        const customer = await Customer.query({ client: trx })
+          .where('id', locked.customerId)
+          .preload('paymentTerms')
+          .firstOrFail()
 
-      // Dated after the lock, so a later number never gets an earlier date
-      // than one finalised while this one waited, and the year always
-      // matches the date (even at midnight on 31 December)
-      await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
-      const today = DateTime.now().startOf('day')
-      locked.merge({
-        status: transition(locked.status, 'finalise'),
-        total: this.totalOf(lines, locked.discountPercent),
-        year: today.year,
-        number: await this.takeNumber(trx, today.year),
-        issuedOn: today,
-        dueOn: customer.paymentTerms.dueDate(today),
-        paymentMethod: customer.paymentTerms.paymentMethod,
-        customerSnapshot: this.customerSnapshot(customer),
-        companySnapshot: issuer,
-        finalisedAt: DateTime.now(),
-      })
-      await locked.save()
-
-      // Items sold without a Job leave the Warehouse now (a Job's Items left
-      // through its Visits); locked in id order so two Invoices sharing
-      // Items can't deadlock
-      const sold = locked.jobId ? [] : lines.filter((line) => line.itemId)
-      const ids = [...new Set(sold.map((line) => line.itemId!))].sort((a, b) => a - b)
-      const items = ids.length
-        ? await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()
-        : []
-      const byId = new Map(items.map((item) => [item.id, item]))
-      for (const line of sold) {
-        await StockLedger.sell(byId.get(line.itemId!)!, {
-          quantity: line.quantity,
-          occurredOn: today,
-          reference: locked.formattedNumber,
-          user,
-          client: trx,
+        // Dated after the lock, so a later number never gets an earlier date
+        // than one finalised while this one waited, and the year always
+        // matches the date (even at midnight on 31 December)
+        await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
+        const today = DateTime.now().startOf('day')
+        locked.merge({
+          status: transition(locked.status, 'finalise'),
+          total: this.totalOf(lines, locked.discountPercent),
+          year: today.year,
+          number: await this.takeNumber(trx, today.year),
+          issuedOn: today,
+          dueOn: customer.paymentTerms.dueDate(today),
+          paymentMethod: customer.paymentTerms.paymentMethod,
+          customerSnapshot: this.customerSnapshot(customer),
+          companySnapshot: issuer,
+          finalisedAt: DateTime.now(),
         })
+        await locked.save()
+
+        // Items sold without a Job leave the Warehouse now (a Job's Items left
+        // through its Visits); locked in id order so two Invoices sharing
+        // Items can't deadlock
+        const sold = locked.jobId ? [] : lines.filter((line) => line.itemId)
+        const ids = [...new Set(sold.map((line) => line.itemId!))].sort((a, b) => a - b)
+        const items = ids.length
+          ? await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()
+          : []
+        const byId = new Map(items.map((item) => [item.id, item]))
+        for (const line of sold) {
+          await StockLedger.sell(byId.get(line.itemId!)!, {
+            quantity: line.quantity,
+            occurredOn: today,
+            reference: locked.formattedNumber,
+            user,
+            client: trx,
+          })
+        }
+        return locked
+      },
+      { lockJob: true }
+    )
+  }
+
+  /**
+   * Each advance this Invoice takes back must still be taken back in full
+   * by its deduction lines (Office may have edited or removed them).
+   */
+  private static async checkDeductions(
+    trx: TransactionClientContract,
+    invoice: Invoice,
+    lines: InvoiceLine[]
+  ) {
+    const advances = await Invoice.query({ client: trx })
+      .where('deductedInId', invoice.id)
+      .preload('lines')
+    // Per advance and VAT treatment: moving a deduction to another rate
+    // would hand back the wrong VAT
+    const rowKey = (rate: string, natura: string | null) =>
+      `${new Big(rate).toFixed(2)}|${natura ?? ''}`
+    const deducted = (id: number) => {
+      const rows = new Map<string, Big>()
+      for (const line of lines.filter((l) => l.deductsInvoiceId === id)) {
+        const key = rowKey(line.vatRate, line.natura)
+        rows.set(key, (rows.get(key) ?? new Big(0)).plus(line.lineTotal))
       }
-      return locked
-    })
+      return rows
+    }
+    const owed = (advance: Invoice) =>
+      new Map(
+        advance.totals.summary
+          .filter((row) => !new Big(row.taxable).eq(0))
+          .map((row) => [rowKey(row.vatRate, row.natura), new Big(row.taxable).neg()])
+      )
+    const sameRows = (a: Map<string, Big>, b: Map<string, Big>) =>
+      a.size === b.size && [...a].every(([key, value]) => b.get(key)?.eq(value))
+    const ids = new Set(advances.map((advance) => advance.id))
+    const intact =
+      lines.every((line) => line.deductsInvoiceId === null || ids.has(line.deductsInvoiceId)) &&
+      advances.every((advance) => sameRows(deducted(advance.id), owed(advance)))
+    if (!intact) throw new InvoiceNotFinalisableError('deductionsChanged')
+  }
+
+  /**
+   * An advance issued now must be taken back by an Invoice still to come:
+   * not once the Quote's Invoice exists, nor while a draft of the Job's
+   * own Invoice waits (it was drafted without this advance).
+   */
+  private static async checkAdvanceStillDeductible(
+    trx: TransactionClientContract,
+    advance: Invoice
+  ) {
+    const job = await Job.query({ client: trx }).where('id', advance.jobId!).firstOrFail()
+    const own = await Invoice.query({ client: trx })
+      .where('jobId', job.id)
+      .where('advance', false)
+      .where((query) => {
+        if (job.kind === 'time_and_materials') query.where('status', 'draft')
+      })
+      .first()
+    if (own) throw new InvoiceNotFinalisableError('jobInvoiced')
   }
 
   /**
@@ -560,9 +749,15 @@ export default class Invoices {
   private static whileIn<T>(
     allowed: (status: InvoiceStatus) => boolean,
     invoice: Invoice,
-    work: (trx: TransactionClientContract, locked: Invoice) => Promise<T>
+    work: (trx: TransactionClientContract, locked: Invoice) => Promise<T>,
+    { lockJob = false } = {}
   ) {
     return db.transaction(async (trx) => {
+      // The Job first, in the order deductions take them (Job, then Invoices)
+      if (lockJob) {
+        const row = await trx.from('invoices').where('id', invoice.id).select('job_id').first()
+        if (row?.job_id) await trx.from('jobs').where('id', row.job_id).forUpdate().first()
+      }
       const locked = await Invoice.query({ client: trx })
         .where('id', invoice.id)
         .forUpdate()

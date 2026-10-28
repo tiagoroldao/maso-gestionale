@@ -141,7 +141,9 @@ export default class JobsController {
     const amounts = work.map((line) => line.amount)
 
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
-    const quote = await job.related('quote').query().first()
+    const quote = await job.related('quote').query().preload('lines').first()
+    // Advance Invoices don't count as the Job's own Invoice (#23)
+    const ownInvoices = invoices.filter((invoice) => !invoice.advance)
 
     return inertia.render('jobs/show', {
       invoices: invoices.map((invoice) => ({
@@ -149,14 +151,15 @@ export default class JobsController {
         number: invoice.formattedNumber,
         status: invoice.status,
         total: invoice.totals.total,
+        advance: invoice.advance,
       })),
       // Never for a cancelled Job; a Quote once, Time & Materials work as
       // long as some is unbilled and no draft is waiting
       canInvoice:
         job.status !== 'cancelled' &&
         (job.kind === 'quoted'
-          ? invoices.length === 0 && quote?.status === 'accepted'
-          : !invoices.some((invoice) => invoice.status === 'draft') &&
+          ? ownInvoices.length === 0 && quote?.status === 'accepted'
+          : !ownInvoices.some((invoice) => invoice.status === 'draft') &&
             hasBillableWork(
               job.visits.map((visit) => ({
                 status: visit.status,
@@ -165,6 +168,24 @@ export default class JobsController {
                   visit.items.filter((line) => line.invoiceId === null).length,
               }))
             )),
+      // On a Quoted Job, only before the Quote's Invoice, which takes them back
+      canInvoiceAdvance:
+        job.status !== 'cancelled' && (job.kind !== 'quoted' || ownInvoices.length === 0),
+      // Taxable amounts: what issued Invoices billed (deductions net out the
+      // advances) against the accepted Quote or the work recorded
+      invoicedSoFar: {
+        amount: sumAmounts(
+          invoices
+            .filter((invoice) => invoice.status !== 'draft')
+            .map((invoice) => invoice.totals.taxable)
+        ),
+        of:
+          job.kind === 'quoted'
+            ? quote?.status === 'accepted'
+              ? quote.taxable
+              : null
+            : sumAmounts(amounts),
+      },
       timeAndMaterials: {
         total: sumAmounts(amounts),
         billed: sumAmounts(work.filter((line) => line.billed).map((line) => line.amount)),

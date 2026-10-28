@@ -106,13 +106,7 @@ export default class Invoice extends InvoiceSchema {
    */
   get totals() {
     return invoiceTotals(
-      this.lines.map((line) => ({
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        discountPercent: line.discountPercent,
-        vatRate: line.vatRate,
-        natura: line.natura,
-      })),
+      this.lines.map((line) => line.totalsLine),
       this.discountPercent
     )
   }

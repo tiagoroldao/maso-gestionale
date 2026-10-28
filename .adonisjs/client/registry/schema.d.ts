@@ -982,6 +982,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'invoices.store_advance': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/advance-invoices'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeAdvance']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeAdvance']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeAdvance']>>>
+    }
+  }
   'invoices.store_from_job': {
     methods: ["POST"]
     pattern: '/jobs/:id/invoices'

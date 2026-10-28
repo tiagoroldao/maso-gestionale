@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import Big from 'big.js'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '#shared/invoice_totals'
 
 const line = (
@@ -116,6 +117,37 @@ test.group('Invoice totals', () => {
     // Three lines of 0.10 at 22%: per line 0.022 → 0.02 ×3 = 0.06; per rate 0.066 → 0.07
     const totals = invoiceTotals([line('1', '0.10'), line('1', '0.10'), line('1', '0.10')])
     assert.equal(totals.vat, '0.07')
+  })
+
+  test('a deduction line reduces its VAT row, and the discount still adds up', ({ assert }) => {
+    // 22%: 1000 − 300 deducted = 700; 10%: 500; 10% discount = 120 → 70 + 50
+    const totals = invoiceTotals(
+      [line('1', '1000'), line('1', '500', '10'), line('1', '-300')],
+      '10'
+    )
+    assert.deepEqual(
+      totals.summary.map((row) => [
+        row.vatRate,
+        row.linesTotal,
+        row.discount,
+        row.taxable,
+        row.vat,
+      ]),
+      [
+        ['22.00', '700.00', '70.00', '630.00', '138.60'],
+        ['10.00', '500.00', '50.00', '450.00', '45.00'],
+      ]
+    )
+    assert.equal(totals.total, '1263.60')
+  })
+
+  test('a negative VAT row takes a negative share of the discount, to the cent', ({ assert }) => {
+    // 22%: 100.01; 10%: −40.02 (an advance larger than this rate's work)
+    const totals = invoiceTotals([line('1', '100.01'), line('1', '-40.02', '10')], '3.33')
+    const shares = totals.summary.map((row) => new Big(row.discount))
+    assert.equal(shares[0].plus(shares[1]).toFixed(2), totals.discount)
+    assert.isTrue(shares[0].gt(0))
+    assert.isTrue(shares[1].lt(0))
   })
 
   test('an empty invoice totals zero', ({ assert }) => {

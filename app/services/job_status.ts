@@ -58,19 +58,26 @@ const UNPAID_SQL = `EXISTS (SELECT 1 FROM invoices i
     AND i.total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = i.id))`
 
 /**
- * A Time & Materials Job still has work to bill: a Visit not yet closed,
- * or hours or Items no Invoice billed yet or only a draft holds. Until
- * then an issued Invoice was a partial one and the Job isn't Invoiced.
+ * A Job still has something to bill, so an issued Invoice was a partial
+ * one and the Job isn't Invoiced yet:
+ * - a Time & Materials Job with a Visit not yet closed, or hours or Items
+ *   no Invoice billed yet or only a draft holds;
+ * - any Job with an issued Advance Invoice not yet taken back on an issued
+ *   Invoice (its final Invoice is still to come, or still a draft).
  */
 const unbilled = (table: string) => `EXISTS (SELECT 1 FROM ${table} w
     JOIN visits v ON v.id = w.visit_id
     LEFT JOIN invoices bi ON bi.id = w.invoice_id
     WHERE v.job_id = jobs.id AND (w.invoice_id IS NULL OR bi.status = 'draft'))`
-export const BILLING_OPEN_SQL = `(jobs.kind = 'time_and_materials' AND (
+export const BILLING_OPEN_SQL = `((jobs.kind = 'time_and_materials' AND (
   EXISTS (SELECT 1 FROM visits v
     WHERE v.job_id = jobs.id AND v.status IN ('planned', 'in_progress'))
   OR ${unbilled('visit_hours')}
-  OR ${unbilled('visit_items')}))`
+  OR ${unbilled('visit_items')}))
+  OR EXISTS (SELECT 1 FROM invoices a
+    LEFT JOIN invoices fi ON fi.id = a.deducted_in_id
+    WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
+      AND (a.deducted_in_id IS NULL OR fi.status = 'draft')))`
 
 const FULLY_INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
 
