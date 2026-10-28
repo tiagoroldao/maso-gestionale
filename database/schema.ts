@@ -166,6 +166,27 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class InstanceSettingSchema extends BaseModel {
+  static $columns = ['id', 'invoicetronicApiKey', 'pollingMinutes', 'publicUrl', 'sdiMode', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
+  $columns = InstanceSettingSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoicetronicApiKey: string | null
+  @column()
+  declare pollingMinutes: number
+  @column()
+  declare publicUrl: string | null
+  @column()
+  declare sdiMode: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare webhookEnabled: boolean
+  @column()
+  declare webhookSecret: string | null
+}
+
 export class InvoiceLineSchema extends BaseModel {
   static $columns = ['description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
   $columns = InvoiceLineSchema.$columns

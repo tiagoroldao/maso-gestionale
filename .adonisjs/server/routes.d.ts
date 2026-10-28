@@ -133,6 +133,8 @@ export type ScannedRoutes = {
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'instance': { paramsTuple?: []; params?: {} }
+    'instance.update': { paramsTuple?: []; params?: {} }
+    'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
     'setup.create': { paramsTuple?: []; params?: {} }
@@ -326,6 +328,8 @@ export type ScannedRoutes = {
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'instance.update': { paramsTuple?: []; params?: {} }
+    'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {
     'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

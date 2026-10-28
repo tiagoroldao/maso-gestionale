@@ -9,6 +9,7 @@ import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
 import VatDefaults from '#services/vat_defaults'
 import Invoices, {
+  InvoiceBelowPaidError,
   InvoiceNotEditableError,
   InvoiceNotFinalisableError,
   JobNotInvoiceableError,
@@ -21,6 +22,7 @@ import Submissions, {
   NoticeBeforeSubmissionError,
   SubmissionRefusedError,
 } from '#services/submissions'
+import { formatMoney } from '#shared/money'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
@@ -260,6 +262,8 @@ export default class InvoicesController {
         session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
       } else if (error instanceof InvoiceNotEditableError) {
         session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      } else if (error instanceof InvoiceBelowPaidError) {
+        session.flash('error', i18n.t('flash.invoiceBelowPaid', { paid: formatMoney(error.paid) }))
       } else {
         throw error
       }

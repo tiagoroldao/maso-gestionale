@@ -4,7 +4,7 @@ import vine from '@vinejs/vine'
  * Shared rules for email and password.
  */
 const email = () => vine.string().email().maxLength(254)
-const password = () => vine.string().minLength(8).maxLength(32)
+export const password = () => vine.string().minLength(8).maxLength(32)
 
 /**
  * The roles an Admin may give to the accounts they manage.
