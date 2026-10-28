@@ -33,7 +33,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 ### Customers, Sites and Installed Equipment
 
 1. As an Office user, I want to create a Customer with their tax details (tax code and/or VAT number, SDI code or PEC), so that invoices to them can be sent through SDI.
-2. As an Office user, I want to set a Customer's type (private individual, company, condominium), so that sensible VAT and invoicing defaults are applied.
+2. As an Office user, I want to set a Customer's type (private individual, company, condominium, association or other body), so that sensible VAT and invoicing defaults are applied.
 3. As an Office user, I want to set Payment Terms on a Customer, so that due dates on their invoices are calculated automatically.
 4. As an Office user, I want to search Customers by name, tax code or VAT number, so that I can find them quickly on the phone.
 5. As an Office user, I want to create Sites independently of Customers, so that one address can be served for different Customers over time.
@@ -92,7 +92,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 49. As an Office user, I want to create an Invoice without a Job (for example selling Items over the counter), so that direct sales are possible.
 50. As an Office user, I want Items invoiced without a Visit taken off stock when the Invoice is finalised, so that direct sales keep stock correct.
 51. As an Office user, I want to edit any line of a draft Invoice (description, quantity, price, line discount, VAT code), so that I can correct before issuing.
-52. As an Office user, I want each line's VAT code to default from the Customer type and Job type while staying editable, so that the 10% rate on residential maintenance, reverse charge (_inversione contabile_) and similar cases are handled.
+52. As an Office user, I want each line's VAT code to default from the Customer type, the Job's Work Category, the Site and the line kind while staying editable, so that the 10% rate on residential maintenance, reverse charge (_inversione contabile_) and similar cases are handled.
 53. As an Office user, I want to apply a percentage discount to the whole Invoice, so that I can give a global discount.
 54. As an Office user, I want the global discount applied before VAT and split across VAT rates in proportion, so that the FatturaPA totals stay correct.
 55. As an Office user, I want to issue Advance Invoices for part of a Job, so that I can bill deposits and progress payments.
@@ -205,8 +205,11 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 - Offline use.
 - Legal archiving (_conservazione a norma_): handled outside the app through the Agenzia delle Entrate's free service.
 - Multi-tenancy.
+- Foreign Customers (non-Italian addresses, VAT numbers or `XXXXXXX` recipient code).
 
 ## Further Notes
+
+- Until the app is feature-complete the UI is functional scaffolding for exercising and testing the backend; styles, navigation, listing conventions, filters and reports are designed in a dedicated UX pass before day-to-day use (ADR 0009). UX work found meanwhile is labelled `ui-later`.
 
 - **Deadline**: invoicing and the Legacy Invoice import must be in production before the 1 January cutover, so that invoice numbering starts cleanly.
 - **Build order**:
@@ -214,5 +217,5 @@ A single web app per business ("Instance"), self-hosted on the business's own se
   2. Work and scheduling, with the Technician screens.
   3. Invoicing, Payments and Legacy import.
   4. Document Templates.
-- The VAT code rules (10% for residential work, _beni significativi_, reverse charge, _ritenuta d'acconto_ for condominiums) must be confirmed with the business's _commercialista_ before the invoicing module is built.
+- VAT Codes and the default VAT rules are Admin-editable settings, seeded with our reading of the law and reviewed by the business's _commercialista_ (#17) without blocking invoicing (ADR 0008). Mechanisms not yet needed are proposals (#56–#61).
 - Glossary: `GLOSSARY.md`. Decisions: `docs/adr/0001`–`0005`. Use glossary terms in code, UI and tests.
