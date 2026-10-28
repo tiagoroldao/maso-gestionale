@@ -539,7 +539,10 @@
     "vatCode": "IVA",
     "vatCodeOf": "IVA della riga {position}",
     "vatRow": "IVA {vat} su {taxable}",
-    "taxable": "Imponibile"
+    "taxable": "Imponibile",
+    "validityDays": "Validità (giorni)",
+    "validityHint": "Facoltativa. Il preventivo è datato all'ultimo salvataggio finché non viene accettato o rifiutato.",
+    "issuedOn": "Datato {date}: la data resta fissa dopo l'accettazione o il rifiuto."
   },
   "invoices": {
     "title": "Fatture",

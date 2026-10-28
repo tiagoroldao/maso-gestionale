@@ -11,6 +11,7 @@ import { urlFor } from '~/client'
 import { formatMoney, formatUnitPrice, t } from '~/i18n'
 import { amountForInput, lineTotal, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceTotals } from '@shared/invoice_totals'
+import { formatDate } from '@shared/dates'
 
 type Kind = 'item' | 'labour' | 'call_out' | 'text'
 
@@ -31,6 +32,8 @@ const props = defineProps<{
   quote: {
     status: string
     notes: string | null
+    validityDays: number | null
+    issuedOn: string | null
     totals: { total: string }
     lines: {
       vatCodeId: number | null
@@ -76,6 +79,7 @@ const standardCode = computed(() => props.vatCodes.find((code) => !code.natura)?
 
 const lines = reactive<Line[]>(linesFromProps())
 const notes = ref(props.quote?.notes ?? '')
+const validityDays = ref(props.quote?.validityDays ? String(props.quote.validityDays) : '')
 
 /**
  * What the server has, in the same shape as the editor's state, so unsaved
@@ -84,6 +88,7 @@ const notes = ref(props.quote?.notes ?? '')
 const snapshot = () =>
   JSON.stringify({
     notes: notes.value,
+    validityDays: validityDays.value,
     lines: lines.map(({ key: _key, ...line }) => line),
   })
 const saved = ref(snapshot())
@@ -99,6 +104,7 @@ watch(
     if (Object.keys(errors.value).length) return
     lines.splice(0, lines.length, ...linesFromProps())
     notes.value = props.quote?.notes ?? ''
+    validityDays.value = props.quote?.validityDays ? String(props.quote.validityDays) : ''
     saved.value = snapshot()
   }
 )
@@ -204,6 +210,7 @@ function save() {
     urlFor('quotes.update', { id: props.job.id }),
     {
       notes: notes.value,
+      ...(validityDays.value && { validityDays: Number(validityDays.value) }),
       lines: lines.map((line) => ({
         kind: line.kind,
         ...(line.itemId && { itemId: line.itemId }),
@@ -435,6 +442,27 @@ const confirmDecision = (message: string) => () => window.confirm(message)
           :aria-label="t('ui.quotes.notes')"
         />
         <span v-if="errors.notes" class="field__error">{{ errors.notes }}</span>
+        <div class="field">
+          <label class="field__label" for="validity-days">{{ t('ui.quotes.validityDays') }}</label>
+          <input
+            id="validity-days"
+            v-model="validityDays"
+            type="number"
+            min="1"
+            max="365"
+            class="field__input"
+            :disabled="!editable"
+            :style="{ maxWidth: '120px' }"
+          />
+          <span class="field__hint">
+            {{
+              quote?.issuedOn
+                ? t('ui.quotes.issuedOn', { date: formatDate(quote.issuedOn) })
+                : t('ui.quotes.validityHint')
+            }}
+          </span>
+          <span v-if="errors.validityDays" class="field__error">{{ errors.validityDays }}</span>
+        </div>
       </Section>
 
       <Section v-if="editable">

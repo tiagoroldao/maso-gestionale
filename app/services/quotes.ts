@@ -41,7 +41,10 @@ export default class Quotes {
    * Replaces the Quote's lines (creating the Quote if needed) and marks the
    * Job as quoted once the Quote has a priced line.
    */
-  static async save(job: Job, input: { notes?: string | null; lines: QuoteLineInput[] }) {
+  static async save(
+    job: Job,
+    input: { notes?: string | null; validityDays?: number | null; lines: QuoteLineInput[] }
+  ) {
     return db.transaction(async (trx) => {
       // Lock the Job first, so a cancel or another save can't interleave
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
@@ -54,6 +57,9 @@ export default class Quotes {
         quote ?? (await Quote.create({ jobId: job.id, status: 'draft' }, { client: trx }))
       saved.useTransaction(trx)
       saved.notes = input.notes ?? null
+      saved.validityDays = input.validityDays ?? null
+      // Dated by its last save while a draft; decisions leave the date alone
+      saved.issuedOn = DateTime.now().startOf('day')
       await saved.save()
 
       const units = await this.itemUnits(input.lines, trx)

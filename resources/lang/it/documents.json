@@ -14,7 +14,8 @@
     "issuedOn": "Data: {date}",
     "vat": "IVA",
     "taxable": "Imponibile",
-    "vatAmount": "Imposta"
+    "vatAmount": "Imposta",
+    "validUntil": "Offerta valida fino al {date}."
   },
   "invoice": {
     "title": "Fattura {number}",
