@@ -31,12 +31,16 @@ The kind of work a Job is (new installation, maintenance, renovation, repair or 
 _Avoid_: Job type, intervention type
 
 **Quote** (_Preventivo_):
-A priced proposal for a Job that the Customer accepts or declines. It is never billed itself and doesn't bind the final bill; its lines can be imported onto the Job or its Visits as Charges.
+A priced proposal for a Job, or part of one, that the Customer accepts or declines; a Job can have several, written at any time. Once sent it no longer changes. It is never billed itself and doesn't bind the final bill; its lines can be imported onto the Job or its Visits as Charges.
 _Avoid_: Estimate, offer
 
 **Visit** (_Intervento_):
 A single scheduled trip by one or more technicians to a Site as part of a Job.
 _Avoid_: Intervention, appointment, call-out
+
+**Survey** (_Sopralluogo_):
+A Visit to see the Site before quoting or starting work; it doesn't start the Job's work.
+_Avoid_: Inspection, preliminary visit
 
 **Labour Rate**:
 An hourly price for a type of labour; hours recorded on a Visit at a Labour Rate become a Charge at that price.
