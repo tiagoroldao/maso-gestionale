@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { DateTime } from 'luxon'
 import Visit from '#models/visit'
+import VisitPhoto from '#models/visit_photo'
+import VisitNote from '#models/visit_note'
 import VisitHour from '#models/visit_hour'
 import VisitItem from '#models/visit_item'
 import LabourRate from '#models/labour_rate'
@@ -93,7 +95,8 @@ export default class MyVisitsController {
             })),
           }
         : null,
-      done: CLOSED_VISIT_STATUSES.includes(visit.status),
+      // Closed, or frozen because the Job was cancelled: read-only either way
+      done: CLOSED_VISIT_STATUSES.includes(visit.status) || job.status === 'cancelled',
       currentUserId: auth.getUserOrFail().id,
       team: visit.technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
       // Rate names only: Technicians never see prices
@@ -138,10 +141,12 @@ export default class MyVisitsController {
     await bouncer.authorize('viewVisit', visit)
     const { body } = await request.validateUsing(visitNoteValidator)
 
-    await visit.related('fieldNotes').create({ body, userId: auth.user!.id })
-
-    session.flash('success', i18n.t('flash.visitNoteAdded'))
-    response.redirect().toRoute('my_visits.show', { id: visit.id })
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.whileJobActive(visit, (trx) =>
+        VisitNote.create({ visitId: visit.id, body, userId: auth.user!.id }, { client: trx })
+      )
+      session.flash('success', i18n.t('flash.visitNoteAdded'))
+    })
   }
 
   async addPhoto({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
@@ -153,20 +158,27 @@ export default class MyVisitsController {
     const directory = `visits/${visit.id}`
     const fileName = `${randomUUID()}.${extname}`
     await photo.move(storagePath(directory), { name: fileName })
-    try {
-      await visit.related('photos').create({
-        userId: auth.user!.id,
-        filePath: `${directory}/${fileName}`,
-        mimeType: PHOTO_TYPES[extname],
-        sizeBytes: photo.size,
-      })
-    } catch (error) {
-      await unlink(storagePath(directory, fileName)).catch(() => {})
-      throw error
-    }
-
-    session.flash('success', i18n.t('flash.visitPhotoAdded'))
-    response.redirect().toRoute('my_visits.show', { id: visit.id })
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      try {
+        await FieldWork.whileJobActive(visit, (trx) =>
+          VisitPhoto.create(
+            {
+              visitId: visit.id,
+              userId: auth.user!.id,
+              filePath: `${directory}/${fileName}`,
+              mimeType: PHOTO_TYPES[extname],
+              sizeBytes: photo.size,
+            },
+            { client: trx }
+          )
+        )
+      } catch (error) {
+        // Refused or failed: the stored file has no record, so remove it
+        await unlink(storagePath(directory, fileName)).catch(() => {})
+        throw error
+      }
+      session.flash('success', i18n.t('flash.visitPhotoAdded'))
+    })
   }
 
   async addHours({ params, request, response, session, bouncer, i18n }: HttpContext) {
@@ -208,8 +220,8 @@ export default class MyVisitsController {
   }
 
   /**
-   * Runs `work`, turning a refusal (done Visit, Technician not on it, no
-   * Site to install at) into a message on the Visit page.
+   * Runs `work`, turning a refusal (done Visit, cancelled Job, Technician
+   * not on it, no Site to install at) into a message on the Visit page.
    */
   private async refusable(
     visit: Visit,

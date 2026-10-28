@@ -1,6 +1,7 @@
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Item from '#models/item'
+import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import type User from '#models/user'
 import Visit, { type VisitStatus } from '#models/visit'
@@ -13,23 +14,49 @@ import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
- * The Visit is closed (its hours, Items and stock are final), or the
- * request doesn't fit it (a Technician not on the Visit, an install
- * without a Site).
+ * The Visit is closed (its hours, Items and stock are final), its Job was
+ * cancelled, or the request doesn't fit it (a Technician not on the
+ * Visit, an install without a Site).
  */
 export class FieldWorkRefusedError extends Error {
-  constructor(readonly reason: 'done' | 'notOnVisit' | 'noSite') {
+  constructor(readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite') {
     super(reason)
   }
 }
 
 /**
  * What Technicians record on a Visit: hours, Items used (some installed at
- * the Site) and closing it, which takes the Items off stock. Every change
- * locks the Visit, so a colleague closing it at the same moment can't
- * leave lines off stock or reopen it.
+ * the Site), notes and photos, and closing it, which takes the Items off
+ * stock. Every change locks the Visit, so a colleague closing it at the
+ * same moment can't leave lines off stock or reopen it.
+ *
+ * A cancelled Job's Visits are frozen as history: they leave the Agenda
+ * and the Technicians' lists, and accept no further work.
  */
 export default class FieldWork {
+  /**
+   * Runs `work` (adding a note or photo) while the Visit's Job is active.
+   * Notes and photos may still go on a closed Visit (a follow-up remark, a
+   * forgotten picture), but not once its Job is cancelled; the Job is
+   * share-locked so a cancellation can't slip in between check and write.
+   */
+  static whileJobActive<T>(visit: Visit, work: (trx: TransactionClientContract) => Promise<T>) {
+    return db.transaction(async (trx) => {
+      await this.lockActiveJob(trx, visit.jobId)
+      return work(trx)
+    })
+  }
+
+  /**
+   * Share-locks the Job, refusing if it is cancelled. Lock order is always
+   * the Visit first, then its Job: code that locks a Job and then its
+   * Visits must not run concurrently with field work, or it deadlocks.
+   */
+  private static async lockActiveJob(trx: TransactionClientContract, jobId: number) {
+    const job = await Job.query({ client: trx }).where('id', jobId).forShare().firstOrFail()
+    if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
+  }
+
   static async recordHours(
     visit: Visit,
     input: { technicianId: number; labourRateId: number; hours: string }
@@ -152,7 +179,7 @@ export default class FieldWork {
 
   /**
    * Runs `work` with the Visit locked and re-read, refusing if it is
-   * already closed.
+   * already closed or its Job is cancelled.
    */
   private static whileOpen<T>(
     visit: Visit,
@@ -164,6 +191,8 @@ export default class FieldWork {
         .forUpdate()
         .firstOrFail()
       if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
+      // Shared lock: cancelling the Job (an update lock) waits for this work
+      await this.lockActiveJob(trx, locked.jobId)
       return work(trx, locked)
     })
   }

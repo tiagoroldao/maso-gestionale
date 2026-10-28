@@ -22,7 +22,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #68   | Edit and delete Visits; deactivated Technicians' Visits stay visible                           | —                                                |
 | #69   | Archive Customers and Sites; mark Installed Equipment removed or replaced                      | —                                                |
 | #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)           | —                                                |
-| #71   | Refuse field work on cancelled Jobs' Visits                                                    | —                                                |
 | #72   | Stable issue date and validity on Quote PDFs                                                   | —                                                |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                               | The UX pass                                      |
 | #80   | Extract a Jobs service (create, cancel); the dev seeder copies the controller logic until then | —                                                |
