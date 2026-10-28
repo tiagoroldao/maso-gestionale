@@ -15,3 +15,4 @@ Closing warns but never refuses: if Visits are still planned, Charges are left t
 - Existing Jobs that were derived as closed migrate to closed.
 - A cancelled Job can't be reopened, so a Visit left open on it would stay frozen, its Items never off stock and its Charges never billable. Cancelling warns, listing its open Visits, and never refuses; Office can then mark such a Visit done, the only change a cancelled Job's Visits accept. A closed Job's open Visits are reached by reopening it. Decided by the business on 2026-10-28 (#153).
 - (Refines ADR 0013, whose derived "closed" this replaces.)
+- (Refined by ADR 0016: work complete ignores cancelled Visits, and planned Charges keep billing open, so a Job isn't invoiced while work is still planned.)

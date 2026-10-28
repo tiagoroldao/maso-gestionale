@@ -20,3 +20,4 @@ Quoted and Time & Materials Jobs both invoice from their Charges (refined by ADR
 - (Superseded by ADR 0014: a fully credited line's Charges are credited, not outstanding, unless Office sets them back to bill.) Credit Notes (#24) credit Charges: they become outstanding again, to be billed again, or Office marks them not billable.
 - Defaults by kind can come later (a Labour Rate whose hours are not billable by default, such as training or warranty).
 - Technicians record Charges without seeing prices; prices are set from the Labour Rate or the Item when recorded and edited only by Office.
+- (Refined by ADR 0016: a Charge also has a work state, planned, done or not done; stock follows it, only done Charges are billed, and a billed Charge is frozen until credited.)

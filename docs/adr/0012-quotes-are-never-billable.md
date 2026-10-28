@@ -11,5 +11,5 @@ A Quote stays attached to its Job: the Job is the enquiry, the Quote is priced o
 ## Consequences
 
 - The "Invoice from the Quote" draft is retired (#117); every Job invoices from its Charges, and Advance Invoices work the same on every Job (ADR 0011).
-- Imported labour needs a worker, as any hours do; imported Items on a Visit move stock when it closes, while on the Job itself they don't (as for other Job Charges).
+- Imported labour needs a worker, as any hours do; imported Items on a Visit move stock when it closes, while on the Job itself they don't (as for other Job Charges). (Replaced by ADR 0016: Item Charges on the Job start planned and leave stock when Office confirms them used.)
 - Job statuses that only make sense with a Quote (quoted, accepted) apply when the Job has one; without one a Job goes from open to in progress. (Replaced by ADR 0013: a Job's status follows its work only; quoted and accepted are each Quote's own.)
