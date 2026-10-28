@@ -107,7 +107,7 @@ SDI's refusal of a Submission; the invoice keeps its number and date and becomes
 _Avoid_: Error, failure
 
 **Credit Note** (_Nota di credito_):
-A fiscal document that credits an issued Invoice, partly or fully, reducing what is owed on it; never more than its total.
+A fiscal document that credits a delivered or not deliverable Invoice, partly or fully, reducing what is owed on it; an Invoice's Credit Notes together never exceed its total.
 _Avoid_: Refund, correction invoice
 
 **Advance Invoice** (_Fattura di acconto_):
@@ -126,7 +126,7 @@ _Avoid_: Old invoice, imported invoice, archived invoice
 An amount received against an Invoice or Legacy Invoice, recorded as it happened; an invoice may have several. A refund is a negative Payment.
 _Avoid_: Receipt, transaction
 
-**Overpaid** (_Pagata in eccesso_):
+**Overpaid Invoice** (_Fattura pagata in eccesso_):
 An Invoice whose Payments exceed what is owed on it after its Credit Notes; it needs someone to act.
 _Avoid_: Credit balance
 
