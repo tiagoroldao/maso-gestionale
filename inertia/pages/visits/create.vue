@@ -1,30 +1,61 @@
 <script setup lang="ts">
 import { Form } from '@adonisjs/inertia/vue'
+import { Trash2 } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { t, todayIso } from '~/i18n'
 
-defineProps<{
+const props = defineProps<{
   job: { id: number; number: string; title: string; customer: string }
-  technicians: { id: number; name: string }[]
+  technicians: { id: number; name: string; active: boolean }[]
+  /** Set when editing an existing Visit */
+  visit: {
+    id: number
+    date: string
+    startTime: string
+    durationMinutes: number
+    technicianIds: number[]
+    notes: string | null
+    editable: boolean
+  } | null
 }>()
 
-const durations = [30, 60, 90, 120, 180, 240, 480]
+const durationMinutes = props.visit?.durationMinutes ?? 120
+// The Visit's own length stays selectable even if it isn't a usual one
+const durations = [...new Set([30, 60, 90, 120, 180, 240, 480, durationMinutes])].sort(
+  (a, b) => a - b
+)
+const confirmDelete = () => window.confirm(t('ui.visits.deleteConfirm'))
 </script>
 
 <template>
   <AppLayout>
     <Page
-      :title="t('ui.visits.planTitle', { number: job.number })"
+      :title="
+        visit
+          ? t('ui.visits.editTitle', { number: job.number })
+          : t('ui.visits.planTitle', { number: job.number })
+      "
       :description="`${job.title} · ${job.customer}`"
     >
-      <Form v-slot="{ processing, errors }" route="visits.store" :params="{ id: job.id }">
+      <p v-if="visit && !visit.editable" class="field__hint">{{ t('ui.visits.closedHint') }}</p>
+      <Form
+        v-slot="{ processing, errors }"
+        :route="visit ? 'visits.update' : 'visits.store'"
+        :params="{ id: visit ? visit.id : job.id }"
+      >
         <Section :title="t('ui.visits.when')">
           <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
             <div class="field">
               <label class="field__label" for="date">{{ t('ui.visits.date') }}</label>
-              <input id="date" name="date" type="date" class="field__input" :value="todayIso()" />
+              <input
+                id="date"
+                name="date"
+                type="date"
+                class="field__input"
+                :value="visit?.date ?? todayIso()"
+              />
               <span v-if="errors.date" class="field__error">{{ errors.date }}</span>
             </div>
             <div class="field">
@@ -35,7 +66,7 @@ const durations = [30, 60, 90, 120, 180, 240, 480]
                 type="time"
                 step="900"
                 class="field__input"
-                value="08:30"
+                :value="visit?.startTime ?? '08:30'"
               />
               <span v-if="errors.startTime" class="field__error">{{ errors.startTime }}</span>
             </div>
@@ -48,7 +79,7 @@ const durations = [30, 60, 90, 120, 180, 240, 480]
                   v-for="minutes in durations"
                   :key="minutes"
                   :value="minutes"
-                  :selected="minutes === 120"
+                  :selected="minutes === durationMinutes"
                 >
                   {{
                     minutes < 60
@@ -70,8 +101,14 @@ const durations = [30, 60, 90, 120, 180, 240, 480]
             :key="technician.id"
             :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
           >
-            <input type="checkbox" name="technicianIds[]" :value="technician.id" />
+            <input
+              type="checkbox"
+              name="technicianIds[]"
+              :value="technician.id"
+              :checked="visit?.technicianIds.includes(technician.id)"
+            />
             {{ technician.name }}
+            <span v-if="!technician.active" class="field__hint">{{ t('ui.visits.inactive') }}</span>
           </label>
           <span v-if="errors.technicianIds" class="field__error">{{ errors.technicianIds }}</span>
         </Section>
@@ -83,15 +120,28 @@ const durations = [30, 60, 90, 120, 180, 240, 480]
             rows="3"
             :aria-label="t('ui.visits.notes')"
             :placeholder="t('ui.visits.notesHint')"
+            :value="visit?.notes ?? ''"
           />
         </Section>
 
         <Section>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
-            {{ t('ui.visits.plan') }}
+          <button
+            type="submit"
+            class="btn btn--primary"
+            :disabled="processing || (visit !== null && !visit.editable)"
+          >
+            {{ visit ? t('ui.visits.save') : t('ui.visits.plan') }}
           </button>
         </Section>
       </Form>
+      <Section v-if="visit?.editable">
+        <Form route="visits.destroy" :params="{ id: visit.id }" :on-before="confirmDelete">
+          <button type="submit" class="btn btn--ghost btn--sm">
+            <Trash2 :size="14" /> {{ t('ui.visits.delete') }}
+          </button>
+        </Form>
+        <span class="field__hint">{{ t('ui.visits.deleteHint') }}</span>
+      </Section>
     </Page>
   </AppLayout>
 </template>

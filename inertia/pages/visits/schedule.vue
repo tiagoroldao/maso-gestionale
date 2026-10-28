@@ -23,7 +23,7 @@ const props = defineProps<{
   date: string
   from: string
   days: string[]
-  technicians: { id: number; name: string }[]
+  technicians: { id: number; name: string; active: boolean }[]
   visits: CalendarVisit[]
 }>()
 
@@ -258,7 +258,10 @@ const weekday = (iso: string) =>
           </div>
         </div>
         <div v-for="technician in technicians" :key="technician.id" class="agenda__lane">
-          <div class="agenda__header">{{ technician.name }}</div>
+          <div class="agenda__header">
+            {{ technician.name }}
+            <span v-if="!technician.active" class="field__hint">{{ t('ui.visits.inactive') }}</span>
+          </div>
           <div
             class="agenda__column"
             :data-technician="technician.id"
@@ -298,7 +301,12 @@ const weekday = (iso: string) =>
         </thead>
         <tbody>
           <tr v-for="technician in technicians" :key="technician.id">
-            <th>{{ technician.name }}</th>
+            <th>
+              {{ technician.name }}
+              <span v-if="!technician.active" class="field__hint">{{
+                t('ui.visits.inactive')
+              }}</span>
+            </th>
             <td
               v-for="day in days"
               :key="day"

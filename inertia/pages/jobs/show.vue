@@ -114,6 +114,9 @@ defineProps<{
                     visit.endsAt.slice(11, 16)
                   }}
                 </Link>
+                <Link route="visits.edit" :params="{ id: visit.id }" class="btn btn--ghost btn--sm">
+                  {{ t('ui.visits.edit') }}
+                </Link>
               </td>
               <td>
                 {{ visit.technicians.join(', ') }}
