@@ -4,28 +4,28 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Tracked as issues
 
-| Issue | What                                                                                                                                       | Waiting on                                       |
-| ----- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| #17   | Commercialista review of VAT settings and invoicing assumptions                                                                            | The business (`needs-human`)                     |
-| #28   | Bulk import from the old accounting software                                                                                               | The business (`needs-human`)                     |
-| #34   | How updates are applied                                                                                                                    | The business (`needs-human`)                     |
-| #35   | Cloudflare Tunnel and Access setup                                                                                                         | The business (`needs-human`)                     |
-| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                                                                  | Review of proposal                               |
-| #57   | Proposal: withholding tax on condominium Invoices                                                                                          | Review of proposal, #17                          |
-| #58   | Proposal: assisted _beni significativi_ VAT split                                                                                          | Review of proposal; its rule is confirmed in #17 |
-| #59   | Proposal: payment in instalments                                                                                                           | Review of proposal                               |
-| #60   | Proposal: virtual stamp duty                                                                                                               | Review of proposal                               |
-| #61   | Proposal: tax bonus wording on Invoices                                                                                                    | Review of proposal                               |
-| #64   | Per-row validation errors on Tariffe and Codici IVA pages                                                                                  | —                                                |
-| #65   | Review leftovers: Natura DB check, VAT Code picker test, field-work concurrency / Superuser / "installed" tests, technician dropdown reset | —                                                |
-| #67   | VAT Codes and VAT summary on Quotes (needed by #22)                                                                                        | —                                                |
-| #68   | Edit, delete and touch-move Visits; deactivated Technicians' Visits stay visible                                                           | —                                                |
-| #69   | Archive Customers and Sites; mark Installed Equipment removed or replaced                                                                  | —                                                |
-| #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)                                                       | —                                                |
-| #71   | Refuse field work on cancelled Jobs' Visits                                                                                                | —                                                |
-| #72   | Stable issue date and validity on Quote PDFs                                                                                               | —                                                |
-| #73   | Review leftovers: UI polish and test gaps (#43–#66 reviews)                                                                                | —                                                |
-| #80   | Extract a Jobs service (create, cancel); the dev seeder copies the controller logic until then                                             | —                                                |
+| Issue | What                                                                                           | Waiting on                                       |
+| ----- | ---------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| #17   | Commercialista review of VAT settings and invoicing assumptions                                | The business (`needs-human`)                     |
+| #28   | Bulk import from the old accounting software                                                   | The business (`needs-human`)                     |
+| #34   | How updates are applied                                                                        | The business (`needs-human`)                     |
+| #35   | Cloudflare Tunnel and Access setup                                                             | The business (`needs-human`)                     |
+| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                      | Review of proposal                               |
+| #57   | Proposal: withholding tax on condominium Invoices                                              | Review of proposal, #17                          |
+| #58   | Proposal: assisted _beni significativi_ VAT split                                              | Review of proposal; its rule is confirmed in #17 |
+| #59   | Proposal: payment in instalments                                                               | Review of proposal                               |
+| #60   | Proposal: virtual stamp duty                                                                   | Review of proposal                               |
+| #61   | Proposal: tax bonus wording on Invoices                                                        | Review of proposal                               |
+| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                               | The UX pass                                      |
+| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73      | —                                                |
+| #67   | VAT Codes and VAT summary on Quotes (needed by #22)                                            | —                                                |
+| #68   | Edit and delete Visits; deactivated Technicians' Visits stay visible                           | —                                                |
+| #69   | Archive Customers and Sites; mark Installed Equipment removed or replaced                      | —                                                |
+| #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)           | —                                                |
+| #71   | Refuse field work on cancelled Jobs' Visits                                                    | —                                                |
+| #72   | Stable issue date and validity on Quote PDFs                                                   | —                                                |
+| #73   | UX backlog: polish found in reviews (`ui-later`)                                               | The UX pass                                      |
+| #80   | Extract a Jobs service (create, cancel); the dev seeder copies the controller logic until then | —                                                |
 
 ## Added to existing issues
 
@@ -42,6 +42,7 @@ Review findings folded into planned work, so they are picked up with it:
 
 ## Not yet issues
 
+- **Customer's role at a Site** (owner, administrator, tenant): a domain question raised in the #43 review; decide during the UX pass or when a feature needs it.
 - **Archived-reference check outside the lock:** Quote and Invoice saves read which archived Items and VAT Codes the record already uses before locking it, so a concurrent save or archive could let an archived reference onto a draft. Move the check inside the locked transaction for both (from the #77 review).
 - **Billing price policy:** comment on #22, applies to #74 (recorded prices vs. today's prices).
 - **Closing a Visit by mistake (#16):** "Done" and "needs another visit" are final; neither the Technician nor Office can reopen a Visit. Accepted trade-off for now; revisit if it happens in practice (an Office "reopen" that reverses the stock usage).
