@@ -117,11 +117,15 @@ export default class Invoices {
         .preload('paymentTerms')
         .firstOrFail()
 
+      const year = DateTime.now().year
+      const number = await this.takeNumber(trx, year)
+      // Dated after the sequence lock, so a later number never gets an
+      // earlier date than one finalised while this one waited
       const today = DateTime.now().startOf('day')
       locked.merge({
         status: 'finalised',
-        year: today.year,
-        number: await this.takeNumber(trx, today.year),
+        year,
+        number,
         issuedOn: today,
         dueOn: customer.paymentTerms.dueDate(today),
         paymentMethod: customer.paymentTerms.paymentMethod,

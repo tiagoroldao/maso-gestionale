@@ -34,6 +34,31 @@ export type CompanyDetails = Pick<
   | 'phone'
 >
 
+/**
+ * The recipient block for anyone with a billing address: a Customer, or
+ * the Customer copy on a finalised Invoice.
+ */
+export function recipientFrom(party: {
+  name: string
+  street: string
+  streetNumber: string | null
+  postalCode: string
+  city: string
+  province: string
+  vatNumber: string | null
+  taxCode: string | null
+}): Recipient {
+  return {
+    name: party.name,
+    addressLines: [
+      [party.street, party.streetNumber].filter(Boolean).join(', '),
+      `${party.postalCode} ${party.city} (${party.province})`,
+    ],
+    vatNumber: party.vatNumber,
+    taxCode: party.taxCode,
+  }
+}
+
 export type DocumentInput = {
   title: string
   recipient: Recipient | null

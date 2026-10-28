@@ -17,7 +17,7 @@
   <tr><td>{{ t('documents.invoice.number') }}</td><td><strong>{{ number }}</strong></td></tr>
   <tr><td>{{ t('documents.invoice.issuedOn') }}</td><td>{{ issuedOn }}</td></tr>
   <tr><td>{{ t('documents.invoice.dueOn') }}</td><td>{{ dueOn }}</td></tr>
-  <tr><td>{{ t('documents.invoice.paymentMethod') }}</td><td>{{ paymentMethod }}@if(iban) — {{ t('documents.invoice.iban', { iban }) }}@end</td></tr>
+  <tr><td>{{ t('documents.invoice.paymentMethod') }}</td><td>{{ payment }}</td></tr>
 </table>
 
 <table class="invoice-lines">
@@ -80,3 +80,5 @@
 @each(note in legalNotes)
   <p class="invoice-legal">{{ note }}</p>
 @end
+
+<p class="invoice-legal">{{ t('documents.invoice.courtesyCopy') }}</p>

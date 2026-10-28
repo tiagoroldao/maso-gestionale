@@ -19,6 +19,8 @@ const TABLES = [
  * transaction so that concurrent work uses separate connections and real
  * locks. Call before writing anything; the returned function deletes every
  * row added since and puts Company settings back (use it in `cleanup`).
+ * It doesn't undo edits to rows that already existed, and a test writing
+ * to a table missing from TABLES leaves rows behind: add the table first.
  */
 export async function committedData() {
   const settings = await db.from('company_settings').where('id', 1).first()

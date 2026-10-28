@@ -48,6 +48,11 @@ export default class extends BaseSchema {
         AND due_on IS NOT NULL AND payment_method IS NOT NULL AND customer_snapshot IS NOT NULL
         AND company_snapshot IS NOT NULL AND finalised_at IS NOT NULL)
     )`)
+    this.schema.raw(`ALTER TABLE invoices ADD CONSTRAINT invoices_finalised_values_check CHECK (
+      status = 'draft' OR (number >= 1 AND year = extract(year FROM issued_on)
+        AND payment_method IN ('MP01', 'MP02', 'MP05', 'MP08', 'MP12', 'MP19')
+        AND jsonb_typeof(customer_snapshot) = 'object'
+        AND jsonb_typeof(company_snapshot) = 'object'))`)
 
     this.schema.alterTable('invoice_lines', (table) => {
       // Copied from the VAT Code with its rate and Natura (ADR 0008)
@@ -59,9 +64,14 @@ export default class extends BaseSchema {
     this.schema.alterTable('invoice_lines', (table) => {
       table.dropColumn('legal_note')
     })
+    // Finalised Invoices can't exist without these columns: delete them,
+    // with the direct-sale Stock Movements they created (referenced by number)
     this.defer(async (db) => {
+      await db.rawQuery(`DELETE FROM stock_movements WHERE kind = 'sale' AND reference IN (
+        SELECT number || '/' || year FROM invoices WHERE status <> 'draft')`)
       await db.rawQuery("DELETE FROM invoices WHERE status <> 'draft'")
     })
+    this.schema.raw('ALTER TABLE invoices DROP CONSTRAINT invoices_finalised_values_check')
     this.schema.raw('ALTER TABLE invoices DROP CONSTRAINT invoices_finalised_fields_check')
     this.schema.alterTable('invoices', (table) => {
       table.dropUnique(['year', 'number'])

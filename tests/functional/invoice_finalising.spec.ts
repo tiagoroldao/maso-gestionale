@@ -12,6 +12,21 @@ import { createItem, vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { committedData } from '#tests/helpers/committed'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import i18nManager from '@adonisjs/i18n/services/main'
+import DocumentRenderer from '#documents/document_renderer'
+import { invoiceDocument } from '#documents/invoice_document'
+import type { PdfConverter } from '#documents/pdf_converter'
+
+const noConverter: PdfConverter = {
+  convert: () => Promise.reject(new Error('renderHtml must not convert')),
+}
+
+async function invoiceHtml(invoice: Invoice) {
+  await invoice.refresh()
+  await invoice.load('lines')
+  const input = await invoiceDocument(invoice, i18nManager.locale('it'))
+  return new DocumentRenderer(noConverter).renderHtml(input)
+}
 import type Customer from '#models/customer'
 import type Item from '#models/item'
 
@@ -227,7 +242,45 @@ test.group('Finalising Invoices', () => {
     pdf.assertHeader('content-type', 'application/pdf')
   })
 
-  test('Office only: Technicians and the Admin-only numbering are refused', async ({ client }) => {
+  test('the document shows the copies, the payment and the IBAN only for transfers', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    const transfer = await PaymentTerms.create({
+      name: 'Bonifico 30',
+      days: 30,
+      paymentMethod: 'MP05',
+    })
+    const cash = await PaymentTerms.create({ name: 'Contanti', days: 0, paymentMethod: 'MP01' })
+    const byTransfer = await draft(
+      await createCustomer({ name: 'Bar Centrale', paymentTermsId: transfer.id })
+    )
+    const inCash = await draft(await createCustomer({ name: 'Bar Sport', paymentTermsId: cash.id }))
+    await Invoices.finalise(byTransfer)
+    await Invoices.finalise(inCash)
+    await completeCompany({ name: 'Nuova Ragione Sociale' })
+
+    const html = await invoiceHtml(byTransfer)
+    assert.include(html, 'Idraulica Maso S.r.l.')
+    assert.notInclude(html, 'Nuova Ragione Sociale')
+    assert.include(html, 'Bar Centrale')
+    assert.include(
+      html,
+      `${it('ui.paymentMethods.MP05')} — ${it('documents.invoice.iban', { iban: 'IT60X0542811101000000123456' })}`
+    )
+    assert.include(html, 'Copia di cortesia')
+    assert.notInclude(html, '@if')
+    assert.notInclude(html, '@end')
+
+    const cashHtml = await invoiceHtml(inCash)
+    assert.include(cashHtml, it('ui.paymentMethods.MP01'))
+    assert.notInclude(cashHtml, 'IT60X0542811101000000123456')
+  })
+
+  test('Office only: Technicians and the Admin-only numbering are refused', async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
     const technician = await createUser('technician')
     await completeCompany()
@@ -242,8 +295,19 @@ test.group('Finalising Invoices', () => {
     finalise.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
     const pdf = await client.get(`/invoices/${invoice.id}/pdf`).withInertia().loginAs(technician)
     pdf.assertStatus(403)
-    const numbering = await client.get('/settings/invoice-numbering').withInertia().loginAs(office)
-    numbering.assertStatus(403)
+    for (const user of [office, technician]) {
+      const numbering = await client.get('/settings/invoice-numbering').withInertia().loginAs(user)
+      numbering.assertStatus(403)
+      const change = await client
+        .put(`/settings/invoice-numbering/${year()}`)
+        .form({ nextNumber: '50' })
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(user)
+        .redirects(0)
+      change.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+    assert.isNull(await InvoiceSequence.findBy('year', year()))
   })
 })
 
