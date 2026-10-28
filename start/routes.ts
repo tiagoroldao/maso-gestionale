@@ -136,6 +136,9 @@ router
         router
           .put('equipment/:id', [controllers.InstalledEquipment, 'update'])
           .where('id', router.matchers.number())
+        router
+          .get('sites/:id/installed-equipment', [controllers.TemplateChoices, 'equipment'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageCustomers'))
 
@@ -210,6 +213,12 @@ router
           .where('id', router.matchers.number())
         router
           .get('jobs/:id/quote.pdf', [controllers.Quotes, 'pdf'])
+          .where('id', router.matchers.number())
+        router
+          .get('customers/:id/jobs', [controllers.TemplateChoices, 'jobs'])
+          .where('id', router.matchers.number())
+        router
+          .get('jobs/:id/items-used', [controllers.TemplateChoices, 'itemsUsed'])
           .where('id', router.matchers.number())
       })
       .use(middleware.can('manageJobs'))
@@ -346,6 +355,15 @@ router
           .where('id', router.matchers.number())
         router
           .put('settings/document-templates/:id', [controllers.DocumentTemplates, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .get('settings/document-templates/:id/fill', [controllers.DocumentTemplates, 'fill'])
+          .where('id', router.matchers.number())
+        router
+          .post('settings/document-templates/:id/fill', [
+            controllers.DocumentTemplates,
+            'fillPreview',
+          ])
           .where('id', router.matchers.number())
         router.get('settings/vat-rules', [controllers.VatRules, 'index'])
         router.put('settings/vat-rules', [controllers.VatRules, 'update'])

@@ -657,6 +657,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'template_choices.equipment': {
+    methods: ["GET","HEAD"]
+    pattern: '/sites/:id/installed-equipment'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['equipment']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['equipment']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['equipment']>>>
+    }
+  }
   'my_visits.index': {
     methods: ["GET","HEAD"]
     pattern: '/my-visits'
@@ -1006,6 +1019,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['pdf']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['pdf']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['pdf']>>>
+    }
+  }
+  'template_choices.jobs': {
+    methods: ["GET","HEAD"]
+    pattern: '/customers/:id/jobs'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['jobs']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['jobs']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['jobs']>>>
+    }
+  }
+  'template_choices.items_used': {
+    methods: ["GET","HEAD"]
+    pattern: '/jobs/:id/items-used'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['itemsUsed']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['itemsUsed']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['itemsUsed']>>>
     }
   }
   'invoices.index': {
@@ -1708,6 +1747,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'document_templates.fill': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/document-templates/:id/fill'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['fill']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['fill']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['fill']>>>
+    }
+  }
+  'document_templates.fill_preview': {
+    methods: ["POST"]
+    pattern: '/settings/document-templates/:id/fill'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/document_template').documentTemplateFillValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/document_template').documentTemplateFillValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['fillPreview']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['fillPreview']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['fillPreview']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'vat_rules.index': {

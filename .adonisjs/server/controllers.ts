@@ -27,6 +27,7 @@ export const controllers = {
   Sites: () => import('#controllers/sites_controller'),
   Stock: () => import('#controllers/stock_controller'),
   StockMovements: () => import('#controllers/stock_movements_controller'),
+  TemplateChoices: () => import('#controllers/template_choices_controller'),
   Users: () => import('#controllers/users_controller'),
   VatCodes: () => import('#controllers/vat_codes_controller'),
   VatRules: () => import('#controllers/vat_rules_controller'),

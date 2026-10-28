@@ -61,7 +61,7 @@ test.group('Document Template bodies', () => {
   })
 
   test('accepts only allowed nodes, marks and known placeholders', ({ assert }) => {
-    const keys = placeholderKeys([{ key: 'model' }])
+    const keys = placeholderKeys([{ key: 'model', type: 'text' }])
     assert.isTrue(isValidTemplateBody(body, keys))
     assert.isFalse(isValidTemplateBody(body, placeholderKeys([])))
     assert.isFalse(
@@ -88,6 +88,70 @@ test.group('Document Template bodies', () => {
         { type: 'doc', content: [{ type: 'heading', attrs: { level: 6 }, content: [] }] },
         keys
       )
+    )
+  })
+
+  test('entity fields have property placeholders; table fields have none', ({ assert }) => {
+    assert.deepEqual(
+      placeholderKeys([
+        { key: 'site', type: 'site' },
+        { key: 'boiler', type: 'equipment' },
+        { key: 'job', type: 'job' },
+        { key: 'part', type: 'item' },
+        { key: 'parts', type: 'items' },
+        { key: 'rows', type: 'table' },
+      ]),
+      [
+        'company.name',
+        'recipient.name',
+        'today',
+        'field.site',
+        'field.site.address',
+        'field.site.city',
+        'field.boiler',
+        'field.boiler.make',
+        'field.boiler.model',
+        'field.boiler.serial_number',
+        'field.boiler.installed_on',
+        'field.job',
+        'field.job.number',
+        'field.job.title',
+        'field.part',
+        'field.part.code',
+        'field.part.description',
+        'field.parts',
+      ]
+    )
+  })
+
+  test('renders a table field with escaped headers and cells', ({ assert }) => {
+    const doc: TemplateNode = {
+      type: 'doc',
+      content: [
+        { type: 'fieldTable', attrs: { key: 'rows', label: 'Righe' } },
+        { type: 'fieldTable', attrs: { key: 'missing' } },
+      ],
+    }
+    assert.isTrue(isValidTemplateBody(doc, [], ['rows', 'missing']))
+    assert.isFalse(isValidTemplateBody(doc, [], ['rows']))
+
+    const html = renderTemplateBody(
+      doc,
+      {},
+      {
+        rows: {
+          headers: ['<b>Codice</b>', 'Qtà'],
+          rows: [
+            ['<script>', '2'],
+            ['A&B', ''],
+          ],
+        },
+      }
+    )
+    assert.equal(
+      html,
+      '<table class="field-table"><thead><tr><th>&lt;b&gt;Codice&lt;/b&gt;</th><th>Qtà</th></tr></thead>' +
+        '<tbody><tr><td>&lt;script&gt;</td><td>2</td></tr><tr><td>A&amp;B</td><td></td></tr></tbody></table>'
     )
   })
 

@@ -90,6 +90,11 @@ export interface ApiDefinition {
     edit: typeof routes['installed_equipment.edit']
     update: typeof routes['installed_equipment.update']
   }
+  templateChoices: {
+    equipment: typeof routes['template_choices.equipment']
+    jobs: typeof routes['template_choices.jobs']
+    itemsUsed: typeof routes['template_choices.items_used']
+  }
   jobs: {
     index: typeof routes['jobs.index']
     create: typeof routes['jobs.create']
@@ -180,6 +185,8 @@ export interface ApiDefinition {
     preview: typeof routes['document_templates.preview']
     edit: typeof routes['document_templates.edit']
     update: typeof routes['document_templates.update']
+    fill: typeof routes['document_templates.fill']
+    fillPreview: typeof routes['document_templates.fill_preview']
   }
   vatRules: {
     index: typeof routes['vat_rules.index']

@@ -35,6 +35,7 @@ declare module '@adonisjs/inertia/types' {
     'settings/categories': ExtractProps<(typeof import('../../inertia/pages/settings/categories.vue'))['default']>
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
     'settings/document_templates/edit': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/edit.vue'))['default']>
+    'settings/document_templates/fill': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/fill.vue'))['default']>
     'settings/document_templates/index': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/index.vue'))['default']>
     'settings/invoice_numbering': ExtractProps<(typeof import('../../inertia/pages/settings/invoice_numbering.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
