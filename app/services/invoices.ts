@@ -74,6 +74,8 @@ export class JobNotInvoiceableError extends Error {}
 export class NumberingLockedError extends Error {}
 
 export type InvoiceLineInput = {
+  // An existing line of this Invoice, kept and updated (ADR 0010)
+  id?: number
   itemId?: number
   unit?: string
   description: string
@@ -399,34 +401,55 @@ export default class Invoices {
       const advances = await trx.from('invoices').where('deducted_in_id', locked.id).select('id')
       const deducted = new Set(advances.map((row) => row.id as number))
 
-      await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id).delete()
-      await InvoiceLine.createMany(
-        input.lines.map((line, position) => {
-          const code = vat.get(line.vatCodeId)!
-          const discountPercent = line.discountPercent ?? '0'
-          return {
-            invoiceId: locked.id,
-            position,
-            itemId: line.itemId ?? null,
-            deductsInvoiceId:
-              line.deductsInvoiceId && deducted.has(line.deductsInvoiceId)
-                ? line.deductsInvoiceId
-                : null,
-            description: line.description,
-            quantity: line.quantity,
-            // An Item's own unit; otherwise what the line carried (e.g. "h")
-            unit: line.itemId ? (units.get(line.itemId) ?? null) : (line.unit ?? null),
-            unitPrice: line.unitPrice,
-            discountPercent,
-            vatCodeId: code.id,
-            vatRate: code.rate,
-            natura: code.natura,
-            legalNote: code.legalNote,
-            lineTotal: invoiceLineTotal(line.quantity, line.unitPrice, discountPercent),
-          }
-        }),
-        { client: trx }
-      )
+      // Lines keep their identity across saves: the ones sent back are
+      // updated, the others removed, and lines without an id added
+      const existing = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
+      const byId = new Map(existing.map((line) => [line.id, line]))
+      const values = input.lines.map((line, position) => {
+        const code = vat.get(line.vatCodeId)!
+        const discountPercent = line.discountPercent ?? '0'
+        return {
+          invoiceId: locked.id,
+          position,
+          itemId: line.itemId ?? null,
+          deductsInvoiceId:
+            line.deductsInvoiceId && deducted.has(line.deductsInvoiceId)
+              ? line.deductsInvoiceId
+              : null,
+          description: line.description,
+          quantity: line.quantity,
+          // An Item's own unit; otherwise what the line carried (e.g. "h")
+          unit: line.itemId ? (units.get(line.itemId) ?? null) : (line.unit ?? null),
+          unitPrice: line.unitPrice,
+          discountPercent,
+          vatCodeId: code.id,
+          vatRate: code.rate,
+          natura: code.natura,
+          legalNote: code.legalNote,
+          lineTotal: invoiceLineTotal(line.quantity, line.unitPrice, discountPercent),
+        }
+      })
+      const kept = new Set<number>()
+      const updates: [InvoiceLine, (typeof values)[number]][] = []
+      const additions: (typeof values)[number][] = []
+      input.lines.forEach((line, index) => {
+        const current = line.id ? byId.get(line.id) : undefined
+        // An id sent twice, or not of this Invoice, is a new line
+        if (current && !kept.has(current.id)) {
+          kept.add(current.id)
+          updates.push([current, values[index]])
+        } else {
+          additions.push(values[index])
+        }
+      })
+      await InvoiceLine.query({ client: trx })
+        .where('invoiceId', locked.id)
+        .whereNotIn('id', [...kept])
+        .delete()
+      for (const [line, value] of updates) {
+        await line.useTransaction(trx).merge(value).save()
+      }
+      await InvoiceLine.createMany(additions, { client: trx })
 
       // A corrected Invoice's total changes with its lines; it must still
       // be one that could be issued
