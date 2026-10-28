@@ -23,7 +23,7 @@ _Avoid_: Service schedule, recurrence
 ## Work
 
 **Job** (_Commessa_):
-A whole piece of work for a Customer, which may span multiple Visits and is the unit that gets quoted and invoiced.
+A whole piece of work for a Customer, which may span multiple Visits and is the unit that gets quoted and invoiced. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
 _Avoid_: Intervention, work order, ticket
 
 **Quoted Job**:

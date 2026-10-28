@@ -35,11 +35,25 @@ export class FieldWorkRefusedError extends Error {
  */
 export default class FieldWork {
   /**
-   * Notes and photos may still be added to a closed Visit (a follow-up
-   * remark, a forgotten picture), but not once its Job is cancelled.
+   * Runs `work` (adding a note or photo) while the Visit's Job is active.
+   * Notes and photos may still go on a closed Visit (a follow-up remark, a
+   * forgotten picture), but not once its Job is cancelled; the Job is
+   * share-locked so a cancellation can't slip in between check and write.
    */
-  static async assertJobActive(visit: Visit) {
-    const job = await Job.findOrFail(visit.jobId)
+  static whileJobActive<T>(visit: Visit, work: (trx: TransactionClientContract) => Promise<T>) {
+    return db.transaction(async (trx) => {
+      await this.lockActiveJob(trx, visit.jobId)
+      return work(trx)
+    })
+  }
+
+  /**
+   * Share-locks the Job, refusing if it is cancelled. Lock order is always
+   * the Visit first, then its Job: code that locks a Job and then its
+   * Visits must not run concurrently with field work, or it deadlocks.
+   */
+  private static async lockActiveJob(trx: TransactionClientContract, jobId: number) {
+    const job = await Job.query({ client: trx }).where('id', jobId).forShare().firstOrFail()
     if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
   }
 
@@ -178,11 +192,7 @@ export default class FieldWork {
         .firstOrFail()
       if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
       // Shared lock: cancelling the Job (an update lock) waits for this work
-      const job = await Job.query({ client: trx })
-        .where('id', locked.jobId)
-        .forShare()
-        .firstOrFail()
-      if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
+      await this.lockActiveJob(trx, locked.jobId)
       return work(trx, locked)
     })
   }

@@ -107,6 +107,7 @@ export default class Quotes {
       await quote.save()
 
       job.status = jobStatus
+      // Its Visits stay as history, closed to field work (FieldWork)
       if (jobStatus === 'cancelled') job.cancelledAt = DateTime.now()
       // Work booked while waiting for the signature starts the Job at once
       if (jobStatus === 'accepted') {
