@@ -57,12 +57,17 @@ export default class extends BaseSchema {
         .references('id')
         .inTable('issued_documents')
         .onDelete('RESTRICT')
+      // The PDF as first rendered, in storage: served from then on, so a
+      // later change to the Base Layout, the logo or the renderer never
+      // changes it. Set once, like replaced_by_id
+      table.string('pdf_path', 255).nullable()
       table.integer('created_by').nullable().references('id').inTable('users').onDelete('RESTRICT')
       table.timestamp('created_at').notNullable()
       table.unique(['document_template_id', 'year', 'sequence'])
       table.check('sequence > 0', [], 'issued_documents_sequence_check')
+      // A replacement is always issued after its original
       table.check(
-        'replaced_by_id IS NULL OR replaced_by_id <> id',
+        'replaced_by_id IS NULL OR replaced_by_id > id',
         [],
         'issued_documents_replaced_by_check'
       )
@@ -71,15 +76,19 @@ export default class extends BaseSchema {
       table.index(['installed_equipment_id'])
     })
 
-    // Frozen: no delete, and no update except setting replaced_by_id once,
-    // with every other column unchanged
+    // Frozen: no delete or truncate, and no update except setting
+    // replaced_by_id and pdf_path, each once (from NULL), with every other
+    // column unchanged
     this.schema.raw(`
       CREATE FUNCTION issued_documents_frozen() RETURNS trigger AS $$
       BEGIN
         IF TG_OP = 'UPDATE'
-          AND OLD.replaced_by_id IS NULL
-          AND NEW.replaced_by_id IS NOT NULL
-          AND to_jsonb(NEW) - 'replaced_by_id' = to_jsonb(OLD) - 'replaced_by_id'
+          AND (NEW.replaced_by_id IS NOT DISTINCT FROM OLD.replaced_by_id
+            OR (OLD.replaced_by_id IS NULL AND NEW.replaced_by_id IS NOT NULL))
+          AND (NEW.pdf_path IS NOT DISTINCT FROM OLD.pdf_path
+            OR (OLD.pdf_path IS NULL AND NEW.pdf_path IS NOT NULL))
+          AND to_jsonb(NEW) - 'replaced_by_id' - 'pdf_path'
+            = to_jsonb(OLD) - 'replaced_by_id' - 'pdf_path'
         THEN
           RETURN NEW;
         END IF;
@@ -90,6 +99,10 @@ export default class extends BaseSchema {
       CREATE TRIGGER issued_documents_frozen
       BEFORE UPDATE OR DELETE ON issued_documents
       FOR EACH ROW EXECUTE FUNCTION issued_documents_frozen()`)
+    this.schema.raw(`
+      CREATE TRIGGER issued_documents_not_truncated
+      BEFORE TRUNCATE ON issued_documents
+      FOR EACH STATEMENT EXECUTE FUNCTION issued_documents_frozen()`)
   }
 
   async down() {

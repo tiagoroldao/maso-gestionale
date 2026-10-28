@@ -5,8 +5,6 @@ import InstalledEquipment from '#models/installed_equipment'
 import Job from '#models/job'
 import Site from '#models/site'
 import Visit from '#models/visit'
-import DocumentRenderer from '#documents/document_renderer'
-import { issuedDocument } from '#documents/issued_document'
 import { PdfConversionError } from '#documents/pdf_converter'
 import DocumentTemplates from '#services/document_templates'
 import IssuedDocuments, { IssuingRefusedError } from '#services/issued_documents'
@@ -71,10 +69,10 @@ export default class IssuedDocumentsController {
    * key what doesn't fit (`customerId` for the Customer, `templateId` for
    * the template).
    */
-  async store({ request, response, i18n, auth }: HttpContext) {
+  async store({ request, response, i18n, auth, logger }: HttpContext) {
     const data = await request.validateUsing(issuedDocumentValidator)
     const template = await DocumentTemplate.findOrFail(data.templateId)
-    return this.issue({ response, i18n, auth }, template, data, null)
+    return this.issue({ response, i18n, auth, logger }, template, data, null)
   }
 
   async show({ params, inertia }: HttpContext) {
@@ -146,13 +144,13 @@ export default class IssuedDocumentsController {
   /**
    * Issues the replacement: the original's template, the next number.
    */
-  async storeReplacement({ params, request, response, i18n, auth }: HttpContext) {
+  async storeReplacement({ params, request, response, i18n, auth, logger }: HttpContext) {
     const original = await IssuedDocument.query()
       .where('id', params.id)
       .preload('template')
       .firstOrFail()
     const data = await request.validateUsing(replacementValidator)
-    return this.issue({ response, i18n, auth }, original.template, data, original)
+    return this.issue({ response, i18n, auth, logger }, original.template, data, original)
   }
 
   /**
@@ -173,7 +171,7 @@ export default class IssuedDocumentsController {
   }
 
   private async issue(
-    { response, i18n, auth }: Pick<HttpContext, 'response' | 'i18n' | 'auth'>,
+    { response, i18n, auth, logger }: Pick<HttpContext, 'response' | 'i18n' | 'auth' | 'logger'>,
     template: DocumentTemplate,
     data: { customerId?: number | null; values?: Record<string, unknown> },
     original: IssuedDocument | null
@@ -199,6 +197,12 @@ export default class IssuedDocumentsController {
         auth.getUserOrFail(),
         original
       )
+      // Stored now, so it prints today's layout and logo; if Gotenberg is
+      // down, the first request for the PDF stores it instead
+      await IssuedDocuments.pdf(document, i18n).catch((error) => {
+        if (!(error instanceof PdfConversionError)) throw error
+        logger.warn({ err: error }, 'PDF conversion failed after issuing')
+      })
       return { id: document.id, number: document.number }
     } catch (error) {
       if (error instanceof TemplateDataError) {
@@ -222,7 +226,7 @@ export default class IssuedDocumentsController {
     { response, logger, i18n }: Pick<HttpContext, 'response' | 'logger' | 'i18n'>
   ) {
     try {
-      const pdf = await new DocumentRenderer().renderPdf(await issuedDocument(document, i18n))
+      const pdf = await IssuedDocuments.pdf(document, i18n)
       response.header('content-type', 'application/pdf')
       response.header(
         'content-disposition',

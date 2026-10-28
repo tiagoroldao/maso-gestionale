@@ -14,7 +14,8 @@ const json = { prepare: (value: unknown) => JSON.stringify(value) }
  * Customer (#31). It prints only what it copied when issued, so later
  * edits to a Site, an Item, the Customer or the template never change it.
  * Never changed once written (a database trigger refuses it), except for
- * `replacedById`, set once when a replacement is issued.
+ * `replacedById`, set once when a replacement is issued, and `pdfPath`,
+ * set once when its PDF is first rendered and stored.
  */
 export default class IssuedDocument extends IssuedDocumentSchema {
   static table = 'issued_documents'

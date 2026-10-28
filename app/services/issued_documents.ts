@@ -1,3 +1,6 @@
+import { randomUUID } from 'node:crypto'
+import { mkdir, readFile, unlink, writeFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { I18n } from '@adonisjs/i18n'
@@ -12,8 +15,10 @@ import Item from '#models/item'
 import Job from '#models/job'
 import Site from '#models/site'
 import type User from '#models/user'
-import type { CompanyDetails } from '#documents/document_renderer'
+import DocumentRenderer, { type CompanyDetails } from '#documents/document_renderer'
+import { issuedDocument } from '#documents/issued_document'
 import DocumentTemplates from '#services/document_templates'
+import { storagePath } from '#services/storage'
 import TemplateData from '#services/template_data'
 import { formatDate } from '#shared/dates'
 import { own, type TemplateField, type TemplatePrefill } from '#shared/document_templates'
@@ -106,7 +111,7 @@ export default class IssuedDocuments {
           company,
           values: { ...resolved.values, today: formatDate(today.toISODate()) },
           tables: resolved.tables,
-          input,
+          input: this.keptInput(version.fields, input),
           createdBy: user?.id ?? null,
         },
         { client: trx }
@@ -121,6 +126,39 @@ export default class IssuedDocuments {
       }
       return document
     })
+  }
+
+  /**
+   * The document's PDF: the stored one, or, the first time, rendered from
+   * the frozen copy and stored, so it never changes afterwards. Throws
+   * PdfConversionError when it must be rendered and can't be.
+   */
+  static async pdf(
+    document: IssuedDocument,
+    i18n: I18n,
+    renderer: DocumentRenderer = new DocumentRenderer()
+  ): Promise<Buffer> {
+    if (document.pdfPath) return readFile(storagePath(document.pdfPath))
+
+    const pdf = await renderer.renderPdf(await issuedDocument(document, i18n))
+    // A file of its own: a concurrent first render can't overwrite it
+    const path = `issued-documents/${document.id}/${randomUUID()}.pdf`
+    await mkdir(dirname(storagePath(path)), { recursive: true })
+    await writeFile(storagePath(path), pdf)
+    // The other change the trigger allows: the path, once
+    const stored = await db
+      .from('issued_documents')
+      .where('id', document.id)
+      .whereNull('pdf_path')
+      .update({ pdf_path: path }, ['id'])
+    if (stored.length === 0) {
+      // Another request stored one first: serve that one
+      await unlink(storagePath(path)).catch(() => {})
+      await document.refresh()
+      return readFile(storagePath(document.pdfPath!))
+    }
+    document.pdfPath = path
+    return pdf
   }
 
   /**
@@ -166,6 +204,19 @@ export default class IssuedDocuments {
       customer: document.customer.displayName,
       replaced: document.replacedById !== null,
     }))
+  }
+
+  /**
+   * The input as filled in, only for the template's own fields: anything
+   * else the request carried isn't kept.
+   */
+  private static keptInput(fields: TemplateField[], input: Record<string, unknown>) {
+    return Object.fromEntries(
+      fields.flatMap((field) => {
+        const value = own(input, field.key)
+        return value === undefined ? [] : [[field.key, value]]
+      })
+    )
   }
 
   private static async nextSequence(

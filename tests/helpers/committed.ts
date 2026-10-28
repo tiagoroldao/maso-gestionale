@@ -20,7 +20,9 @@ const TABLES = [
 
 /**
  * Tables whose rows a trigger keeps from being deleted (frozen records):
- * the trigger is turned off while cleaning up.
+ * the trigger is turned off while cleaning up, inside the cleanup's
+ * transaction, so a failure rolls it back on. Rows are deleted, never
+ * truncated, which a separate trigger refuses.
  */
 const FROZEN: Record<string, string> = {
   issued_documents: 'issued_documents_frozen',
@@ -43,15 +45,14 @@ export async function committedData() {
     before.set(table, Number(row?.max ?? 0))
   }
   return async () => {
-    for (const table of TABLES) {
-      const trigger = Object.hasOwn(FROZEN, table) ? FROZEN[table] : null
-      if (trigger) await db.rawQuery(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`)
-      try {
-        await db.from(table).where('id', '>', before.get(table)!).delete()
-      } finally {
-        if (trigger) await db.rawQuery(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`)
+    await db.transaction(async (trx) => {
+      for (const table of TABLES) {
+        const trigger = Object.hasOwn(FROZEN, table) ? FROZEN[table] : null
+        if (trigger) await trx.rawQuery(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`)
+        await trx.from(table).where('id', '>', before.get(table)!).delete()
+        if (trigger) await trx.rawQuery(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`)
       }
-    }
+    })
     await db.from('company_settings').where('id', 1).delete()
     if (settings) await db.table('company_settings').insert(settings)
   }

@@ -1,4 +1,5 @@
-import { rm, mkdir, writeFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { rm, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { test } from '@japa/runner'
 import { DateTime, Settings } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
@@ -12,7 +13,7 @@ import IssuedDocument from '#models/issued_document'
 import Visit from '#models/visit'
 import DocumentRenderer from '#documents/document_renderer'
 import { issuedDocument } from '#documents/issued_document'
-import type { PdfConverter } from '#documents/pdf_converter'
+import { PdfConversionError, type PdfConverter } from '#documents/pdf_converter'
 import DocumentTemplates from '#services/document_templates'
 import IssuedDocuments from '#services/issued_documents'
 import { storagePath } from '#services/storage'
@@ -30,6 +31,10 @@ const noConverter: PdfConverter = {
   convert: () => Promise.reject(new Error('renderHtml must not convert')),
 }
 const i18n = () => i18nManager.locale('it')
+// A converter that "renders" the same bytes whatever the HTML
+const converterOf = (bytes: string): PdfConverter => ({
+  convert: async () => Buffer.from(bytes),
+})
 
 const placeholder = (key: string) => ({ type: 'placeholder', attrs: { key } })
 const paragraph = (...content: object[]) => ({ type: 'paragraph', content })
@@ -107,7 +112,9 @@ async function htmlOf(document: IssuedDocument) {
   return new DocumentRenderer(noConverter).renderHtml(await issuedDocument(document, i18n()))
 }
 
-test.group('Issued Documents: issuing', () => {
+test.group('Issued Documents: issuing', (group) => {
+  group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
+
   test('Office issues a numbered document with a frozen copy of its data', async ({
     client,
     assert,
@@ -130,7 +137,12 @@ test.group('Issued Documents: issuing', () => {
 
     const response = await client
       .post('/issued-documents')
-      .json({ templateId: template.id, customerId: customer.id, values })
+      .json({
+        templateId: template.id,
+        customerId: customer.id,
+        // Keys that aren't the template's fields are not kept
+        values: { ...values, junk: { nested: ['x'] }, constructor: 'y' },
+      })
       .header('accept', 'application/json')
       .withCsrfToken()
       .loginAs(office)
@@ -369,7 +381,9 @@ test.group('Issued Documents: issuing', () => {
   })
 })
 
-test.group('Issued Documents: replacing', () => {
+test.group('Issued Documents: replacing', (group) => {
+  group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
+
   test('a replacement is prefilled, takes the next number and marks the original', async ({
     client,
     assert,
@@ -518,6 +532,126 @@ test.group('Issued Documents: frozen', () => {
     await document.refresh()
     assert.equal(document.replacedById, replacement.id)
     assert.equal(document.sequence, 1)
+
+    // The PDF path, likewise once
+    await change((rows) => rows.update({ pdf_path: 'issued-documents/a.pdf' }))
+    await assert.rejects(
+      () => change((rows) => rows.update({ pdf_path: 'issued-documents/b.pdf' })),
+      refused
+    )
+    await assert.rejects(() => change((rows) => rows.update({ pdf_path: null })), refused)
+    await document.refresh()
+    assert.equal(document.pdfPath, 'issued-documents/a.pdf')
+  })
+
+  test('a document is replaced only by a later one, and the table is never truncated', async ({
+    assert,
+  }) => {
+    const user = await createUser('office')
+    const { customer, site } = await world()
+    const template = await saveTemplate()
+    const issue = () => IssuedDocuments.issue(template, customer, { site: site.id }, i18n(), user)
+    const earlier = await issue()
+    const later = await issue()
+
+    await assert.rejects(
+      () =>
+        db.transaction((trx) =>
+          trx.from('issued_documents').where('id', later.id).update({ replaced_by_id: earlier.id })
+        ),
+      /issued_documents_replaced_by_check/
+    )
+    await assert.rejects(
+      () => db.transaction((trx) => trx.rawQuery('TRUNCATE issued_documents CASCADE')),
+      /Issued Documents can not be changed/
+    )
+    assert.lengthOf(await IssuedDocument.all(), 2)
+  })
+})
+
+test.group('Issued Documents: stored PDF', (group) => {
+  group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
+
+  test('the PDF is stored the first time and served unchanged afterwards', async ({ assert }) => {
+    const user = await createUser('office')
+    const { customer, site } = await world()
+    const template = await saveTemplate()
+    const document = await IssuedDocuments.issue(
+      template,
+      customer,
+      { site: site.id },
+      i18n(),
+      user
+    )
+    const down: PdfConverter = {
+      convert: () => Promise.reject(new PdfConversionError('Gotenberg is down')),
+    }
+
+    // Gotenberg down: the document exists, without a PDF yet
+    await assert.rejects(
+      () => IssuedDocuments.pdf(document, i18n(), new DocumentRenderer(down)),
+      PdfConversionError
+    )
+    await document.refresh()
+    assert.isNull(document.pdfPath)
+
+    const first = await IssuedDocuments.pdf(
+      document,
+      i18n(),
+      new DocumentRenderer(converterOf('A'))
+    )
+    assert.equal(first.toString(), 'A')
+    await document.refresh()
+    assert.match(
+      document.pdfPath!,
+      new RegExp(`^issued-documents/${document.id}/[0-9a-f-]+\\.pdf$`)
+    )
+    assert.equal(await readFile(storagePath(document.pdfPath!), 'utf8'), 'A')
+
+    // A later rendering would differ (another logo, layout or renderer): not used
+    await completeCompany({ logoFile: 'company/other-logo.png' })
+    await DocumentTemplates.save(template, {
+      name: 'Nuovo titolo',
+      fields,
+      body: body as TemplateNode,
+    })
+    const again = await IssuedDocuments.pdf(
+      document,
+      i18n(),
+      new DocumentRenderer(converterOf('B'))
+    )
+    assert.equal(again.toString(), 'A')
+  })
+
+  test('issuing over HTTP stores the PDF, which the PDF routes serve', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const { customer, site } = await world()
+    const template = await saveTemplate()
+
+    const response = await client
+      .post('/issued-documents')
+      .json({ templateId: template.id, customerId: customer.id, values: { site: site.id } })
+      .header('accept', 'application/json')
+      .withCsrfToken()
+      .loginAs(office)
+    response.assertStatus(200)
+    const document = await IssuedDocument.findOrFail(response.body().id)
+    assert.isNotNull(document.pdfPath)
+    assert.isTrue(existsSync(storagePath(document.pdfPath!)))
+    // Swapped for known bytes: the route must serve the stored file as it is
+    await writeFile(storagePath(document.pdfPath!), '%PDF-stored')
+
+    await completeCompany({ name: 'Altra azienda S.r.l.' })
+    const pdf = await client.get(`/issued-documents/${document.id}/pdf`).loginAs(office)
+    pdf.assertStatus(200)
+    pdf.assertHeader('content-type', 'application/pdf')
+    pdf.assertHeader('content-length', String('%PDF-stored'.length))
+    await document.refresh()
+    assert.isTrue(document.pdfPath!.startsWith(`issued-documents/${document.id}/`))
   })
 })
 
@@ -662,6 +796,22 @@ test.group('Issued Documents: access', (group) => {
         .get(`/my-visits/${visit.id}/issued-documents/${id}`)
         .loginAs(anna)
       refused.assertStatus(404)
+    }
+  })
+
+  test('Admin and Office open them from any Visit too', async ({ client }) => {
+    const { visit, document, manual } = await visitWorld([])
+    for (const role of ['admin', 'office'] as const) {
+      const user = await createUser(role)
+      const pdf = await client
+        .get(`/my-visits/${visit.id}/issued-documents/${document.id}`)
+        .loginAs(user)
+      pdf.assertStatus(200)
+      pdf.assertHeader('content-type', 'application/pdf')
+      const opened = await client
+        .get(`/my-visits/${visit.id}/item-documents/${manual.id}`)
+        .loginAs(user)
+      opened.assertStatus(200)
     }
   })
 

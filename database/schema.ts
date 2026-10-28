@@ -422,7 +422,7 @@ export class InvoiceSchema extends BaseModel {
 }
 
 export class IssuedDocumentSchema extends BaseModel {
-  static $columns = ['company', 'createdAt', 'createdBy', 'customerId', 'documentTemplateId', 'documentTemplateVersionId', 'id', 'input', 'installedEquipmentId', 'issuedOn', 'jobId', 'recipient', 'replacedById', 'sequence', 'siteId', 'tables', 'values', 'year'] as const
+  static $columns = ['company', 'createdAt', 'createdBy', 'customerId', 'documentTemplateId', 'documentTemplateVersionId', 'id', 'input', 'installedEquipmentId', 'issuedOn', 'jobId', 'pdfPath', 'recipient', 'replacedById', 'sequence', 'siteId', 'tables', 'values', 'year'] as const
   $columns = IssuedDocumentSchema.$columns
   @column()
   declare company: any
@@ -446,6 +446,8 @@ export class IssuedDocumentSchema extends BaseModel {
   declare issuedOn: DateTime
   @column()
   declare jobId: number | null
+  @column()
+  declare pdfPath: string | null
   @column()
   declare recipient: any
   @column()
