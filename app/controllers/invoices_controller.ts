@@ -239,6 +239,15 @@ export default class InvoicesController {
       invoice.jobId && !invoice.advance
         ? await Invoices.advancesOf(undefined, invoice.jobId, invoice.id)
         : null
+    // An advance is credited only for what is left to take back of it,
+    // besides this Credit Note (ADR 0014)
+    const advanceOf = async (advance: Invoice, except: number | null) => {
+      if (!advance.advance || !advance.jobId || advance.status === 'draft') return undefined
+      const entries = await Invoices.advancesOf(undefined, advance.jobId, except)
+      return entries.find((entry) => entry.advance.id === advance.id)
+    }
+    const creditedAdvance = credited ? await advanceOf(credited, invoice.id) : undefined
+    const ownAdvance = await advanceOf(invoice, null)
     // Other Invoices still waiting to go (or go back) to SDI, to warn before finalising
     const unsubmitted = await Invoice.query()
       .whereIn('status', ['finalised', 'rejected'])
@@ -263,7 +272,11 @@ export default class InvoicesController {
               number: credited.formattedNumber!,
               issuedOn: credited.issuedOn!.toISODate()!,
               total: credited.total!,
-              left: creditLeft(credited.total!, creditedByOthers!),
+              left: creditLeft(
+                credited.total!,
+                creditedByOthers!,
+                creditedAdvance?.deducted ?? '0'
+              ),
             }
           : null,
         discountPercent: invoice.discountPercent,
@@ -296,7 +309,7 @@ export default class InvoicesController {
             status: note.status,
             total: note.total,
           })),
-      canCredit: creditRefusal(invoice) === null,
+      canCredit: creditRefusal(invoice) === null && (!ownAdvance || Number(ownAdvance.left) > 0),
       canSubmit: canTransition(invoice.status, 'submit'),
       submissions: invoice.submissions.map((submission) => ({
         id: submission.id,

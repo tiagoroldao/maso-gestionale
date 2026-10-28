@@ -23,42 +23,69 @@ export const CHARGE_EVENT_KINDS = [
   'billable',
   'billed',
   'unbilled',
+  'credited',
+  'uncredited',
 ] as const
 export type ChargeEventKind = (typeof CHARGE_EVENT_KINDS)[number]
 
 /**
- * To bill, not billable, held by a draft Invoice, or billed by an issued
- * one.
+ * The events that move a Charge in and out of issued documents: billed by
+ * an Invoice, set back to bill, credited by Credit Notes crediting its
+ * line in full, and uncredited when a corrected Credit Note no longer
+ * does (ADR 0014).
  */
-export const CHARGE_STATES = ['to_bill', 'not_billable', 'in_draft', 'billed'] as const
+export const BILLING_EVENT_KINDS = ['billed', 'unbilled', 'credited', 'uncredited'] as const
+
+/**
+ * To bill, not billable, held by a draft Invoice, billed by an issued
+ * one, or credited: its line was credited in full (ADR 0014).
+ */
+export const CHARGE_STATES = ['to_bill', 'not_billable', 'in_draft', 'billed', 'credited'] as const
 export type ChargeState = (typeof CHARGE_STATES)[number]
+
+const isBillingEvent = (kind: string) => (BILLING_EVENT_KINDS as readonly string[]).includes(kind)
 
 /**
  * A Charge's state, from its history (oldest event first) and whether a
  * draft Invoice holds it. The latest "not billable" or "billable" event
- * decides whether it is billable; the latest "billed" or "set back to
- * bill" event whether an issued Invoice bills it (a draft only holds it).
+ * decides whether it is billable; the latest billing event whether an
+ * issued Invoice bills it ("billed", or "uncredited", which gives back the
+ * billing a credit took), Credit Notes credited it, or it was set back to
+ * bill (a draft then only holds it). CHARGE_STATE_SQL says the same in
+ * SQL.
  */
 export function chargeState(events: { kind: string }[], heldByDraft: boolean): ChargeState {
   const decision = events.findLast(
     (event) => event.kind === 'not_billable' || event.kind === 'billable'
   )
   if (decision?.kind === 'not_billable') return 'not_billable'
-  const billing = events.findLast((event) => event.kind === 'billed' || event.kind === 'unbilled')
-  if (billing?.kind === 'billed') return 'billed'
+  const billing = events.findLast((event) => isBillingEvent(event.kind))
+  if (billing?.kind === 'billed' || billing?.kind === 'uncredited') return 'billed'
+  if (billing?.kind === 'credited') return 'credited'
   return heldByDraft ? 'in_draft' : 'to_bill'
 }
 
 /**
- * A draft holds the Charge, or an issued Invoice bills it: what is billed
- * changes only through billing (ADR 0010).
+ * A draft holds the Charge, an issued Invoice bills it, or Credit Notes
+ * credited it: what is billed changes only through billing (ADR 0010,
+ * 0014).
  */
 export function isHeld(state: ChargeState) {
-  return state === 'in_draft' || state === 'billed'
+  return state === 'in_draft' || state === 'billed' || state === 'credited'
+}
+
+/**
+ * Billed by an issued Invoice, credited or not: Office can set it back to
+ * bill, to bill the work again (ADR 0010, 0014).
+ */
+export function canSetBackToBill(state: ChargeState) {
+  return state === 'billed' || state === 'credited'
 }
 
 /**
  * Still waiting for an issued Invoice: to bill, or only held by a draft.
+ * A credited Charge is final, like one not billable, until Office sets it
+ * back to bill.
  */
 export function isOutstanding(state: ChargeState) {
   return state === 'to_bill' || state === 'in_draft'

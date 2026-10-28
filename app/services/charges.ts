@@ -12,14 +12,20 @@ import User from '#models/user'
 import Visit from '#models/visit'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
-import { CHARGE_DESCRIPTION_MAX, isHeld, type ChargeState } from '#shared/charges'
+import {
+  BILLING_EVENT_KINDS,
+  CHARGE_DESCRIPTION_MAX,
+  isHeld,
+  type ChargeState,
+} from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { CHARGE_STATE_SQL } from '#services/job_status'
 
 /**
- * An Invoice holds or bills the Charge, so what is billed changes only
- * through billing (ADR 0010); only a billed Charge is set back to bill; a
+ * An Invoice holds or bills the Charge, or Credit Notes credited it, so
+ * what is billed changes only through billing (ADR 0010, 0014); only a
+ * billed or credited Charge is set back to bill; a
  * new Charge on a closed or cancelled Job, which takes no new work (ADR
  * 0015); or a correction picked an archived Labour Rate or Item, or a
  * Technician who is inactive or not on the Visit; or it would change the
@@ -28,7 +34,14 @@ import { CHARGE_STATE_SQL } from '#services/job_status'
 export class ChargeRefusedError extends Error {
   constructor(
     readonly reason:
-      'billed' | 'notBilled' | 'closed' | 'cancelled' | 'archived' | 'worker' | 'installed'
+      | 'billed'
+      | 'credited'
+      | 'notBilled'
+      | 'closed'
+      | 'cancelled'
+      | 'archived'
+      | 'worker'
+      | 'installed'
   ) {
     super(reason)
   }
@@ -167,19 +180,25 @@ export default class Charges {
   }
 
   /**
-   * Sets a billed Charge back to "to bill" (ADR 0010), to bill it again by
-   * hand: a partial or repeated bill. The Invoice that billed it is
+   * Sets a billed or credited Charge back to "to bill" (ADR 0010, 0014),
+   * to bill it again by hand: a partial or repeated bill, or work credited
+   * and billed anew. The Invoice that billed it, and any Credit Note, are
    * unchanged; what is billed becomes editable again and, if Office never
    * edited it, follows what was recorded (see release).
    */
   static async setBackToBill(charge: Charge, user: User): Promise<void> {
     await this.whileLocked(charge, async (trx, locked) => {
-      const billed = await ChargeEvent.query({ client: trx })
+      const latest = await ChargeEvent.query({ client: trx })
         .where('chargeId', locked.id)
-        .whereIn('kind', ['billed', 'unbilled'])
+        .whereIn('kind', [...BILLING_EVENT_KINDS])
         .orderBy('id', 'desc')
         .first()
-      if (billed?.kind !== 'billed') throw new ChargeRefusedError('notBilled')
+      if (!latest || latest.kind === 'unbilled') throw new ChargeRefusedError('notBilled')
+      const billed = await ChargeEvent.query({ client: trx })
+        .where('chargeId', locked.id)
+        .where('kind', 'billed')
+        .orderBy('id', 'desc')
+        .firstOrFail()
       const line = await trx
         .from('invoice_line_charges')
         .where('charge_id', locked.id)
@@ -324,12 +343,15 @@ export default class Charges {
   }
 
   /**
-   * What is billed is frozen while an Invoice holds or bills the Charge.
-   * A closed or cancelled Job's Charges are still billed, or marked not
-   * billable, by Office (#111).
+   * What is billed is frozen while an Invoice holds or bills the Charge,
+   * or once Credit Notes credited it (set it back to bill first). A closed
+   * or cancelled Job's Charges are still billed, or marked not billable,
+   * by Office (#111).
    */
   private static async refuseBillingChange(trx: TransactionClientContract, charge: Charge) {
-    if (isHeld(await this.stateOf(trx, charge.id))) throw new ChargeRefusedError('billed')
+    const state = await this.stateOf(trx, charge.id)
+    if (state === 'credited') throw new ChargeRefusedError('credited')
+    if (isHeld(state)) throw new ChargeRefusedError('billed')
   }
 
   /**

@@ -15,6 +15,14 @@ test.group('Advance deductions', () => {
     assert.equal(advanceLeft('232.00', '240.00'), '0.00')
   })
 
+  test('what its Credit Notes credit counts as taken back (ADR 0014)', ({ assert }) => {
+    assert.equal(advanceState('232.00', '0', '100.00'), 'partly_deducted')
+    assert.equal(advanceState('232.00', '132.00', '100.00'), 'fully_deducted')
+    assert.equal(advanceState('232.00', '0', '232.00'), 'fully_deducted')
+    assert.equal(advanceLeft('232.00', '116.00', '16.00'), '100.00')
+    assert.equal(advanceLeft('232.00', '116.00', '116.00'), '0.00')
+  })
+
   test('a part is split over the VAT rows, their VAT taken out', ({ assert }) => {
     assert.deepEqual(
       deductionRows(rows, '116.00', '232.00').map((row) => row.taxable),

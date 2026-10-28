@@ -22,19 +22,17 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | —                                                 |
 
 ## Added to existing issues
 
 Review findings folded into planned work, so they are picked up with it:
 
 - **#17:** Registro Imprese / REA; Credit Note numbering (shared sequence or _sezionale_).
-- **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
+- **#19:** concurrency tests on separate connections (including crediting Charges, the per-line Credit Note limit and crediting an advance against a deduction, all under the credited Invoice's Job lock, from #146); Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
 - **#27:** the paid indicator (`jobIndicators`, `JOB_PAID_SQL`) and what closing lists as unpaid (`Jobs.leftToClose`) count a Legacy Invoice's Payments when it belongs to the Job (from #103).
-- **#146:** billed amount before the global discount: a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount (#116). Decide when Credit Notes credit Charges. From #145: crediting an Advance Invoice is refused (`creditRefusal()` → `advance`) until #146 reduces what is left of it; a final Invoice's deduction lines aren't copied onto its Credit Note, so crediting it in full means lowering the work lines (the cap is on the Invoice's total, deductions included); only the Invoice-wide cap exists, so a Credit Note line can credit more than its own line (#146's "credited in full" needs a per-line rule); the Job page neither lists Credit Notes nor lowers "invoiced so far" by them.
 
 ## Not yet issues
 
@@ -90,7 +88,10 @@ Review findings folded into planned work, so they are picked up with it:
 - **No body-format version on templates** (#30): the #112 review suggested one before new node types. #30 only adds to the allow-list (`fieldTable`, property placeholders), so every stored body still validates and renders as before; add a version when a change would alter or drop an existing node.
 - **Advance Invoice tests to add** (#23): several advances on one Job, a discount on the advance itself, and the Job list filters with only an advance or with a draft final (from the #113 review).
 - **Document texts written in services** (#23): `Acconto – …`, `Detrazione acconto fattura …` (and the earlier rejection note) are Italian strings in services rather than in `resources/lang/it` (from the #113 review).
-- **Advances with no Invoice left to take them back** (#23, ADR 0011): a Job with an advance left once nothing is left to bill stays open for billing (no draft can be made). (Resolved by #146: remove when it merges.) It needs a Credit Note (#146) or another Invoice to take it back.
+- **Billed amounts before the global discount** (#116, ADR 0014): a "billed" event records the Charge's part of its line's amount before the Invoice-wide discount, so the Job page's "invoiced so far" (taxable, after the discount) can read below what the Charges add up to with nothing left to bill. Kept on purpose in #146; spread the discount over the Charges if the comparison confuses anyone.
+- **A deduction is given back whole** (#146): a Credit Note on a final Invoice gives an advance's deduction back entirely or not at all, so crediting more of the work than the Invoice's net total means giving the whole deduction back. Allow a partial amount (as Office sets deductions, ADR 0011) if it happens in practice.
+- **Negative lines Office wrote on an Invoice can't be credited** (#146): Credit Note lines are never negative except a deduction given back, so a hand-written negative line (a free line with a negative price) is prefilled, then refused on the first save; Office removes it and credits the other lines within the Invoice's total. Treat such lines like deductions if they turn up.
+- **An advance's Credit Note prefill may be a cent short** (#146): a partly taken back advance's Credit Note starts with each line's share of what is left, rounded down so it never exceeds it; Office adds the cent to close the advance exactly.
 - **Imported hours over 24** (#117): a Quote's labour line imports as one Charge of all its hours, but correcting recorded hours accepts at most 24 per Charge (one day's work, as in the field), so a larger imported quantity can't be corrected as recorded; Office edits what is billed instead, or the limit could follow the Charge's origin.
 - **Jobs invoiced from their Quote before #117 look billable again** (ADR 0012): a Job whose Invoice came from its Quote (no Charges held) and that has Charges recorded on its closed Visits now counts those Charges as to bill, so it shows a draft to make and is no longer Invoiced. Only dev and seed data has such Jobs, since invoicing isn't live yet; mark those Charges not billable, or reseed.
 - **Importing onto a Visit while it closes is untested under concurrency** (#117): `Quotes.importLines` locks the Visit before checking it is open, as field work does, so a Visit closing at the same moment either takes the imported Items off stock or refuses the import. Tests share one connection, where locks are re-entrant, so none proves it; test it on separate connections with the other locking tests (#19).

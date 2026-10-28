@@ -6,7 +6,7 @@ import { nextJobSequence } from '#services/job_numbers'
 import Archiving from '#services/archiving'
 import type { WorkCategory } from '#shared/jobs'
 import {
-  ADVANCE_DEDUCTED_SQL,
+  ADVANCE_TAKEN_BACK_SQL,
   OUTSTANDING_SQL,
   OWED_SQL,
   VISIT_TO_DO_SQL,
@@ -175,8 +175,8 @@ export default class Jobs {
    * 0015): Visits still to do (planned or under way, or needing another
    * visit with none planned), Charges still to bill (in a draft or not),
    * issued Invoices unpaid or overpaid, issued Advance Invoices not yet
-   * fully taken back, and draft Invoices (a draft advance can't be
-   * finalised once the Job is closed).
+   * fully taken back (deducted or credited), and draft Invoices and Credit
+   * Notes (a draft advance can't be finalised once the Job is closed).
    */
   static async leftToClose(jobId: number, client?: TransactionClientContract) {
     const row = await (client ?? db)
@@ -193,9 +193,11 @@ export default class Jobs {
           WHERE i.job_id = jobs.id AND i.status <> 'draft' AND ${OWED_SQL('i')} < 0)::int AS overpaid`),
         db.raw(`(SELECT count(*) FROM invoices a
           WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
-            AND a.total > ${ADVANCE_DEDUCTED_SQL('a')})::int AS advances`),
+            AND a.total > ${ADVANCE_TAKEN_BACK_SQL('a')})::int AS advances`),
+        // Draft Credit Notes too: they follow the Job's Invoice they credit
         db.raw(`(SELECT count(*) FROM invoices d
-          WHERE d.job_id = jobs.id AND d.status = 'draft')::int AS drafts`)
+          WHERE d.status = 'draft' AND (d.job_id = jobs.id OR d.credits_invoice_id IN (
+            SELECT ji.id FROM invoices ji WHERE ji.job_id = jobs.id)))::int AS drafts`)
       )
       .firstOrFail()
     return row as JobLeftovers
