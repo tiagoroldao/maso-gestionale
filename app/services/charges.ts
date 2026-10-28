@@ -285,9 +285,10 @@ export default class Charges {
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
     await this.whileLocked(charge, async (trx, locked, job) => {
       await this.refuseBillingChange(trx, locked, job)
-      const quotedVat = locked.vatCodeId
-        ? (await VatCode.findOrFail(locked.vatCodeId, { client: trx })).name
+      const quotedCode = locked.vatCodeId
+        ? await VatCode.findOrFail(locked.vatCodeId, { client: trx })
         : null
+      const quotedVat = quotedCode?.name ?? null
       const before = { ...billingValues(locked), vatCode: quotedVat }
       locked.merge({
         billQuantity: input.quantity,
