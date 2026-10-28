@@ -245,6 +245,19 @@ test.group('Credit Notes', () => {
     })
   })
 
+  test("a cancelled Job's Invoice can still be credited (ADR 0015)", async ({ assert }) => {
+    await completeCompany()
+    const customer = await createCustomer()
+    const job = await createJob(customer)
+    const invoice = await issued(customer, job.id)
+    await job.merge({ status: 'cancelled', cancelledAt: DateTime.now() }).save()
+
+    const note = await creditNote(invoice, ['10', '0'])
+    await Invoices.finalise(note)
+    await note.refresh()
+    assert.equal(note.status, 'finalised')
+  })
+
   test('a not deliverable Invoice can be credited too', async ({ assert }) => {
     await completeCompany()
     const invoice = await issued(undefined, undefined, 'not_deliverable')
