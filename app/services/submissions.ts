@@ -14,6 +14,22 @@ import { ManualSdiGateway, type SdiGateway } from '#services/sdi_gateway'
  */
 export class SubmissionRefusedError extends Error {}
 
+/**
+ * The notice is dated before the Submission was sent.
+ */
+export class NoticeBeforeSubmissionError extends Error {}
+
+/**
+ * SDI's notice of the outcome: its date (today if not given), SDI's
+ * identifier for the file, and the error codes for a Rejection.
+ */
+export type SdiNotice = {
+  outcome: SubmissionOutcome
+  noticeOn?: DateTime | null
+  sdiId?: string | null
+  notes?: string | null
+}
+
 const OUTCOME_EVENTS: Record<SubmissionOutcome, InvoiceEvent> = {
   delivered: 'deliver',
   not_deliverable: 'notDeliverable',
@@ -79,11 +95,10 @@ export default class Submissions {
       // Already confirmed (a double click): nothing more to do
       if (open?.submittedAt) return
       if (!open || !canTransition(locked.status, 'submit')) throw new SubmissionRefusedError()
-      await this.gateway.submit({
-        fileName: open.fileName,
-        xml: await this.xml(locked, open, discountLabel),
-      })
-      open.merge({ submittedAt: DateTime.now(), submittedBy: user?.id ?? null })
+      const xml = await this.xml(locked, open, discountLabel)
+      await this.gateway.submit({ fileName: open.fileName, xml })
+      // Kept as sent: legal archiving happens outside the app (ADR 0004)
+      open.merge({ xml, submittedAt: DateTime.now(), submittedBy: user?.id ?? null })
       await open.save()
       locked.status = transition(locked.status, 'submit')
       await locked.save()
@@ -91,25 +106,26 @@ export default class Submissions {
   }
 
   /**
-   * SDI's answer to the Submission in progress.
+   * SDI's answer to the Submission in progress, dated by its notice (the
+   * resubmission deadline counts from it).
    */
-  static async recordOutcome(
-    invoice: Invoice,
-    outcome: SubmissionOutcome,
-    notes: string | null,
-    user: User | null = null
-  ) {
+  static async recordOutcome(invoice: Invoice, notice: SdiNotice, user: User | null = null) {
     await this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
-      const event = OUTCOME_EVENTS[outcome]
+      const event = OUTCOME_EVENTS[notice.outcome]
       if (!open?.submittedAt || !canTransition(locked.status, event)) {
         throw new SubmissionRefusedError()
       }
+      const noticeOn = notice.noticeOn ?? DateTime.now().startOf('day')
+      // SDI can't answer a file before it was sent
+      if (noticeOn < open.submittedAt.startOf('day')) throw new NoticeBeforeSubmissionError()
       open.merge({
-        outcome,
+        outcome: notice.outcome,
+        noticeOn,
+        sdiId: notice.sdiId ?? null,
         outcomeAt: DateTime.now(),
         outcomeBy: user?.id ?? null,
-        outcomeNotes: notes,
+        outcomeNotes: notice.notes ?? null,
       })
       await open.save()
       locked.status = transition(locked.status, event)

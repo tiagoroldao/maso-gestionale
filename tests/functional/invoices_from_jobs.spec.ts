@@ -163,7 +163,7 @@ test.group('Invoices from Quoted Jobs', () => {
     await Invoices.finalise(invoice)
     await Submissions.prepare(invoice)
     await Submissions.confirm(invoice, 'Sconto')
-    await Submissions.recordOutcome(invoice, 'rejected', null)
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
     await invoice.load('lines', (l) => l.orderBy('position'))
     const [boiler, labour] = invoice.lines
 

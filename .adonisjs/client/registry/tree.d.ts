@@ -128,6 +128,7 @@ export interface ApiDefinition {
     finalise: typeof routes['invoices.finalise']
     pdf: typeof routes['invoices.pdf']
     xml: typeof routes['invoices.xml']
+    submissionXml: typeof routes['invoices.submission_xml']
     prepareSubmission: typeof routes['invoices.prepare_submission']
     confirmSubmission: typeof routes['invoices.confirm_submission']
     recordOutcome: typeof routes['invoices.record_outcome']

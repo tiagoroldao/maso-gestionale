@@ -1073,6 +1073,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
     }
   }
+  'invoices.submission_xml': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/submissions/:submissionId/xml'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; submissionId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['submissionXml']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['submissionXml']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['submissionXml']>>>
+    }
+  }
   'invoices.prepare_submission': {
     methods: ["POST"]
     pattern: '/invoices/:id/submissions'

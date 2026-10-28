@@ -83,6 +83,116 @@ test.group('SDI Submissions', (group) => {
     await prepared.refresh()
     assert.equal(prepared.outcome, 'delivered')
     assert.isNotNull(prepared.submittedAt)
+    assert.equal(prepared.noticeOn?.toISODate(), DateTime.now().toISODate())
+
+    // The file sent stays downloadable, exactly as sent
+    assert.equal(prepared.xml, gateway.submitted[0].xml)
+    const sent = await client
+      .get(`/invoices/${invoice.id}/submissions/${prepared.id}/xml`)
+      .loginAs(office)
+    sent.assertStatus(200)
+    assert.include(sent.header('content-disposition'), prepared.fileName)
+    assert.equal(sent.text(), gateway.submitted[0].xml)
+  })
+
+  test("the resubmission deadline counts from the date of SDI's notice", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await finalised()
+    const submission = await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    // Uploaded a week ago; the Rejection is recorded three days late
+    await InvoiceSubmission.query()
+      .where('id', submission.id)
+      .update({ submitted_at: DateTime.now().minus({ days: 7 }).toSQL() })
+    const noticeOn = DateTime.now().minus({ days: 3 }).toISODate()!
+
+    await client
+      .post(`/invoices/${invoice.id}/submissions/outcome`)
+      .form({ outcome: 'rejected', noticeOn, sdiId: '123456789' })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await submission.refresh()
+    assert.equal(submission.noticeOn?.toISODate(), noticeOn)
+    assert.equal(submission.sdiId, '123456789')
+    const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      resubmitBy: DateTime.now().plus({ days: 2 }).toISODate(),
+      submissions: [{ noticeOn, sdiId: '123456789', hasFile: true }],
+    })
+  })
+
+  test('a notice can be neither in the future nor before the upload', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await finalised()
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+
+    const tomorrow = await client
+      .post(`/invoices/${invoice.id}/submissions/outcome`)
+      .form({ outcome: 'delivered', noticeOn: DateTime.now().plus({ days: 1 }).toISODate() })
+      .header('referer', `/invoices/${invoice.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(tomorrow.flashMessage('inputErrorsBag'), ['noticeOn'])
+
+    const early = await client
+      .post(`/invoices/${invoice.id}/submissions/outcome`)
+      .form({ outcome: 'delivered', noticeOn: DateTime.now().minus({ days: 1 }).toISODate() })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    early.assertFlashMessage('error', it('flash.noticeBeforeSubmission'))
+
+    const badId = await client
+      .post(`/invoices/${invoice.id}/submissions/outcome`)
+      .form({ outcome: 'delivered', sdiId: 'abc' })
+      .header('referer', `/invoices/${invoice.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(badId.flashMessage('inputErrorsBag'), ['sdiId'])
+
+    await invoice.refresh()
+    assert.equal(invoice.status, 'submitted')
+    const [open] = await InvoiceSubmission.query().where('invoiceId', invoice.id)
+    assert.isNull(open.outcome)
+    assert.isNull(open.noticeOn)
+  })
+
+  test('only files actually sent are kept, each under its own Invoice', async ({ client }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await finalised()
+    const other = await finalised()
+    const prepared = await Submissions.prepare(invoice)
+
+    // Prepared, not sent yet: nothing kept
+    const unsent = await client
+      .get(`/invoices/${invoice.id}/submissions/${prepared.id}/xml`)
+      .loginAs(office)
+    unsent.assertStatus(404)
+
+    await Submissions.confirm(invoice, 'Sconto')
+    const elsewhere = await client
+      .get(`/invoices/${other.id}/submissions/${prepared.id}/xml`)
+      .loginAs(office)
+    elsewhere.assertStatus(404)
+
+    const technician = await createUser('technician')
+    const denied = await client
+      .get(`/invoices/${invoice.id}/submissions/${prepared.id}/xml`)
+      .loginAs(technician)
+    denied.assertStatus(403)
   })
 
   test('a Rejection reopens the Invoice: corrected, rebooked in stock and resubmitted', async ({
@@ -171,7 +281,10 @@ test.group('SDI Submissions', (group) => {
     const issuedOn = invoice.issuedOn?.toISODate()
     await Submissions.prepare(invoice)
     await Submissions.confirm(invoice, 'Sconto')
-    await Submissions.recordOutcome(invoice, 'rejected', '00305 IdFiscaleIVA non valido')
+    await Submissions.recordOutcome(invoice, {
+      outcome: 'rejected',
+      notes: '00305 IdFiscaleIVA non valido',
+    })
 
     // Office fixes the Customer's VAT number, then saves the Invoice again
     const customer = await Customer.findOrFail(invoice.customerId)
@@ -206,7 +319,7 @@ test.group('SDI Submissions', (group) => {
     const invoice = await finalised()
     await Submissions.prepare(invoice)
     await Submissions.confirm(invoice, 'Sconto')
-    await Submissions.recordOutcome(invoice, 'rejected', null)
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
     await Submissions.prepare(invoice)
 
     const standard = await vatCode()
@@ -231,7 +344,7 @@ test.group('SDI Submissions', (group) => {
     }
 
     // Rejected again, emptied: it can't be prepared
-    await Submissions.recordOutcome(invoice, 'rejected', null)
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
     await client.put(`/invoices/${invoice.id}`).json({ lines: [] }).withCsrfToken().loginAs(office)
     const empty = await client
       .post(`/invoices/${invoice.id}/submissions`)
@@ -263,7 +376,7 @@ test.group('SDI Submissions', (group) => {
     // Not deliverable is final: it still counts, there is nothing to resend
     await Submissions.prepare(invoice)
     await Submissions.confirm(invoice, 'Sconto')
-    await Submissions.recordOutcome(invoice, 'not_deliverable', null)
+    await Submissions.recordOutcome(invoice, { outcome: 'not_deliverable' })
     const again = await client
       .post(`/invoices/${invoice.id}/submissions`)
       .withCsrfToken()
@@ -297,7 +410,7 @@ test.group('SDI Submissions', (group) => {
     page.assertInertiaPropsContains({ unsubmittedCount: 1 })
 
     // A rejected Invoice also waits to go back to SDI
-    await Submissions.recordOutcome(sent, 'rejected', null)
+    await Submissions.recordOutcome(sent, { outcome: 'rejected' })
     const again = await client.get(`/invoices/${draft.id}/edit`).withInertia().loginAs(office)
     again.assertInertiaPropsContains({ unsubmittedCount: 2 })
 

@@ -12,7 +12,10 @@ import DocumentRenderer from '#documents/document_renderer'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { invoiceDocument } from '#documents/invoice_document'
 import InvoiceSubmission from '#models/invoice_submission'
-import Submissions, { SubmissionRefusedError } from '#services/submissions'
+import Submissions, {
+  NoticeBeforeSubmissionError,
+  SubmissionRefusedError,
+} from '#services/submissions'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
@@ -156,16 +159,18 @@ export default class InvoicesController {
         preparedAt: submission.preparedAt.toISO()!,
         submittedAt: submission.submittedAt?.toISO() ?? null,
         outcome: submission.outcome,
-        outcomeAt: submission.outcomeAt?.toISO() ?? null,
+        noticeOn: submission.noticeOn?.toISODate() ?? null,
+        sdiId: submission.sdiId,
         outcomeNotes: submission.outcomeNotes,
+        hasFile: submission.xml !== null,
       })),
       openSubmission: open
         ? { id: open.id, fileName: open.fileName, submitted: Boolean(open.submittedAt) }
         : null,
-      // SDI's window to resubmit after a Rejection
+      // SDI's window to resubmit after a Rejection, from its notice
       resubmitBy:
-        invoice.status === 'rejected' && lastRejection?.outcomeAt
-          ? lastRejection.outcomeAt.plus({ days: RESUBMISSION_DAYS }).toISODate()
+        invoice.status === 'rejected' && lastRejection?.noticeOn
+          ? lastRejection.noticeOn.plus({ days: RESUBMISSION_DAYS }).toISODate()
           : null,
       unsubmittedCount: Number(unsubmitted?.$extras.total ?? 0),
       vatCodes: await vatCodeOptions(invoice.lines.map((line) => line.vatCodeId)),
@@ -267,6 +272,21 @@ export default class InvoicesController {
   }
 
   /**
+   * The file a Submission sent, exactly as it went to SDI, for archiving.
+   */
+  async submissionXml({ params, response }: HttpContext) {
+    const submission = await InvoiceSubmission.query()
+      .where('id', params.submissionId)
+      .where('invoiceId', params.id)
+      .whereNotNull('xml')
+      .firstOrFail()
+
+    response.header('content-type', 'application/xml; charset=utf-8')
+    response.header('content-disposition', `attachment; filename="${submission.fileName}"`)
+    return submission.xml
+  }
+
+  /**
    * Prepares a Submission: reserves its progressive and file name, so the
    * XML can be downloaded and uploaded to SDI.
    */
@@ -295,11 +315,22 @@ export default class InvoicesController {
    */
   async recordOutcome({ params, request, response, session, i18n, auth }: HttpContext) {
     const invoice = await Invoice.findOrFail(params.id)
-    const { outcome, notes } = await request.validateUsing(submissionOutcomeValidator)
-    const done = await this.refusable({ session, i18n }, () =>
-      Submissions.recordOutcome(invoice, outcome, notes ?? null, auth.getUserOrFail())
+    const { outcome, noticeOn, sdiId, notes } = await request.validateUsing(
+      submissionOutcomeValidator
     )
-    if (done) session.flash('success', i18n.t(`flash.submissionOutcome.${outcome}`))
+    try {
+      const done = await this.refusable({ session, i18n }, () =>
+        Submissions.recordOutcome(
+          invoice,
+          { outcome, noticeOn, sdiId, notes },
+          auth.getUserOrFail()
+        )
+      )
+      if (done) session.flash('success', i18n.t(`flash.submissionOutcome.${outcome}`))
+    } catch (error) {
+      if (!(error instanceof NoticeBeforeSubmissionError)) throw error
+      session.flash('error', i18n.t('flash.noticeBeforeSubmission'))
+    }
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }
 

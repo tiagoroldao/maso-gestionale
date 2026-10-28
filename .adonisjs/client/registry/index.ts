@@ -498,6 +498,12 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"],[0,"xml"]],
     types: placeholder as Registry['invoices.xml']['types'],
   },
+  'invoices.submission_xml': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/submissions/:submissionId/xml',
+    tokens: [[0,"invoices"],[1,"id"],[0,"submissions"],[1,"submissionId"],[0,"xml"]],
+    types: placeholder as Registry['invoices.submission_xml']['types'],
+  },
   'invoices.prepare_submission': {
     methods: ["POST"],
     pattern: '/invoices/:id/submissions',

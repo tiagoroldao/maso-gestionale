@@ -226,6 +226,13 @@ router
           .get('invoices/:id/xml', [controllers.Invoices, 'xml'])
           .where('id', router.matchers.number())
         router
+          .get('invoices/:id/submissions/:submissionId/xml', [
+            controllers.Invoices,
+            'submissionXml',
+          ])
+          .where('id', router.matchers.number())
+          .where('submissionId', router.matchers.number())
+        router
           .post('invoices/:id/submissions', [controllers.Invoices, 'prepareSubmission'])
           .where('id', router.matchers.number())
         router
