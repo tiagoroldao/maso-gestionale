@@ -248,17 +248,15 @@ export default class MyVisitsController {
       )
       .preload('items', (items) => items.preload('item').orderBy('createdAt'))
       .preload('job', (job) =>
-        job
-          .preload('customer')
-          .preload('site', (site) =>
-            site.preload('installedEquipment', (equipment) =>
-              equipment
-                .orderBy(['equipment_type', 'id'])
-                .preload('item', (item) =>
-                  item.preload('documents', (docs) => docs.orderBy('title'))
-                )
-            )
+        job.preload('customer').preload('site', (site) =>
+          site.preload('installedEquipment', (equipment) =>
+            equipment
+              // Removed equipment isn't at the Site any more
+              .whereNull('removed_on')
+              .orderBy(['equipment_type', 'id'])
+              .preload('item', (item) => item.preload('documents', (docs) => docs.orderBy('title')))
           )
+        )
       )
       .firstOrFail()
   }

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { computed } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Pencil, Plus } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
@@ -8,7 +7,7 @@ import AppLayout from '~/layouts/app.vue'
 import { formatDate, t, todayIso } from '~/i18n'
 import JobList, { type JobRow } from '~/components/job_list.vue'
 
-const props = defineProps<{
+defineProps<{
   site: { id: number; summary: string; accessNotes: string | null; archived: boolean }
   customers: { id: number; displayName: string }[]
   jobs: JobRow[]
@@ -24,11 +23,15 @@ const props = defineProps<{
     removedOn: string | null
     replacedBy: string | null
   }[]
+  removedEquipment: {
+    id: number
+    description: string
+    removedOn: string | null
+    replacedBy: string | null
+  }[]
 }>()
 
 const today = todayIso()
-const current = computed(() => props.installedEquipment.filter((e) => !e.removedOn))
-const removed = computed(() => props.installedEquipment.filter((e) => e.removedOn))
 const confirm = (message: string) => window.confirm(message)
 </script>
 
@@ -73,7 +76,7 @@ const confirm = (message: string) => window.confirm(message)
       </Section>
 
       <Section :title="t('ui.equipment.sectionTitle')">
-        <table v-if="current.length" class="table">
+        <table v-if="installedEquipment.length" class="table">
           <thead>
             <tr>
               <th>{{ t('ui.equipment.equipment') }}</th>
@@ -84,7 +87,7 @@ const confirm = (message: string) => window.confirm(message)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="equipment in current" :key="equipment.id">
+            <tr v-for="equipment in installedEquipment" :key="equipment.id">
               <td>
                 {{ equipment.description }}
                 <span v-if="equipment.itemCode" class="mono tag">{{ equipment.itemCode }}</span>
@@ -133,7 +136,7 @@ const confirm = (message: string) => window.confirm(message)
                   >
                     <option value="">{{ t('ui.equipment.noReplacement') }}</option>
                     <option
-                      v-for="other in current.filter((e) => e.id !== equipment.id)"
+                      v-for="other in installedEquipment.filter((e) => e.id !== equipment.id)"
                       :key="other.id"
                       :value="other.id"
                     >
@@ -149,10 +152,10 @@ const confirm = (message: string) => window.confirm(message)
           </tbody>
         </table>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.equipment.empty') }}</p>
-        <template v-if="removed.length">
+        <template v-if="removedEquipment.length">
           <h3>{{ t('ui.equipment.removedTitle') }}</h3>
           <ul :style="{ margin: 0, paddingLeft: '18px' }">
-            <li v-for="equipment in removed" :key="equipment.id">
+            <li v-for="equipment in removedEquipment" :key="equipment.id">
               {{ equipment.description }} ·
               {{ t('ui.equipment.removedOn', { date: formatDate(equipment.removedOn) }) }}
               <span v-if="equipment.replacedBy">

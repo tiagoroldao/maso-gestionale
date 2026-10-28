@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
+import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
 import Site from '#models/site'
@@ -10,9 +11,16 @@ import Site from '#models/site'
 export class HasOpenJobsError extends Error {}
 
 /**
- * The replacement isn't current equipment at the same Site.
+ * The removal doesn't fit: the equipment was already removed, the date is
+ * before it was installed, or the replacement isn't current equipment at
+ * the same Site.
  */
-export class InvalidReplacementError extends Error {}
+export class InvalidRemovalError extends Error {}
+
+/**
+ * The Customer or Site was archived and can't take new work.
+ */
+export class ArchivedRecordError extends Error {}
 
 /**
  * Archiving Customers and Sites (out of lists and pickers, history kept)
@@ -62,26 +70,56 @@ export default class Archiving {
   }
 
   /**
+   * Inside the caller's transaction, share-locks the Customer (and Site)
+   * a new Job is for and refuses archived ones. Archiving takes an update
+   * lock, so either it sees the Job or the Job sees the archiving.
+   */
+  static async lockActive(
+    trx: TransactionClientContract,
+    ids: { customerId: number; siteId?: number | null }
+  ) {
+    const customer = await Customer.query({ client: trx })
+      .where('id', ids.customerId)
+      .forShare()
+      .firstOrFail()
+    const site = ids.siteId
+      ? await Site.query({ client: trx }).where('id', ids.siteId).forShare().firstOrFail()
+      : null
+    if (customer.archivedAt || site?.archivedAt) throw new ArchivedRecordError()
+  }
+
+  /**
    * Marks equipment as removed on a date, optionally replaced by other
-   * current equipment at the same Site.
+   * current equipment at the same Site. Both rows are locked in id order,
+   * so two removals pointing at each other can't both pass.
    */
   static async removeEquipment(
     equipment: InstalledEquipment,
     input: { removedOn: DateTime; replacedById?: number | null }
   ) {
     await db.transaction(async (trx) => {
-      const locked = await InstalledEquipment.query({ client: trx })
-        .where('id', equipment.id)
+      const ids = [equipment.id, input.replacedById ?? null]
+        .filter((id): id is number => id !== null)
+        .sort((a, b) => a - b)
+      const rows = await InstalledEquipment.query({ client: trx })
+        .whereIn('id', ids)
+        .orderBy('id')
         .forUpdate()
-        .firstOrFail()
+      const locked = rows.find((row) => row.id === equipment.id)!
+      if (locked.removedOn) throw new InvalidRemovalError()
+      if (locked.installedOn && input.removedOn < locked.installedOn) {
+        throw new InvalidRemovalError()
+      }
       if (input.replacedById) {
-        const replacement = await InstalledEquipment.query({ client: trx })
-          .where('id', input.replacedById)
-          .where('siteId', locked.siteId)
-          .whereNull('removedOn')
-          .whereNot('id', locked.id)
-          .first()
-        if (!replacement) throw new InvalidReplacementError()
+        const replacement = rows.find((row) => row.id === input.replacedById)
+        if (
+          !replacement ||
+          replacement.id === locked.id ||
+          replacement.siteId !== locked.siteId ||
+          replacement.removedOn
+        ) {
+          throw new InvalidRemovalError()
+        }
       }
       locked.merge({ removedOn: input.removedOn, replacedById: input.replacedById ?? null })
       await locked.useTransaction(trx).save()

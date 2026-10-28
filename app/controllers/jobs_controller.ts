@@ -1,5 +1,6 @@
 import Job from '#models/job'
 import Jobs from '#services/jobs'
+import { ArchivedRecordError } from '#services/archiving'
 import Customer from '#models/customer'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
@@ -73,14 +74,21 @@ export default class JobsController {
   async store({ request, response, session, i18n }: HttpContext) {
     const data = await request.validateUsing(jobValidator, { meta: {} })
 
-    const job = await Jobs.create({
-      customerId: data.customerId,
-      siteId: data.siteId,
-      kind: data.kind,
-      workCategory: data.workCategory,
-      title: data.title,
-      description: data.description,
-    })
+    let job
+    try {
+      job = await Jobs.create({
+        customerId: data.customerId,
+        siteId: data.siteId,
+        kind: data.kind,
+        workCategory: data.workCategory,
+        title: data.title,
+        description: data.description,
+      })
+    } catch (error) {
+      if (!(error instanceof ArchivedRecordError)) throw error
+      session.flash('error', i18n.t('flash.archivedRecord'))
+      return response.redirect().back()
+    }
 
     session.flash('success', i18n.t('flash.jobCreated', { number: job.number }))
     response.redirect().toRoute('jobs.show', { id: job.id })

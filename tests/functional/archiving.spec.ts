@@ -1,6 +1,9 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import InstalledEquipment from '#models/installed_equipment'
+import Visit from '#models/visit'
+import Jobs from '#services/jobs'
+import { ArchivedRecordError } from '#services/archiving'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
@@ -8,6 +11,47 @@ import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 test.group('Archiving Customers and Sites', () => {
+  test('a Job is never opened on an archived Customer or Site, even in a race', async ({
+    assert,
+  }) => {
+    const customer = await createCustomer()
+    await customer.merge({ archivedAt: DateTime.now() }).save()
+
+    // The validator already passed: the service still checks under a lock
+    await assert.rejects(
+      () =>
+        Jobs.create({
+          customerId: customer.id,
+          kind: 'quoted',
+          workCategory: 'repair',
+          title: 'X',
+        }),
+      ArchivedRecordError
+    )
+  })
+
+  test("a new Site can't be linked to an archived Customer", async ({ client, assert }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    await customer.merge({ archivedAt: DateTime.now() }).save()
+
+    const response = await client
+      .post('/sites')
+      .form({
+        street: 'Via Roma',
+        postalCode: '20121',
+        city: 'Milano',
+        province: 'MI',
+        customerId: String(customer.id),
+      })
+      .header('referer', '/sites/create')
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    assert.properties(response.flashMessage('inputErrorsBag'), ['customerId'])
+  })
+
   test('an archived Customer leaves the list and pickers, and comes back on restore', async ({
     client,
     assert,
@@ -179,11 +223,18 @@ test.group('Removing Installed Equipment', () => {
     assert.equal(old.replacedById, fresh.id)
     const page = await client.get(`/sites/${site.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
-      installedEquipment: [
-        { id: old.id, replacedBy: 'Caldaia nuova' },
-        { id: fresh.id, removedOn: null },
-      ],
+      installedEquipment: [{ id: fresh.id, removedOn: null }],
+      removedEquipment: [{ id: old.id, replacedBy: 'Caldaia nuova' }],
     })
+
+    // Already removed: a second removal is refused
+    const again = await client
+      .post(`/equipment/${old.id}/remove`)
+      .form({ removedOn: DateTime.now().toISODate()! })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    again.assertFlashMessage('error', it('flash.invalidRemoval'))
   })
 
   test('the replacement must be current equipment at the same Site', async ({ client, assert }) => {
@@ -202,7 +253,7 @@ test.group('Removing Installed Equipment', () => {
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    refused.assertFlashMessage('error', it('flash.invalidReplacement'))
+    refused.assertFlashMessage('error', it('flash.invalidRemoval'))
     await old.refresh()
     assert.isNull(old.removedOn)
 
@@ -214,5 +265,72 @@ test.group('Removing Installed Equipment', () => {
       .loginAs(office)
       .redirects(0)
     assert.properties(future.flashMessage('inputErrorsBag'), ['removedOn'])
+  })
+
+  test('removal can not predate installation', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const site = await createSite()
+    const boiler = await InstalledEquipment.create({
+      siteId: site.id,
+      equipmentType: 'Caldaia',
+      installedOn: DateTime.fromISO('2024-05-01'),
+    })
+
+    const response = await client
+      .post(`/equipment/${boiler.id}/remove`)
+      .form({ removedOn: '2024-04-01' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('error', it('flash.invalidRemoval'))
+    await boiler.refresh()
+    assert.isNull(boiler.removedOn)
+  })
+
+  test("removed equipment leaves the Technician's Visit page", async ({ client, assert }) => {
+    const anna = await createUser('technician')
+    const site = await createSite()
+    const job = await createJob(await createCustomer(), { siteId: site.id, status: 'in_progress' })
+    const start = DateTime.now().plus({ hours: 1 })
+    const visit = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 1 }),
+      status: 'planned',
+    })
+    await visit.related('technicians').attach([anna.id])
+    await InstalledEquipment.create({ siteId: site.id, equipmentType: 'Caldaia nuova' })
+    await InstalledEquipment.create({
+      siteId: site.id,
+      equipmentType: 'Caldaia vecchia',
+      removedOn: DateTime.now().minus({ days: 1 }),
+    })
+
+    const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
+
+    const equipment = (page.inertiaProps.site as { equipment: { description: string }[] }).equipment
+    assert.deepEqual(
+      equipment.map((e) => e.description),
+      ['Caldaia nuova']
+    )
+  })
+
+  test('Technicians and the Superuser can not remove equipment', async ({ client, assert }) => {
+    const site = await createSite()
+    const boiler = await InstalledEquipment.create({ siteId: site.id, equipmentType: 'Caldaia' })
+    for (const role of ['technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      const response = await client
+        .post(`/equipment/${boiler.id}/remove`)
+        .form({ removedOn: DateTime.now().toISODate()! })
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(user)
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+    await boiler.refresh()
+    assert.isNull(boiler.removedOn)
   })
 })

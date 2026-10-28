@@ -123,6 +123,21 @@ export default class SitesController {
       )
       .firstOrFail()
 
+    const equipmentRow = (equipment: (typeof site.installedEquipment)[number]) => ({
+      id: equipment.id,
+      removedOn: equipment.removedOn?.toISODate() ?? null,
+      replacedBy:
+        site.installedEquipment.find((other) => other.id === equipment.replacedById)?.description ??
+        null,
+      description: equipment.description,
+      serialNumber: equipment.serialNumber,
+      installedOn: equipment.installedOn?.toISODate() ?? null,
+      maintenanceIntervalMonths: equipment.maintenanceIntervalMonths,
+      nextDueOn: equipment.nextDueOn?.toISODate() ?? null,
+      itemCode: equipment.item?.code ?? null,
+      documentCount: equipment.item ? Number(equipment.item.$extras.documents_count) : 0,
+    })
+
     return inertia.render('sites/show', {
       site: {
         id: site.id,
@@ -135,20 +150,12 @@ export default class SitesController {
         displayName: customer.displayName,
       })),
       jobs: site.jobs.map((job) => jobRow(job)),
-      installedEquipment: site.installedEquipment.map((equipment) => ({
-        id: equipment.id,
-        removedOn: equipment.removedOn?.toISODate() ?? null,
-        replacedBy:
-          site.installedEquipment.find((other) => other.id === equipment.replacedById)
-            ?.description ?? null,
-        description: equipment.description,
-        serialNumber: equipment.serialNumber,
-        installedOn: equipment.installedOn?.toISODate() ?? null,
-        maintenanceIntervalMonths: equipment.maintenanceIntervalMonths,
-        nextDueOn: equipment.nextDueOn?.toISODate() ?? null,
-        itemCode: equipment.item?.code ?? null,
-        documentCount: equipment.item ? Number(equipment.item.$extras.documents_count) : 0,
-      })),
+      installedEquipment: site.installedEquipment
+        .filter((equipment) => !equipment.removedOn)
+        .map((equipment) => equipmentRow(equipment)),
+      removedEquipment: site.installedEquipment
+        .filter((equipment) => equipment.removedOn)
+        .map((equipment) => equipmentRow(equipment)),
     })
   }
 

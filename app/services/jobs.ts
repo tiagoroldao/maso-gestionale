@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Job, { type JobKind } from '#models/job'
 import { nextJobSequence } from '#services/job_numbers'
+import Archiving from '#services/archiving'
 import type { WorkCategory } from '#shared/jobs'
 
 export type NewJob = {
@@ -24,6 +25,7 @@ export default class Jobs {
    */
   static create(input: NewJob) {
     return db.transaction(async (trx) => {
+      await Archiving.lockActive(trx, input)
       const year = DateTime.now().year
       return Job.create(
         {

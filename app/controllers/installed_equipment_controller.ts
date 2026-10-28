@@ -1,6 +1,6 @@
 import Site from '#models/site'
 import InstalledEquipment from '#models/installed_equipment'
-import Archiving, { InvalidReplacementError } from '#services/archiving'
+import Archiving, { InvalidRemovalError } from '#services/archiving'
 import {
   installedEquipmentValidator,
   removeEquipmentValidator,
@@ -101,8 +101,8 @@ export default class InstalledEquipmentController {
       })
       session.flash('success', i18n.t('flash.equipmentRemoved'))
     } catch (error) {
-      if (!(error instanceof InvalidReplacementError)) throw error
-      session.flash('error', i18n.t('flash.invalidReplacement'))
+      if (!(error instanceof InvalidRemovalError)) throw error
+      session.flash('error', i18n.t('flash.invalidRemoval'))
     }
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
   }

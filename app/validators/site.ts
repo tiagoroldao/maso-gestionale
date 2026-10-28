@@ -24,7 +24,16 @@ export const siteValidator = vine.create({
   accessNotes: optionalText(5000),
   // A checkbox: absent when unticked
   residential: vine.boolean().optional(),
-  customerId: vine.number().exists({ table: 'customers', column: 'id' }).optional(),
+  customerId: vine
+    .number()
+    .exists({
+      table: 'customers',
+      column: 'id',
+      filter: (db) => {
+        db.whereNull('archived_at')
+      },
+    })
+    .optional(),
 })
 
 export const siteSearchValidator = vine.create({
