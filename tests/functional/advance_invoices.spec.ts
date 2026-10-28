@@ -6,6 +6,7 @@ import Visit from '#models/visit'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Quotes from '#services/quotes'
+import Submissions from '#services/submissions'
 import { buildFatturaPA, fatturaInputFor } from '#fiscal/fattura_pa'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -272,6 +273,54 @@ test.group('Advance Invoices', () => {
     negative.assertFlashMessage('error', it('flash.invoiceNotFinalisable.negativeTotal'))
     await again.refresh()
     assert.equal(again.status, 'draft')
+  })
+
+  test('a deduction moved to another VAT rate is refused, also when correcting', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const job = await acceptedJob()
+    await issuedAdvance(job, '300')
+    const final = await Invoices.fromJob(job)
+    await final.load('lines')
+    const reduced = await vatCode('10%')
+    const asSent = (vatOf: (index: number) => number) =>
+      final.lines.map((line, index) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        vatCodeId: vatOf(index),
+        ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
+      }))
+
+    // The 22% advance taken back at 10% would return the wrong VAT
+    await Invoices.save(final, {
+      lines: asSent((index) => (index === 1 ? reduced.id : final.lines[index].vatCodeId)),
+    })
+    const moved = await client
+      .post(`/invoices/${final.id}/finalise`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    moved.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionsChanged'))
+
+    // Issued as drafted, then rejected: the correction is held to the same rules
+    await Invoices.save(final, { lines: asSent((index) => final.lines[index].vatCodeId) })
+    await Invoices.finalise(final)
+    await Submissions.prepare(final)
+    await Submissions.confirm(final, 'Sconto')
+    await Submissions.recordOutcome(final, { outcome: 'rejected' })
+    const correction = await client
+      .put(`/invoices/${final.id}`)
+      .json({ lines: asSent((index) => final.lines[index].vatCodeId).slice(0, 1) })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    correction.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionsChanged'))
+    await final.load('lines')
+    assert.lengthOf(final.lines, 2)
   })
 
   test("no advance once the Quote's Invoice exists, nor issued past its draft", async ({

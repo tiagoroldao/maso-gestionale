@@ -428,10 +428,13 @@ export default class Invoices {
         { client: trx }
       )
 
-      // A corrected Invoice's total changes with its lines
+      // A corrected Invoice's total changes with its lines; it must still
+      // be one that could be issued
       if (locked.status !== 'draft') {
         const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
         locked.total = this.totalOf(lines, locked.discountPercent)
+        if (new Big(locked.total).lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+        await this.checkDeductions(trx, locked, lines)
         // Payments are recorded with this Invoice locked: the sum is current
         const paid = await trx
           .from('payments')
@@ -589,14 +592,30 @@ export default class Invoices {
     const advances = await Invoice.query({ client: trx })
       .where('deductedInId', invoice.id)
       .preload('lines')
-    const deducted = (id: number) =>
-      lines
-        .filter((line) => line.deductsInvoiceId === id)
-        .reduce((sum, line) => sum.plus(line.lineTotal), new Big(0))
-    const owed = new Set(advances.map((advance) => advance.id))
+    // Per advance and VAT treatment: moving a deduction to another rate
+    // would hand back the wrong VAT
+    const rowKey = (rate: string, natura: string | null) =>
+      `${new Big(rate).toFixed(2)}|${natura ?? ''}`
+    const deducted = (id: number) => {
+      const rows = new Map<string, Big>()
+      for (const line of lines.filter((l) => l.deductsInvoiceId === id)) {
+        const key = rowKey(line.vatRate, line.natura)
+        rows.set(key, (rows.get(key) ?? new Big(0)).plus(line.lineTotal))
+      }
+      return rows
+    }
+    const owed = (advance: Invoice) =>
+      new Map(
+        advance.totals.summary
+          .filter((row) => !new Big(row.taxable).eq(0))
+          .map((row) => [rowKey(row.vatRate, row.natura), new Big(row.taxable).neg()])
+      )
+    const sameRows = (a: Map<string, Big>, b: Map<string, Big>) =>
+      a.size === b.size && [...a].every(([key, value]) => b.get(key)?.eq(value))
+    const ids = new Set(advances.map((advance) => advance.id))
     const intact =
-      lines.every((line) => line.deductsInvoiceId === null || owed.has(line.deductsInvoiceId)) &&
-      advances.every((advance) => deducted(advance.id).eq(new Big(advance.totals.taxable).neg()))
+      lines.every((line) => line.deductsInvoiceId === null || ids.has(line.deductsInvoiceId)) &&
+      advances.every((advance) => sameRows(deducted(advance.id), owed(advance)))
     if (!intact) throw new InvoiceNotFinalisableError('deductionsChanged')
   }
 
