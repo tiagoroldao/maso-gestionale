@@ -6,13 +6,12 @@ on:
   push:
     tags: ['v*.*.*']
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
   image:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v7
 
@@ -24,7 +23,8 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ghcr.io/<owner>/<repo>:1.2.3, :1.2 and :latest
+      # ghcr.io/<owner>/<repo>:1.2.3 and :1.2, plus :latest unless it's a
+      # pre-release (v1.2.3-rc.1)
       - id: meta
         uses: docker/metadata-action@v5
         with:
@@ -32,7 +32,6 @@ jobs:
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest
 
       - uses: docker/build-push-action@v6
         with:
@@ -46,9 +45,14 @@ jobs:
   notes:
     needs: image
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
       - name: Release with the changes since the last tag
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
+        run: |
+          prerelease=()
+          [[ "$GITHUB_REF_NAME" == *-* ]] && prerelease=(--prerelease)
+          gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag "${prerelease[@]}"

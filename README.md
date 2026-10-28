@@ -76,8 +76,10 @@ Pushing a version tag publishes the app image to GitHub Container Registry and c
 git tag v1.0.0 && git push origin v1.0.0
 ```
 
-The image is `ghcr.io/tiagoroldao/maso-gestionale`, tagged with the version (`1.0.0`), the minor line (`1.0`) and `latest`. On the server, pin the version in `.env` and pull it instead of building:
+The image is `ghcr.io/tiagoroldao/maso-gestionale`, tagged with the version (`1.0.0`), the minor line (`1.0`) and, except for pre-releases like `v1.1.0-rc.1`, `latest`. On the server, pin the version in `.env` (`APP_VERSION=1.0.0`) and pull it instead of building:
 
 ```sh
-APP_VERSION=1.0.0 docker compose pull app && docker compose up -d
+docker compose pull app && docker compose up -d
 ```
+
+GHCR keeps a new package private. After the first release, either make it public in the package's settings on GitHub, or run `docker login ghcr.io` on the server with a token that has `read:packages`.
