@@ -113,6 +113,7 @@ export default class CustomersController {
       .preload('sites', (sites) => sites.orderBy('city').orderBy('street'))
       .preload('jobs', (jobs) =>
         jobs
+          .withScopes((scopes) => scopes.withBillingState())
           .preload('site')
           .preload('visits')
           .preload('invoices', (invoices) => invoices.preload('payments'))

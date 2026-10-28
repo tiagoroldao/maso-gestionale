@@ -1,4 +1,5 @@
-import { belongsTo, hasMany, hasOne } from '@adonisjs/lucid/orm'
+import { belongsTo, hasMany, hasOne, scope } from '@adonisjs/lucid/orm'
+import db from '@adonisjs/lucid/services/db'
 import type { BelongsTo, HasMany, HasOne } from '@adonisjs/lucid/types/relations'
 import { JobSchema } from '#database/schema'
 import Customer from '#models/customer'
@@ -7,6 +8,7 @@ import Quote from '#models/quote'
 import Visit from '#models/visit'
 import Invoice from '#models/invoice'
 import type { WorkCategory } from '#shared/jobs'
+import { BILLING_OPEN_SQL } from '#services/job_status'
 
 export const JOB_KINDS = ['quoted', 'time_and_materials'] as const
 export type JobKind = (typeof JOB_KINDS)[number]
@@ -26,6 +28,14 @@ export default class Job extends JobSchema {
   declare kind: JobKind
   declare status: JobStatus
   declare workCategory: WorkCategory
+
+  /**
+   * Adds whether work is still left to bill (`$extras.billing_open`),
+   * which the displayed status needs (job_status.ts).
+   */
+  static withBillingState = scope((query) => {
+    query.select('jobs.*').select(db.raw(`(${BILLING_OPEN_SQL}) AS billing_open`))
+  })
 
   @hasMany(() => Invoice)
   declare invoices: HasMany<typeof Invoice>

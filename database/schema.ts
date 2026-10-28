@@ -637,7 +637,7 @@ export class VatRuleSchema extends BaseModel {
 }
 
 export class VisitHourSchema extends BaseModel {
-  static $columns = ['createdAt', 'hours', 'id', 'labourRateId', 'unitPrice', 'userId', 'visitId'] as const
+  static $columns = ['createdAt', 'hours', 'id', 'invoiceId', 'labourRateId', 'unitPrice', 'userId', 'visitId'] as const
   $columns = VisitHourSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -645,6 +645,8 @@ export class VisitHourSchema extends BaseModel {
   declare hours: string
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare invoiceId: number | null
   @column()
   declare labourRateId: number
   @column()
@@ -656,7 +658,7 @@ export class VisitHourSchema extends BaseModel {
 }
 
 export class VisitItemSchema extends BaseModel {
-  static $columns = ['createdAt', 'createdEquipment', 'id', 'installed', 'installedEquipmentId', 'itemId', 'quantity', 'stockMovementId', 'unitPrice', 'visitId'] as const
+  static $columns = ['createdAt', 'createdEquipment', 'id', 'installed', 'installedEquipmentId', 'invoiceId', 'itemId', 'quantity', 'stockMovementId', 'unitPrice', 'visitId'] as const
   $columns = VisitItemSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -668,6 +670,8 @@ export class VisitItemSchema extends BaseModel {
   declare installed: boolean
   @column()
   declare installedEquipmentId: number | null
+  @column()
+  declare invoiceId: number | null
   @column()
   declare itemId: number
   @column()

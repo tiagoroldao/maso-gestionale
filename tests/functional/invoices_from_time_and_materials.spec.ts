@@ -7,6 +7,7 @@ import Visit from '#models/visit'
 import VatCode from '#models/vat_code'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
+import Payments from '#services/payments'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
@@ -117,10 +118,14 @@ test.group('Invoices from Time & Materials Jobs', () => {
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    again.assertHeader('location', `/invoices/${invoice.id}/edit`)
+    // All its work is billed now: nothing left for another Invoice
+    again.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
     assert.lengthOf(await Invoice.query().where('jobId', job.id), 1)
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: false })
+    page.assertInertiaPropsContains({
+      canInvoice: false,
+      timeAndMaterials: { total: '1362.50', billed: '1362.50' },
+    })
   })
 
   test('a Job with no recorded work has nothing to invoice', async ({ client, assert }) => {
@@ -138,8 +143,12 @@ test.group('Invoices from Time & Materials Jobs', () => {
     assert.lengthOf(await Invoice.all(), 0)
   })
 
-  test('work on Visits still open is not invoiced yet', async ({ client, assert }) => {
+  test('done work is invoiced while a follow-up is open; the follow-up goes on the next', async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
+    await completeCompany()
     const { job, anna, rate } = await workedJob()
     const start = DateTime.now().plus({ days: 1 })
     const followUp = await Visit.create({
@@ -155,19 +164,69 @@ test.group('Invoices from Time & Materials Jobs', () => {
       hours: '1',
     })
 
-    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    // The first Visit's four lines, not the open follow-up's hour
+    const first = await Invoices.fromJob(job)
+    await first.load('lines')
+    assert.lengthOf(first.lines, 4)
+    // While that draft is open, asking again returns it, and nothing more is offered
+    const returned = await Invoices.fromJob(job)
+    assert.equal(returned.id, first.id)
+    let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ canInvoice: false })
-    const response = await client
-      .post(`/jobs/${job.id}/invoices`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    response.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
-    assert.lengthOf(await Invoice.all(), 0)
 
+    // Issued and paid in full, but the follow-up is open: a partial Invoice,
+    // so the Job is neither Invoiced nor Closed, in the list or on its page
+    await Invoices.finalise(first)
+    await first.refresh()
+    await Payments.record(first, { amount: first.total!, paidOn: DateTime.now() })
+    const listed = async (status: string) => {
+      const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
+      return (list.inertiaProps.jobs as { id: number; status: string }[]).map((row) => [
+        row.id,
+        row.status,
+      ])
+    }
+    assert.deepEqual(await listed('invoiced'), [])
+    assert.deepEqual(await listed('closed'), [])
+    assert.deepEqual(await listed('in_progress'), [[job.id, 'in_progress']])
+    page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: false, job: { status: 'in_progress' } })
+
+    // Done, with its hour unbilled: Work Complete, ready for the next Invoice
     await FieldWork.setStatus(followUp, 'done', anna)
-    const ready = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    ready.assertInertiaPropsContains({ canInvoice: true })
+    assert.deepEqual(await listed('work_complete'), [[job.id, 'work_complete']])
+    page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: true, job: { status: 'work_complete' } })
+    const second = await Invoices.fromJob(job)
+    await second.load('lines')
+    assert.notEqual(second.id, first.id)
+    assert.deepEqual(
+      second.lines.map((line) => line.quantity),
+      ['1.000']
+    )
+
+    // All billed and issued, the second unpaid: Invoiced
+    await Invoices.finalise(second)
+    assert.deepEqual(await listed('invoiced'), [[job.id, 'invoiced']])
+  })
+
+  test('deleting a draft frees its work for the next one', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const { job, visit } = await workedJob()
+    const draft = await Invoices.fromJob(job)
+    // Editing the draft keeps its work billed
+    await Invoices.save(draft, { lines: [] })
+    let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ timeAndMaterials: { billed: '1362.50' } })
+
+    await client.delete(`/invoices/${draft.id}`).withCsrfToken().loginAs(office)
+    await visit.load('hours')
+    assert.isTrue(visit.hours.every((hour) => hour.invoiceId === null))
+    page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: true, timeAndMaterials: { billed: '0.00' } })
+    const again = await Invoices.fromJob(job)
+    await again.load('lines')
+    assert.lengthOf(again.lines, 4)
   })
 
   test("a rule's archived VAT Code gives way to the standard rate", async ({ assert }) => {

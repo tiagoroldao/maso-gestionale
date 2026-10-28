@@ -504,6 +504,7 @@
     "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
     "cancelledNotEditable": "Una commessa annullata non si può modificare.",
     "timeAndMaterials": "Ore e materiali registrati",
+    "billed": "Già fatturato: {amount}",
     "timeAndMaterialsHint": "IVA esclusa, ai prezzi del momento in cui sono stati registrati"
   },
   "rates": {
