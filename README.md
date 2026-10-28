@@ -67,3 +67,17 @@ docker compose up -d --build
 ```
 
 The `app` container runs pending migrations on start-up and then serves on port 3333. Uploaded files (such as the company logo) live in the `app-storage` volume; in development they go to `storage/` in the repo (git-ignored), or wherever `STORAGE_PATH` points.
+
+## Releases
+
+Pushing a version tag publishes the app image to GitHub Container Registry and creates a GitHub release listing the changes since the previous tag:
+
+```sh
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The image is `ghcr.io/tiagoroldao/maso-gestionale`, tagged with the version (`1.0.0`), the minor line (`1.0`) and `latest`. On the server, pin the version in `.env` and pull it instead of building:
+
+```sh
+APP_VERSION=1.0.0 docker compose pull app && docker compose up -d
+```
