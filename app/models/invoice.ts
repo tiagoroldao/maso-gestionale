@@ -6,10 +6,11 @@ import InvoiceLine from '#models/invoice_line'
 import { invoiceTotals } from '#shared/invoice_totals'
 import { formatInvoiceNumber } from '#shared/invoice_numbers'
 import type { PaymentMethod } from '#shared/payments'
+import type { InvoiceStatus } from '#shared/invoice_lifecycle'
+import InvoiceSubmission from '#models/invoice_submission'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 
-export const INVOICE_STATUSES = ['draft', 'finalised'] as const
-export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
+export { INVOICE_STATUSES, type InvoiceStatus } from '#shared/invoice_lifecycle'
 
 /**
  * The Customer as invoiced, copied when the Invoice is finalised.
@@ -79,6 +80,9 @@ export default class Invoice extends InvoiceSchema {
 
   @hasMany(() => InvoiceLine)
   declare lines: HasMany<typeof InvoiceLine>
+
+  @hasMany(() => InvoiceSubmission)
+  declare submissions: HasMany<typeof InvoiceSubmission>
 
   /**
    * Totals and VAT summary, from the preloaded lines.

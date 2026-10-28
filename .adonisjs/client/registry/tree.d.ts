@@ -118,6 +118,9 @@ export interface ApiDefinition {
     finalise: typeof routes['invoices.finalise']
     pdf: typeof routes['invoices.pdf']
     xml: typeof routes['invoices.xml']
+    prepareSubmission: typeof routes['invoices.prepare_submission']
+    confirmSubmission: typeof routes['invoices.confirm_submission']
+    recordOutcome: typeof routes['invoices.record_outcome']
   }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']
@@ -151,6 +154,7 @@ export interface ApiDefinition {
   }
   invoiceNumbering: {
     index: typeof routes['invoice_numbering.index']
+    updateSdiPrefix: typeof routes['invoice_numbering.update_sdi_prefix']
     update: typeof routes['invoice_numbering.update']
   }
   paymentTerms: {

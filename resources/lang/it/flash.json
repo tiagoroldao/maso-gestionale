@@ -71,5 +71,13 @@
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
   },
   "numberingSaved": "Numerazione {year} salvata.",
-  "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura."
+  "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura.",
+  "submissionConfirmed": "Invio a SDI registrato.",
+  "submissionOutcome": {
+    "delivered": "Fattura consegnata.",
+    "not_deliverable": "Mancata consegna registrata: la fattura è nel cassetto fiscale del cliente.",
+    "rejected": "Scarto registrato: correggi e reinvia la fattura entro 5 giorni."
+  },
+  "submissionRefused": "Questa operazione non è possibile nello stato attuale della fattura.",
+  "sdiPrefixSaved": "Lettera dei file SDI salvata."
 }

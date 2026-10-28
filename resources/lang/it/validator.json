@@ -133,7 +133,10 @@
       "reaNumber": "numero REA",
       "shareCapital": "capitale sociale",
       "soleShareholder": "socio unico",
-      "liquidationStatus": "stato di liquidazione"
+      "liquidationStatus": "stato di liquidazione",
+      "outcome": "esito",
+      "sdiFilePrefix": "lettera dei file SDI",
+      "stage": "fase"
     }
   }
 }

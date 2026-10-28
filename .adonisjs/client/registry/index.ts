@@ -438,6 +438,24 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"],[0,"xml"]],
     types: placeholder as Registry['invoices.xml']['types'],
   },
+  'invoices.prepare_submission': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/submissions',
+    tokens: [[0,"invoices"],[1,"id"],[0,"submissions"]],
+    types: placeholder as Registry['invoices.prepare_submission']['types'],
+  },
+  'invoices.confirm_submission': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/submissions/confirm',
+    tokens: [[0,"invoices"],[1,"id"],[0,"submissions"],[0,"confirm"]],
+    types: placeholder as Registry['invoices.confirm_submission']['types'],
+  },
+  'invoices.record_outcome': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/submissions/outcome',
+    tokens: [[0,"invoices"],[1,"id"],[0,"submissions"],[0,"outcome"]],
+    types: placeholder as Registry['invoices.record_outcome']['types'],
+  },
   'items.index': {
     methods: ["GET","HEAD"],
     pattern: '/items',
@@ -629,6 +647,12 @@ const routes = {
     pattern: '/settings/invoice-numbering',
     tokens: [[0,"settings"],[0,"invoice-numbering"]],
     types: placeholder as Registry['invoice_numbering.index']['types'],
+  },
+  'invoice_numbering.update_sdi_prefix': {
+    methods: ["PUT"],
+    pattern: '/settings/invoice-numbering/sdi-prefix',
+    tokens: [[0,"settings"],[0,"invoice-numbering"],[0,"sdi-prefix"]],
+    types: placeholder as Registry['invoice_numbering.update_sdi_prefix']['types'],
   },
   'invoice_numbering.update': {
     methods: ["PUT"],

@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import CompanySettings from '#models/company_settings'
+import InvoiceSubmission from '#models/invoice_submission'
 import Invoices from '#services/invoices'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -33,14 +34,15 @@ test.group('FatturaPA XML download', () => {
     })
     const invoice = await finalisedInvoice()
 
+    await client.post(`/invoices/${invoice.id}/submissions`).withCsrfToken().loginAs(office)
+    const submission = await InvoiceSubmission.findByOrFail('invoiceId', invoice.id)
     const response = await client.get(`/invoices/${invoice.id}/xml`).loginAs(office)
 
     response.assertStatus(200)
     response.assertHeader('content-type', 'application/xml; charset=utf-8')
-    const progressive = invoice.id.toString(36).toUpperCase().padStart(5, '0')
     assert.include(
       response.header('content-disposition'),
-      `filename="IT01987654322_${progressive}.xml"`
+      `filename="IT01987654322_${submission.progressive}.xml"`
     )
     const xml = response.text()
     assert.deepEqual(await fatturaSchemaErrors(xml), [])

@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { INVOICE_STAGES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
@@ -62,4 +63,22 @@ export const invoiceValidator = vine
 
 export const invoiceNumberingValidator = vine.create({
   nextNumber: vine.number().withoutDecimals().min(1).max(999999),
+})
+
+export const invoiceStageValidator = vine.create({
+  stage: vine.enum(INVOICE_STAGES).optional(),
+})
+
+export const submissionOutcomeValidator = vine.create({
+  outcome: vine.enum(SUBMISSION_OUTCOMES),
+  // SDI's notice: error codes and description for a Rejection
+  notes: vine.string().trim().maxLength(5000).optional(),
+})
+
+export const sdiPrefixValidator = vine.create({
+  sdiFilePrefix: vine
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]$/),
 })
