@@ -59,12 +59,8 @@ Something done or supplied for a Job that the Customer may be billed for (hours 
 _Avoid_: Billable item (clashes with Item), billable entry
 
 **Work state** (_Stato di esecuzione_):
-Whether a Charge happened: planned, done or not done. Stock follows it; only done Charges are billed.
+Whether a Charge happened: planned (_previsto_), done (_eseguito_) or not done (_non eseguito_). Stock follows it; only done Charges are billed.
 _Avoid_: Status (ambiguous with billing)
-
-**Committed** (_Impegnato_):
-The quantity of an Item on planned Charges: still in stock but spoken for. Available is stock less committed.
-_Avoid_: Reserved, allocated
 
 **Call-out Fee** (_Diritto di chiamata_):
 A fixed price for attending a Visit, independent of hours worked, billed as a Charge.
@@ -93,8 +89,12 @@ A reference file attached to an Item, such as a manual or datasheet.
 _Avoid_: Attachment, Issued Document
 
 **Stock Movement** (_Movimento di magazzino_):
-A recorded change to an Item's quantity in the Warehouse: a receipt (_carico_), usage on a Visit (_utilizzo_), a direct sale on an Invoice (_vendita_), or an adjustment with a reason (_rettifica_).
+A recorded change to an Item's quantity in the Warehouse: a receipt (_carico_), usage on a Visit or the Job (_utilizzo_), a direct sale on an Invoice (_vendita_), or an adjustment with a reason (_rettifica_).
 _Avoid_: Transaction, stock change, scarico (ambiguous between usage, sale and adjustment)
+
+**Committed** (_Impegnato_):
+The quantity of an Item on planned Charges: still in stock but spoken for. Available is stock less committed.
+_Avoid_: Reserved, allocated
 
 ## Invoicing
 
