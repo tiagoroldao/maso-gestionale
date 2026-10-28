@@ -236,7 +236,7 @@ export default class JobsController {
       .preload('site')
       .firstOrFail()
 
-    const hasQuote = Boolean(await job.related('quote').query().first())
+    const kindLocked = await Jobs.kindLocked(job)
 
     return inertia.render('jobs/form', {
       job: {
@@ -244,7 +244,7 @@ export default class JobsController {
         number: job.number,
         kind: job.kind,
         status: job.status,
-        kindLocked: job.status !== 'open' || hasQuote,
+        kindLocked,
         workCategory: job.workCategory,
         title: job.title,
         description: job.description,

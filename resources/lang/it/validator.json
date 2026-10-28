@@ -151,7 +151,9 @@
       "equipmentIds": "apparecchi",
       "key": "codice",
       "options": "scelte",
-      "required": "obbligatorio"
+      "required": "obbligatorio",
+      "vatKind": "tipo per l'IVA",
+      "workerName": "nome"
     }
   }
 }

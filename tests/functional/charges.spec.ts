@@ -11,6 +11,7 @@ import Visit from '#models/visit'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Charges from '#services/charges'
+import Jobs from '#services/jobs'
 import VatDefaults from '#services/vat_defaults'
 import StockLedger from '#stock/stock_ledger'
 import { createUser } from '#tests/helpers/users'
@@ -594,6 +595,57 @@ test.group('Charges on the Job itself', () => {
       .redirects(0)
     refused.assertFlashMessage('error', it('flash.chargeRefused.cancelled'))
     assert.lengthOf(await Charge.all(), 0)
+  })
+
+  test("a Job's kind is fixed once it has a Charge", async ({ assert }) => {
+    const office = await createUser('office')
+    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    await job.refresh()
+    const details = {
+      customerId: job.customerId,
+      kind: 'quoted' as const,
+      workCategory: job.workCategory,
+      title: job.title,
+    }
+    assert.isFalse(await Jobs.kindLocked(job))
+
+    await Charges.add(
+      job,
+      { description: 'Uscita', quantity: '1', unit: null, unitPrice: '35', vatKind: 'labour' },
+      office
+    )
+    assert.isTrue(await Jobs.kindLocked(job))
+    await Jobs.update(job.id, details)
+    await job.refresh()
+    assert.equal(job.kind, 'time_and_materials')
+  })
+
+  test('a draft bills Visit Charges by day, then the Job ones; billed or not billable ones stop it', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, office, job, visit, hours, line } = await setup()
+    await FieldWork.setStatus(visit, 'done', anna)
+    const callOut = await Charges.add(
+      job,
+      { description: 'Uscita', quantity: '1', unit: null, unitPrice: '35', vatKind: 'labour' },
+      office
+    )
+
+    const invoice = await Invoices.fromTimeAndMaterials(job)
+    await invoice.load('lines', (lines) => lines.orderBy('position'))
+    assert.deepEqual(
+      invoice.lines.map((l) => l.description),
+      ['Idraulico – Anna (20/10)', 'Valvola (20/10)', 'Uscita']
+    )
+
+    // With everything held by the draft, or not billable, nothing is left
+    await Invoice.query().where('id', invoice.id).delete()
+    for (const charge of [hours, line, callOut]) {
+      await Charges.setBillable(charge, false, office)
+    }
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: false })
   })
 
   test('only Admin and Office add costs to a Job', async ({ client, assert }) => {

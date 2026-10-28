@@ -218,7 +218,8 @@ const shown = (key: string, value: string | null) => {
             </div>
             <div class="field">
               <label class="field__label" for="billing-quantity">
-                {{ t('ui.charges.quantity') }} ({{ charge.billing.unit }})
+                {{ t('ui.charges.quantity') }}
+                {{ charge.billing.unit ? `(${charge.billing.unit})` : '' }}
               </label>
               <input
                 id="billing-quantity"

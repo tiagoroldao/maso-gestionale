@@ -471,7 +471,7 @@
       "repair": "Riparazione",
       "sale": "Vendita"
     },
-    "kindLocked": "Il tipo si può cambiare solo finché la commessa è aperta.",
+    "kindLocked": "Il tipo si può cambiare solo finché la commessa è aperta, senza preventivo, addebiti o fatture.",
     "save": "Salva commessa",
     "create": "Apri commessa",
     "cancel": "Annulla commessa",
@@ -942,7 +942,7 @@
     "change": "{field}: {before} → {after}",
     "add": "Aggiungi addebito",
     "addHint": "Altri costi sulla commessa: diritto di chiamata, giornata di un collaboratore esterno, materiali comprati per il lavoro.",
-    "useCallOut": "Diritto di chiamata",
+    "useCallOut": "Usa il diritto di chiamata",
     "callOut": "Diritto di chiamata",
     "unit": "Unità",
     "vatKind": "Tipo per l'IVA",

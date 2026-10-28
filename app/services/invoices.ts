@@ -202,9 +202,8 @@ export default class Invoices {
   /**
    * A draft Invoice for a Time & Materials Job: one line per billable
    * Charge on its closed Visits and on the Job itself, with what Office
-   * set to bill (quantity,
-   * price, description; ADR 0010), so its total before VAT equals the Job
-   * page's running total. Each line gets the VAT Code of the default rules
+   * set to bill (quantity, price, description; ADR 0010), so its total
+   * before VAT equals the Job page's running total. Each line gets the VAT Code of the default rules
    * for its kind (labour, material or significant good). Only Charges not
    * yet billed go in, and are marked as billed by this Invoice; deleting
    * the draft frees them again. While a draft is open it is returned
@@ -241,6 +240,7 @@ export default class Invoices {
         .where('jobId', locked.id)
         .whereNull('visitId')
         .whereNull('invoiceId')
+        .preload('item')
         .orderBy(['createdAt', 'id'])
       const work = [
         ...visits.flatMap((visit) =>

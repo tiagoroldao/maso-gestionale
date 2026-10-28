@@ -23,10 +23,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key                   |
 | #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                                   |
 | #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                                   |
-| #110  | Invoice lines keep their identity when a draft is saved (ADR 0010)                        | —                                                                   |
 | #111  | Can done work on a cancelled Time & Materials Job still be invoiced?                      | The business (`needs-human`)                                        |
-| #114  | Charges replace recorded hours and Items (ADR 0010)                                       | —                                                                   |
-| #115  | Office adds Charges to a Job directly                                                     | —                                                                   |
 | #116  | Invoicing from Charges (replaces #75's links and the billing-open rule)                   | —                                                                   |
 | #117  | Add Charges from the accepted Quote                                                       | —                                                                   |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                              |

@@ -58,8 +58,9 @@ export default class Jobs {
 
   /**
    * Saves a Job's details, locked against concurrent cancels and Quote
-   * decisions. The kind changes only while the Job is open without a
-   * Quote; the Customer only while the Job has no Invoice.
+   * decisions. The kind changes only while the Job is open with nothing
+   * priced or billed yet (kindLocked); the Customer only while the Job has
+   * no Invoice.
    */
   static update(id: number, input: NewJob) {
     return db.transaction(async (trx) => {
@@ -82,11 +83,26 @@ export default class Jobs {
         title: input.title,
         description: input.description ?? null,
       })
-      const hasQuote = await trx.from('quotes').where('job_id', locked.id).first()
-      if (locked.status === 'open' && !hasQuote) locked.kind = input.kind
+      if (!(await this.kindLocked(locked, trx))) locked.kind = input.kind
       await locked.save()
       return locked
     })
+  }
+
+  /**
+   * The kind is fixed once the Job is past open, or has a Quote, a Charge
+   * or its own Invoice: each assumes how the Job is priced. Advance
+   * Invoices don't fix it.
+   */
+  static async kindLocked(job: Job, client?: TransactionClientContract) {
+    if (job.status !== 'open') return true
+    const query = client ?? db
+    const found = await Promise.all([
+      query.from('quotes').where('job_id', job.id).first(),
+      query.from('charges').where('job_id', job.id).first(),
+      query.from('invoices').where('job_id', job.id).where('advance', false).first(),
+    ])
+    return found.some(Boolean)
   }
 
   private static async hasInvoices(trx: TransactionClientContract, jobId: number) {

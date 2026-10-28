@@ -13,20 +13,19 @@ import { ref } from 'vue'
 
 const confirm = (message: string) => window.confirm(message)
 // The new cost's fields, pre-filled with the call-out fee on request
-const newCharge = ref({
+const blankCharge = () => ({
   description: '',
   quantity: '1',
   unit: '',
   unitPrice: '',
   vatKind: 'labour',
 })
+const newCharge = ref(blankCharge())
 function fillCallOut(fee: string) {
   newCharge.value = {
+    ...blankCharge(),
     description: t('ui.charges.callOut'),
-    quantity: '1',
-    unit: '',
     unitPrice: amountForInput(fee),
-    vatKind: 'labour',
   }
 }
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
@@ -244,15 +243,7 @@ defineProps<{
           route="charges.store"
           :params="{ id: job.id }"
           class="form"
-          @success="
-            newCharge = {
-              description: '',
-              quantity: '1',
-              unit: '',
-              unitPrice: '',
-              vatKind: 'labour',
-            }
-          "
+          @success="newCharge = blankCharge()"
         >
           <p class="field__hint" :style="{ margin: 0 }">
             {{ t('ui.charges.addHint') }}

@@ -2,6 +2,7 @@
  * Charges (ADR 0010): what a Job can be billed for, with a history. Used
  * by the server and the Office pages alike.
  */
+
 /**
  * Hours at a Labour Rate, an Item used, or any other cost Office adds to a
  * Job (a call-out, a contractor's day, materials bought for the Job).

@@ -48,8 +48,9 @@ type Billing = {
 /**
  * Office's side of Charges (ADR 0010): adding other costs to a Job,
  * correcting what was recorded, editing what is billed, and marking a
- * Charge not billable. Each is an event in the Charge's history. Every change locks the Charge's Visit,
- * then its Job (the order field work and invoicing use), then the Charge.
+ * Charge not billable. Each is an event in the Charge's history. Every
+ * change locks the Charge's Visit, then its Job (the order field work and
+ * invoicing use), then the Charge.
  */
 export default class Charges {
   /**
