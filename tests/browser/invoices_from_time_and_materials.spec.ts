@@ -9,7 +9,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
 
-test.group('Invoices from Time & Materials in the browser', () => {
+test.group('Invoices from Jobs without a Quote in the browser', () => {
   test('Office drafts the Invoice from the hours recorded on a Job', async ({
     browserContext,
     visit,
@@ -18,7 +18,6 @@ test.group('Invoices from Time & Materials in the browser', () => {
     await browserContext.loginAs(await createUser('office'))
     const anna = await createUser('technician')
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
     })
     const start = DateTime.now().minus({ days: 1 })

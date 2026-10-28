@@ -84,7 +84,6 @@ export default class QuotesController {
         id: job.id,
         number: job.number,
         title: job.title,
-        kind: job.kind,
         status: job.status,
         customer: job.customer.displayName,
       },

@@ -211,7 +211,7 @@ test.group('Payments', () => {
     const office = await createUser('office')
     await completeCompany()
     const customer = await createCustomer()
-    const job = await createJob(customer, { kind: 'quoted', status: 'accepted' })
+    const job = await createJob(customer, { status: 'accepted' })
     const invoice = await issued(customer, job.id)
 
     const ids = async (status?: string) => {
@@ -254,7 +254,7 @@ test.group('Payments', () => {
     await completeCompany()
     const customer = await createCustomer()
     const finishedWork = async () => {
-      const job = await createJob(customer, { kind: 'time_and_materials', status: 'in_progress' })
+      const job = await createJob(customer, { status: 'in_progress' })
       const startsAt = DateTime.now().minus({ days: 1 })
       await Visit.create({
         jobId: job.id,

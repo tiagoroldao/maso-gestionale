@@ -10,7 +10,6 @@ export function createJob(customer: Customer, attributes: Partial<Job> = {}) {
     year: DateTime.now().year,
     sequence,
     customerId: customer.id,
-    kind: 'quoted',
     status: 'open',
     title: `Lavoro ${sequence}`,
     ...attributes,

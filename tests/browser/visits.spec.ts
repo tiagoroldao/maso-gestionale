@@ -14,7 +14,7 @@ test.group('Agenda in the browser', () => {
     await browserContext.loginAs(await createUser('office'))
     const anna = await createUser('technician', { fullName: 'Anna Tecnico' })
     const bruno = await createUser('technician', { fullName: 'Bruno Tecnico' })
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    const job = await createJob(await createCustomer())
 
     const form = await visit(`/jobs/${job.id}/visits/create`)
     await form.getByLabel(it('ui.visits.date')).fill('2026-11-03')

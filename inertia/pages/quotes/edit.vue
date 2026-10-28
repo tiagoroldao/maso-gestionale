@@ -30,7 +30,7 @@ type Line = {
 }
 
 const props = defineProps<{
-  job: { id: number; number: string; title: string; kind: string; status: string; customer: string }
+  job: { id: number; number: string; title: string; status: string; customer: string }
   quote: {
     status: string
     notes: string | null

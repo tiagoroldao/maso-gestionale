@@ -27,7 +27,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
 | #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
-| #130  | Drop the Job kind (ADR 0012)                                                              | #117                                                          |
 
 ## Added to existing issues
 

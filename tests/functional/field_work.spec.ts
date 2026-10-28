@@ -23,7 +23,6 @@ async function setup() {
   const bruno = await createUser('technician')
   const site = await createSite()
   const job = await createJob(await createCustomer(), {
-    kind: 'time_and_materials',
     status: 'in_progress',
     siteId: site.id,
   })

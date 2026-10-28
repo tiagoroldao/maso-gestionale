@@ -26,7 +26,7 @@ test.group('Planning Visits', () => {
     const office = await createUser('office')
     const anna = await createUser('technician')
     const bruno = await createUser('technician')
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    const job = await createJob(await createCustomer())
 
     await client
       .post(`/jobs/${job.id}/visits`)
@@ -48,30 +48,32 @@ test.group('Planning Visits', () => {
     const office = await createUser('office')
     const technician = await createUser('technician')
     const customer = await createCustomer()
+    // Without a Quote an open Job is ready; with one, once it is accepted
     const cases = [
-      { kind: 'time_and_materials' as const, status: 'open' as const, expected: 'in_progress' },
-      { kind: 'quoted' as const, status: 'accepted' as const, expected: 'in_progress' },
+      { quote: null, status: 'open' as const, expected: 'in_progress' },
+      { quote: 'accepted' as const, status: 'accepted' as const, expected: 'in_progress' },
       // A survey before the Quote is accepted leaves the Job alone
-      { kind: 'quoted' as const, status: 'open' as const, expected: 'open' },
-      { kind: 'quoted' as const, status: 'quoted' as const, expected: 'quoted' },
+      { quote: 'draft' as const, status: 'open' as const, expected: 'open' },
+      { quote: 'draft' as const, status: 'quoted' as const, expected: 'quoted' },
     ]
 
-    for (const { kind, status, expected } of cases) {
-      const job = await createJob(customer, { kind, status })
+    for (const { quote, status, expected } of cases) {
+      const job = await createJob(customer, { status })
+      if (quote) await Quote.create({ jobId: job.id, status: quote })
       await client
         .post(`/jobs/${job.id}/visits`)
         .json(plan([technician.id]))
         .withCsrfToken()
         .loginAs(office)
       await job.refresh()
-      assert.equal(job.status, expected, `${kind} ${status}`)
+      assert.equal(job.status, expected, `${quote ?? 'no Quote'} ${status}`)
     }
   })
 
   test('accepting a Quote with work already booked starts the Job', async ({ client, assert }) => {
     const office = await createUser('office')
     const technician = await createUser('technician')
-    const job = await createJob(await createCustomer(), { kind: 'quoted', status: 'quoted' })
+    const job = await createJob(await createCustomer(), { status: 'quoted' })
     await Quote.create({ jobId: job.id, status: 'draft' })
     // Booked for next week, so it is upcoming whenever the test runs
     const nextWeek = DateTime.now().plus({ weeks: 1 }).toFormat('yyyy-MM-dd')
@@ -92,7 +94,7 @@ test.group('Planning Visits', () => {
   test('a past survey does not start the Job on acceptance', async ({ client, assert }) => {
     const office = await createUser('office')
     const technician = await createUser('technician')
-    const job = await createJob(await createCustomer(), { kind: 'quoted', status: 'quoted' })
+    const job = await createJob(await createCustomer(), { status: 'quoted' })
     await Quote.create({ jobId: job.id, status: 'draft' })
     const lastWeek = DateTime.now().minus({ weeks: 1 }).toFormat('yyyy-MM-dd')
     await client
@@ -350,18 +352,17 @@ test.group('Agenda', () => {
 
 test.group('Editing and deleting Visits', () => {
   /**
-   * A Visit planned through the app, so the Job moves as it really would.
+   * A Visit planned through the app, so the Job moves as it really would:
+   * on an open Job, or on one whose Quote was accepted when `acceptedAt`.
    */
-  async function planned(
-    client: ApiClient,
-    technicianIds: number[],
-    kind: 'quoted' | 'time_and_materials' = 'time_and_materials'
-  ) {
+  async function planned(client: ApiClient, technicianIds: number[], acceptedAt?: DateTime) {
     const office = await createUser('office')
     const job = await createJob(await createCustomer(), {
-      kind,
-      status: kind === 'quoted' ? 'accepted' : 'open',
+      status: acceptedAt ? 'accepted' : 'open',
     })
+    if (acceptedAt) {
+      await Quote.create({ jobId: job.id, status: 'accepted', decidedAt: acceptedAt })
+    }
     await client
       .post(`/jobs/${job.id}/visits`)
       .json(plan(technicianIds))
@@ -465,7 +466,7 @@ test.group('Editing and deleting Visits', () => {
     assert,
   }) => {
     const anna = await createUser('technician')
-    const { office, visit, job } = await planned(client, [anna.id], 'quoted')
+    const { office, visit, job } = await planned(client, [anna.id], DateTime.fromISO('2026-01-01'))
     await job.refresh()
     assert.equal(job.status, 'in_progress')
 
@@ -486,13 +487,12 @@ test.group('Editing and deleting Visits', () => {
     assert,
   }) => {
     const anna = await createUser('technician')
-    const { office, visit, job } = await planned(client, [anna.id], 'quoted')
+    const { office, visit, job } = await planned(
+      client,
+      [anna.id],
+      DateTime.now().minus({ days: 5 })
+    )
     // A survey done before the Quote was accepted
-    await Quote.create({
-      jobId: job.id,
-      status: 'accepted',
-      decidedAt: DateTime.now().minus({ days: 5 }),
-    })
     const past = DateTime.now().minus({ days: 10 })
     await Visit.create({
       jobId: job.id,
@@ -527,7 +527,7 @@ test.group('Editing and deleting Visits', () => {
     assert.equal(job.status, 'in_progress')
   })
 
-  test('a Time & Materials Job goes back to open', async ({ client, assert }) => {
+  test('a Job without a Quote goes back to open', async ({ client, assert }) => {
     const anna = await createUser('technician')
     const { office, visit, job } = await planned(client, [anna.id])
     await job.refresh()

@@ -6,7 +6,6 @@ import CompanySettings from '#models/company_settings'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
 import Item from '#models/item'
-import type { JobKind } from '#models/job'
 import LabourRate from '#models/labour_rate'
 import PaymentTerms from '#models/payment_terms'
 import Site from '#models/site'
@@ -83,12 +82,11 @@ export default class DevSeeder extends BaseSeeder {
     const reverseCharge = await VatCode.findByOrFail('natura', 'N6.7')
 
     // Open: just phoned in, nothing planned yet
-    await this.job(customers.private, 'quoted', 'maintenance', 'Perdita sotto il lavello')
+    await this.job(customers.private, 'maintenance', 'Perdita sotto il lavello')
 
     // Quoted: a draft Quote waiting for the Customer
     const quoted = await this.job(
       customers.condominium,
-      'quoted',
       'renovation',
       'Rifacimento colonna montante'
     )
@@ -116,12 +114,7 @@ export default class DevSeeder extends BaseSeeder {
     })
 
     // Accepted: the Quote is signed, the work isn't planned yet
-    const accepted = await this.job(
-      customers.company,
-      'quoted',
-      'new_installation',
-      'Nuovi bagni uffici'
-    )
+    const accepted = await this.job(customers.company, 'new_installation', 'Nuovi bagni uffici')
     await Quotes.save(accepted, {
       lines: [
         {
@@ -145,12 +138,7 @@ export default class DevSeeder extends BaseSeeder {
     await Quotes.accept(accepted)
 
     // In progress: a boiler swap, one Visit started today, one tomorrow
-    const boiler = await this.job(
-      customers.private,
-      'time_and_materials',
-      'maintenance',
-      'Sostituzione caldaia'
-    )
+    const boiler = await this.job(customers.private, 'maintenance', 'Sostituzione caldaia')
     const started = await Scheduling.plan(boiler, {
       startsAt: at(today, 9),
       endsAt: at(today, 13),
@@ -173,7 +161,6 @@ export default class DevSeeder extends BaseSeeder {
     // Work complete: a repair done two days ago, with hours and Items used
     const repair = await this.job(
       customers.organisation,
-      'time_and_materials',
       'repair',
       'Riparazione scarico spogliatoi'
     )
@@ -192,12 +179,7 @@ export default class DevSeeder extends BaseSeeder {
     await FieldWork.setStatus(done, 'done', giorgio)
 
     // Needs another visit: a part was missing; shows in "Da ripianificare"
-    const leak = await this.job(
-      customers.company,
-      'time_and_materials',
-      'repair',
-      'Perdita impianto antincendio'
-    )
+    const leak = await this.job(customers.company, 'repair', 'Perdita impianto antincendio')
     const blocked = await Scheduling.plan(leak, {
       startsAt: at(today.minus({ days: 1 }), 15),
       endsAt: at(today.minus({ days: 1 }), 17),
@@ -217,7 +199,6 @@ export default class DevSeeder extends BaseSeeder {
     // A planned Visit later this week, and a cancelled Job
     const service = await this.job(
       customers.condominium,
-      'time_and_materials',
       'maintenance',
       'Manutenzione annuale centrale termica'
     )
@@ -226,7 +207,7 @@ export default class DevSeeder extends BaseSeeder {
       endsAt: at(today.plus({ days: 3 }), 12),
       technicianIds: [giorgio.id],
     })
-    const cancelled = await this.job(customers.private, 'quoted', 'sale', 'Preventivo addolcitore')
+    const cancelled = await this.job(customers.private, 'sale', 'Preventivo addolcitore')
     await Jobs.cancel(cancelled.id)
 
     // A draft Invoice at two rates with a global discount: gaskets bought
@@ -486,11 +467,10 @@ export default class DevSeeder extends BaseSeeder {
 
   private async job(
     { customer, siteId }: { customer: Customer; siteId: number },
-    kind: JobKind,
     workCategory: WorkCategory,
     title: string
   ) {
-    return Jobs.create({ customerId: customer.id, siteId, kind, workCategory, title })
+    return Jobs.create({ customerId: customer.id, siteId, workCategory, title })
   }
 
   private report() {

@@ -25,7 +25,7 @@ async function setup() {
   standardVat = standard.id
   const office = await createUser('office')
   const customer = await createCustomer()
-  const job = await createJob(customer, { kind: 'quoted' })
+  const job = await createJob(customer)
   const item = await createItem({ code: 'CALD-25', unit: 'pz', resalePrice: '1200' })
   const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '38.5' })
   return { office, customer, job, item, rate }
@@ -387,34 +387,64 @@ test.group('Quotes', () => {
     assert.equal(quote.notes, 'Aggiornato')
   })
 
-  test('the kind of a Job with a Quote can not change', async ({ client, assert }) => {
-    const { office, customer, job } = await setup()
+  test('a Quote is started on any open Job, not once work has begun', async ({
+    client,
+    assert,
+  }) => {
+    const { office, customer, item, rate } = await setup()
+    const open = await createJob(customer)
+    const started = await createJob(customer, { status: 'in_progress' })
+
+    const editable = await client.get(`/jobs/${open.id}/quote`).withInertia().loginAs(office)
+    editable.assertInertiaPropsContains({ editable: true })
     await client
-      .put(`/jobs/${job.id}/quote`)
-      .json({ lines: [{ kind: 'text', description: 'Bozza' }] })
+      .put(`/jobs/${open.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
       .withCsrfToken()
       .loginAs(office)
+    await open.refresh()
+    assert.equal(open.status, 'quoted')
 
+    const refused = await client.get(`/jobs/${started.id}/quote`).withInertia().loginAs(office)
+    refused.assertInertiaPropsContains({ editable: false })
     await client
-      .put(`/jobs/${job.id}`)
-      .form({ customerId: String(customer.id), kind: 'time_and_materials', title: job.title })
+      .put(`/jobs/${started.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
       .withCsrfToken()
       .loginAs(office)
-
-    await job.refresh()
-    assert.equal(job.status, 'open')
-    assert.equal(job.kind, 'quoted')
+    assert.isNull(await Quote.findBy('jobId', started.id))
+    await started.refresh()
+    assert.equal(started.status, 'in_progress')
   })
 
-  test('Time & Materials Jobs have no Quote', async ({ client, assert }) => {
-    const { office, customer } = await setup()
-    const job = await createJob(customer, { kind: 'time_and_materials' })
+  test('the Job page lists its Quote, or offers one while the Job is open', async ({
+    client,
+    assert,
+  }) => {
+    const { office, customer, job, item, rate } = await setup()
+    const started = await createJob(customer, { status: 'in_progress' })
+    const props = async (id: number) => {
+      const page = await client.get(`/jobs/${id}`).withInertia().loginAs(office)
+      return page.inertiaProps
+    }
 
-    const page = await client.get(`/jobs/${job.id}/quote`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ editable: false })
+    assert.containsSubset(await props(job.id), { quote: null, canStartQuote: true })
+    assert.containsSubset(await props(started.id), { quote: null, canStartQuote: false })
 
-    await client.put(`/jobs/${job.id}/quote`).json({ lines: [] }).withCsrfToken().loginAs(office)
-    assert.isNull(await Quote.findBy('jobId', job.id))
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    assert.containsSubset(await props(job.id), {
+      quote: { status: 'draft' },
+      canStartQuote: false,
+    })
+    await client.post(`/jobs/${job.id}/quote/accept`).withCsrfToken().loginAs(office)
+    assert.containsSubset(await props(job.id), {
+      quote: { status: 'accepted' },
+      canStartQuote: false,
+    })
   })
 
   test('the Quote PDF is rendered on the letterhead', async ({ client }) => {

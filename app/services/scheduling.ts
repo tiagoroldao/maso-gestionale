@@ -37,15 +37,22 @@ export default class Scheduling {
   }
 
   /**
-   * Whether the Job has any work Visit, past or to come. For a Quoted Job,
-   * Visits that ended before its Quote was accepted were surveys.
+   * Whether the Job has a Quote, which decides how Visits move it: with
+   * one, work starts once the Quote is accepted (ADR 0012). Quotes are
+   * created under the Job's lock (Quotes.save), which callers hold.
    */
-  private static async hasWorkVisits(trx: TransactionClientContract, job: Job) {
-    const query = trx.from('visits').where('job_id', job.id)
-    if (job.kind === 'quoted') {
-      const quote = await trx.from('quotes').where('job_id', job.id).first()
-      if (quote?.decided_at) query.where('ends_at', '>', quote.decided_at)
-    }
+  private static async hasQuote(trx: TransactionClientContract, jobId: number) {
+    return Boolean(await trx.from('quotes').where('job_id', jobId).first())
+  }
+
+  /**
+   * Whether the Job has any work Visit, past or to come. For a Job with a
+   * Quote, Visits that ended before the Quote was accepted were surveys.
+   */
+  private static async hasWorkVisits(trx: TransactionClientContract, jobId: number) {
+    const query = trx.from('visits').where('job_id', jobId)
+    const quote = await trx.from('quotes').where('job_id', jobId).first()
+    if (quote?.decided_at) query.where('ends_at', '>', quote.decided_at)
     return Boolean(await query.first())
   }
 
@@ -112,7 +119,7 @@ export default class Scheduling {
   /**
    * Deletes a Visit planned by mistake. One with recorded work is refused.
    * If the Job has no other work Visit (done or to come), an In Progress
-   * Job goes back to ready for work (accepted, or open).
+   * Job goes back to ready for work (accepted with a Quote, else open).
    */
   static async destroy(visit: Visit) {
     await db.transaction(async (trx) => {
@@ -127,11 +134,11 @@ export default class Scheduling {
 
       const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
       job.useTransaction(trx)
-      // With no other work Visit left (for a Quoted Job, a survey finished
-      // before the Quote was accepted doesn't count), the Job is back to
-      // waiting for its first work Visit
-      if (job.status === 'in_progress' && !(await this.hasWorkVisits(trx, job))) {
-        job.status = job.kind === 'quoted' ? 'accepted' : 'open'
+      // With no other work Visit left (for a Job with a Quote, a survey
+      // finished before the Quote was accepted doesn't count), the Job is
+      // back to waiting for its first work Visit
+      if (job.status === 'in_progress' && !(await this.hasWorkVisits(trx, job.id))) {
+        job.status = (await this.hasQuote(trx, job.id)) ? 'accepted' : 'open'
         await job.save()
       }
     })
@@ -160,8 +167,8 @@ export default class Scheduling {
   }
 
   /**
-   * Plans a Visit. When the Job is ready for work (an accepted Quoted Job,
-   * or an open Time & Materials Job) it moves to In Progress; a survey
+   * Plans a Visit. When the Job is ready for work (accepted, for a Job with
+   * a Quote; open, for one without) it moves to In Progress; a survey
    * before the Quote is accepted leaves the Job's status alone.
    */
   static async plan(
@@ -171,7 +178,7 @@ export default class Scheduling {
     return db.transaction(async (trx) => {
       // Locked and re-read, so a concurrent cancel can't be overwritten
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      job.merge({ status: locked.status, kind: locked.kind })
+      job.merge({ status: locked.status })
       if (!this.canSchedule(job)) throw new JobNotSchedulableError()
 
       const visit = await Visit.create(
@@ -186,9 +193,9 @@ export default class Scheduling {
       )
       await visit.related('technicians').attach(input.technicianIds)
 
-      const readyForWork =
-        (job.kind === 'quoted' && job.status === 'accepted') ||
-        (job.kind === 'time_and_materials' && job.status === 'open')
+      const readyForWork = (await this.hasQuote(trx, job.id))
+        ? job.status === 'accepted'
+        : job.status === 'open'
       if (readyForWork) {
         await Job.query({ client: trx }).where('id', job.id).update({ status: 'in_progress' })
         job.status = 'in_progress'

@@ -10,7 +10,6 @@ export type JobRow = {
   id: number
   number: string
   title: string
-  kind: string
   status: string
   customer: { id: number; displayName: string } | null
   site: { id: number; summary: string } | null

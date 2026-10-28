@@ -287,7 +287,6 @@ test.group('Invoices from Jobs with a Quote', () => {
       .put(`/jobs/${job.id}`)
       .form({
         customerId: String(other.id),
-        kind: 'quoted',
         workCategory: 'maintenance',
         title: 'Nuovo titolo',
       })
@@ -300,7 +299,6 @@ test.group('Invoices from Jobs with a Quote', () => {
       .put(`/jobs/${job.id}`)
       .form({
         customerId: String(job.customerId),
-        kind: 'quoted',
         workCategory: 'maintenance',
         title: 'Nuovo titolo',
       })

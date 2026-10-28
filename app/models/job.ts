@@ -10,12 +10,11 @@ import Invoice from '#models/invoice'
 import type { WorkCategory } from '#shared/jobs'
 import { BILLING_OPEN_SQL } from '#services/job_status'
 
-export const JOB_KINDS = ['quoted', 'time_and_materials'] as const
-export type JobKind = (typeof JOB_KINDS)[number]
-
 /**
- * Statuses stored on the Job. Work Complete, Invoiced and Closed are
- * worked out from Visits, Invoices and Payments by later features.
+ * Statuses stored on the Job. Quoted and accepted apply only to a Job with
+ * a Quote; without one a Job goes from open to in progress (ADR 0012).
+ * Work Complete, Invoiced and Closed are worked out from Visits, Invoices
+ * and Payments (job_status.ts).
  */
 export const JOB_STATUSES = ['open', 'quoted', 'accepted', 'in_progress', 'cancelled'] as const
 export type JobStatus = (typeof JOB_STATUSES)[number]
@@ -25,7 +24,6 @@ export type JobStatus = (typeof JOB_STATUSES)[number]
  * is the unit that gets quoted and invoiced.
  */
 export default class Job extends JobSchema {
-  declare kind: JobKind
   declare status: JobStatus
   declare workCategory: WorkCategory
 

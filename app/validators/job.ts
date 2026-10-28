@@ -1,5 +1,5 @@
 import vine from '@vinejs/vine'
-import { JOB_KINDS, JOB_STATUSES } from '#models/job'
+import { JOB_STATUSES } from '#models/job'
 import { WORK_CATEGORIES } from '#shared/jobs'
 
 /**
@@ -20,7 +20,6 @@ const notArchived = (
 export const jobValidator = vine.withMetaData<{ customerId?: number; siteId?: number }>().create({
   customerId: notArchived('customers', (meta) => meta.customerId),
   siteId: notArchived('sites', (meta) => meta.siteId).optional(),
-  kind: vine.enum(JOB_KINDS),
   workCategory: vine.enum(WORK_CATEGORIES),
   title: vine.string().trim().minLength(1).maxLength(255),
   description: vine.string().trim().maxLength(5000).optional(),

@@ -24,7 +24,7 @@ import type Job from '#models/job'
  * onto the Job as a Charge (ADR 0012).
  */
 async function acceptedJob() {
-  const job = await createJob(await createCustomer(), { kind: 'quoted', workCategory: 'sale' })
+  const job = await createJob(await createCustomer(), { workCategory: 'sale' })
   const standard = await vatCode()
   const rate = await LabourRate.create({ name: 'Lavori', hourlyPrice: '1000' })
   await Quotes.save(job, {
@@ -78,14 +78,13 @@ async function pricesOf(invoice: Invoice) {
 }
 
 /**
- * A Time & Materials Job (a sale: 22% on labour) and a way to add costs
+ * A Job without a Quote (a sale: 22% on labour) and a way to add costs
  * to it, each billable at once.
  */
 async function costJob() {
   await completeCompany()
   const office = await createUser('office')
   const job = await createJob(await createCustomer(), {
-    kind: 'time_and_materials',
     status: 'in_progress',
     workCategory: 'sale',
   })
@@ -258,13 +257,12 @@ test.group('Advance Invoices', () => {
     assert.deepEqual(await deductionsOf(second), [[advance.id, '366.00']])
   })
 
-  test('Time & Materials: the first draft deducts the advance, later ones do not', async ({
+  test('without a Quote: the first draft deducts the advance, later ones do not', async ({
     assert,
   }) => {
     await completeCompany()
     const anna = await createUser('technician')
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
       workCategory: 'sale',
     })
@@ -557,13 +555,12 @@ test.group('Advance Invoices', () => {
     after.assertInertiaPropsContains({ job: { status: 'invoiced' } })
   })
 
-  test('Time & Materials: advances wait for the draft that bills the last of the work', async ({
+  test('without a Quote: advances wait for the draft that bills the last of the work', async ({
     assert,
   }) => {
     await completeCompany()
     const anna = await createUser('technician')
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
       workCategory: 'sale',
     })
