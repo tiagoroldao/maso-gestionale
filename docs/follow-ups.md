@@ -23,11 +23,12 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key             |
 | #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                             |
 | #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                             |
-| #111  | Can done work on a cancelled Time & Materials Job still be invoiced?                      | The business (`needs-human`)                                  |
-| #117  | Add Charges from the accepted Quote                                                       | —                                                             |
+| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                                  |
+| #117  | Import Quote lines as Charges (ADR 0012)                                                  | —                                                             |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
 | #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
+| #130  | Drop the Job kind (ADR 0012)                                                              | #117                                                          |
 
 ## Added to existing issues
 
@@ -37,7 +38,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#24); billing done work on a cancelled Time & Materials Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#24); billing done work on a cancelled Job (#111, needs the business).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues
@@ -56,6 +57,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Office removing a Charge through the field route** (#114): `viewVisit` lets Admin and Office use `DELETE /charges/:id` on an open Visit's unreviewed Charge, which leaves no history. This was already possible with Visit hours (from the #121 review).
 - **Archived Item or VAT Code allowed on any line** of an Invoice once one line uses it. Now that lines have ids, narrow it to the line that holds it (from the #122 review).
 - **Equipment moved with a corrected Item** (#123): a description or interval counts as "set by hand" when it differs from the old Item's _current_ one, so editing that Item after the install makes an untouched value look manual and it is kept. No test corrects the Item after the Visit is closed. Any service blocks the move, even the installing Visit marking its own new equipment as serviced, so Office can't correct the Item then (from the #125 review).
+- **Call-out Fee wording** (ADR 0012): the glossary calls it a price for attending a Visit, while an imported Quote call-out becomes a Job Charge. Revisit if it confuses anyone (from the #131 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
 - **Small leftovers from the #97 review:** the zero-amount Payment test checks the field, not the `amount.positive` message; the `amountRule` docstring line is over 100 characters.
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).

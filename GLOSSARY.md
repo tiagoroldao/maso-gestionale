@@ -23,21 +23,15 @@ _Avoid_: Service schedule, recurrence
 ## Work
 
 **Job** (_Commessa_):
-A whole piece of work for a Customer, which may span multiple Visits and is the unit that gets quoted and invoiced. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
-_Avoid_: Intervention, work order, ticket
-
-**Quoted Job**:
-A Job priced by an accepted Quote, whose lines Office adds to the Job as Charges.
-
-**Time & Materials Job**:
-A Job without a Quote, invoiced from the Charges recorded on it and its Visits.
+A whole piece of work for a Customer, which may span multiple Visits, may be quoted, and is invoiced from its Charges. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
+_Avoid_: Intervention, work order, ticket, Quoted Job / Time & Materials Job (a Job has no kind; it may have a Quote)
 
 **Work Category** (_Tipo di lavoro_):
 The kind of work a Job is (new installation, maintenance, renovation, repair or sale), which together with the Customer and the Site decides the VAT normally charged.
-_Avoid_: Job type (ambiguous with Quoted / Time & Materials), intervention type
+_Avoid_: Job type, intervention type
 
 **Quote** (_Preventivo_):
-A priced proposal for a Job that the Customer accepts or declines.
+A priced proposal for a Job that the Customer accepts or declines. It is never billed itself and doesn't bind the final bill; its lines can be imported onto the Job or its Visits as Charges.
 _Avoid_: Estimate, offer
 
 **Visit** (_Intervento_):

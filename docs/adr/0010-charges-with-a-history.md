@@ -4,7 +4,7 @@ What a Job can be billed for is recorded as **Charges**: hours worked, Items use
 
 Recorded hours are a suggestion, not a price to charge. Not everyone who works is in the app (a contractor hired for the day), and what the Customer pays is Office's decision. So a Charge keeps two sides: what was recorded (quantity, who, the Item), which feeds stock and history, and what is billed (billable or not, quantity, price, description), which feeds Invoices. Prices are set when a Charge is recorded, from the Labour Rate or the Item. What was recorded can be corrected at any time, and a correction moves stock by the difference with a new Stock Movement (the ledger is never rewritten). What is billed can be edited until it is billed; after that it changes only through billing events (set back to "to bill", credited, billed again).
 
-Quoted and Time & Materials Jobs both invoice from their Charges. A Quoted Job keeps its link to its accepted Quote, and Office adds Charges from the Quote's lines by hand (all of them, or a selection); they can then be changed or left out like any other Charge.
+Quoted and Time & Materials Jobs both invoice from their Charges (refined by ADR 0012: Quote lines are imported as ordinary Charges, and the Job kind is dropped). A Quoted Job keeps its link to its accepted Quote, and Office adds Charges from the Quote's lines by hand (all of them, or a selection); they can then be changed or left out like any other Charge.
 
 ## Considered Options
 
