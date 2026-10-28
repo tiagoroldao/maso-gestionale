@@ -750,6 +750,16 @@
     "freeLine": "Riga libera",
     "billsCharges": "{count, plural, one {fattura # addebito} other {fattura # addebiti}}",
     "mergeUp": "Unisci alla riga sopra",
+    "deductionsTitle": "Acconti da detrarre",
+    "deductionsHint": "Quanto detrarre di ogni acconto, IVA inclusa. Le righe di detrazione si aggiornano al salvataggio.",
+    "advanceNumber": "Acconto {number}",
+    "advanceLeft": "Da detrarre: {left} su {total}",
+    "deductionOf": "Detrazione dell'acconto {number}",
+    "advanceStates": {
+      "not_deducted": "non detratto",
+      "partly_deducted": "detratto in parte ({amount})",
+      "fully_deducted": "detratto"
+    },
     "descriptionOf": "Descrizione della riga {position}",
     "quantityOf": "Quantità della riga {position}",
     "unitPriceOf": "Prezzo unitario della riga {position}",

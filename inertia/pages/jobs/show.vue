@@ -8,6 +8,7 @@ import { formatDate, formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
 import { amountForInput } from '@shared/money'
 import type { ChargeState } from '@shared/charges'
+import type { AdvanceState } from '@shared/advances'
 import { LINE_KINDS } from '@shared/vat'
 import { ref } from 'vue'
 
@@ -31,7 +32,14 @@ function fillCallOut(fee: string) {
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
 defineProps<{
-  invoices: { id: number; number: string | null; status: string; total: string; advance: boolean }[]
+  invoices: {
+    id: number
+    number: string | null
+    status: string
+    total: string
+    advance: boolean
+    deduction: { deducted: string; state: AdvanceState } | null
+  }[]
   canInvoice: boolean
   canInvoiceAdvance: boolean
   invoicedSoFar: { amount: string; of: string | null }
@@ -351,6 +359,14 @@ defineProps<{
             </Link>
             <span v-if="invoice.advance"> · {{ t('ui.invoices.advance') }}</span>
             · {{ t(`ui.invoices.statuses.${invoice.status}`) }} · {{ formatMoney(invoice.total) }}
+            <span v-if="invoice.deduction" data-testid="advance-state">
+              ·
+              {{
+                t(`ui.invoices.advanceStates.${invoice.deduction.state}`, {
+                  amount: formatMoney(invoice.deduction.deducted),
+                })
+              }}
+            </span>
           </li>
         </ul>
         <Form

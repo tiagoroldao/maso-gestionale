@@ -86,6 +86,16 @@ export const invoiceValidator = vine
         })
       )
       .maxLength(200),
+    // What the Invoice takes back of each Advance Invoice, VAT included
+    deductions: vine
+      .array(
+        vine.object({
+          advanceId: vine.number().withoutDecimals().positive(),
+          amount: vine.string().use(amountRule({ decimals: 2, max: '9999999999', positive: true })),
+        })
+      )
+      .maxLength(100)
+      .optional(),
   })
 
 export const invoiceNumberingValidator = vine.create({

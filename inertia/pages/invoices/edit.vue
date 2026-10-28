@@ -88,6 +88,10 @@ const props = defineProps<{
   unsubmittedCount: number
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
   paymentSummary: { status: string; paid: string; outstanding: string } | null
+  // A Job's Invoice: the issued advances it can take back (ADR 0011)
+  deductions:
+    | { advanceId: number; number: string; total: string; left: string; amount: string | null }[]
+    | null
 }>()
 
 const page = usePage()
@@ -118,12 +122,22 @@ const discountPercent = ref(
   Number(props.invoice.discountPercent) ? trim(props.invoice.discountPercent) : ''
 )
 const notes = ref(props.invoice.notes ?? '')
+// What the Invoice takes back of each advance, VAT included, as typed
+const deductionsFromProps = () =>
+  Object.fromEntries(
+    (props.deductions ?? []).map((row) => [
+      row.advanceId,
+      row.amount ? amountForInput(row.amount) : '',
+    ])
+  )
+const deductionAmounts = reactive<Record<number, string>>(deductionsFromProps())
 
 const snapshot = () =>
   JSON.stringify({
     discountPercent: discountPercent.value,
     notes: notes.value,
     lines: lines.map(({ key: _key, ...line }) => line),
+    deductions: deductionAmounts,
   })
 const saved = ref(snapshot())
 const dirty = computed(() => snapshot() !== saved.value)
@@ -138,6 +152,7 @@ watch(
       ? trim(props.invoice.discountPercent)
       : ''
     notes.value = props.invoice.notes ?? ''
+    Object.assign(deductionAmounts, deductionsFromProps())
     saved.value = snapshot()
   }
 )
@@ -280,6 +295,12 @@ function save() {
         ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
         ...(line.chargeIds.length && { chargeIds: line.chargeIds }),
       })),
+      // Deduction lines above are rewritten from these by the server
+      ...(props.deductions && {
+        deductions: props.deductions
+          .filter((row) => deductionAmounts[row.advanceId])
+          .map((row) => ({ advanceId: row.advanceId, amount: deductionAmounts[row.advanceId] })),
+      }),
     },
     {
       preserveScroll: true,
@@ -290,6 +311,9 @@ function save() {
 }
 
 const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
+const deductionError = computed(
+  () => Object.entries(errors.value).find(([key]) => key.startsWith('deductions'))?.[1]
+)
 const confirmDelete = () => window.confirm(t('ui.invoices.deleteConfirm'))
 const confirmFinalise = () =>
   window.confirm(
@@ -390,7 +414,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                 <input
                   v-model="line.description"
                   class="field__input"
-                  :disabled="!editable"
+                  :disabled="!editable || line.deductsInvoiceId !== null"
                   :aria-label="t('ui.invoices.descriptionOf', { position: index + 1 })"
                 />
                 <span v-if="lineError(index, 'description')" class="field__error">
@@ -405,7 +429,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                   v-model="line.quantity"
                   inputmode="decimal"
                   class="field__input"
-                  :disabled="!editable"
+                  :disabled="!editable || line.deductsInvoiceId !== null"
                   :aria-label="t('ui.invoices.quantityOf', { position: index + 1 })"
                 />
                 <span class="field__hint">{{ line.unit }}</span>
@@ -418,7 +442,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                   v-model="line.unitPrice"
                   inputmode="decimal"
                   class="field__input"
-                  :disabled="!editable"
+                  :disabled="!editable || line.deductsInvoiceId !== null"
                   :aria-label="t('ui.invoices.unitPriceOf', { position: index + 1 })"
                 />
                 <span v-if="lineError(index, 'unitPrice')" class="field__error">
@@ -430,7 +454,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                   v-model="line.discountPercent"
                   inputmode="decimal"
                   class="field__input"
-                  :disabled="!editable"
+                  :disabled="!editable || line.deductsInvoiceId !== null"
                   :aria-label="t('ui.invoices.lineDiscountOf', { position: index + 1 })"
                 />
                 <span v-if="lineError(index, 'discountPercent')" class="field__error">
@@ -441,7 +465,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                 <select
                   v-model="line.vatCodeId"
                   class="field__input"
-                  :disabled="!editable"
+                  :disabled="!editable || line.deductsInvoiceId !== null"
                   :aria-label="t('ui.invoices.vatCodeOf', { position: index + 1 })"
                 >
                   <option v-for="code in vatCodes" :key="code.id" :value="code.id">
@@ -458,7 +482,8 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               <td :style="{ textAlign: 'right' }">
                 {{ amountOf(line) ? formatMoney(amountOf(line)!) : '' }}
               </td>
-              <td v-if="editable" class="table__actions">
+              <td v-if="editable && line.deductsInvoiceId !== null" />
+              <td v-else-if="editable" class="table__actions">
                 <button
                   type="button"
                   class="iconbtn"
@@ -504,6 +529,38 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             </tr>
           </tbody>
         </table>
+      </Section>
+
+      <Section
+        v-if="deductions?.length"
+        :title="t('ui.invoices.deductionsTitle')"
+        :description="t('ui.invoices.deductionsHint')"
+      >
+        <table class="table" data-testid="deductions">
+          <tbody>
+            <tr v-for="row in deductions" :key="row.advanceId">
+              <td>{{ t('ui.invoices.advanceNumber', { number: row.number }) }}</td>
+              <td>
+                {{
+                  t('ui.invoices.advanceLeft', {
+                    left: formatMoney(row.left),
+                    total: formatMoney(row.total),
+                  })
+                }}
+              </td>
+              <td :style="{ width: '160px' }">
+                <input
+                  v-model="deductionAmounts[row.advanceId]"
+                  inputmode="decimal"
+                  class="field__input"
+                  :disabled="!editable"
+                  :aria-label="t('ui.invoices.deductionOf', { number: row.number })"
+                />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <span v-if="deductionError" class="field__error">{{ deductionError }}</span>
       </Section>
 
       <Section v-if="editable" :title="t('ui.invoices.addTitle')">

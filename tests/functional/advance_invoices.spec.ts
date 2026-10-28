@@ -4,15 +4,18 @@ import Invoice from '#models/invoice'
 import LabourRate from '#models/labour_rate'
 import Visit from '#models/visit'
 import FieldWork from '#services/field_work'
-import Invoices from '#services/invoices'
+import Invoices, { type InvoiceNotFinalisableError } from '#services/invoices'
 import Quotes from '#services/quotes'
 import Submissions from '#services/submissions'
+import Charges from '#services/charges'
+import db from '@adonisjs/lucid/services/db'
 import { buildFatturaPA, fatturaInputFor } from '#fiscal/fattura_pa'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
+import { committedData } from '#tests/helpers/committed'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 import type Job from '#models/job'
 
@@ -65,6 +68,54 @@ async function issuedAdvance(job: Job, amount: string) {
 async function pricesOf(invoice: Invoice) {
   const lines = await linesOf(invoice)
   return lines.map(([, price]) => price)
+}
+
+/**
+ * A Time & Materials Job (a sale: 22% on labour) and a way to add costs
+ * to it, each billable at once.
+ */
+async function costJob() {
+  await completeCompany()
+  const office = await createUser('office')
+  const job = await createJob(await createCustomer(), {
+    kind: 'time_and_materials',
+    status: 'in_progress',
+    workCategory: 'sale',
+  })
+  const cost = (price: string) =>
+    Charges.add(
+      job,
+      { description: 'Costo', quantity: '1', unit: null, unitPrice: price, vatKind: 'labour' },
+      office
+    )
+  return { office, job, cost }
+}
+
+/**
+ * The Invoice's own lines (not its deductions), as the page sends them
+ * back (needs `lines` loaded).
+ */
+function workLines(invoice: Invoice) {
+  return invoice.lines
+    .filter((line) => !line.deductsInvoiceId)
+    .map((line) => ({
+      id: line.id,
+      description: line.description,
+      quantity: line.quantity,
+      unitPrice: line.unitPrice,
+      vatCodeId: line.vatCodeId,
+    }))
+}
+
+const labelOf = (advance: Invoice) =>
+  `Detrazione acconto fattura ${advance.formattedNumber} del ${advance.issuedOn!.toFormat('dd/MM/yyyy')}`
+
+/**
+ * What the Invoice takes back of each advance: [advance id, amount].
+ */
+async function deductionsOf(invoice: Invoice) {
+  const rows = await db.from('advance_deductions').where('invoice_id', invoice.id).orderBy('id')
+  return rows.map((row) => [row.advance_id, row.amount])
 }
 
 async function linesOf(invoice: Invoice) {
@@ -121,8 +172,8 @@ test.group('Advance Invoices', () => {
       ['Lavori', '1000.0000', '22.00'],
       [label, '-300.0000', '22.00'],
     ])
-    await advance.refresh()
-    assert.equal(advance.deductedInId, final.id)
+    // It bills everything: it takes back all of the advance, VAT included
+    assert.deepEqual(await deductionsOf(final), [[advance.id, '366.00']])
     assert.equal(final.totals.taxable, '700.00')
 
     // Office can edit the draft with its deduction line
@@ -148,6 +199,10 @@ test.group('Advance Invoices', () => {
     page.assertInertiaPropsContains({
       invoicedSoFar: { amount: '1000.00', of: '1000.00' },
       job: { status: 'invoiced' },
+      invoices: [
+        { id: advance.id, deduction: { deducted: '366.00', state: 'fully_deducted' } },
+        { id: final.id, deduction: null },
+      ],
     })
   })
 
@@ -189,10 +244,10 @@ test.group('Advance Invoices', () => {
     const first = await Invoices.fromJob(job)
 
     await Invoices.destroy(first)
-    await advance.refresh()
-    assert.isNull(advance.deductedInId)
+    assert.lengthOf(await db.from('advance_deductions').where('advance_id', advance.id), 0)
     const second = await Invoices.fromJob(job)
     assert.lengthOf(await linesOf(second), 2)
+    assert.deepEqual(await deductionsOf(second), [[advance.id, '366.00']])
   })
 
   test('Time & Materials: the first draft deducts the advance, later ones do not', async ({
@@ -253,115 +308,172 @@ test.group('Advance Invoices', () => {
     assert.equal(final.totals.taxable, '600.00')
   })
 
-  test('the final Invoice must take each advance back in full, and stay positive', async ({
+  test('Office takes back part of an advance, never more than is left nor below zero', async ({
     client,
     assert,
   }) => {
-    const office = await createUser('office')
-    await completeCompany()
-    const job = await acceptedJob()
-    await issuedAdvance(job, '300')
-    const final = await Invoices.fromJob(job)
-    await final.load('lines')
-    const [work] = final.lines
+    const { office, job, cost } = await costJob()
+    const advance = await issuedAdvance(job, '500')
+    await cost('35')
 
-    // Office removed the deduction line
-    await Invoices.save(final, {
-      lines: [
-        {
-          description: work.description,
-          quantity: '1',
-          unitPrice: '1000',
-          vatCodeId: work.vatCodeId,
-        },
-      ],
-    })
-    const removed = await client
-      .post(`/invoices/${final.id}/finalise`)
+    // The draft bills everything, so it starts with all of the advance:
+    // 35 + 22% less 610 would be negative
+    const first = await Invoices.fromJob(job)
+    assert.deepEqual(await deductionsOf(first), [[advance.id, '610.00']])
+    const save = (deductions: { advanceId: number; amount: string }[]) =>
+      client
+        .put(`/invoices/${first.id}`)
+        .json({ lines: workLines(first), deductions })
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+    const refused = await client
+      .post(`/invoices/${first.id}/finalise`)
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    removed.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionsChanged'))
+    refused.assertFlashMessage('error', it('flash.invoiceNotFinalisable.negativeTotal'))
 
-    // The work brought below the advance: the total would be negative
-    await Invoices.destroy(final)
-    const again = await Invoices.fromJob(job)
-    await again.load('lines')
-    await Invoices.save(again, {
-      lines: again.lines.map((line, index) => ({
+    // More than the advance, or a total below zero, isn't saved
+    await first.load('lines')
+    const tooMuch = await save([{ advanceId: advance.id, amount: '610,01' }])
+    tooMuch.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionTooLarge'))
+    const negative = await save([{ advanceId: advance.id, amount: '50' }])
+    negative.assertFlashMessage('error', it('flash.invoiceNotFinalisable.negativeTotal'))
+    assert.deepEqual(await deductionsOf(first), [[advance.id, '610.00']])
+
+    // As much as this Invoice bills: it comes to zero
+    const saved = await save([{ advanceId: advance.id, amount: '42,70' }])
+    saved.assertFlashMessage('success', it('flash.invoiceSaved'))
+    assert.deepEqual(await pricesOf(first), ['35.0000', '-35.0000'])
+    await Invoices.finalise(first)
+
+    // Partly deducted: the Job isn't Invoiced until the rest is taken back
+    let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      invoices: [{ id: advance.id, deduction: { deducted: '42.70', state: 'partly_deducted' } }],
+    })
+    assert.notEqual(page.inertiaProps.job.status, 'invoiced')
+
+    // The next draft that bills everything takes back what is left, to the cent
+    await cost('1000')
+    const last = await Invoices.fromJob(job)
+    assert.deepEqual(await deductionsOf(last), [[advance.id, '567.30']])
+    assert.deepEqual(await pricesOf(last), ['1000.0000', '-465.0000'])
+    await Invoices.finalise(last)
+    page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      invoices: [{ id: advance.id, deduction: { deducted: '610.00', state: 'fully_deducted' } }],
+      job: { status: 'invoiced' },
+    })
+  })
+
+  test("a deduction is split over the advance's VAT rows; its lines follow it", async ({
+    assert,
+  }) => {
+    const { job, cost } = await costJob()
+    const reduced = await vatCode('10%')
+    const standard = await vatCode()
+    const advance = await Invoices.createAdvance(job)
+    await Invoices.save(advance, {
+      lines: [
+        { description: 'Acconto', quantity: '1', unitPrice: '100', vatCodeId: standard.id },
+        { description: 'Acconto', quantity: '1', unitPrice: '100', vatCodeId: reduced.id },
+      ],
+    })
+    await Invoices.finalise(advance)
+    await cost('1000')
+    // A follow-up is still planned: this draft starts with no deduction
+    await Visit.create({
+      jobId: job.id,
+      startsAt: DateTime.now().plus({ days: 1 }),
+      endsAt: DateTime.now().plus({ days: 1, hours: 2 }),
+      status: 'planned',
+    })
+    const draft = await Invoices.fromJob(job)
+    assert.deepEqual(await deductionsOf(draft), [])
+    await draft.load('lines')
+
+    // 116 of 232: 61 at 22% and 55 at 10%, a taxable 50 each
+    await Invoices.save(draft, {
+      lines: workLines(draft),
+      deductions: [{ advanceId: advance.id, amount: '116' }],
+    })
+    await advance.refresh()
+    const lines = await linesOf(draft)
+    assert.deepEqual(lines.slice(1), [
+      [labelOf(advance), '-50.0000', '22.00'],
+      [labelOf(advance), '-50.0000', '10.00'],
+    ])
+
+    // Deduction lines sent back changed are rewritten from the deduction
+    await draft.load('lines')
+    await Invoices.save(draft, {
+      lines: draft.lines.map((line) => ({
+        id: line.id,
         description: line.description,
         quantity: line.quantity,
-        unitPrice: index === 0 ? '100' : line.unitPrice,
-        vatCodeId: line.vatCodeId,
+        unitPrice: line.deductsInvoiceId ? '-1' : line.unitPrice,
+        vatCodeId: line.deductsInvoiceId ? standard.id : line.vatCodeId,
         ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
       })),
     })
-    const negative = await client
-      .post(`/invoices/${again.id}/finalise`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    negative.assertFlashMessage('error', it('flash.invoiceNotFinalisable.negativeTotal'))
-    await again.refresh()
-    assert.equal(again.status, 'draft')
+    assert.deepEqual(await pricesOf(draft), ['1000.0000', '-50.0000', '-50.0000'])
   })
 
-  test('a deduction moved to another VAT rate is refused, also when correcting', async ({
+  test('issued Invoices taking an advance back since the draft was saved refuse it', async ({
     client,
     assert,
   }) => {
-    const office = await createUser('office')
-    await completeCompany()
-    const job = await acceptedJob()
-    await issuedAdvance(job, '300')
-    const final = await Invoices.fromJob(job)
-    await final.load('lines')
-    const reduced = await vatCode('10%')
-    const asSent = (vatOf: (index: number) => number) =>
-      final.lines.map((line, index) => ({
-        description: line.description,
-        quantity: line.quantity,
-        unitPrice: line.unitPrice,
-        vatCodeId: vatOf(index),
-        ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
-      }))
+    const { office, job, cost } = await costJob()
+    const advance = await issuedAdvance(job, '100')
+    await cost('200')
+    const first = await Invoices.fromJob(job)
+    await first.load('lines')
+    // Issued without the deduction, then rejected
+    await Invoices.save(first, { lines: workLines(first), deductions: [] })
+    await Invoices.finalise(first)
+    await Submissions.prepare(first)
+    await Submissions.confirm(first, 'Sconto')
+    await Submissions.recordOutcome(first, { outcome: 'rejected' })
 
-    // The 22% advance taken back at 10% would return the wrong VAT
-    await Invoices.save(final, {
-      lines: asSent((index) => (index === 1 ? reduced.id : final.lines[index].vatCodeId)),
+    await cost('300')
+    const second = await Invoices.fromJob(job)
+    assert.deepEqual(await deductionsOf(second), [[advance.id, '122.00']])
+    // The correction takes the advance back first
+    await first.load('lines')
+    await Invoices.save(first, {
+      lines: workLines(first),
+      deductions: [{ advanceId: advance.id, amount: '122' }],
     })
-    const moved = await client
-      .post(`/invoices/${final.id}/finalise`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    moved.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionsChanged'))
 
-    // Issued as drafted, then rejected: the correction is held to the same rules
-    await Invoices.save(final, { lines: asSent((index) => final.lines[index].vatCodeId) })
-    await Invoices.finalise(final)
-    await Submissions.prepare(final)
-    await Submissions.confirm(final, 'Sconto')
-    await Submissions.recordOutcome(final, { outcome: 'rejected' })
-    const correction = await client
-      .put(`/invoices/${final.id}`)
-      .json({ lines: asSent((index) => final.lines[index].vatCodeId).slice(0, 1) })
+    const refused = await client
+      .post(`/invoices/${second.id}/finalise`)
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    correction.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionsChanged'))
-    await final.load('lines')
-    assert.lengthOf(final.lines, 2)
+    refused.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionTooLarge'))
+    await second.refresh()
+    assert.equal(second.status, 'draft')
   })
 
-  test("no advance once the Quote's Invoice exists, nor issued past its draft", async ({
+  test("advances while the Quote's Invoice is a draft, none once it is issued", async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
     await completeCompany()
     const job = await acceptedJob()
-    // Drafted before the Quote's Invoice, issued after it was drafted
+    const final = await Invoices.fromJob(job)
+    // Issued while the Quote's Invoice is a draft, which can then take it back
+    const advance = await issuedAdvance(job, '100')
+    await final.load('lines')
+    await Invoices.save(final, {
+      lines: workLines(final),
+      deductions: [{ advanceId: advance.id, amount: '122' }],
+    })
+    assert.deepEqual(await pricesOf(final), ['1000.0000', '-100.0000'])
+
     const late = await Invoices.createAdvance(job)
     await late.load('lines')
     await Invoices.save(late, {
@@ -374,8 +486,7 @@ test.group('Advance Invoices', () => {
         },
       ],
     })
-    await Invoices.fromJob(job)
-
+    await Invoices.finalise(final)
     const refused = await client
       .post(`/invoices/${late.id}/finalise`)
       .withCsrfToken()
@@ -491,4 +602,45 @@ test.group('Advance Invoices', () => {
     }
     assert.lengthOf(await Invoice.all(), 0)
   })
+})
+
+test.group('Advance deductions concurrently', () => {
+  test('two Invoices taking back the rest of an advance at once: only one does', async ({
+    assert,
+    cleanup,
+  }) => {
+    const cleanupRows = await committedData()
+    cleanup(cleanupRows)
+    const { job, cost } = await costJob()
+    const advance = await issuedAdvance(job, '100')
+    await cost('200')
+    const first = await Invoices.fromJob(job)
+    await first.load('lines')
+    await Invoices.save(first, { lines: workLines(first), deductions: [] })
+    await Invoices.finalise(first)
+    await Submissions.prepare(first)
+    await Submissions.confirm(first, 'Sconto')
+    await Submissions.recordOutcome(first, { outcome: 'rejected' })
+    await cost('300')
+    const second = await Invoices.fromJob(job)
+    await first.load('lines')
+
+    // Separate pooled connections: real row locks, unlike the global transaction
+    const results = await Promise.allSettled([
+      Invoices.save(first, {
+        lines: workLines(first),
+        deductions: [{ advanceId: advance.id, amount: '122' }],
+      }),
+      Invoices.finalise(second),
+    ])
+
+    const refused = results.filter((result) => result.status === 'rejected')
+    assert.lengthOf(refused, 1)
+    assert.equal(
+      ((refused[0] as PromiseRejectedResult).reason as InvoiceNotFinalisableError).reason,
+      'deductionTooLarge'
+    )
+    const [taken] = await Invoices.advancesOf(undefined, job.id)
+    assert.equal(taken.deducted, '122.00')
+  }).tags(['@committed'])
 })

@@ -97,22 +97,29 @@ export const VISIT_BILLED_SQL = (alias: string) => `(${alias}.status IN ('done',
     WHERE vc.visit_id = ${alias}.id AND ${OUTSTANDING_SQL('vc')}))`
 
 /**
+ * How much of the Advance Invoice `alias` issued Invoices took back, VAT
+ * included.
+ */
+export const ADVANCE_DEDUCTED_SQL = (alias: string) => `(SELECT coalesce(sum(ad.amount), 0)
+  FROM advance_deductions ad JOIN invoices di ON di.id = ad.invoice_id
+  WHERE ad.advance_id = ${alias}.id AND di.status <> 'draft')`
+
+/**
  * A Job still has something to bill, so an issued Invoice was a partial
  * one and the Job isn't Invoiced yet:
  * - a Time & Materials Job with a Visit not billed (still open, or with
  *   outstanding Charges) or an outstanding Charge on the Job itself
  *   (Quoted Jobs are invoiced from their Quote until #117);
- * - any Job with an issued Advance Invoice not yet taken back on an issued
- *   Invoice (its final Invoice is still to come, or still a draft).
+ * - any Job with an issued Advance Invoice not yet fully deducted by
+ *   issued Invoices (advanceState()).
  */
 export const BILLING_OPEN_SQL = `((jobs.kind = 'time_and_materials' AND (
   EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT ${VISIT_BILLED_SQL('v')})
   OR EXISTS (SELECT 1 FROM charges c
     WHERE c.job_id = jobs.id AND c.visit_id IS NULL AND ${OUTSTANDING_SQL('c')})))
   OR EXISTS (SELECT 1 FROM invoices a
-    LEFT JOIN invoices fi ON fi.id = a.deducted_in_id
     WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
-      AND (a.deducted_in_id IS NULL OR fi.status = 'draft')))`
+      AND a.total > ${ADVANCE_DEDUCTED_SQL('a')}))`
 
 const FULLY_INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
 
