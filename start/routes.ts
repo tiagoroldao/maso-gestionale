@@ -213,6 +213,9 @@ router
           .delete('visits/:id', [controllers.Visits, 'destroy'])
           .where('id', router.matchers.number())
         router
+          .post('visits/:id/done', [controllers.Visits, 'markDone'])
+          .where('id', router.matchers.number())
+        router
           .post('jobs/:id/charges', [controllers.Charges, 'store'])
           .where('id', router.matchers.number())
         router

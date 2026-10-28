@@ -5,6 +5,7 @@ import Job from '#models/job'
 import { nextJobSequence } from '#services/job_numbers'
 import Archiving from '#services/archiving'
 import type { WorkCategory } from '#shared/jobs'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import {
   ADVANCE_DEDUCTED_SQL,
   OUTSTANDING_SQL,
@@ -106,12 +107,13 @@ export default class Jobs {
    * Quote save or decision can't slip past the cancellation. Its Visits
    * are kept as history and closed to field work (see FieldWork); its
    * recorded Charges can still be billed (#111). A closed Job is reopened
-   * first.
+   * first. Visits still open never stop it: they are returned for Office
+   * to see, and Office can mark them done afterwards (#153).
    */
   static cancel(id: number) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') return locked
+      if (locked.status === 'cancelled') return { job: locked, openVisits: 0 }
       if (locked.status === 'closed') throw new JobClosedError()
       // A Job already invoiced is closed instead (ADR 0015); a cancelled one
       // may still invoice its recorded work afterwards (#111)
@@ -119,8 +121,22 @@ export default class Jobs {
       locked.status = 'cancelled'
       locked.cancelledAt = DateTime.now()
       await locked.save()
-      return locked
+      return { job: locked, openVisits: await this.openVisits(trx, locked.id) }
     })
+  }
+
+  /**
+   * How many of the Job's Visits are still open (planned or under way):
+   * cancelling leaves them frozen until Office marks them done (#153).
+   */
+  private static async openVisits(trx: TransactionClientContract, jobId: number) {
+    const row = await trx
+      .from('visits')
+      .where('job_id', jobId)
+      .whereNotIn('status', [...CLOSED_VISIT_STATUSES])
+      .count('* as count')
+      .first()
+    return Number(row?.count ?? 0)
   }
 
   /**
