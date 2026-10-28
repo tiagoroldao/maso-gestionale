@@ -125,7 +125,7 @@
     "archived": "La tariffa o l'articolo scelto è archiviato.",
     "cancelled": "La commessa è stata annullata: la fatturazione dell'addebito non si può più modificare.",
     "worker": "Il tecnico scelto non è attivo o non fa parte dell'intervento.",
-    "installed": "L'apparecchio installato è condiviso con altri lavori: l'articolo non si può cambiare da qui."
+    "installed": "L'apparecchio era già nell'immobile, o un altro addebito o intervento lo usa: l'articolo non si può cambiare da qui."
   },
   "chargeAdded": "Addebito aggiunto."
 }

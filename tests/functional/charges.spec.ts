@@ -705,11 +705,13 @@ test.group('Charges for installed Items', () => {
     // Set by hand: kept on the next change
     equipment.merge({ equipmentType: 'Caldaia murale', maintenanceIntervalMonths: 6 })
     await equipment.save()
-    await client
+    const back = await client
       .put(`/charges/${charge.id}/recorded`)
       .form({ itemId: String(boiler.id), quantity: '1' })
       .withCsrfToken()
       .loginAs(office)
+      .redirects(0)
+    back.assertFlashMessage('success', it('flash.chargeCorrected'))
     await equipment.refresh()
     assert.equal(equipment.itemId, boiler.id)
     assert.equal(equipment.equipmentType, 'Caldaia murale')
