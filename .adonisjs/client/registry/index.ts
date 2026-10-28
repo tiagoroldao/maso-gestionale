@@ -90,11 +90,11 @@ const routes = {
     tokens: [[0,"my-visits"],[1,"id"],[0,"hours"]],
     types: placeholder as Registry['my_visits.add_hours']['types'],
   },
-  'my_visits.remove_hours': {
+  'my_visits.remove_charge': {
     methods: ["DELETE"],
-    pattern: '/visit-hours/:hourId',
-    tokens: [[0,"visit-hours"],[1,"hourId"]],
-    types: placeholder as Registry['my_visits.remove_hours']['types'],
+    pattern: '/charges/:id',
+    tokens: [[0,"charges"],[1,"id"]],
+    types: placeholder as Registry['my_visits.remove_charge']['types'],
   },
   'my_visits.add_item': {
     methods: ["POST"],
@@ -107,12 +107,6 @@ const routes = {
     pattern: '/my-visits/:id/serviced',
     tokens: [[0,"my-visits"],[1,"id"],[0,"serviced"]],
     types: placeholder as Registry['my_visits.set_serviced']['types'],
-  },
-  'my_visits.remove_item': {
-    methods: ["DELETE"],
-    pattern: '/visit-items/:itemId',
-    tokens: [[0,"visit-items"],[1,"itemId"]],
-    types: placeholder as Registry['my_visits.remove_item']['types'],
   },
   'item_documents.show': {
     methods: ["GET","HEAD"],
@@ -407,6 +401,36 @@ const routes = {
     pattern: '/visits/:id',
     tokens: [[0,"visits"],[1,"id"]],
     types: placeholder as Registry['visits.destroy']['types'],
+  },
+  'charges.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/charges/:id/edit',
+    tokens: [[0,"charges"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['charges.edit']['types'],
+  },
+  'charges.correct': {
+    methods: ["PUT"],
+    pattern: '/charges/:id/recorded',
+    tokens: [[0,"charges"],[1,"id"],[0,"recorded"]],
+    types: placeholder as Registry['charges.correct']['types'],
+  },
+  'charges.update_billing': {
+    methods: ["PUT"],
+    pattern: '/charges/:id/billing',
+    tokens: [[0,"charges"],[1,"id"],[0,"billing"]],
+    types: placeholder as Registry['charges.update_billing']['types'],
+  },
+  'charges.mark_not_billable': {
+    methods: ["POST"],
+    pattern: '/charges/:id/not-billable',
+    tokens: [[0,"charges"],[1,"id"],[0,"not-billable"]],
+    types: placeholder as Registry['charges.mark_not_billable']['types'],
+  },
+  'charges.mark_billable': {
+    methods: ["POST"],
+    pattern: '/charges/:id/billable',
+    tokens: [[0,"charges"],[1,"id"],[0,"billable"]],
+    types: placeholder as Registry['charges.mark_billable']['types'],
   },
   'quotes.edit': {
     methods: ["GET","HEAD"],

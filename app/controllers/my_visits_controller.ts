@@ -5,8 +5,7 @@ import db from '@adonisjs/lucid/services/db'
 import Visit from '#models/visit'
 import VisitPhoto from '#models/visit_photo'
 import VisitNote from '#models/visit_note'
-import VisitHour from '#models/visit_hour'
-import VisitItem from '#models/visit_item'
+import Charge from '#models/charge'
 import LabourRate from '#models/labour_rate'
 import FieldWork, { CLOSED_VISIT_STATUSES, FieldWorkRefusedError } from '#services/field_work'
 import { localDateTime } from '#services/dates'
@@ -110,9 +109,9 @@ export default class MyVisitsController {
       labourRates: rates.map((rate) => ({ id: rate.id, name: rate.name })),
       hours: visit.hours.map((hour) => ({
         id: hour.id,
-        technician: hour.technician.fullName ?? hour.technician.email,
+        technician: hour.worker ?? '',
         labourRate: hour.labourRate.name,
-        hours: hour.hours,
+        hours: hour.quantity,
       })),
       items: visit.items.map((line) => ({
         id: line.id,
@@ -188,23 +187,26 @@ export default class MyVisitsController {
     })
   }
 
-  async addHours({ params, request, response, session, bouncer, i18n }: HttpContext) {
+  async addHours({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
     await bouncer.authorize('viewVisit', visit)
     const data = await request.validateUsing(visitHoursValidator)
 
     return this.refusable(visit, { response, session, i18n }, async () => {
-      await FieldWork.recordHours(visit, data)
+      await FieldWork.recordHours(visit, data, auth.getUserOrFail())
       session.flash('success', i18n.t('flash.visitHoursAdded'))
     })
   }
 
-  async removeHours({ params, response, session, bouncer, i18n }: HttpContext) {
-    const hour = await VisitHour.findOrFail(params.hourId)
-    const visit = await Visit.findOrFail(hour.visitId)
+  /**
+   * Removes hours or an Item recorded by mistake on the Visit.
+   */
+  async removeCharge({ params, response, session, bouncer, i18n }: HttpContext) {
+    const charge = await Charge.query().where('id', params.id).whereNotNull('visitId').firstOrFail()
+    const visit = await Visit.findOrFail(charge.visitId)
     await bouncer.authorize('viewVisit', visit)
 
-    return this.refusable(visit, { response, session, i18n }, () => FieldWork.removeHours(hour))
+    return this.refusable(visit, { response, session, i18n }, () => FieldWork.removeCharge(charge))
   }
 
   /**
@@ -221,23 +223,15 @@ export default class MyVisitsController {
     })
   }
 
-  async addItem({ params, request, response, session, bouncer, i18n }: HttpContext) {
+  async addItem({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
     await bouncer.authorize('viewVisit', visit)
     const data = await request.validateUsing(visitItemValidator)
 
     return this.refusable(visit, { response, session, i18n }, async () => {
-      await FieldWork.recordItem(visit, data)
+      await FieldWork.recordItem(visit, data, auth.getUserOrFail())
       session.flash('success', i18n.t('flash.visitItemAdded'))
     })
-  }
-
-  async removeItem({ params, response, session, bouncer, i18n }: HttpContext) {
-    const line = await VisitItem.findOrFail(params.itemId)
-    const visit = await Visit.findOrFail(line.visitId)
-    await bouncer.authorize('viewVisit', visit)
-
-    return this.refusable(visit, { response, session, i18n }, () => FieldWork.removeItem(line))
   }
 
   /**

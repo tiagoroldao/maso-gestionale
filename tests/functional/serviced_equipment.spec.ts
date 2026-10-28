@@ -3,7 +3,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import InstalledEquipment from '#models/installed_equipment'
 import Visit from '#models/visit'
-import VisitItem from '#models/visit_item'
+import Charge from '#models/charge'
 import FieldWork from '#services/field_work'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -62,8 +62,8 @@ test.group('Installing onto Site equipment', () => {
     assert.lengthOf(await InstalledEquipment.query().where('siteId', boiler.siteId), 1)
 
     // Removing the line leaves equipment it didn't create
-    const line = await VisitItem.findByOrFail('visitId', visit.id)
-    await client.delete(`/visit-items/${line.id}`).withCsrfToken().loginAs(anna)
+    const line = await Charge.findByOrFail('visitId', visit.id)
+    await client.delete(`/charges/${line.id}`).withCsrfToken().loginAs(anna)
     assert.isNotNull(await InstalledEquipment.find(boiler.id))
   })
 
@@ -114,7 +114,7 @@ test.group('Installing onto Site equipment', () => {
       .redirects(0)
 
     response.assertFlashMessage('error', it('flash.fieldWorkRefused.notAtSite'))
-    assert.lengthOf(await VisitItem.all(), 0)
+    assert.lengthOf(await Charge.all(), 0)
   })
 })
 
@@ -277,8 +277,8 @@ test.group('Servicing equipment', () => {
     await later.related('technicians').attach([anna.id])
     await FieldWork.setServiced(later, [created.id])
 
-    const line = await VisitItem.query().where('visitId', visit.id).firstOrFail()
-    await client.delete(`/visit-items/${line.id}`).withCsrfToken().loginAs(anna)
+    const line = await Charge.query().where('visitId', visit.id).firstOrFail()
+    await client.delete(`/charges/${line.id}`).withCsrfToken().loginAs(anna)
 
     assert.isNotNull(await InstalledEquipment.find(created.id))
     const serviced = await db.from('visit_serviced_equipment').where('visit_id', later.id)

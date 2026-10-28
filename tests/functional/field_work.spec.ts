@@ -5,11 +5,12 @@ import { rm } from 'node:fs/promises'
 import app from '@adonisjs/core/services/app'
 import { storagePath } from '#services/storage'
 import Visit from '#models/visit'
-import VisitItem from '#models/visit_item'
+import Charge from '#models/charge'
 import LabourRate from '#models/labour_rate'
 import InstalledEquipment from '#models/installed_equipment'
 import StockMovement from '#models/stock_movement'
 import StockLedger from '#stock/stock_ledger'
+import FieldWork from '#services/field_work'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
@@ -61,7 +62,7 @@ test.group('Field work', () => {
 
     await visit.load('hours')
     assert.sameMembers(
-      visit.hours.map((hour) => `${hour.userId}:${hour.hours}`),
+      visit.hours.map((hour) => `${hour.userId}:${hour.quantity}`),
       [`${anna.id}:2.500`, `${bruno.id}:1.000`]
     )
   })
@@ -100,7 +101,7 @@ test.group('Field work', () => {
       .withCsrfToken()
       .loginAs(anna)
 
-    const line = await VisitItem.firstOrFail()
+    const line = await Charge.query().where('kind', 'item').firstOrFail()
     const equipment = await InstalledEquipment.findOrFail(line.installedEquipmentId!)
     assert.equal(equipment.siteId, site.id)
     assert.equal(equipment.itemId, item.id)
@@ -109,7 +110,7 @@ test.group('Field work', () => {
     assert.equal(equipment.installedOn?.toISODate(), visit.startsAt.toISODate())
 
     // Removing the line removes the equipment it created
-    await client.delete(`/visit-items/${line.id}`).withCsrfToken().loginAs(anna)
+    await client.delete(`/charges/${line.id}`).withCsrfToken().loginAs(anna)
     assert.isNull(await InstalledEquipment.find(equipment.id))
   })
 
@@ -126,7 +127,7 @@ test.group('Field work', () => {
       .redirects(0)
 
     response.assertFlashMessage('error', it('flash.fieldWorkRefused.noSite'))
-    assert.lengthOf(await VisitItem.all(), 0)
+    assert.lengthOf(await Charge.all(), 0)
   })
 
   test('marking the Visit done takes the Items off stock once, then locks it', async ({
@@ -152,7 +153,7 @@ test.group('Field work', () => {
     assert.equal(await StockLedger.levelOf(item), '3.000')
     const usage = await StockMovement.query().where('kind', 'usage').firstOrFail()
     assert.equal(usage.quantity, '-2.000')
-    const line = await VisitItem.firstOrFail()
+    const line = await Charge.query().where('kind', 'item').firstOrFail()
     assert.equal(line.stockMovementId, usage.id)
 
     // Done is final: no status change, no new lines, no double deduction
@@ -233,16 +234,18 @@ test.group('Field work', () => {
   }) => {
     const { anna, visit, rate, item } = await setup()
     const outsider = await createUser('technician')
-    const hour = await visit
-      .related('hours')
-      .create({ userId: anna.id, labourRateId: rate.id, hours: '1', unitPrice: '40' })
+    const hour = await FieldWork.recordHours(visit, {
+      technicianId: anna.id,
+      labourRateId: rate.id,
+      hours: '1',
+    })
 
     for (const request of [
       client
         .post(`/my-visits/${visit.id}/hours`)
         .form({ technicianId: String(outsider.id), labourRateId: String(rate.id), hours: '1' }),
       client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
-      client.delete(`/visit-hours/${hour.id}`),
+      client.delete(`/charges/${hour.id}`),
     ]) {
       const response = await request
         .header('referer', '/')
@@ -306,12 +309,12 @@ test.group("Field work on a cancelled Job's Visits", () => {
     assert,
   }) => {
     const { anna, job, visit, rate, item } = await setup()
-    const hour = await visit
-      .related('hours')
-      .create({ userId: anna.id, labourRateId: rate.id, hours: '1', unitPrice: '40' })
-    const line = await visit
-      .related('items')
-      .create({ itemId: item.id, quantity: '1', unitPrice: '1200', installed: false })
+    const hour = await FieldWork.recordHours(visit, {
+      technicianId: anna.id,
+      labourRateId: rate.id,
+      hours: '1',
+    })
+    const line = await FieldWork.recordItem(visit, { itemId: item.id, quantity: '1' })
     await client
       .post(`/jobs/${job.id}/cancel`)
       .withCsrfToken()
@@ -322,8 +325,8 @@ test.group("Field work on a cancelled Job's Visits", () => {
         .post(`/my-visits/${visit.id}/hours`)
         .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '1' }),
       client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
-      client.delete(`/visit-hours/${hour.id}`),
-      client.delete(`/visit-items/${line.id}`),
+      client.delete(`/charges/${hour.id}`),
+      client.delete(`/charges/${line.id}`),
       client.post(`/my-visits/${visit.id}/status`).form({ status: 'done' }),
       client.post(`/my-visits/${visit.id}/notes`).form({ body: 'Lavoro finito' }),
       client

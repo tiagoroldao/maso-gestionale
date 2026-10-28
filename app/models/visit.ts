@@ -6,8 +6,7 @@ import Job from '#models/job'
 import User from '#models/user'
 import VisitNote from '#models/visit_note'
 import VisitPhoto from '#models/visit_photo'
-import VisitHour from '#models/visit_hour'
-import VisitItem from '#models/visit_item'
+import Charge from '#models/charge'
 
 export const VISIT_STATUSES = ['planned', 'in_progress', 'done', 'needs_return'] as const
 export type VisitStatus = (typeof VISIT_STATUSES)[number]
@@ -31,11 +30,20 @@ export default class Visit extends VisitSchema {
   @hasMany(() => VisitPhoto)
   declare photos: HasMany<typeof VisitPhoto>
 
-  @hasMany(() => VisitHour)
-  declare hours: HasMany<typeof VisitHour>
+  @hasMany(() => Charge)
+  declare charges: HasMany<typeof Charge>
 
-  @hasMany(() => VisitItem)
-  declare items: HasMany<typeof VisitItem>
+  /**
+   * The Visit's hours: its labour Charges.
+   */
+  @hasMany(() => Charge, { onQuery: (query) => query.where('kind', 'labour') })
+  declare hours: HasMany<typeof Charge>
+
+  /**
+   * The Items used on the Visit: its Item Charges.
+   */
+  @hasMany(() => Charge, { onQuery: (query) => query.where('kind', 'item') })
+  declare items: HasMany<typeof Charge>
 
   /**
    * Whether `user` is one of the Technicians assigned to this Visit.

@@ -198,14 +198,14 @@ export default class Invoices {
   }
 
   /**
-   * A draft Invoice for a Time & Materials Job: one line per hours entry
-   * and per Item recorded on its Visits, at the prices recorded with the
-   * work (the policy noted on #22), so its total before VAT equals the Job
-   * page's running total. Each line gets the VAT Code of the default
-   * rules for its kind (labour, material or significant good). Only work
-   * not yet billed, on closed Visits, goes in, and is marked as billed by
-   * this Invoice; deleting the draft frees it again. While a draft is open
-   * it is returned instead of starting another.
+   * A draft Invoice for a Time & Materials Job: one line per billable
+   * Charge on its closed Visits, with what Office set to bill (quantity,
+   * price, description; ADR 0010), so its total before VAT equals the Job
+   * page's running total. Each line gets the VAT Code of the default rules
+   * for its kind (labour, material or significant good). Only Charges not
+   * yet billed go in, and are marked as billed by this Invoice; deleting
+   * the draft frees them again. While a draft is open it is returned
+   * instead of starting another.
    */
   static async fromTimeAndMaterials(job: Job) {
     return db.transaction(async (trx) => {
@@ -220,26 +220,20 @@ export default class Invoices {
         .first()
       if (draft) return draft
 
-      // Closed Visits' hours and Items are final; with the Job locked, no
-      // other draft can claim them meanwhile
+      // Closed Visits' Charges are final in the field; Office's edits and
+      // other drafts wait on the Job lock
       const visits = await Visit.query({ client: trx })
         .where('jobId', locked.id)
         .whereIn('status', [...CLOSED_VISIT_STATUSES])
-        .preload('hours', (hours) =>
-          hours
+        .preload('charges', (charges) =>
+          charges
+            .withScopes((scopes) => scopes.billable())
             .whereNull('invoiceId')
-            .preload('labourRate')
-            .preload('technician')
-            .orderBy('createdAt')
-        )
-        .preload('items', (items) =>
-          items.whereNull('invoiceId').preload('item').orderBy('createdAt')
+            .preload('item')
+            .orderByRaw("kind = 'item', created_at, id")
         )
         .orderBy('startsAt')
-      const work = visits.flatMap((visit) => [
-        ...visit.hours.map((hour) => ({ visit, hour, line: null })),
-        ...visit.items.map((line) => ({ visit, hour: null, line })),
-      ])
+      const work = visits.flatMap((visit) => visit.charges.map((charge) => ({ visit, charge })))
       if (!work.length) throw new JobNotInvoiceableError()
 
       const defaults = await VatDefaults.forJob(locked, trx)
@@ -249,35 +243,33 @@ export default class Invoices {
         { client: trx }
       )
       await InvoiceLine.createMany(
-        work.map(({ visit, hour, line }, position) => {
-          const day = visit.startsAt.toFormat('dd/MM')
-          const code = defaults[lineKindOf(line?.item)]
-          const quantity = hour ? hour.hours : line!.quantity
-          const unitPrice = hour ? hour.unitPrice : line!.unitPrice
+        work.map(({ visit, charge }, position) => {
+          const code = defaults[lineKindOf(charge.kind === 'item' ? charge.item : null)]
           return {
             invoiceId: invoice.id,
             position,
-            itemId: line?.itemId ?? null,
-            description: hour
-              ? `${hour.labourRate.name} – ${hour.technician.fullName ?? hour.technician.email} (${day})`
-              : `${line!.item.description} (${day})`,
-            quantity,
-            unit: hour ? 'h' : line!.item.unit,
-            unitPrice,
+            itemId: charge.itemId,
+            description: `${charge.description} (${visit.startsAt.toFormat('dd/MM')})`,
+            quantity: charge.billQuantity,
+            unit: charge.unit,
+            unitPrice: charge.unitPrice,
             discountPercent: '0',
             vatCodeId: code.id,
             vatRate: code.rate,
             natura: code.natura,
             legalNote: code.legalNote,
-            lineTotal: invoiceLineTotal(quantity, unitPrice),
+            lineTotal: invoiceLineTotal(charge.billQuantity, charge.unitPrice),
           }
         }),
         { client: trx }
       )
-      const hourIds = work.flatMap(({ hour }) => (hour ? [hour.id] : []))
-      const itemIds = work.flatMap(({ line }) => (line ? [line.id] : []))
-      await trx.from('visit_hours').whereIn('id', hourIds).update({ invoice_id: invoice.id })
-      await trx.from('visit_items').whereIn('id', itemIds).update({ invoice_id: invoice.id })
+      await trx
+        .from('charges')
+        .whereIn(
+          'id',
+          work.map(({ charge }) => charge.id)
+        )
+        .update({ invoice_id: invoice.id })
       // The advances are taken back by the draft that bills the last of the
       // work: none while Visits are still to come
       const moreWork = await Visit.query({ client: trx })

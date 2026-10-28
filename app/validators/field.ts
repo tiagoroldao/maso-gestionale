@@ -18,8 +18,19 @@ export const visitPhotoValidator = vine.create({
   photo: vine.file({ size: '15mb', extnames: ['jpg', 'jpeg', 'png', 'webp'] }),
 })
 
+/**
+ * Hours worked by a Technician on the Visit, or by someone outside the
+ * app, named instead.
+ */
 export const visitHoursValidator = vine.create({
-  technicianId: vine.number(),
+  technicianId: vine.number().optional(),
+  workerName: vine
+    .string()
+    .trim()
+    .minLength(1)
+    .maxLength(100)
+    .optional()
+    .requiredIfMissing('technicianId'),
   labourRateId: vine.number().exists({
     table: 'labour_rates',
     column: 'id',

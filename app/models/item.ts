@@ -48,11 +48,11 @@ export default class Item extends ItemSchema {
   /**
    * Whether anything else refers to this Item, so it must be archived
    * rather than deleted: Stock Movements, Installed Equipment, Quote lines
-   * and Visit Items today, invoices later.
+   * and Charges today, invoices later.
    */
   async isReferenced() {
     const references = await Promise.all(
-      ['stock_movements', 'installed_equipment', 'quote_lines', 'visit_items'].map((table) =>
+      ['stock_movements', 'installed_equipment', 'quote_lines', 'charges'].map((table) =>
         db.from(table).where('item_id', this.id).first()
       )
     )

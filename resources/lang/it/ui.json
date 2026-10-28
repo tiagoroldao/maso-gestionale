@@ -850,7 +850,9 @@
     "make": "Marca",
     "model": "Modello",
     "servicedHint": "Apparecchi revisionati in questo intervento: alla chiusura diventa la data dell'ultima manutenzione.",
-    "saveServiced": "Salva apparecchi revisionati"
+    "saveServiced": "Salva apparecchi revisionati",
+    "someoneElse": "Altra persona (fuori dall'app)",
+    "workerName": "Nome"
   },
   "toSchedule": {
     "title": "Da ripianificare",
@@ -883,5 +885,58 @@
     "confirm": "Archiviare? Non comparirà più negli elenchi e nelle ricerche, ma resterà nello storico.",
     "showArchived": "Mostra archiviati",
     "hideArchived": "Mostra attivi"
+  },
+  "charges": {
+    "title": "Addebiti",
+    "none": "Nessun addebito registrato.",
+    "editTitle": "Addebito · commessa {number}",
+    "open": "Rivedi",
+    "description": "Descrizione",
+    "quantity": "Quantità",
+    "unitPrice": "Prezzo unitario",
+    "amount": "Importo",
+    "state": "Stato",
+    "visit": "Intervento del {date}",
+    "onJob": "Sulla commessa",
+    "states": {
+      "to_bill": "Da fatturare",
+      "not_billable": "Non fatturabile",
+      "in_draft": "In bozza di fattura",
+      "billed": "Fatturato"
+    },
+    "recordedSection": "Registrato",
+    "recordedHint": "Quello che è stato fatto o usato. Si può sempre correggere; per i materiali già scaricati, la differenza va in magazzino come rettifica.",
+    "labourRate": "Tariffa",
+    "worker": "Chi ha lavorato",
+    "someoneElse": "Altra persona (fuori dall'app)",
+    "workerName": "Nome",
+    "item": "Articolo",
+    "changeItem": "Cambia articolo",
+    "saveCorrection": "Salva correzione",
+    "billingSection": "Da fatturare",
+    "billingHint": "Quello che va in fattura. Si può modificare finché nessuna fattura contiene l'addebito.",
+    "saveBilling": "Salva fatturazione",
+    "inInvoice": "In fattura {number}",
+    "inDraft": "In una bozza di fattura",
+    "markNotBillable": "Segna come non fatturabile",
+    "markBillable": "Rendi di nuovo fatturabile",
+    "history": "Storico",
+    "events": {
+      "recorded": "Registrato",
+      "corrected": "Corretto",
+      "billing_edited": "Fatturazione modificata",
+      "not_billable": "Segnato non fatturabile",
+      "billable": "Di nuovo fatturabile"
+    },
+    "fields": {
+      "quantity": "quantità",
+      "labourRate": "tariffa",
+      "worker": "chi",
+      "item": "articolo",
+      "unitPrice": "prezzo",
+      "description": "descrizione"
+    },
+    "stockCorrection": "Correzione dell'addebito n. {id}",
+    "change": "{field}: {before} → {after}"
   }
 }

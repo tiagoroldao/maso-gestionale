@@ -22,6 +22,66 @@ export class CategorySchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class ChargeEventSchema extends BaseModel {
+  static $columns = ['changes', 'chargeId', 'createdAt', 'id', 'kind', 'userId'] as const
+  $columns = ChargeEventSchema.$columns
+  @column()
+  declare changes: any | null
+  @column()
+  declare chargeId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare kind: string
+  @column()
+  declare userId: number | null
+}
+
+export class ChargeSchema extends BaseModel {
+  static $columns = ['billQuantity', 'createdAt', 'createdEquipment', 'description', 'id', 'installed', 'installedEquipmentId', 'invoiceId', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'stockMovementId', 'unitPrice', 'updatedAt', 'userId', 'visitId', 'workerName'] as const
+  $columns = ChargeSchema.$columns
+  @column()
+  declare billQuantity: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdEquipment: boolean
+  @column()
+  declare description: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare installed: boolean
+  @column()
+  declare installedEquipmentId: number | null
+  @column()
+  declare invoiceId: number | null
+  @column()
+  declare itemId: number | null
+  @column()
+  declare jobId: number
+  @column()
+  declare kind: string
+  @column()
+  declare labourRateId: number | null
+  @column()
+  declare quantity: string
+  @column()
+  declare stockMovementId: number | null
+  @column()
+  declare unitPrice: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare userId: number | null
+  @column()
+  declare visitId: number | null
+  @column()
+  declare workerName: string | null
+}
+
 export class CompanySettingSchema extends BaseModel {
   static $columns = ['callOutFee', 'city', 'createdAt', 'email', 'iban', 'id', 'liquidationStatus', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'reaNumber', 'reaOffice', 'sdiFilePrefix', 'shareCapital', 'soleShareholder', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
   $columns = CompanySettingSchema.$columns
@@ -676,54 +736,6 @@ export class VatRuleSchema extends BaseModel {
   declare vatCodeId: number
   @column()
   declare workCategory: string
-}
-
-export class VisitHourSchema extends BaseModel {
-  static $columns = ['createdAt', 'hours', 'id', 'invoiceId', 'labourRateId', 'unitPrice', 'userId', 'visitId'] as const
-  $columns = VisitHourSchema.$columns
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime
-  @column()
-  declare hours: string
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare invoiceId: number | null
-  @column()
-  declare labourRateId: number
-  @column()
-  declare unitPrice: string
-  @column()
-  declare userId: number
-  @column()
-  declare visitId: number
-}
-
-export class VisitItemSchema extends BaseModel {
-  static $columns = ['createdAt', 'createdEquipment', 'id', 'installed', 'installedEquipmentId', 'invoiceId', 'itemId', 'quantity', 'stockMovementId', 'unitPrice', 'visitId'] as const
-  $columns = VisitItemSchema.$columns
-  @column.dateTime({ autoCreate: true })
-  declare createdAt: DateTime
-  @column()
-  declare createdEquipment: boolean
-  @column({ isPrimary: true })
-  declare id: number
-  @column()
-  declare installed: boolean
-  @column()
-  declare installedEquipmentId: number | null
-  @column()
-  declare invoiceId: number | null
-  @column()
-  declare itemId: number
-  @column()
-  declare quantity: string
-  @column()
-  declare stockMovementId: number | null
-  @column()
-  declare unitPrice: string
-  @column()
-  declare visitId: number
 }
 
 export class VisitNoteSchema extends BaseModel {

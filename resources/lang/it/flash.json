@@ -66,7 +66,8 @@
     "cancelled": "La commessa è stata annullata: l'intervento non si può più modificare.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
     "noSite": "La commessa non ha un immobile: non si può registrare un'installazione.",
-    "notAtSite": "L'apparecchio scelto non è installato in questo immobile."
+    "notAtSite": "L'apparecchio scelto non è installato in questo immobile.",
+    "reviewed": "L'ufficio ha già rivisto questa riga: chiedi all'ufficio di correggerla."
   },
   "invoiceCreated": "Bozza di fattura creata.",
   "invoiceSaved": "Bozza salvata.",
@@ -114,5 +115,13 @@
     "draft": "Una bozza non si incassa: emetti prima la fattura.",
     "tooMuch": "L'importo supera quanto resta da incassare."
   },
-  "servicedSaved": "Apparecchi revisionati salvati."
+  "servicedSaved": "Apparecchi revisionati salvati.",
+  "chargeCorrected": "Addebito corretto.",
+  "chargeBillingSaved": "Fatturazione dell'addebito salvata.",
+  "chargeNotBillable": "Addebito segnato come non fatturabile.",
+  "chargeBillable": "Addebito di nuovo fatturabile.",
+  "chargeRefused": {
+    "billed": "L'addebito è già in una fattura: la fatturazione non si può più modificare.",
+    "archived": "La tariffa o l'articolo scelto è archiviato."
+  }
 }

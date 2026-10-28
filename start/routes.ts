@@ -51,17 +51,14 @@ router
           .post('my-visits/:id/hours', [controllers.MyVisits, 'addHours'])
           .where('id', router.matchers.number())
         router
-          .delete('visit-hours/:hourId', [controllers.MyVisits, 'removeHours'])
-          .where('hourId', router.matchers.number())
+          .delete('charges/:id', [controllers.MyVisits, 'removeCharge'])
+          .where('id', router.matchers.number())
         router
           .post('my-visits/:id/items', [controllers.MyVisits, 'addItem'])
           .where('id', router.matchers.number())
         router
           .post('my-visits/:id/serviced', [controllers.MyVisits, 'setServiced'])
           .where('id', router.matchers.number())
-        router
-          .delete('visit-items/:itemId', [controllers.MyVisits, 'removeItem'])
-          .where('itemId', router.matchers.number())
         router
           .get('item-documents/:id', [controllers.ItemDocuments, 'show'])
           .where('id', router.matchers.number())
@@ -180,6 +177,21 @@ router
           .where('id', router.matchers.number())
         router
           .delete('visits/:id', [controllers.Visits, 'destroy'])
+          .where('id', router.matchers.number())
+        router
+          .get('charges/:id/edit', [controllers.Charges, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('charges/:id/recorded', [controllers.Charges, 'correct'])
+          .where('id', router.matchers.number())
+        router
+          .put('charges/:id/billing', [controllers.Charges, 'updateBilling'])
+          .where('id', router.matchers.number())
+        router
+          .post('charges/:id/not-billable', [controllers.Charges, 'markNotBillable'])
+          .where('id', router.matchers.number())
+        router
+          .post('charges/:id/billable', [controllers.Charges, 'markBillable'])
           .where('id', router.matchers.number())
         router
           .get('jobs/:id/quote', [controllers.Quotes, 'edit'])
