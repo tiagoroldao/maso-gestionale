@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import InvoiceLine from '#models/invoice_line'
 import InvoiceSubmission from '#models/invoice_submission'
 import StockMovement from '#models/stock_movement'
 import CompanySettings from '#models/company_settings'
@@ -216,13 +217,16 @@ test.group('SDI Submissions', (group) => {
       submissions: [{ outcome: 'rejected', outcomeNotes: '00305 IdFiscaleIVA non valido' }],
     })
 
-    // Corrected: one RUB-1 fewer, one VAL-1 added; number and date stay
+    // Corrected: one RUB-1 fewer, one VAL-1 added; number and date stay,
+    // and so does the RUB-1 line
     const standard = await vatCode()
+    const original = await InvoiceLine.findByOrFail('invoiceId', invoice.id)
     await client
       .put(`/invoices/${invoice.id}`)
       .json({
         lines: [
           {
+            id: original.id,
             itemId: item.id,
             description: 'Rubinetto',
             quantity: '1',
@@ -243,6 +247,8 @@ test.group('SDI Submissions', (group) => {
     await invoice.refresh()
     assert.equal(invoice.formattedNumber, number)
     assert.equal(invoice.status, 'rejected')
+    await original.refresh()
+    assert.equal(original.quantity, '1.000')
     const movements = await StockMovement.query()
       .whereIn('itemId', [item.id, other.id])
       .orderBy('id')

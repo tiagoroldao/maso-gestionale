@@ -22,6 +22,8 @@ import { lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/va
 
 type Line = {
   key: number
+  // The saved line's id, kept across saves; null for a new line
+  id: number | null
   itemId: number | null
   description: string
   quantity: string
@@ -49,6 +51,7 @@ const props = defineProps<{
     discountPercent: string
     notes: string | null
     lines: {
+      id: number
       itemId: number | null
       description: string
       quantity: string
@@ -93,6 +96,7 @@ const trim = (value: string) => amountForInput(value).replace(/,?0+$/, '').repla
 function linesFromProps(): Line[] {
   return props.invoice.lines.map((line) => ({
     key: nextKey++,
+    id: line.id,
     itemId: line.itemId,
     description: line.description,
     quantity: trim(line.quantity),
@@ -187,6 +191,7 @@ function vatLabel(row: { vatRate: string; natura: string | null }) {
 function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }) {
   lines.push({
     key: nextKey++,
+    id: null,
     itemId: item.id,
     description: item.description,
     quantity: '1',
@@ -202,6 +207,7 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
 function addFreeLine() {
   lines.push({
     key: nextKey++,
+    id: null,
     itemId: null,
     description: '',
     quantity: '1',
@@ -228,6 +234,7 @@ function save() {
       ...(discountPercent.value && { discountPercent: discountPercent.value }),
       notes: notes.value,
       lines: lines.map((line) => ({
+        ...(line.id && { id: line.id }),
         ...(line.itemId && { itemId: line.itemId }),
         description: line.description,
         ...(line.unit && { unit: line.unit }),

@@ -201,6 +201,7 @@ export default class InvoicesController {
         discountPercent: invoice.discountPercent,
         notes: invoice.notes,
         lines: invoice.lines.map((line) => ({
+          id: line.id,
           itemId: line.itemId,
           description: line.description,
           quantity: line.quantity,

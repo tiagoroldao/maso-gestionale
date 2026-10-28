@@ -118,6 +118,63 @@ test.group('Draft Invoices', () => {
     assert.equal(line.lineTotal, '1200180120.01')
   })
 
+  test('saving keeps the lines sent back, removes the others and adds new ones', async ({
+    client,
+    assert,
+  }) => {
+    const { office, item, standard, invoice } = await setup()
+    const line = (description: string, extra: object = {}) => ({
+      description,
+      quantity: '1',
+      unitPrice: '10',
+      vatCodeId: standard.id,
+      ...extra,
+    })
+    await save(client, invoice, { lines: [line('A'), line('B'), line('C')] }).loginAs(office)
+    const [a, , c] = await lines(invoice)
+
+    // An id from another Invoice, or sent twice, is a new line
+    const other = await Invoice.create({ customerId: invoice.customerId, status: 'draft' })
+    const foreign = await InvoiceLine.create({
+      invoiceId: other.id,
+      position: 0,
+      description: 'Altro',
+      quantity: '1',
+      unitPrice: '1',
+      discountPercent: '0',
+      vatCodeId: standard.id,
+      vatRate: standard.rate,
+      lineTotal: '1.00',
+    })
+    await save(client, invoice, {
+      lines: [
+        line('C, corretta', { id: c.id, itemId: item.id, quantity: '2' }),
+        line('Nuova'),
+        line('A', { id: a.id }),
+        line('A, copia', { id: a.id }),
+        line('Estranea', { id: foreign.id }),
+      ],
+    }).loginAs(office)
+
+    const saved = await lines(invoice)
+    assert.deepEqual(
+      saved.map((l) => l.description),
+      ['C, corretta', 'Nuova', 'A', 'A, copia', 'Estranea']
+    )
+    assert.equal(saved[0].id, c.id)
+    assert.equal(saved[0].quantity, '2.000')
+    assert.equal(saved[0].itemId, item.id)
+    assert.equal(saved[0].lineTotal, '20.00')
+    assert.equal(saved[2].id, a.id)
+    for (const added of [saved[1], saved[3], saved[4]]) {
+      assert.notInclude([a.id, c.id, foreign.id], added.id)
+    }
+    // B was removed; the other Invoice's line is untouched
+    await foreign.refresh()
+    assert.equal(foreign.invoiceId, other.id)
+    assert.equal(foreign.description, 'Altro')
+  })
+
   test('archived Items can not be added, but lines already on the draft keep theirs', async ({
     client,
     assert,
