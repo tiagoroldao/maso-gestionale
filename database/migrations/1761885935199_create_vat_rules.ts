@@ -10,18 +10,24 @@ const BUILDING_WORK = ['new_installation', 'maintenance', 'renovation', 'repair'
  * homes maintained or renovated for people, condominiums and ente → 10%;
  * building work for companies → reverse charge N6.7; the rest → 22%.
  */
+// The standard rate, should the Admin have archived the code a rule wants
+const STANDARD = `(SELECT id FROM vat_codes WHERE natura IS NULL AND archived_at IS NULL
+  ORDER BY rate DESC, name LIMIT 1)`
+const active = (condition: string) =>
+  `coalesce((SELECT id FROM vat_codes WHERE ${condition} AND archived_at IS NULL ORDER BY id LIMIT 1), ${STANDARD})`
+
 function seededCode(customerType: string, workCategory: string, residential: boolean) {
   if (
     customerType !== 'company' &&
     residential &&
     (workCategory === 'maintenance' || workCategory === 'renovation')
   ) {
-    return '(SELECT id FROM vat_codes WHERE rate = 10 AND natura IS NULL ORDER BY id LIMIT 1)'
+    return active('rate = 10 AND natura IS NULL')
   }
   if (customerType === 'company' && BUILDING_WORK.includes(workCategory)) {
-    return "(SELECT id FROM vat_codes WHERE natura = 'N6.7' ORDER BY id LIMIT 1)"
+    return active("natura = 'N6.7'")
   }
-  return '(SELECT id FROM vat_codes WHERE rate = 22 AND natura IS NULL ORDER BY id LIMIT 1)'
+  return active('rate = 22 AND natura IS NULL')
 }
 
 export default class extends BaseSchema {

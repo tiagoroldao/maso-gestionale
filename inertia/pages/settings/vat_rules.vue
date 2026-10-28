@@ -35,6 +35,13 @@ const rows = computed(() => {
   return [...byKey.entries()].map(([key, row]) => ({ key, ...row }))
 })
 
+const ruleError = (errors: Record<string, string>, index: number) =>
+  errors[`rules.${index}.vatCodeId`]
+
+// An archived code only stays on the rules that already use it
+const optionsFor = (rule: Rule) =>
+  props.vatCodes.filter((code) => !code.archived || code.id === rule.vatCodeId)
+
 const describe = (rule: Rule) => ({
   customerType: t(`ui.customers.types.${rule.customerType}`),
   workCategory: t(`ui.jobs.workCategories.${rule.workCategory}`),
@@ -46,7 +53,10 @@ const describe = (rule: Rule) => ({
   <AppLayout>
     <SettingsLayout>
       <Section :title="t('ui.vatRules.title')" :description="t('ui.vatRules.description')">
-        <Form v-slot="{ processing }" route="vat_rules.update">
+        <Form v-slot="{ processing, errors }" route="vat_rules.update">
+          <p v-if="Object.keys(errors).length" class="field__error" role="alert">
+            {{ Object.values(errors)[0] }}
+          </p>
           <table class="table">
             <thead>
               <tr>
@@ -81,7 +91,7 @@ const describe = (rule: Rule) => ({
                       "
                     >
                       <option
-                        v-for="code in vatCodes"
+                        v-for="code in optionsFor(rules[row.cells.get(kind)!])"
                         :key="code.id"
                         :value="code.id"
                         :selected="code.id === rules[row.cells.get(kind)!].vatCodeId"
@@ -89,6 +99,9 @@ const describe = (rule: Rule) => ({
                         {{ code.name }}{{ code.archived ? ` ${t('ui.vatRules.archived')}` : '' }}
                       </option>
                     </select>
+                    <span v-if="ruleError(errors, row.cells.get(kind)!)" class="field__error">
+                      {{ ruleError(errors, row.cells.get(kind)!) }}
+                    </span>
                   </template>
                 </td>
               </tr>

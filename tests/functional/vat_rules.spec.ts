@@ -92,6 +92,12 @@ test.group('Default VAT rules', () => {
       })
       .firstOrFail()
     const fivePercent = await VatCode.findByOrFail('name', '5%')
+    const reverseCharge = await VatCode.findByOrFail('natura', 'N6.7')
+    await Invoices.save(draft, {
+      lines: [
+        { description: 'Riparazione', quantity: '1', unitPrice: '50', vatCodeId: reverseCharge.id },
+      ],
+    })
 
     const response = await client
       .put('/settings/vat-rules')
@@ -106,6 +112,31 @@ test.group('Default VAT rules', () => {
     // The Invoice page offers the new default for labour
     const page = await client.get(`/invoices/${draft.id}/edit`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ vatDefaults: { labour: fivePercent.id } })
+    // The line already on the draft keeps its code
+    await draft.load('lines')
+    assert.equal(draft.lines[0].vatCodeId, reverseCharge.id)
+  })
+
+  test('the whole table still saves when some rules use a code archived since', async ({
+    client,
+    assert,
+  }) => {
+    const admin = await createUser('admin')
+    const reverseCharge = await VatCode.findByOrFail('natura', 'N6.7')
+    reverseCharge.archivedAt = DateTime.now()
+    await reverseCharge.save()
+    const rules = await VatRule.query().orderBy('id')
+
+    // As the page sends it: every rule, unchanged
+    const response = await client
+      .put('/settings/vat-rules')
+      .json({ rules: rules.map((rule) => ({ id: rule.id, vatCodeId: rule.vatCodeId })) })
+      .withCsrfToken()
+      .loginAs(admin)
+      .redirects(0)
+    response.assertFlashMessage('success', it('flash.vatRulesSaved'))
+    const kept = await VatRule.query().where('vatCodeId', reverseCharge.id)
+    assert.lengthOf(kept, 24)
   })
 
   test('an archived code can not be chosen for a rule', async ({ client, assert }) => {

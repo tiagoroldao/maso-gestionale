@@ -130,11 +130,10 @@ watch(
 )
 
 const codes = computed(() => new Map(props.vatCodes.map((code) => [code.id, code])))
-function defaultCode(item: { significantGood: boolean; vatCodeId?: number } | null) {
+// The server decides defaults (VatDefaults); Item search sends only active codes
+function defaultCode(item: { significantGood: boolean; vatCodeId?: number | null } | null) {
   if (props.vatDefaults) return props.vatDefaults[lineKindOf(item)]
-  return item?.vatCodeId && codes.value.has(item.vatCodeId)
-    ? item.vatCodeId
-    : props.standardVatCodeId
+  return item?.vatCodeId ?? props.standardVatCodeId
 }
 
 function splitWarning(line: Line) {
