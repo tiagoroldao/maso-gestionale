@@ -8,6 +8,8 @@ import Visit from '#models/visit'
 import type Job from '#models/job'
 import type User from '#models/user'
 import Charges from '#services/charges'
+import Invoices from '#services/invoices'
+import VatDefaults from '#services/vat_defaults'
 import FieldWork from '#services/field_work'
 import Quotes from '#services/quotes'
 import { createUser } from '#tests/helpers/users'
@@ -394,6 +396,46 @@ test.group('Importing Quote lines as Charges', () => {
 
     refused.assertFlashMessage('error', it('flash.fieldWorkRefused.reviewed'))
     assert.isNotNull(await Charge.find(charge.id))
+  })
+
+  test("a new VAT kind on the imported call-out replaces the Quote's VAT Code", async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, callOutLine } = await quotedJob()
+    const reduced = await vatCode('10%')
+    await callOutLine.merge({ vatCodeId: reduced.id }).save()
+    await importing(client, job, office, { lineIds: [callOutLine.id] })
+    const [charge] = await chargesOf(job)
+    assert.equal(charge.vatCodeId, reduced.id)
+
+    await client
+      .put(`/charges/${charge.id}/billing`)
+      .json({
+        quantity: '1',
+        unitPrice: '35',
+        description: 'Diritto di chiamata',
+        vatKind: 'material',
+      })
+      .withCsrfToken()
+      .loginAs(office)
+    await charge.refresh()
+    assert.isNull(charge.vatCodeId)
+    const edited = await ChargeEvent.query()
+      .where('chargeId', charge.id)
+      .where('kind', 'billing_edited')
+      .firstOrFail()
+    assert.deepEqual(edited.changes, {
+      before: { vatKind: 'labour', vatCode: reduced.name },
+      after: { vatKind: 'material', vatCode: null },
+    })
+
+    // The draft follows the new kind, at the Job's default for it
+    const invoice = await Invoices.fromJob(job)
+    await invoice.load('lines')
+    const defaults = await VatDefaults.forJob(job)
+    assert.notEqual(defaults.material.id, reduced.id)
+    assert.equal(invoice.lines[0].vatCodeId, defaults.material.id)
   })
 
   test('the Admin imports too; Technicians and the Superuser can not', async ({

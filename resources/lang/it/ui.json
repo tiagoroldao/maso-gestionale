@@ -1029,7 +1029,8 @@
       "unitPrice": "prezzo",
       "description": "descrizione",
       "unit": "unità",
-      "vatKind": "tipo per l'IVA"
+      "vatKind": "tipo per l'IVA",
+      "vatCode": "IVA del preventivo"
     },
     "stockCorrection": "Correzione dell'addebito n. {id}",
     "change": "{field}: {before} → {after}",

@@ -10,6 +10,7 @@ import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
+import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import { CHARGE_DESCRIPTION_MAX, isHeld, type ChargeState } from '#shared/charges'
 import type { LineKind } from '#shared/vat'
@@ -284,17 +285,27 @@ export default class Charges {
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
     await this.whileLocked(charge, async (trx, locked, job) => {
       await this.refuseBillingChange(trx, locked, job)
-      const before = billingValues(locked)
+      const quotedVat = locked.vatCodeId
+        ? (await VatCode.findOrFail(locked.vatCodeId, { client: trx })).name
+        : null
+      const before = { ...billingValues(locked), vatCode: quotedVat }
       locked.merge({
         billQuantity: input.quantity,
         unitPrice: input.unitPrice,
         description: input.description,
       })
       if (locked.kind === 'other') {
-        locked.merge({ unit: input.unit ?? null, vatKind: input.vatKind ?? locked.vatKind })
+        const vatKind = input.vatKind ?? locked.vatKind
+        // A new VAT kind replaces the Quote's VAT Code (ADR 0012): the
+        // draft bills at the Job's default for that kind
+        if (vatKind !== locked.vatKind) locked.vatCodeId = null
+        locked.merge({ unit: input.unit ?? null, vatKind })
       }
       await locked.save()
-      const changes = diff(before, billingValues(locked))
+      const changes = diff(before, {
+        ...billingValues(locked),
+        vatCode: locked.vatCodeId ? quotedVat : null,
+      })
       if (changes) await this.addEvent(trx, locked, 'billing_edited', user, changes)
     })
   }
