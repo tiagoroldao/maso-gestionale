@@ -24,7 +24,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                      |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                 |
 | #136  | Survey Visits (ADR 0013)                                                                  | —                                                 |
 | #137  | Quotes are frozen once sent (ADR 0013)                                                    | —                                                 |
 | #138  | Several Quotes per Job; a Job's status follows its work (ADR 0013)                        | #136, #137                                        |
