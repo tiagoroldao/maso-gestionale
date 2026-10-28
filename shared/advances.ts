@@ -37,7 +37,8 @@ const rowKey = (row: { vatRate: string; natura: string | null }) =>
  * totals, each row's VAT taken out at its rate. Taking back all that is
  * `left` takes back exactly each row's taxable not yet taken back
  * (`taken`, by row, from issued Invoices), so the advance always closes
- * to the cent.
+ * to the cent. A part never takes back more than its row has left, so
+ * rounding can't overshoot and leave the closing step a positive line.
  */
 export function deductionRows(
   rows: AdvanceRow[],
@@ -46,22 +47,22 @@ export function deductionRows(
   taken: { vatRate: string; natura: string | null; taxable: string }[] = []
 ) {
   const billed = rows.filter((row) => !new Big(row.taxable).eq(0))
+  const remaining = billed.map((row) =>
+    taken
+      .filter((other) => rowKey(other) === rowKey(row))
+      .reduce((rest, other) => rest.minus(other.taxable), new Big(row.taxable))
+  )
   if (new Big(amount).eq(left)) {
-    return billed.map((row) => {
-      const already = taken
-        .filter((other) => rowKey(other) === rowKey(row))
-        .reduce((sum, other) => sum.plus(other.taxable), new Big(0))
-      return { ...row, taxable: new Big(row.taxable).minus(already).toFixed(2) }
-    })
+    return billed.map((row, index) => ({ ...row, taxable: remaining[index].toFixed(2) }))
   }
   const totals = billed.map((row) => new Big(row.taxable).plus(row.vat).toFixed(2))
   const parts = splitAmount(amount, totals)
-  return billed.map((row, index) => ({
-    ...row,
-    taxable: new Big(parts[index])
+  return billed.map((row, index) => {
+    const part = new Big(parts[index])
       .times(row.taxable)
       .div(totals[index])
       .round(2, Big.roundHalfUp)
-      .toFixed(2),
-  }))
+    const capped = part.gt(remaining[index]) ? remaining[index] : part
+    return { ...row, taxable: capped.toFixed(2) }
+  })
 }

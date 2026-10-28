@@ -26,6 +26,17 @@ test.group('Advance deductions', () => {
     )
   })
 
+  test('a part never takes back more than its row has left', ({ assert }) => {
+    const taken = [
+      { vatRate: '22.00', natura: null, taxable: '99.99' },
+      { vatRate: '10.00', natura: null, taxable: '0.00' },
+    ]
+    assert.deepEqual(
+      deductionRows(rows, '1.00', '120.00', taken).map((row) => row.taxable),
+      ['0.01', '0.43']
+    )
+  })
+
   test('the rest takes back exactly what each row has left', ({ assert }) => {
     const taken = [
       { vatRate: '22.00', natura: null, taxable: '4.31' },

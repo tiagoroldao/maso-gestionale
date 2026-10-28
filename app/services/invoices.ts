@@ -17,6 +17,7 @@ import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import VatDefaults from '#services/vat_defaults'
+import { ADVANCE_DEDUCTED_SQL } from '#services/job_status'
 import Charges from '#services/charges'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
@@ -57,13 +58,19 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * The draft can't be finalised (or the deductions saved) yet: it has no
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
- * advance than is left, or it is an advance nothing could take back any
- * more (the Quote's Invoice is issued).
+ * advance than is left, it is an advance nothing could take back any
+ * more (the Quote's Invoice is issued), or an advance corrected below what
+ * issued Invoices already took back of it.
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
     readonly reason:
-      'empty' | 'companyIncomplete' | 'negativeTotal' | 'deductionTooLarge' | 'jobInvoiced'
+      | 'empty'
+      | 'companyIncomplete'
+      | 'negativeTotal'
+      | 'deductionTooLarge'
+      | 'jobInvoiced'
+      | 'belowDeducted'
   ) {
     super(reason)
   }
@@ -166,7 +173,8 @@ export default class Invoices {
    * The Job's issued Advance Invoices (lines preloaded), each with what is
    * left to take back, VAT included, and the taxable already taken back
    * per VAT row, counting issued Invoices other than `except` (ADR 0011).
-   * Runs with the Job locked, which every Invoice change takes first.
+   * When writing, runs with the Job locked, which every Invoice change
+   * takes first.
    */
   static async advancesOf(
     client: TransactionClientContract | undefined,
@@ -251,8 +259,8 @@ export default class Invoices {
    * Writes what the Invoice takes back of each advance (ADR 0011) and its
    * deduction lines, after its other lines: one negative line per advance
    * and VAT row, naming the advance (deductionRows()). An amount can't be
-   * more than what is left of its advance; advances not of the Job, not
-   * issued, or with nothing left are ignored. Lines kept from before keep
+   * more than what is left of its advance; advances not of the Job or not
+   * issued are ignored. Lines kept from before keep
    * their identity. Runs with the Job locked.
    */
   private static async deduct(
@@ -620,9 +628,8 @@ export default class Invoices {
         entries.map((line, index) => {
           const entry = saved[index]
           const lineId = typeof entry === 'number' ? added[entry].id : entry.id
-          // A deduction line bills no Charge; kept lines keep their Charges
-          // unless sent with others
-          if (line.deductsInvoiceId) return { lineId, chargeIds: [] }
+          // Kept lines keep their Charges unless sent with others (deduction
+          // lines, left out of `entries`, bill none)
           const chargeIds =
             line.chargeIds ??
             (typeof entry === 'number'
@@ -649,6 +656,17 @@ export default class Invoices {
       if (locked.status !== 'draft') {
         locked.total = total.toFixed(2)
         if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+        // An advance can't be corrected below what issued Invoices took back
+        if (locked.advance) {
+          const taken = await trx.rawQuery(
+            `SELECT ${ADVANCE_DEDUCTED_SQL('a')} AS taken
+            FROM invoices a WHERE a.id = ?`,
+            [locked.id]
+          )
+          if (total.lt(taken.rows[0].taken)) {
+            throw new InvoiceNotFinalisableError('belowDeducted')
+          }
+        }
         // Payments are recorded with this Invoice locked: the sum is current
         const paid = await trx
           .from('payments')

@@ -354,6 +354,14 @@ test.group('Advance Invoices', () => {
       invoices: [{ id: advance.id, deduction: { deducted: '42.70', state: 'partly_deducted' } }],
     })
     assert.notEqual(page.inertiaProps.job.status, 'invoiced')
+    // The Job lists agree: not Invoiced nor Closed, still in progress
+    const listed = async (status: string) => {
+      const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
+      return (list.inertiaProps.jobs as { id: number }[]).map((row) => row.id)
+    }
+    assert.deepEqual(await listed('invoiced'), [])
+    assert.deepEqual(await listed('closed'), [])
+    assert.deepEqual(await listed('in_progress'), [job.id])
 
     // The next draft that bills everything takes back what is left, to the cent
     await cost('1000')
@@ -366,6 +374,59 @@ test.group('Advance Invoices', () => {
       invoices: [{ id: advance.id, deduction: { deducted: '610.00', state: 'fully_deducted' } }],
       job: { status: 'invoiced' },
     })
+    assert.deepEqual(await listed('invoiced'), [job.id])
+  })
+
+  test('the draft page lists the advances it can take back, with what is left', async ({
+    client,
+  }) => {
+    const { office, job, cost } = await costJob()
+    const advance = await issuedAdvance(job, '100')
+    await cost('200')
+    const draft = await Invoices.fromJob(job)
+
+    const page = await client.get(`/invoices/${draft.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      deductions: [
+        {
+          advanceId: advance.id,
+          number: advance.formattedNumber,
+          total: '122.00',
+          left: '122.00',
+          amount: '122.00',
+        },
+      ],
+    })
+    const own = await client.get(`/invoices/${advance.id}/edit`).withInertia().loginAs(office)
+    own.assertInertiaPropsContains({ deductions: null })
+  })
+
+  test('a rejected advance is not corrected below what was taken back of it', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, cost } = await costJob()
+    const advance = await issuedAdvance(job, '100')
+    await cost('200')
+    await Invoices.finalise(await Invoices.fromJob(job))
+    await Submissions.prepare(advance)
+    await Submissions.confirm(advance, 'Sconto')
+    await Submissions.recordOutcome(advance, { outcome: 'rejected' })
+    await advance.load('lines')
+    const correct = (unitPrice: string) =>
+      client
+        .put(`/invoices/${advance.id}`)
+        .json({ lines: [{ ...workLines(advance)[0], unitPrice }] })
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+
+    const refused = await correct('50')
+    refused.assertFlashMessage('error', it('flash.invoiceNotFinalisable.belowDeducted'))
+    await advance.refresh()
+    assert.equal(advance.total, '122.00')
+    const kept = await correct('100')
+    kept.assertFlashMessage('success', it('flash.invoiceSaved'))
   })
 
   test("a deduction is split over the advance's VAT rows; its lines follow it", async ({

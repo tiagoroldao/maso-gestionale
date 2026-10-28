@@ -79,6 +79,7 @@
     "empty": "La fattura non ha righe.",
     "negativeTotal": "Il totale della fattura sarebbe negativo: gli acconti detratti superano quanto fatturato. Detrai meno.",
     "deductionTooLarge": "Si detrae più di quanto resta di un acconto: riduci la detrazione.",
+    "belowDeducted": "L'acconto è già stato detratto da fatture emesse per più di questo importo.",
     "jobInvoiced": "La fattura del preventivo è già emessa: nessuna fattura potrebbe più detrarre questo acconto.",
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
   },
