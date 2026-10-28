@@ -1,8 +1,6 @@
-import { DateTime } from 'luxon'
-import db from '@adonisjs/lucid/services/db'
 import Job from '#models/job'
+import Jobs from '#services/jobs'
 import Customer from '#models/customer'
-import { nextJobSequence } from '#services/job_numbers'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
@@ -75,22 +73,13 @@ export default class JobsController {
   async store({ request, response, session, i18n }: HttpContext) {
     const data = await request.validateUsing(jobValidator)
 
-    const job = await db.transaction(async (trx) => {
-      const year = DateTime.now().year
-      return Job.create(
-        {
-          year,
-          sequence: await nextJobSequence(trx, year),
-          customerId: data.customerId,
-          siteId: data.siteId ?? null,
-          kind: data.kind,
-          workCategory: data.workCategory,
-          status: 'open',
-          title: data.title,
-          description: data.description ?? null,
-        },
-        { client: trx }
-      )
+    const job = await Jobs.create({
+      customerId: data.customerId,
+      siteId: data.siteId,
+      kind: data.kind,
+      workCategory: data.workCategory,
+      title: data.title,
+      description: data.description,
     })
 
     session.flash('success', i18n.t('flash.jobCreated', { number: job.number }))
@@ -193,20 +182,7 @@ export default class JobsController {
   }
 
   async cancel({ params, response, session, i18n }: HttpContext) {
-    const job = await db.transaction(async (trx) => {
-      // Locked, so a Quote save or decision can't overwrite the cancellation.
-      // The Job's Visits are kept as history and closed to field work (FieldWork)
-      const locked = await Job.query({ client: trx })
-        .where('id', params.id)
-        .forUpdate()
-        .firstOrFail()
-      if (locked.status !== 'cancelled') {
-        locked.status = 'cancelled'
-        locked.cancelledAt = DateTime.now()
-        await locked.save()
-      }
-      return locked
-    })
+    const job = await Jobs.cancel(params.id)
 
     session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
     response.redirect().toRoute('jobs.show', { id: job.id })

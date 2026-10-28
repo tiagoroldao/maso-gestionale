@@ -1,5 +1,4 @@
 import { DateTime } from 'luxon'
-import db from '@adonisjs/lucid/services/db'
 import app from '@adonisjs/core/services/app'
 import { BaseSeeder } from '@adonisjs/lucid/seeders'
 import Category from '#models/category'
@@ -7,7 +6,7 @@ import CompanySettings from '#models/company_settings'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
 import Item from '#models/item'
-import Job, { type JobKind } from '#models/job'
+import type { JobKind } from '#models/job'
 import LabourRate from '#models/labour_rate'
 import PaymentTerms from '#models/payment_terms'
 import Site from '#models/site'
@@ -18,7 +17,7 @@ import InstanceSetup from '#services/instance_setup'
 import Invoices from '#services/invoices'
 import Quotes from '#services/quotes'
 import Scheduling from '#services/scheduling'
-import { nextJobSequence } from '#services/job_numbers'
+import Jobs from '#services/jobs'
 import StockLedger from '#stock/stock_ledger'
 import type { WorkCategory } from '#shared/jobs'
 
@@ -228,8 +227,7 @@ export default class DevSeeder extends BaseSeeder {
       technicianIds: [giorgio.id],
     })
     const cancelled = await this.job(customers.private, 'quoted', 'sale', 'Preventivo addolcitore')
-    cancelled.merge({ status: 'cancelled', cancelledAt: DateTime.now() })
-    await cancelled.save()
+    await Jobs.cancel(cancelled.id)
 
     // A draft Invoice at two rates with a global discount: gaskets bought
     // at the counter (22%) and maintenance at the Customer's home (10%)
@@ -492,22 +490,7 @@ export default class DevSeeder extends BaseSeeder {
     workCategory: WorkCategory,
     title: string
   ) {
-    return db.transaction(async (trx) => {
-      const year = DateTime.now().year
-      return Job.create(
-        {
-          year,
-          sequence: await nextJobSequence(trx, year),
-          customerId: customer.id,
-          siteId,
-          kind,
-          workCategory,
-          status: 'open',
-          title,
-        },
-        { client: trx }
-      )
-    })
+    return Jobs.create({ customerId: customer.id, siteId, kind, workCategory, title })
   }
 
   private report() {
