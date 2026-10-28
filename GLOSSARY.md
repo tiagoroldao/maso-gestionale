@@ -30,7 +30,7 @@ _Avoid_: Intervention, work order, ticket
 A Job priced by an accepted Quote, whose lines Office adds to the Job as Charges.
 
 **Time & Materials Job**:
-A Job invoiced from the Charges recorded on it and its Visits.
+A Job without a Quote, invoiced from the Charges recorded on it and its Visits.
 
 **Work Category** (_Tipo di lavoro_):
 The kind of work a Job is (new installation, maintenance, renovation, repair or sale), which together with the Customer and the Site decides the VAT normally charged.
@@ -49,11 +49,11 @@ An hourly price for a type of labour; hours recorded on a Visit at a Labour Rate
 _Avoid_: Hourly cost, manodopera (as a price)
 
 **Charge** (_Addebito_):
-Something done or supplied for a Job that the Customer may be billed for (hours worked, an Item used, a call-out, any other cost), recorded on a Visit or on the Job itself and priced when recorded. Office corrects it, sets what is billed and at what price, or marks it not billable. Its history records each correction, billing, credit and change of mind, and what is still outstanding follows from that history. A Visit is billed when none of its Charges are outstanding.
-_Avoid_: Billable item (clashes with Item), billable entry, work
+Something done or supplied for a Job that the Customer may be billed for (hours worked, an Item used, a call-out, any other cost), recorded on a Visit or on the Job and priced when recorded. Office decides whether, and at what price, it is billed.
+_Avoid_: Billable item (clashes with Item), billable entry
 
 **Call-out Fee** (_Diritto di chiamata_):
-A fixed charge for attending a Visit, independent of hours worked.
+A fixed price for attending a Visit, independent of hours worked, billed as a Charge.
 _Avoid_: Travel fee, uscita
 
 ## Stock
@@ -172,5 +172,5 @@ The staff role that manages Customers, Jobs, scheduling, invoicing and stock.
 _Avoid_: Back-office, secretary
 
 **Technician** (_Tecnico_):
-The field role that carries out assigned Visits and records hours, Items used and notes, without seeing purchase prices.
+The field role that carries out assigned Visits and records hours and Items used (as Charges) and notes, without seeing prices.
 _Avoid_: Plumber, installer, operator
