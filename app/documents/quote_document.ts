@@ -1,6 +1,5 @@
 import edge from 'edge.js'
 import type { I18n } from '@adonisjs/i18n'
-import type Job from '#models/job'
 import type Quote from '#models/quote'
 import { recipientFrom, type DocumentInput } from '#documents/document_renderer'
 
@@ -16,17 +15,19 @@ const vatLabel = (rate: string, natura: string | null) =>
   natura ?? `${Number(rate).toLocaleString('it-IT')}%`
 
 /**
- * A Job's Quote as a document on the Base Layout (Customer preloaded on
- * the Job, lines on the Quote): dated by its issue date, with the optional
- * validity, the lines, the VAT summary and the legal notes. Once sent it
- * prints the Customer, company and subject copied then; a draft reads them
- * as they are now.
+ * A Quote as a document on the Base Layout (its Job preloaded with the
+ * Customer, and its lines): numbered from its Job ("2026/0007-2"), dated
+ * by its issue date, with the optional validity, the lines, the VAT
+ * summary and the legal notes. The subject is the Job's title, which every
+ * Quote of the Job shares. Once sent it prints the Customer, company and
+ * subject copied then; a draft reads them as they are now.
  */
-export async function quoteDocument(job: Job, quote: Quote, i18n: I18n): Promise<DocumentInput> {
+export async function quoteDocument(quote: Quote, i18n: I18n): Promise<DocumentInput> {
   const t = (key: string, data?: Record<string, unknown>) => i18n.t(key, data)
+  const job = quote.job
   const issuedOn = quote.issuedOn ?? quote.createdAt
   const bodyHtml = await edge.render('documents/quote_body', {
-    job: { number: job.number, title: quote.subject ?? job.title },
+    job: { title: quote.subject ?? job.title },
     issuedOn: issuedOn.toFormat('dd/MM/yyyy'),
     validUntil: quote.validityDays
       ? issuedOn.plus({ days: quote.validityDays }).toFormat('dd/MM/yyyy')
@@ -54,7 +55,7 @@ export async function quoteDocument(job: Job, quote: Quote, i18n: I18n): Promise
   })
 
   return {
-    title: t('documents.quote.title', { number: job.number }),
+    title: t('documents.quote.title', { number: quote.number }),
     recipient: quote.customerSnapshot
       ? recipientFrom(quote.customerSnapshot)
       : job.customer.toRecipient(),

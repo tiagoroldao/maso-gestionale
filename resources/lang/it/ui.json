@@ -475,8 +475,6 @@
     "cancelledOn": "annullata il {date}",
     "statuses": {
       "open": "Aperta",
-      "quoted": "Preventivata",
-      "accepted": "Accettata",
       "in_progress": "In corso",
       "cancelled": "Annullata",
       "work_complete": "Lavori completati",
@@ -486,15 +484,16 @@
     "filters": {
       "active": "Attive",
       "open": "Aperte",
-      "quoted": "Preventivate",
-      "accepted": "Accettate",
       "in_progress": "In corso",
       "cancelled": "Annullate",
       "all": "Tutte",
       "work_complete": "Lavori completati",
       "invoiced": "Fatturate",
-      "closed": "Chiuse"
+      "closed": "Chiuse",
+      "quote_sent": "Con preventivo in attesa di risposta",
+      "quote_accepted": "Con preventivo accettato"
     },
+    "quotes": "Preventivi",
     "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
     "cancelledNotEditable": "Una commessa annullata non si può modificare.",
     "timeAndMaterials": "Ore e materiali registrati",
@@ -657,9 +656,8 @@
     "archive": "Archivia"
   },
   "quotes": {
-    "section": "Preventivo",
-    "write": "Scrivi il preventivo",
-    "open": "Apri il preventivo",
+    "section": "Preventivi",
+    "new": "Nuovo preventivo",
     "title": "Preventivo {number}",
     "backToJob": "Torna alla commessa",
     "pdf": "PDF",
@@ -707,7 +705,7 @@
     "unsaved": "Modifiche non salvate.",
     "saveBeforeDeciding": "Salva il preventivo prima di inviarlo o registrarne l'esito.",
     "acceptConfirm": "Confermi che il cliente ha accettato il preventivo di {total}? Non sarà più modificabile.",
-    "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo? La commessa {number} verrà annullata.",
+    "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo {number}? Non sarà più modificabile. La commessa resta com'è: annullala a parte se non si farà altro.",
     "vatCode": "IVA",
     "vatCodeOf": "IVA della riga {position}",
     "vatRow": "IVA {vat} su {taxable}",
@@ -831,7 +829,7 @@
     "advanceHint": "Fattura di acconto (TD02): la fattura finale della commessa la detrarrà.",
     "newAdvance": "Crea fattura di acconto",
     "invoicedSoFarOf": "Fatturato finora (imponibile): {amount} su {of}",
-    "quotedTotal": "preventivo accettato: {amount} (solo per confronto)",
+    "quotedTotal": "preventivi accettati: {amount} (solo per confronto)",
     "file": "File",
     "uploadedOn": "Caricato il",
     "downloadSent": "Scarica il file inviato",

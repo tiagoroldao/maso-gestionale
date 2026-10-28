@@ -1,27 +1,20 @@
-import { belongsTo, hasMany, hasOne, scope } from '@adonisjs/lucid/orm'
+import { belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
 import db from '@adonisjs/lucid/services/db'
-import type { BelongsTo, HasMany, HasOne } from '@adonisjs/lucid/types/relations'
+import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { JobSchema } from '#database/schema'
 import Customer from '#models/customer'
 import Site from '#models/site'
 import Quote from '#models/quote'
 import Visit from '#models/visit'
 import Invoice from '#models/invoice'
-import type { WorkCategory } from '#shared/jobs'
+import type { JobStatus, WorkCategory } from '#shared/jobs'
 import { BILLING_OPEN_SQL } from '#services/job_status'
 
-/**
- * Statuses stored on the Job. Quoted and accepted apply only to a Job with
- * a Quote; without one a Job goes from open to in progress (ADR 0012).
- * Work Complete, Invoiced and Closed are worked out from Visits, Invoices
- * and Payments (job_status.ts).
- */
-export const JOB_STATUSES = ['open', 'quoted', 'accepted', 'in_progress', 'cancelled'] as const
-export type JobStatus = (typeof JOB_STATUSES)[number]
+export { JOB_STATUSES, type JobStatus } from '#shared/jobs'
 
 /**
  * A whole piece of work for a Customer, which may span multiple Visits and
- * is the unit that gets quoted and invoiced.
+ * is the unit that gets quoted (in one or more Quotes) and invoiced.
  */
 export default class Job extends JobSchema {
   declare status: JobStatus
@@ -44,8 +37,8 @@ export default class Job extends JobSchema {
   @belongsTo(() => Site)
   declare site: BelongsTo<typeof Site>
 
-  @hasOne(() => Quote)
-  declare quote: HasOne<typeof Quote>
+  @hasMany(() => Quote)
+  declare quotes: HasMany<typeof Quote>
 
   @hasMany(() => Visit)
   declare visits: HasMany<typeof Visit>

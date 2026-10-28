@@ -94,7 +94,8 @@ export default class DevSeeder extends BaseSeeder {
       survey: true,
     })
 
-    // Quoted: surveyed last week, a draft Quote waiting for the Customer
+    // Open with a Quote: surveyed last week, a sent Quote waiting for the
+    // Customer
     const quoted = await this.job(
       customers.condominium,
       'renovation',
@@ -111,7 +112,7 @@ export default class DevSeeder extends BaseSeeder {
       userId: giorgio.id,
     })
     await FieldWork.setStatus(survey, 'done', giorgio)
-    await Quotes.save(quoted, {
+    const quotedQuote = await Quotes.create(quoted, {
       validityDays: 30,
       lines: [
         {
@@ -133,10 +134,25 @@ export default class DevSeeder extends BaseSeeder {
         { kind: 'text', description: 'Opere murarie escluse.' },
       ],
     })
+    await Quotes.send(quotedQuote)
 
-    // Accepted: the Quote is signed, the work isn't planned yet
+    // Open with an accepted Quote, the work not planned yet: a first
+    // Quote declined (the Job carried on), a cheaper second one signed
     const accepted = await this.job(customers.company, 'new_installation', 'Nuovi bagni uffici')
-    await Quotes.save(accepted, {
+    const declined = await Quotes.create(accepted, {
+      lines: [
+        {
+          kind: 'item',
+          itemId: items.wc.id,
+          description: items.wc.description,
+          quantity: '3',
+          unitPrice: items.wc.resalePrice,
+          vatCodeId: reverseCharge.id,
+        },
+      ],
+    })
+    await Quotes.decline(declined)
+    const signed = await Quotes.create(accepted, {
       lines: [
         {
           kind: 'item',
@@ -156,7 +172,7 @@ export default class DevSeeder extends BaseSeeder {
         },
       ],
     })
-    await Quotes.accept(accepted)
+    await Quotes.accept(signed)
 
     // In progress: a boiler swap, one Visit started today, one tomorrow
     const boiler = await this.job(customers.private, 'maintenance', 'Sostituzione caldaia')
@@ -177,6 +193,19 @@ export default class DevSeeder extends BaseSeeder {
       endsAt: at(today.plus({ days: 1 }), 16),
       technicianIds: [luca.id],
       notes: 'Prima accensione e collaudo.',
+    })
+    // Extra work found on site: a draft Quote written while work goes on
+    await Quotes.create(boiler, {
+      lines: [
+        {
+          kind: 'labour',
+          labourRateId: rates.idraulico.id,
+          description: 'Sostituzione valvole termostatiche',
+          quantity: '2',
+          unitPrice: rates.idraulico.hourlyPrice,
+          vatCodeId: reduced.id,
+        },
+      ],
     })
 
     // Work complete: a repair done two days ago, with hours and Items used

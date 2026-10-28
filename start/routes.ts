@@ -228,25 +228,29 @@ router
           .post('charges/:id/to-bill', [controllers.Charges, 'setBackToBill'])
           .where('id', router.matchers.number())
         router
-          .get('jobs/:id/quote', [controllers.Quotes, 'edit'])
+          .get('jobs/:id/quotes/create', [controllers.Quotes, 'create'])
           .where('id', router.matchers.number())
         router
-          .put('jobs/:id/quote', [controllers.Quotes, 'update'])
+          .post('jobs/:id/quotes', [controllers.Quotes, 'store'])
+          .where('id', router.matchers.number())
+        router.get('quotes/:id', [controllers.Quotes, 'edit']).where('id', router.matchers.number())
+        router
+          .put('quotes/:id', [controllers.Quotes, 'update'])
           .where('id', router.matchers.number())
         router
-          .post('jobs/:id/quote/import', [controllers.Quotes, 'importLines'])
+          .post('quotes/:id/import', [controllers.Quotes, 'importLines'])
           .where('id', router.matchers.number())
         router
-          .post('jobs/:id/quote/send', [controllers.Quotes, 'send'])
+          .post('quotes/:id/send', [controllers.Quotes, 'send'])
           .where('id', router.matchers.number())
         router
-          .post('jobs/:id/quote/accept', [controllers.Quotes, 'accept'])
+          .post('quotes/:id/accept', [controllers.Quotes, 'accept'])
           .where('id', router.matchers.number())
         router
-          .post('jobs/:id/quote/decline', [controllers.Quotes, 'decline'])
+          .post('quotes/:id/decline', [controllers.Quotes, 'decline'])
           .where('id', router.matchers.number())
         router
-          .get('jobs/:id/quote.pdf', [controllers.Quotes, 'pdf'])
+          .get('quotes/:id/pdf', [controllers.Quotes, 'pdf'])
           .where('id', router.matchers.number())
         router
           .get('customers/:id/jobs', [controllers.TemplateChoices, 'jobs'])

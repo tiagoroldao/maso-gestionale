@@ -36,7 +36,7 @@ test.group('Job status derivation', () => {
   })
 
   test('only Jobs in progress can be complete', ({ assert }) => {
-    assert.equal(deriveJobStatus('quoted', visits('done')), 'quoted')
+    assert.equal(deriveJobStatus('open', visits('done')), 'open')
     assert.equal(deriveJobStatus('cancelled', visits('done')), 'cancelled')
     assert.equal(deriveJobStatus('in_progress', []), 'in_progress')
   })

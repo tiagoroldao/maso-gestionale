@@ -13,7 +13,6 @@ import QuoteLine, { type QuoteLineKind } from '#models/quote_line'
 import User from '#models/user'
 import VatCode from '#models/vat_code'
 import Visit from '#models/visit'
-import Scheduling from '#services/scheduling'
 import { companyDetailsFrom } from '#documents/document_renderer'
 import { lineTotal } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
@@ -52,139 +51,153 @@ export type QuoteLineInput = {
   vatCodeId?: number
 }
 
+export type QuoteInput = {
+  notes?: string | null
+  validityDays?: number | null
+  lines: QuoteLineInput[]
+}
+
 /**
- * The rules around a Job's Quote: when it can be edited, sent and
- * decided, and how accepting or declining it moves the Job.
+ * The rules around a Job's Quotes (ADR 0013): when one can be written,
+ * edited, sent and decided. Each Quote has its own life; none of it moves
+ * the Job, whose status follows its work (Scheduling).
  */
 export default class Quotes {
   /**
-   * Whether the Job's Quote can still be written: any Job that is open or
-   * quoted, whose Quote (if it has one yet) is still a draft. Once sent
-   * it is frozen: a change means a new Quote (ADR 0013). A Quote is
-   * started only on an open Job (ADR 0012).
+   * Whether the Job can have a new Quote: at any time, before any work or
+   * for extra work, while it isn't cancelled.
    */
-  static isEditable(job: Job, quote: Quote | null) {
-    return (
-      (job.status === 'open' || job.status === 'quoted') && (!quote || quote.status === 'draft')
-    )
+  static canWrite(job: Job) {
+    return job.status !== 'cancelled'
   }
 
   /**
-   * Whether the Quote can be marked as sent: a draft with priced lines
-   * (its Job is quoted).
+   * Whether the Quote can still be written: a draft on a Job not
+   * cancelled. Once sent it is frozen: a change means a new Quote.
    */
-  static isSendable(job: Job, quote: Quote | null) {
-    return quote?.status === 'draft' && job.status === 'quoted'
+  static isEditable(job: Job, quote: Quote) {
+    return this.canWrite(job) && quote.status === 'draft'
+  }
+
+  /**
+   * Whether the Quote can be marked as sent: an editable draft with a
+   * priced line (lines preloaded).
+   */
+  static isSendable(job: Job, quote: Quote) {
+    return this.isEditable(job, quote) && quote.isPriced
   }
 
   /**
    * Whether the Customer's answer can be recorded: a sent Quote, or a
-   * draft with priced lines, decided on the spot (which sends it).
+   * draft with a priced line, decided on the spot (which sends it), on a
+   * Job not cancelled (lines preloaded).
    */
-  static isDecidable(job: Job, quote: Quote | null) {
-    return (quote?.status === 'draft' || quote?.status === 'sent') && job.status === 'quoted'
+  static isDecidable(job: Job, quote: Quote) {
+    return (
+      this.canWrite(job) &&
+      (quote.status === 'sent' || (quote.status === 'draft' && quote.isPriced))
+    )
   }
 
   /**
-   * Replaces the Quote's lines (creating the Quote if needed) and marks the
-   * Job as quoted once the Quote has a priced line.
+   * Starts a new draft Quote on the Job, numbered after its last one under
+   * the Job's lock, so concurrent ones never share a number.
    */
-  static async save(
-    job: Job,
-    input: { notes?: string | null; validityDays?: number | null; lines: QuoteLineInput[] }
-  ) {
+  static async create(job: Job, input: QuoteInput) {
     return db.transaction(async (trx) => {
-      // Lock the Job first, so a cancel or another save can't interleave
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      job.merge({ status: locked.status })
-      job.useTransaction(trx)
-      const quote = await Quote.query({ client: trx }).where('jobId', job.id).forUpdate().first()
-      if (!this.isEditable(job, quote)) throw new QuoteNotEditableError()
-
-      const saved =
-        quote ?? (await Quote.create({ jobId: job.id, status: 'draft' }, { client: trx }))
-      saved.useTransaction(trx)
-      saved.notes = input.notes ?? null
-      saved.validityDays = input.validityDays ?? null
-      // Dated by its last save while a draft; sending and deciding leave
-      // the date alone
-      saved.issuedOn = DateTime.now().startOf('day')
-      await saved.save()
-
-      const units = await this.itemUnits(input.lines, trx)
-      const codeIds = input.lines.flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : []))
-      const codes = codeIds.length
-        ? await VatCode.query({ client: trx }).whereIn('id', codeIds)
-        : []
-      const vat = new Map(codes.map((code) => [code.id, code]))
-      await QuoteLine.query({ client: trx }).where('quoteId', saved.id).delete()
-      await QuoteLine.createMany(
-        input.lines.map((line, index) => this.toRow(saved.id, index, line, units, vat)),
+      if (!this.canWrite(locked)) throw new QuoteNotEditableError()
+      const last = await trx
+        .from('quotes')
+        .where('job_id', locked.id)
+        .max('sequence as max')
+        .first()
+      const quote = await Quote.create(
+        { jobId: locked.id, sequence: Number(last?.max ?? 0) + 1, status: 'draft' },
         { client: trx }
       )
-
-      const priced = input.lines.some((line) => line.kind !== 'text')
-      job.status = priced ? 'quoted' : 'open'
-      await job.save()
-      return saved
+      await this.write(trx, quote, input)
+      return quote
     })
+  }
+
+  /**
+   * Replaces a draft's notes, validity and lines.
+   */
+  static async save(quote: Quote, input: QuoteInput) {
+    return db.transaction(async (trx) => {
+      const { job, locked } = await this.lock(trx, quote)
+      if (!this.isEditable(job, locked)) throw new QuoteNotEditableError()
+      await this.write(trx, locked, input)
+      return locked
+    })
+  }
+
+  /**
+   * Writes the Quote's notes, validity and lines, dating it: a draft is
+   * dated by its last save; sending and deciding leave the date alone.
+   */
+  private static async write(trx: TransactionClientContract, quote: Quote, input: QuoteInput) {
+    quote.useTransaction(trx)
+    quote.notes = input.notes ?? null
+    quote.validityDays = input.validityDays ?? null
+    quote.issuedOn = DateTime.now().startOf('day')
+    await quote.save()
+
+    const units = await this.itemUnits(input.lines, trx)
+    const codeIds = input.lines.flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : []))
+    const codes = codeIds.length ? await VatCode.query({ client: trx }).whereIn('id', codeIds) : []
+    const vat = new Map(codes.map((code) => [code.id, code]))
+    await QuoteLine.query({ client: trx }).where('quoteId', quote.id).delete()
+    await QuoteLine.createMany(
+      input.lines.map((line, index) => this.toRow(quote.id, index, line, units, vat)),
+      { client: trx }
+    )
   }
 
   /**
    * Marks the draft as sent to the Customer: from now on it is frozen,
-   * dated as last saved. The Job stays quoted.
+   * dated as last saved.
    */
-  static async send(job: Job) {
+  static async send(quote: Quote) {
     await db.transaction(async (trx) => {
-      const quote = await this.lockForDecision(trx, job)
-      if (!quote || !this.isSendable(job, quote)) throw new QuoteNotEditableError()
-      quote.useTransaction(trx)
-      quote.status = 'sent'
-      await this.copyAsSent(trx, job, quote, DateTime.now())
-      await quote.save()
+      const { job, locked } = await this.lock(trx, quote)
+      if (!this.isSendable(job, locked)) throw new QuoteNotEditableError()
+      locked.status = 'sent'
+      await this.copyAsSent(trx, job, locked, DateTime.now())
+      await locked.save()
     })
   }
 
-  static async accept(job: Job) {
-    await this.decide(job, 'accepted', 'accepted')
+  static async accept(quote: Quote) {
+    await this.decide(quote, 'accepted')
   }
 
-  static async decline(job: Job) {
-    await this.decide(job, 'declined', 'cancelled')
+  /**
+   * Declines only this Quote: the Job and its other Quotes carry on, and
+   * Office cancels the Job separately when nothing else goes ahead.
+   */
+  static async decline(quote: Quote) {
+    await this.decide(quote, 'declined')
   }
 
-  private static async decide(
-    job: Job,
-    quoteStatus: 'accepted' | 'declined',
-    jobStatus: 'accepted' | 'cancelled'
-  ) {
+  private static async decide(quote: Quote, status: 'accepted' | 'declined') {
     await db.transaction(async (trx) => {
-      const quote = await this.lockForDecision(trx, job)
-      if (!quote || !this.isDecidable(job, quote)) throw new QuoteNotEditableError()
-
-      quote.useTransaction(trx)
-      quote.status = quoteStatus
-      quote.decidedAt = DateTime.now()
-      // A draft decided on the spot was sent there and then
-      if (!quote.sentAt) await this.copyAsSent(trx, job, quote, quote.decidedAt)
-      await quote.save()
-
-      job.status = jobStatus
-      // Its Visits stay as history, closed to field work (FieldWork)
-      if (jobStatus === 'cancelled') job.cancelledAt = DateTime.now()
-      // Work booked while waiting for the signature starts the Job at once
-      if (jobStatus === 'accepted') {
-        // Upcoming or ongoing work only: past Visits and Surveys don't count
-        if (await Scheduling.hasPendingWork(trx, job.id)) job.status = 'in_progress'
-      }
-      await job.save()
+      const { job, locked } = await this.lock(trx, quote)
+      if (!this.isDecidable(job, locked)) throw new QuoteNotEditableError()
+      locked.status = status
+      locked.decidedAt = DateTime.now()
+      // A draft decided on the spot, either way, was sent there and then
+      if (!locked.sentAt) await this.copyAsSent(trx, job, locked, locked.decidedAt)
+      await locked.save()
     })
   }
 
   /**
    * Dates the Quote as sent and copies what the Customer received: their
-   * details, the company's and the subject (the Job's title), so the PDF
-   * stays as it went out. The logo stays live, as on Invoices.
+   * details, the company's and the subject (the Job's title, which the
+   * Quote's number refers to), so the PDF stays as it went out. The logo
+   * stays live, as on Invoices.
    */
   private static async copyAsSent(
     trx: TransactionClientContract,
@@ -201,32 +214,37 @@ export default class Quotes {
   }
 
   /**
-   * Locks the Job, then its Quote, and refreshes the Job's status, so a
-   * save, cancel or other decision can't interleave.
+   * Locks the Quote's Job, then the Quote (with its lines), re-read, so a
+   * save, cancel or decision can't interleave. A Quote never changes Job.
    */
-  private static async lockForDecision(trx: TransactionClientContract, job: Job) {
-    const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-    job.merge({ status: locked.status, title: locked.title, customerId: locked.customerId })
-    job.useTransaction(trx)
-    return Quote.query({ client: trx }).where('jobId', job.id).forUpdate().first()
+  private static async lock(trx: TransactionClientContract, quote: Quote) {
+    const job = await Job.query({ client: trx }).where('id', quote.jobId).forUpdate().firstOrFail()
+    const locked = await Quote.query({ client: trx })
+      .where('id', quote.id)
+      .forUpdate()
+      .preload('lines')
+      .firstOrFail()
+    locked.useTransaction(trx)
+    return { job, locked }
   }
 
   /**
-   * Imports the chosen lines of the Job's accepted Quote as Charges (ADR
-   * 0012), onto the Job or one of its open Visits: an Item line becomes an
-   * Item used (taken off stock when the Visit closes; on the Job itself it
-   * moves no stock), a labour line hours at its Labour Rate for the worker
-   * given, the call-out a Job Charge (always on the Job), and text lines
-   * are skipped. Each starts at the line's quantity, price, description
-   * and VAT Code and records which line it came from; a line imported twice gives two
-   * Charges. Locks the Visit, then the Job, as field work does.
+   * Imports the chosen lines of an accepted Quote as Charges (ADR 0012;
+   * any accepted Quote of the Job, ADR 0013), onto the Job or one of its
+   * open Visits: an Item line becomes an Item used (taken off stock when
+   * the Visit closes; on the Job itself it moves no stock), a labour line
+   * hours at its Labour Rate for the worker given, the call-out a Job
+   * Charge (always on the Job), and text lines are skipped. Each starts at
+   * the line's quantity, price, description and VAT Code and records which
+   * line it came from; a line imported twice gives two Charges. Locks the
+   * Visit, then the Job, as field work does.
    */
-  static async importLines(job: Job, input: QuoteImportInput, user: User) {
+  static async importLines(quote: Quote, input: QuoteImportInput, user: User) {
     return db.transaction(async (trx) => {
       const visit = input.visitId
         ? await Visit.query({ client: trx })
             .where('id', input.visitId)
-            .where('jobId', job.id)
+            .where('jobId', quote.jobId)
             .forUpdate()
             .first()
         : null
@@ -234,14 +252,18 @@ export default class Quotes {
       if (visit && CLOSED_VISIT_STATUSES.includes(visit.status)) {
         throw new QuoteImportRefusedError('done')
       }
-      const locked = await Job.query({ client: trx }).where('id', job.id).forShare().firstOrFail()
+      const locked = await Job.query({ client: trx })
+        .where('id', quote.jobId)
+        .forShare()
+        .firstOrFail()
       if (locked.status === 'cancelled') throw new QuoteImportRefusedError('cancelled')
-      const quote = await Quote.query({ client: trx }).where('jobId', locked.id).first()
-      if (quote?.status !== 'accepted') throw new QuoteImportRefusedError('notAccepted')
+      // Decisions lock the Job for update, so this status holds
+      const current = await Quote.query({ client: trx }).where('id', quote.id).firstOrFail()
+      if (current.status !== 'accepted') throw new QuoteImportRefusedError('notAccepted')
 
       // Text lines and lines of nothing have nothing to charge
       const chosen = await QuoteLine.query({ client: trx })
-        .where('quoteId', quote.id)
+        .where('quoteId', current.id)
         .whereIn('id', input.lineIds)
         .orderBy('position')
       const lines = chosen.filter((line) => line.kind !== 'text' && new Big(line.quantity!).gt(0))
