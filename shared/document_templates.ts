@@ -60,7 +60,8 @@ const NODE_RULES: Record<
       type: (v) => v === null || v === '1',
     },
   },
-  listItem: { children: ['paragraph', 'bulletList', 'orderedList'], attrs: {} },
+  // Like TipTap's listItem: a paragraph, then any blocks
+  listItem: { children: BLOCKS, attrs: {} },
   text: { children: [], attrs: {} },
   hardBreak: { children: [], attrs: {} },
   horizontalRule: { children: [], attrs: {} },
@@ -95,17 +96,17 @@ export function isValidTemplateBody(doc: unknown, allowedPlaceholders: string[])
     if (depth > 20 || !isObject(node)) return false
     if (!Object.keys(node).every((key) => NODE_KEYS.has(key))) return false
     const { type, attrs, content, marks, text } = node
-    if (typeof type !== 'string' || !(type in NODE_RULES)) return false
+    if (typeof type !== 'string' || !Object.hasOwn(NODE_RULES, type)) return false
     if (parent === null ? type !== 'doc' : !NODE_RULES[parent].children.includes(type)) return false
     const rules = NODE_RULES[type]
 
     if (attrs !== undefined) {
       if (!isObject(attrs)) return false
       for (const [name, value] of Object.entries(attrs)) {
-        if (!(name in rules.attrs) || !rules.attrs[name](value)) return false
+        if (!Object.hasOwn(rules.attrs, name) || !rules.attrs[name](value)) return false
       }
     }
-    if (type === 'heading' && !isObject(attrs)) return false
+    if (type === 'heading' && !(isObject(attrs) && Object.hasOwn(attrs, 'level'))) return false
     if (type === 'placeholder' && !(isObject(attrs) && allowed.has(String(attrs.key)))) return false
     if ((type === 'text') !== (typeof text === 'string')) return false
     if (type === 'text' && (text as string).length === 0) return false

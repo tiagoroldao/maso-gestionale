@@ -97,6 +97,11 @@ test.group('Document Template bodies', () => {
     const refused = [
       // Attributes a node doesn't have
       p({ type: 'paragraph', attrs: { onclick: 'x', style: 'color:red' } }),
+      // Names inherited from Object.prototype are not allowed attributes or types
+      p({ type: 'paragraph', attrs: { constructor: ['img', { onerror: 'x' }], toString: 'x' } }),
+      p({ type: 'constructor' }),
+      // A heading without its level
+      p({ type: 'heading', attrs: {} }),
       // Properties a node doesn't have
       { type: 'doc', content: [], evil: true },
       // A text node with children, a hard break with children
