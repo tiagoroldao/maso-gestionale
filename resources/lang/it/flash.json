@@ -15,6 +15,7 @@
   "siteLinked": "Immobile collegato.",
   "siteUnlinked": "Immobile scollegato.",
   "equipmentAdded": "Apparecchio aggiunto.",
+  "serviceDateChanged": "Nel frattempo un intervento ha aggiornato la data dell'ultima manutenzione: controlla la nuova data e salva di nuovo.",
   "equipmentSaved": "Apparecchio salvato.",
   "itemSaved": "Articolo «{code}» salvato.",
   "categoryAdded": "Categoria aggiunta.",

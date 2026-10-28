@@ -54,4 +54,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **Release image is amd64 only** (#36): add `docker/setup-qemu-action` and `platforms: linux/amd64,linux/arm64` if the server turns out to be ARM (ADR 0002: whatever hardware the business owns) (from the #100 review).
 - **`latest` follows the newest tag pushed** (#36): a hotfix on an older line (`v1.0.1` after `v1.1.0`) moves `latest` back. Only matters once old lines get patches; pin `APP_VERSION` meanwhile (from the #100 review).
 - **Concurrent equipment removal untested:** `FieldWork.removeItem` locks the equipment it created before checking whether another line or Visit uses it. Only reading the code checks this; no test runs two connections against it (from the #98 review).
+- **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections (from the #104 review).
+- **Small leftovers from the #97 review:** the zero-amount Payment test checks the field, not the `amount.positive` message; the `amountRule` docstring line is over 100 characters.
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.

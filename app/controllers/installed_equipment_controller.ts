@@ -24,6 +24,12 @@ function toAttributes(data: Infer<typeof installedEquipmentValidator>) {
   }
 }
 
+/**
+ * A Visit set the service date while Office was changing it on the edit
+ * page: neither silently wins.
+ */
+class ServiceDateChangedError extends Error {}
+
 function siteProps(site: Site) {
   return { id: site.id, summary: site.summary }
 }
@@ -84,20 +90,35 @@ export default class InstalledEquipmentController {
       updateInstalledEquipmentValidator
     )
 
-    const equipment = await db.transaction(async (trx) => {
-      // Closing a Visit sets the service date on this row too: one at a time
-      const locked = await InstalledEquipment.query({ client: trx })
-        .where('id', params.id)
-        .forUpdate()
-        .firstOrFail()
-      const { lastServicedOn, ...attributes } = toAttributes(data)
-      locked.useTransaction(trx).merge(attributes)
-      // Left as the page loaded it: keep any date a Visit set since
-      if (lastServicedOn?.toISODate() !== lastServicedOnWas?.toISODate()) {
-        locked.lastServicedOn = lastServicedOn
-      }
-      return locked.save()
-    })
+    let equipment: InstalledEquipment
+    try {
+      equipment = await db.transaction(async (trx) => {
+        // Closing a Visit sets the service date on this row too: one at a time
+        const locked = await InstalledEquipment.query({ client: trx })
+          .where('id', params.id)
+          .forUpdate()
+          .firstOrFail()
+        const { lastServicedOn, ...attributes } = toAttributes(data)
+        locked.useTransaction(trx).merge(attributes)
+        const loaded = lastServicedOnWas?.toISODate()
+        const submitted = lastServicedOn?.toISODate()
+        // Left as the page loaded it: keep any date a Visit set since
+        if (submitted !== loaded) {
+          if (
+            locked.lastServicedOn?.toISODate() !== loaded &&
+            submitted !== locked.lastServicedOn?.toISODate()
+          ) {
+            throw new ServiceDateChangedError()
+          }
+          locked.lastServicedOn = lastServicedOn
+        }
+        return locked.save()
+      })
+    } catch (error) {
+      if (!(error instanceof ServiceDateChangedError)) throw error
+      session.flash('error', i18n.t('flash.serviceDateChanged'))
+      return response.redirect().toRoute('installed_equipment.edit', { id: params.id })
+    }
 
     session.flash('success', i18n.t('flash.equipmentSaved'))
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
