@@ -16,22 +16,29 @@ import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import VatDefaults from '#services/vat_defaults'
-import { ADVANCE_DEDUCTED_SQL } from '#services/job_status'
+import {
+  ADVANCE_DEDUCTED_SQL,
+  ADVANCE_TAKEN_BACK_SQL,
+  DEDUCTION_REVERSED_SQL,
+} from '#services/job_status'
 import Charges from '#services/charges'
 import Payments from '#services/payments'
 import CreditNoteNumbering, { NUMBERING_LOCK_KEY } from '#services/credit_note_numbering'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
-import { lineTotal, splitAmount } from '#shared/money'
+import { lineTotal, splitAmount, sumAmounts } from '#shared/money'
 import { advanceLeft, deductionRows } from '#shared/advances'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
-import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
+import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
 import {
+  creditedInFull,
   creditRefusal,
   credits,
   exceedsCredit,
+  lineCreditRefusal,
   type CreditRefusal,
+  type LineCreditRefusal,
   type NumberingSeries,
 } from '#shared/credit_notes'
 import {
@@ -55,8 +62,13 @@ export class InvoiceNotEditableError extends Error {}
  * advance than is left, an advance corrected below what issued
  * Invoices already took back of it, or an advance for a Job since closed.
  * A Credit Note can't credit more than is left of its Invoice's total
- * after its other Credit Notes (`creditTooLarge`), and each of its lines
- * credits a line of that Invoice (`uncreditedLine`).
+ * after its other Credit Notes, nor of an advance more than is left to
+ * take back (`creditTooLarge`); each of its lines credits a line of that
+ * Invoice (`uncreditedLine`), never more than is left of it nor a
+ * negative amount (lineCreditRefusal()); and it gives back all of a
+ * deduction or none of it (`partialDeduction`). Corrected after a
+ * Rejection so it no longer gives a deduction back, the deduction must
+ * still fit what is left of its advance (`deductionTooLarge`).
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
@@ -69,6 +81,8 @@ export class InvoiceNotFinalisableError extends Error {
       | 'jobClosed'
       | 'creditTooLarge'
       | 'uncreditedLine'
+      | 'partialDeduction'
+      | LineCreditRefusal
   ) {
     super(reason)
   }
@@ -170,11 +184,15 @@ export default class Invoices {
 
   /**
    * A draft Credit Note for an issued Invoice (FatturaPA TD04, ADR 0014),
-   * with a line crediting each of the Invoice's lines in full and its
-   * global discount, for Office to lower to what is credited. Refused for
-   * an Invoice that can't be credited (creditRefusal()). While a draft
-   * Credit Note for the Invoice is open it is returned instead of starting
-   * another.
+   * with its global discount and a line crediting what is left of each of
+   * the Invoice's lines (all of it, unless earlier Credit Notes credited
+   * some), for Office to lower to what is credited. A final Invoice's
+   * deduction lines are copied as they are, giving the advances back
+   * (Office removes them to leave the advances taken back); an advance's
+   * lines credit only the share still left to take back of it. Refused
+   * for an Invoice that can't be credited (creditRefusal()), or an advance
+   * with nothing left (`advanceTakenBack`). While a draft Credit Note for
+   * the Invoice is open it is returned instead of starting another.
    */
   static async createCreditNote(invoice: Invoice) {
     return db.transaction(async (trx) => {
@@ -187,6 +205,23 @@ export default class Invoices {
         .first()
       if (draft) return draft
 
+      // An advance partly taken back: each line credits its share of what
+      // is left (VAT included), rounded down, and lowered by the cent
+      // where each VAT row's rounding would take it over (see below)
+      let share: Big | null = null
+      let advanceLeftToCredit: Big | null = null
+      if (original.advance) {
+        const deducted = await this.advanceDeducted(trx, original.id)
+        const credited = await Payments.credited(trx, original.id)
+        const left = new Big(advanceLeft(original.total!, deducted, credited))
+        if (left.lte(0)) throw new CreditNoteRefusedError('advanceTakenBack')
+        const notCredited = new Big(original.total!).minus(credited)
+        if (left.lt(notCredited)) {
+          share = left.div(notCredited)
+          advanceLeftToCredit = left
+        }
+      }
+
       const creditNote = await Invoice.create(
         {
           customerId: original.customerId,
@@ -197,16 +232,15 @@ export default class Invoices {
         },
         { client: trx }
       )
-      // Lines taking back an advance aren't credited here (#146)
       const lines = await InvoiceLine.query({ client: trx })
         .where('invoiceId', original.id)
-        .whereNull('deductsInvoiceId')
         .orderBy('position')
-      await InvoiceLine.createMany(
-        lines.map((line, position) => ({
+      const credited = await this.lineCredits(trx, original.id)
+      const values = lines.flatMap((line) => {
+        const copy = {
           invoiceId: creditNote.id,
           creditsLineId: line.id,
-          position,
+          deductsInvoiceId: line.deductsInvoiceId,
           itemId: line.itemId,
           description: line.description,
           quantity: line.quantity,
@@ -218,11 +252,75 @@ export default class Invoices {
           natura: line.natura,
           legalNote: line.legalNote,
           lineTotal: line.lineTotal,
-        })),
+        }
+        const done = credited.get(line.id)
+        // A deduction is given back once, as it was
+        if (line.deductsInvoiceId) return done ? [] : [copy]
+        if (!done && !share) return [copy]
+        const left = new Big(line.lineTotal).minus(done ?? 0)
+        const amount = (share ? left.times(share).round(2, Big.roundDown) : left).toFixed(2)
+        if (new Big(amount).lte(0)) return []
+        return [
+          { ...copy, quantity: '1', unitPrice: amount, discountPercent: '0', lineTotal: amount },
+        ]
+      })
+      // Each VAT row's VAT rounds on its own, so the shares can add up to
+      // a cent or two over what is left: take it off the largest lines
+      if (advanceLeftToCredit) {
+        const totalOf = () =>
+          invoiceTotals(
+            values.map((value) => ({ ...value, deduction: false })),
+            original.discountPercent
+          ).total
+        while (values.length && new Big(totalOf()).gt(advanceLeftToCredit)) {
+          const largest = values.reduce((max, value) =>
+            new Big(value.lineTotal).gt(max.lineTotal) ? value : max
+          )
+          const lowered = new Big(largest.lineTotal).minus('0.01').toFixed(2)
+          Object.assign(largest, { unitPrice: lowered, lineTotal: lowered })
+        }
+      }
+      await InvoiceLine.createMany(
+        values.map((value, position) => ({ ...value, position })),
         { client: trx }
       )
       return creditNote
     })
+  }
+
+  /**
+   * What the Credit Notes past draft on the Invoice `invoiceId` credit of
+   * each of its lines, by line id, counting all but `except`.
+   */
+  private static async lineCredits(
+    trx: TransactionClientContract,
+    invoiceId: number,
+    except: number | null = null
+  ) {
+    const rows = await trx
+      .from('invoice_lines as l')
+      .join('invoices as cn', 'cn.id', 'l.invoice_id')
+      .where('cn.credits_invoice_id', invoiceId)
+      .whereNot('cn.status', 'draft')
+      .whereNot('cn.id', except ?? 0)
+      .groupBy('l.credits_line_id')
+      .select('l.credits_line_id')
+      .sum('l.line_total as credited')
+    return new Map<number, string>(
+      rows.map((row) => [row.credits_line_id, new Big(row.credited).toFixed(2)])
+    )
+  }
+
+  /**
+   * What issued Invoices deducted of the advance `advanceId`, less what
+   * Credit Notes gave back (ADVANCE_DEDUCTED_SQL).
+   */
+  private static async advanceDeducted(trx: TransactionClientContract, advanceId: number) {
+    const result = await trx.rawQuery(
+      `SELECT ${ADVANCE_DEDUCTED_SQL('a')} AS deducted FROM invoices a WHERE a.id = ?`,
+      [advanceId]
+    )
+    return new Big(result.rows[0].deducted).toFixed(2)
   }
 
   /**
@@ -237,9 +335,11 @@ export default class Invoices {
 
   /**
    * Refuses a Credit Note of `total` that would bring its Invoice's Credit
-   * Notes above the Invoice's total, counting the others that credit
-   * (credits()). Runs with the credited Invoice locked (whileIn()), so two
-   * Credit Notes can't pass the check together.
+   * Notes above the Invoice's total, or above what is left to take back
+   * of an advance, counting the others that credit (credits()); then each
+   * of its lines as lineCreditRefusal() says. Runs with the credited
+   * Invoice's Job and the Invoice locked (whileIn()), so two Credit Notes,
+   * or a Credit Note and a deduction, can't pass the check together.
    */
   private static async checkCredit(
     trx: TransactionClientContract,
@@ -259,8 +359,102 @@ export default class Invoices {
     const others = new Big(await Payments.credited(trx, original.id)).minus(
       credits(own.status) ? own.total : 0
     )
-    if (exceedsCredit(total, original.total!, others.toFixed(2))) {
+    const originalLines = await InvoiceLine.query({ client: trx }).where('invoiceId', original.id)
+    const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', creditNote.id)
+    // A deduction is given back whole: all its lines (one per VAT row of
+    // the advance) or none, so the advance's amount comes back exactly
+    const advanceIds = new Set(originalLines.map((line) => line.deductsInvoiceId))
+    advanceIds.delete(null)
+    for (const advanceId of advanceIds) {
+      const deductionLines = originalLines.filter((line) => line.deductsInvoiceId === advanceId)
+      const given = deductionLines.filter((line) =>
+        lines.some((credit) => credit.creditsLineId === line.id)
+      )
+      if (given.length && given.length < deductionLines.length) {
+        throw new InvoiceNotFinalisableError('partialDeduction')
+      }
+    }
+
+    const deducted = original.advance ? await this.advanceDeducted(trx, original.id) : '0'
+    if (exceedsCredit(total, original.total!, others.toFixed(2), deducted)) {
       throw new InvoiceNotFinalisableError('creditTooLarge')
+    }
+
+    const byOthers = await this.lineCredits(trx, original.id, creditNote.id)
+    for (const line of originalLines) {
+      const crediting = lines.filter((credit) => credit.creditsLineId === line.id)
+      if (!crediting.length) continue
+      const refusal = lineCreditRefusal({
+        lineTotal: line.lineTotal,
+        deduction: line.deductsInvoiceId !== null,
+        lines: crediting,
+        creditedByOthers: byOthers.get(line.id) ?? '0',
+      })
+      if (refusal) throw new InvoiceNotFinalisableError(refusal)
+    }
+
+    // A rejected Credit Note corrected so it no longer gives a deduction
+    // back makes the deduction count again: never beyond its advance, which
+    // may have been credited or deducted again since (with the lines as
+    // written, the Job locked)
+    for (const advanceId of advanceIds) {
+      const result = await trx.rawQuery(
+        `SELECT a.total < ${ADVANCE_TAKEN_BACK_SQL('a')} AS over FROM invoices a WHERE a.id = ?`,
+        [advanceId!]
+      )
+      if (result.rows[0]?.over) throw new InvoiceNotFinalisableError('deductionTooLarge')
+    }
+  }
+
+  /**
+   * Credits the Charges of each line of the Invoice `invoiceId` its Credit
+   * Notes past draft credit in full (creditedInFull(), ADR 0014): each
+   * still billed by that line gets a "credited" event naming `creditNote`.
+   * A line no longer credited in full (a rejected Credit Note corrected)
+   * gives its credited Charges back their billing ("uncredited"). A Charge
+   * set back to bill or billed elsewhere since is left alone. Runs with
+   * the Invoice's Job and the Invoice locked; locks the Charges.
+   */
+  private static async creditCharges(
+    trx: TransactionClientContract,
+    invoiceId: number,
+    creditNote: Invoice,
+    user: User | null
+  ) {
+    const links = await this.links(trx, invoiceId)
+    if (!links.length) return
+    const chargeIds = [...new Set(links.map((link) => link.chargeId))]
+    await Charge.query({ client: trx }).whereIn('id', chargeIds).orderBy('id').forUpdate()
+    const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', invoiceId)
+    const credited = await this.lineCredits(trx, invoiceId)
+    const full = new Set(
+      lines
+        .filter((line) => creditedInFull(line.lineTotal, credited.get(line.id) ?? null))
+        .map((line) => line.id)
+    )
+    const events = await ChargeEvent.query({ client: trx })
+      .whereIn('chargeId', chargeIds)
+      .whereIn('kind', [...BILLING_EVENT_KINDS])
+      .orderBy('id')
+    const latest = new Map(events.map((event) => [event.chargeId, event]))
+    for (const { lineId, chargeId } of links) {
+      const billing = latest.get(chargeId)
+      if (billing?.invoiceLineId !== lineId) continue
+      const billed = billing.kind === 'billed' || billing.kind === 'uncredited'
+      let kind: 'credited' | 'uncredited' | null = null
+      if (full.has(lineId) && billed) kind = 'credited'
+      if (!full.has(lineId) && billing.kind === 'credited') kind = 'uncredited'
+      if (!kind) continue
+      await ChargeEvent.create(
+        {
+          chargeId,
+          kind,
+          userId: user?.id ?? null,
+          invoiceId: creditNote.id,
+          invoiceLineId: lineId,
+        },
+        { client: trx }
+      )
     }
   }
 
@@ -286,41 +480,73 @@ export default class Invoices {
     const ids = advances.map((advance) => advance.id)
     const issuedOthers = (builder: any) =>
       builder.whereNot('di.status', 'draft').whereNot('di.id', except ?? 0)
+    // Deductions a Credit Note gave back no longer count (ADR 0014)
     const amounts = ids.length
       ? await issuedOthers(
           query
             .from('advance_deductions as ad')
             .join('invoices as di', 'di.id', 'ad.invoice_id')
             .whereIn('ad.advance_id', ids)
+            .whereRaw(`NOT ${DEDUCTION_REVERSED_SQL('ad')}`)
         )
           .groupBy('ad.advance_id')
           .select('ad.advance_id')
           .sum('ad.amount as amount')
       : []
+    // Invoices' deduction lines (a Credit Note's lines giving one back
+    // copy it, and are left out with it)
     const rows = ids.length
       ? await issuedOthers(
           query
             .from('invoice_lines as l')
             .join('invoices as di', 'di.id', 'l.invoice_id')
             .whereIn('l.deducts_invoice_id', ids)
+            .where('di.document_type', 'invoice')
+            .whereNotExists((given: any) =>
+              given
+                .from('invoice_lines as rl')
+                .join('invoices as rn', 'rn.id', 'rl.invoice_id')
+                .whereColumn('rl.credits_line_id', 'l.id')
+                .whereNot('rn.status', 'draft')
+            )
         )
           .groupBy('l.deducts_invoice_id', 'l.vat_rate', 'l.natura')
           .select('l.deducts_invoice_id', 'l.vat_rate', 'l.natura')
           .sum('l.line_total as total')
       : []
+    // Credit Notes on the advances, which take back what they credit
+    const creditNotes = ids.length
+      ? await Invoice.query({ client })
+          .whereIn('creditsInvoiceId', ids)
+          .whereNot('status', 'draft')
+          .whereNot('id', except ?? 0)
+          .preload('lines')
+      : []
     return advances.map((advance) => {
       const deducted = amounts.find((row: any) => row.advance_id === advance.id)?.amount ?? '0'
+      const notes = creditNotes.filter((note) => note.creditsInvoiceId === advance.id)
+      const credited = sumAmounts(notes.map((note) => note.total!))
       return {
         advance,
         deducted: new Big(deducted).toFixed(2),
-        left: advanceLeft(advance.total!, deducted),
-        taken: rows
-          .filter((row: any) => row.deducts_invoice_id === advance.id)
-          .map((row: any) => ({
-            vatRate: row.vat_rate as string,
-            natura: row.natura as string | null,
-            taxable: new Big(row.total).neg().toFixed(2),
-          })),
+        credited,
+        left: advanceLeft(advance.total!, deducted, credited),
+        taken: [
+          ...rows
+            .filter((row: any) => row.deducts_invoice_id === advance.id)
+            .map((row: any) => ({
+              vatRate: row.vat_rate as string,
+              natura: row.natura as string | null,
+              taxable: new Big(row.total).neg().toFixed(2),
+            })),
+          ...notes.flatMap((note) =>
+            note.totals.summary.map((row) => ({
+              vatRate: row.vatRate,
+              natura: row.natura,
+              taxable: row.taxable,
+            }))
+          ),
+        ],
       }
     })
   }
@@ -604,11 +830,24 @@ export default class Invoices {
           companySnapshot: issuer,
         })
       }
-      locked.merge({ discountPercent: input.discountPercent ?? '0', notes: input.notes ?? null })
+      // A Credit Note carries its Invoice's global discount, so its lines
+      // credit the Invoice's lines on the same footing (ADR 0014)
+      const creditedInvoice = locked.isCreditNote
+        ? await Invoice.query({ client: trx }).where('id', locked.creditsInvoiceId!).firstOrFail()
+        : null
+      locked.merge({
+        discountPercent: creditedInvoice
+          ? creditedInvoice.discountPercent
+          : (input.discountPercent ?? '0'),
+        notes: input.notes ?? null,
+      })
       await locked.save()
 
-      // Deduction lines follow the deductions (see deduct)
-      const entries = input.lines.filter((line) => !line.deductsInvoiceId)
+      // Deduction lines follow the deductions (see deduct); on a Credit
+      // Note they give a deduction back, and Office keeps or removes them
+      const entries = locked.isCreditNote
+        ? input.lines
+        : input.lines.filter((line) => !line.deductsInvoiceId)
       const codes = await VatCode.query({ client: trx }).whereIn(
         'id',
         entries.map((line) => line.vatCodeId)
@@ -620,16 +859,17 @@ export default class Invoices {
 
       // Lines keep their identity across saves: the ones sent back are
       // updated, the others removed, and lines without an id added
-      const existing = await InvoiceLine.query({ client: trx })
-        .where('invoiceId', locked.id)
-        .whereNull('deductsInvoiceId')
+      // A Credit Note's lines are all Office's; an Invoice's deduction
+      // lines follow its deductions
+      const ownLines = () => {
+        const query = InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
+        return locked.isCreditNote ? query : query.whereNull('deductsInvoiceId')
+      }
+      const existing = await ownLines()
       const byId = new Map(existing.map((line) => [line.id, line]))
-      // A Credit Note's lines each credit a line of its Invoice, other than
-      // one taking back an advance
-      const creditedLines = locked.isCreditNote
-        ? await InvoiceLine.query({ client: trx })
-            .where('invoiceId', locked.creditsInvoiceId!)
-            .whereNull('deductsInvoiceId')
+      // A Credit Note's lines each credit a line of its Invoice
+      const creditedLines = creditedInvoice
+        ? await InvoiceLine.query({ client: trx }).where('invoiceId', creditedInvoice.id)
         : null
       const creditable = creditedLines
         ? new Map(creditedLines.map((line) => [line.id, line]))
@@ -637,26 +877,48 @@ export default class Invoices {
       const creditedLineOf = (line: InvoiceLineInput) => {
         if (!creditable) return null
         const id = line.creditsLineId ?? (line.id ? byId.get(line.id)?.creditsLineId : null)
-        const credited = id ? creditable.get(id) : undefined
-        if (!credited) throw new InvoiceNotFinalisableError('uncreditedLine')
-        return credited
+        const creditedLine = id ? creditable.get(id) : undefined
+        if (!creditedLine) throw new InvoiceNotFinalisableError('uncreditedLine')
+        return creditedLine
       }
       const values = entries.map((line, position) => {
-        const credited = creditedLineOf(line)
+        const creditedLine = creditedLineOf(line)
+        // A deduction is given back exactly as it was taken (ADR 0014)
+        const given = creditedLine?.deductsInvoiceId ? creditedLine : null
+        if (given) {
+          return {
+            invoiceId: locked.id,
+            creditsLineId: given.id,
+            deductsInvoiceId: given.deductsInvoiceId,
+            position,
+            itemId: null,
+            description: given.description,
+            quantity: given.quantity,
+            unit: given.unit,
+            unitPrice: given.unitPrice,
+            discountPercent: given.discountPercent,
+            vatCodeId: given.vatCodeId,
+            vatRate: given.vatRate,
+            natura: given.natura,
+            legalNote: given.legalNote,
+            lineTotal: given.lineTotal,
+          }
+        }
         // A Credit Note reverses VAT as the Invoice charged it, whatever
         // the request says and whatever the VAT Code says now
-        const code = credited
+        const code = creditedLine
           ? {
-              id: credited.vatCodeId,
-              rate: credited.vatRate,
-              natura: credited.natura,
-              legalNote: credited.legalNote,
+              id: creditedLine.vatCodeId,
+              rate: creditedLine.vatRate,
+              natura: creditedLine.natura,
+              legalNote: creditedLine.legalNote,
             }
           : vat.get(line.vatCodeId)!
         const discountPercent = line.discountPercent ?? '0'
         return {
           invoiceId: locked.id,
-          creditsLineId: credited?.id ?? null,
+          creditsLineId: creditedLine?.id ?? null,
+          deductsInvoiceId: null,
           position,
           itemId: line.itemId ?? null,
           description: line.description,
@@ -690,9 +952,7 @@ export default class Invoices {
         }
       })
       const links = await this.links(trx, locked.id)
-      await InvoiceLine.query({ client: trx })
-        .where('invoiceId', locked.id)
-        .whereNull('deductsInvoiceId')
+      await ownLines()
         .whereNotIn('id', [...kept])
         .delete()
       for (const [line, value] of updates) {
@@ -717,17 +977,23 @@ export default class Invoices {
         }),
         user
       )
-      // Kept as they were unless sent; never more than is left of an advance
-      const deducts = await this.deduct(
-        trx,
-        locked,
-        input.deductions ?? (await this.deductionsOf(trx, locked.id)),
-        entries.length
-      )
+      // Kept as they were unless sent; never more than is left of an
+      // advance. A Credit Note takes nothing back
+      const deducts =
+        !locked.isCreditNote &&
+        (await this.deduct(
+          trx,
+          locked,
+          input.deductions ?? (await this.deductionsOf(trx, locked.id)),
+          entries.length
+        ))
       const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
       const total = new Big(this.totalOf(lines, locked.discountPercent))
-      // Taking advances back can't bring the total below zero
-      if (deducts && total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+      // Taking advances back, or giving them back, can't bring the total
+      // below zero
+      if ((deducts || locked.isCreditNote) && total.lt(0)) {
+        throw new InvoiceNotFinalisableError('negativeTotal')
+      }
       // Drafts too, so Office learns early what is left to credit
       if (locked.isCreditNote) await this.checkCredit(trx, locked, total.toFixed(2))
 
@@ -737,9 +1003,10 @@ export default class Invoices {
         locked.total = total.toFixed(2)
         if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
         // An advance can't be corrected below what issued Invoices took back
+        // (a rejected one has no Credit Notes, so this is what they deducted)
         if (locked.advance) {
           const taken = await trx.rawQuery(
-            `SELECT ${ADVANCE_DEDUCTED_SQL('a')} AS taken
+            `SELECT ${ADVANCE_TAKEN_BACK_SQL('a')} AS taken
             FROM invoices a WHERE a.id = ?`,
             [locked.id]
           )
@@ -756,9 +1023,12 @@ export default class Invoices {
         }
         await locked.save()
         // A corrected Credit Note may leave its Invoice overpaid: warned
-        // about, as when finalising one
+        // about, as when finalising one. A line it no longer credits in
+        // full gives its Charges back their billing, and one it now does
+        // credits them
         if (locked.isCreditNote) {
           creditedOverpaidBy = await this.overpaidBy(trx, locked.creditsInvoiceId!)
+          await this.creditCharges(trx, locked.creditsInvoiceId!, locked, user)
         }
       }
 
@@ -858,11 +1128,14 @@ export default class Invoices {
         if (!job.isActive) throw new InvoiceNotFinalisableError('jobClosed')
       }
       // Issued Invoices may have taken advances back since the draft was
-      // saved: its deductions must still fit, their lines as they are now
-      const regular = await InvoiceLine.query({ client: trx })
-        .where('invoiceId', locked.id)
-        .whereNull('deductsInvoiceId')
-      await this.deduct(trx, locked, await this.deductionsOf(trx, locked.id), regular.length)
+      // saved: its deductions must still fit, their lines as they are now.
+      // A Credit Note's lines giving a deduction back stay as saved
+      if (!locked.isCreditNote) {
+        const regular = await InvoiceLine.query({ client: trx })
+          .where('invoiceId', locked.id)
+          .whereNull('deductsInvoiceId')
+        await this.deduct(trx, locked, await this.deductionsOf(trx, locked.id), regular.length)
+      }
       const lines = await InvoiceLine.query({ client: trx })
         .where('invoiceId', locked.id)
         .orderBy('position')
@@ -870,8 +1143,10 @@ export default class Invoices {
       const total = new Big(this.totalOf(lines, locked.discountPercent))
       if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
       // An advance of nothing would only add empty deduction lines; a
-      // Credit Note of nothing credits nothing
-      if ((locked.advance || locked.isCreditNote) && total.eq(0)) {
+      // Credit Note of nothing credits nothing, unless it gives a deduction
+      // back (work credited for as much as the advance it took back)
+      const givesBack = lines.some((line) => line.deductsInvoiceId !== null)
+      if ((locked.advance || (locked.isCreditNote && !givesBack)) && total.eq(0)) {
         throw new InvoiceNotFinalisableError('empty')
       }
       // Other Credit Notes may have been finalised since this one was saved
@@ -921,6 +1196,10 @@ export default class Invoices {
           },
           { client: trx }
         )
+      }
+      // A Credit Note credits the Charges of the lines now credited in full
+      if (locked.isCreditNote) {
+        await this.creditCharges(trx, locked.creditsInvoiceId!, locked, user)
       }
 
       // Items sold without a Job leave the Warehouse now (a Job's Items left

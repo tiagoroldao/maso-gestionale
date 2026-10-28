@@ -86,8 +86,8 @@ export default class Charge extends ChargeSchema {
   }
 
   /**
-   * The "billed" event while an issued Invoice bills it (needs `events`
-   * ordered by id).
+   * The "billed" event while an issued Invoice bills it, Credit Notes
+   * crediting it or not (needs `events` ordered by id).
    */
   get billing() {
     const latest = this.events.findLast(

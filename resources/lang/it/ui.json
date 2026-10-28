@@ -487,7 +487,7 @@
       "unpaid": "{count, plural, one {# fattura da incassare} other {# fatture da incassare}}",
       "overpaid": "{count, plural, one {# fattura pagata in eccesso} other {# fatture pagate in eccesso}}",
       "advances": "{count, plural, one {# acconto non ancora detratto} other {# acconti non ancora detratti}}",
-      "drafts": "{count, plural, one {# bozza di fattura} other {# bozze di fattura}}"
+      "drafts": "{count, plural, one {# bozza di fattura o nota di credito} other {# bozze di fatture o note di credito}}"
     },
     "statuses": {
       "open": "Aperta",
@@ -787,6 +787,7 @@
       "partly_deducted": "detratto in parte ({amount})",
       "fully_deducted": "detratto"
     },
+    "advanceCredited": "stornato {amount}",
     "descriptionOf": "Descrizione della riga {position}",
     "quantityOf": "Quantità della riga {position}",
     "unitPriceOf": "Prezzo unitario della riga {position}",
@@ -880,7 +881,7 @@
     "creditNoteTitle": "Nota di credito {number}",
     "creditNoteDraftTitle": "Bozza di nota di credito",
     "creditNoteIssued": "Emessa il {date}.",
-    "creditNoteHint": "Nota di credito (TD04): ogni riga storna una riga della fattura. Riduci gli importi a quanto va stornato.",
+    "creditNoteHint": "Nota di credito (TD04): ogni riga storna una riga della fattura, fino al suo importo, con lo sconto generale della fattura. Riduci gli importi a quanto va stornato; una riga stornata per intero storna i suoi addebiti. Le righe di detrazione restituiscono l'acconto: toglile per lasciarlo detratto.",
     "creditsInvoice": "Storna la fattura {number} del {date}",
     "creditLeft": "Da stornare al massimo: {left} su {total}",
     "finaliseCreditNote": "Emetti nota di credito",
@@ -1035,7 +1036,8 @@
       "to_bill": "Da fatturare",
       "not_billable": "Non fatturabile",
       "in_draft": "In bozza di fattura",
-      "billed": "Fatturato"
+      "billed": "Fatturato",
+      "credited": "Stornato"
     },
     "recordedSection": "Registrato",
     "recordedHint": "Quello che è stato fatto o usato. Si può sempre correggere; per i materiali già scaricati, la differenza va in magazzino come rettifica.",
@@ -1054,7 +1056,7 @@
     "markNotBillable": "Segna come non fatturabile",
     "markBillable": "Rendi di nuovo fatturabile",
     "setBackToBill": "Rimetti da fatturare",
-    "setBackToBillConfirm": "Rimettere l'addebito da fatturare? La fattura {number} resta com'è; l'addebito potrà andare in una nuova fattura.",
+    "setBackToBillConfirm": "Rimettere l'addebito da fatturare? La fattura {number} (e l'eventuale nota di credito) resta com'è; l'addebito potrà andare in una nuova fattura.",
     "history": "Storico",
     "events": {
       "recorded": "Registrato",
@@ -1063,10 +1065,13 @@
       "not_billable": "Segnato non fatturabile",
       "billable": "Di nuovo fatturabile",
       "billed": "Fatturato",
-      "unbilled": "Rimesso da fatturare"
+      "unbilled": "Rimesso da fatturare",
+      "credited": "Stornato",
+      "uncredited": "Storno annullato"
     },
     "billedIn": "Fattura {number}: {amount}",
     "unbilledFrom": "Dalla fattura {number}",
+    "creditedBy": "Nota di credito {number}",
     "fromQuoteLine": "Importato dalla riga {position} del preventivo {number}",
     "fromUnnumberedQuoteLine": "Importato dalla riga {position} del preventivo",
     "fields": {

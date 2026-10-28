@@ -3,6 +3,7 @@ import type { VisitStatus } from '#models/visit'
 import type { JobIndicators } from '#shared/jobs'
 import { isSettled } from '#shared/payment_status'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { BILLING_EVENT_KINDS } from '#shared/charges'
 
 type InvoiceSummary = { status: string; total: string | null; credited: string; paid: string }
 
@@ -80,17 +81,18 @@ export const UNSETTLED_SQL = `EXISTS (SELECT 1 FROM invoices i
 /**
  * The SQL equivalents of chargeState() for the Charge `alias`: the latest
  * decision in its history ("not billable" or "billable"), the latest
- * billing event ("billed" or "unbilled"), and whether a draft holds it.
+ * billing event (BILLING_EVENT_KINDS), and whether a draft holds it.
  */
 export const NOT_BILLABLE_SQL = (alias: string) => `coalesce((SELECT e.kind = 'not_billable'
   FROM charge_events e
   WHERE e.charge_id = ${alias}.id AND e.kind IN ('not_billable', 'billable')
   ORDER BY e.id DESC LIMIT 1), false)`
 
-const BILLED_SQL = (alias: string) => `coalesce((SELECT e.kind = 'billed'
+const LATEST_BILLING_SQL = (alias: string) => `coalesce((SELECT e.kind
   FROM charge_events e
-  WHERE e.charge_id = ${alias}.id AND e.kind IN ('billed', 'unbilled')
-  ORDER BY e.id DESC LIMIT 1), false)`
+  WHERE e.charge_id = ${alias}.id
+    AND e.kind IN (${BILLING_EVENT_KINDS.map((kind) => `'${kind}'`).join(', ')})
+  ORDER BY e.id DESC LIMIT 1), 'none')`
 
 const IN_DRAFT_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_charges lc
   JOIN invoice_lines l ON l.id = lc.invoice_line_id
@@ -99,15 +101,19 @@ const IN_DRAFT_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_char
 
 export const CHARGE_STATE_SQL = (alias: string) => `(CASE
   WHEN ${NOT_BILLABLE_SQL(alias)} THEN 'not_billable'
-  WHEN ${BILLED_SQL(alias)} THEN 'billed'
-  WHEN ${IN_DRAFT_SQL(alias)} THEN 'in_draft'
-  ELSE 'to_bill' END)`
+  ELSE (CASE ${LATEST_BILLING_SQL(alias)}
+    WHEN 'billed' THEN 'billed'
+    WHEN 'uncredited' THEN 'billed'
+    WHEN 'credited' THEN 'credited'
+    ELSE (CASE WHEN ${IN_DRAFT_SQL(alias)} THEN 'in_draft' ELSE 'to_bill' END) END) END)`
 
 /**
- * Outstanding, as isOutstanding(): to bill, or only held by a draft.
+ * Outstanding, as isOutstanding(): to bill, or only held by a draft; not
+ * billed by an issued Invoice nor credited.
  */
 export const OUTSTANDING_SQL = (alias: string) =>
-  `(NOT ${NOT_BILLABLE_SQL(alias)} AND NOT ${BILLED_SQL(alias)})`
+  `(NOT ${NOT_BILLABLE_SQL(alias)}
+    AND ${LATEST_BILLING_SQL(alias)} NOT IN ('billed', 'uncredited', 'credited'))`
 
 /**
  * The SQL equivalent of isVisitBilled() for the Visit `alias`.
@@ -119,21 +125,41 @@ export const VISIT_BILLED_SQL = (
     WHERE vc.visit_id = ${alias}.id AND ${OUTSTANDING_SQL('vc')}))`
 
 /**
+ * A deduction `ad` (of advance_deductions) a Credit Note past draft gives
+ * back: it credits the deducting Invoice's lines taking back that advance
+ * (ADR 0014; Invoices.save makes it credit all of them or none).
+ */
+export const DEDUCTION_REVERSED_SQL = (ad: string) => `EXISTS (SELECT 1 FROM invoice_lines fl
+  JOIN invoice_lines rl ON rl.credits_line_id = fl.id
+  JOIN invoices rn ON rn.id = rl.invoice_id
+  WHERE fl.invoice_id = ${ad}.invoice_id AND fl.deducts_invoice_id = ${ad}.advance_id
+    AND rn.status <> 'draft')`
+
+/**
  * How much of the Advance Invoice `alias` issued Invoices took back, VAT
- * included.
+ * included: their deductions, less those a Credit Note gave back.
  */
 export const ADVANCE_DEDUCTED_SQL = (alias: string) => `(SELECT coalesce(sum(ad.amount), 0)
   FROM advance_deductions ad JOIN invoices di ON di.id = ad.invoice_id
-  WHERE ad.advance_id = ${alias}.id AND di.status <> 'draft')`
+  WHERE ad.advance_id = ${alias}.id AND di.status <> 'draft'
+    AND NOT ${DEDUCTION_REVERSED_SQL('ad')})`
+
+/**
+ * How much of the Advance Invoice `alias` is taken back, as advanceState()
+ * and advanceLeft() count it: deducted by issued Invoices, or credited by
+ * its Credit Notes past draft (ADR 0014).
+ */
+export const ADVANCE_TAKEN_BACK_SQL = (alias: string) =>
+  `(${ADVANCE_DEDUCTED_SQL(alias)} + ${CREDITED_SQL(alias)})`
 
 /**
  * A Job still has something to bill, so an issued Invoice was a partial
  * one and the Job isn't Invoiced yet, whether or not it has a Quote (ADR
  * 0012):
  * - a Visit not billed (still open, or with outstanding Charges) or an
- *   outstanding Charge on the Job itself;
- * - an issued Advance Invoice not yet fully deducted by issued Invoices
- *   (advanceState()).
+ *   outstanding Charge on the Job itself (a credited one isn't);
+ * - an issued Advance Invoice not yet fully taken back by issued Invoices
+ *   and Credit Notes (advanceState()).
  */
 export const BILLING_OPEN_SQL = `(
   EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT ${VISIT_BILLED_SQL('v')})
@@ -141,7 +167,7 @@ export const BILLING_OPEN_SQL = `(
     WHERE c.job_id = jobs.id AND c.visit_id IS NULL AND ${OUTSTANDING_SQL('c')})
   OR EXISTS (SELECT 1 FROM invoices a
     WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
-      AND a.total > ${ADVANCE_DEDUCTED_SQL('a')}))`
+      AND a.total > ${ADVANCE_TAKEN_BACK_SQL('a')}))`
 
 /**
  * The Visit `alias` isn't finished (isFinished()): planned or under way,

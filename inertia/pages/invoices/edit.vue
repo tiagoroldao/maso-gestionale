@@ -570,7 +570,18 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               <td :style="{ textAlign: 'right' }">
                 {{ amountOf(line) ? formatMoney(amountOf(line)!) : '' }}
               </td>
-              <td v-if="editable && line.deductsInvoiceId !== null" />
+              <!-- A Credit Note's deduction line is kept or removed whole (ADR 0014) -->
+              <td v-if="editable && creditNote && line.deductsInvoiceId !== null">
+                <button
+                  type="button"
+                  class="iconbtn"
+                  :aria-label="t('ui.invoices.removeLine')"
+                  @click="lines.splice(index, 1)"
+                >
+                  <Trash2 :size="14" />
+                </button>
+              </td>
+              <td v-else-if="editable && line.deductsInvoiceId !== null" />
               <td v-else-if="editable" class="table__actions">
                 <button
                   type="button"
@@ -667,7 +678,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             v-model="discountPercent"
             inputmode="decimal"
             class="field__input"
-            :disabled="!editable"
+            :disabled="!editable || creditNote"
             :style="{ maxWidth: '120px' }"
           />
           <span class="field__hint">{{ t('ui.invoices.globalDiscountHint') }}</span>

@@ -44,7 +44,9 @@ const props = defineProps<{
     status: string
     total: string
     advance: boolean
-    deduction: { deducted: string; state: AdvanceState } | null
+    deduction: { deducted: string; credited: string; state: AdvanceState } | null
+    // Its Credit Notes, drafts included (ADR 0014)
+    creditNotes: { id: number; number: string | null; status: string; total: string }[]
   }[]
   canInvoice: boolean
   canInvoiceAdvance: boolean
@@ -431,7 +433,31 @@ function confirmCancel() {
                   amount: formatMoney(invoice.deduction.deducted),
                 })
               }}
+              <template v-if="Number(invoice.deduction.credited)">
+                ·
+                {{
+                  t('ui.invoices.advanceCredited', {
+                    amount: formatMoney(invoice.deduction.credited),
+                  })
+                }}
+              </template>
             </span>
+            <ul
+              v-if="invoice.creditNotes.length"
+              :style="{ margin: 0, paddingLeft: '18px' }"
+              data-testid="job-credit-notes"
+            >
+              <li v-for="note in invoice.creditNotes" :key="note.id">
+                <Link route="invoices.edit" :params="{ id: note.id }" class="il">
+                  {{
+                    note.number
+                      ? t('ui.invoices.creditNoteTitle', { number: note.number })
+                      : t('ui.invoices.creditNoteDraftTitle')
+                  }}
+                </Link>
+                · {{ t(`ui.invoices.statuses.${note.status}`) }} · {{ formatMoney(note.total) }}
+              </li>
+            </ul>
           </li>
         </ul>
         <Form

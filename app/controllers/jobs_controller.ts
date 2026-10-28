@@ -1,3 +1,4 @@
+import Big from 'big.js'
 import Job from '#models/job'
 import { closableByOffice, hasBillableWork, isClosedVisit } from '#shared/visits'
 import { isVisitBilled, type ChargeState } from '#shared/charges'
@@ -156,9 +157,10 @@ export default class JobsController {
     // Office set to bill
     const amountOf = (charge: Charge) =>
       charge.billing?.amount ?? lineTotal(charge.billQuantity, charge.unitPrice)
-    // What is billable so far, and where it stands
+    // What is billable so far, and where it stands: not what Office marked
+    // not billable, nor what Credit Notes credited (ADR 0014)
     const work = charges
-      .filter((charge) => charge.state !== 'not_billable')
+      .filter((charge) => charge.state !== 'not_billable' && charge.state !== 'credited')
       .map((charge) => ({ visitId: charge.visitId, amount: amountOf(charge), state: charge.state }))
     const amounts = work.map((line) => line.amount)
     const sumOf = (state: ChargeState) =>
@@ -169,8 +171,19 @@ export default class JobsController {
     const quotes = await job.related('quotes').query().preload('lines').orderBy('sequence')
     // Advance Invoices don't count as a draft from the Job's Charges
     const ownInvoices = invoices.filter((invoice) => !invoice.advance)
-    const advances = await Invoices.advancesOf(undefined, job.id)
-    const deductions = new Map(advances.map(({ advance, deducted }) => [advance.id, deducted]))
+    const issuedAdvances = await Invoices.advancesOf(undefined, job.id)
+    const advances = new Map(issuedAdvances.map((entry) => [entry.advance.id, entry]))
+    // Each Invoice's Credit Notes, drafts included (ADR 0014)
+    const creditNotes = invoices.length
+      ? await Invoice.query()
+          .whereIn(
+            'creditsInvoiceId',
+            invoices.map((invoice) => invoice.id)
+          )
+          .preload('lines')
+          .orderBy('id')
+      : []
+    const issued = (invoice: Invoice) => invoice.status !== 'draft'
 
     return inertia.render('jobs/show', {
       // A Job may have several Quotes, written at any time while it isn't
@@ -182,20 +195,33 @@ export default class JobsController {
         total: quote.totals.total,
       })),
       canWriteQuote: Quotes.canWrite(job),
-      invoices: invoices.map((invoice) => ({
-        id: invoice.id,
-        number: invoice.formattedNumber,
-        status: invoice.status,
-        total: invoice.totals.total,
-        advance: invoice.advance,
-        // An issued advance: how much issued Invoices took back (ADR 0011)
-        deduction: deductions.has(invoice.id)
-          ? {
-              deducted: deductions.get(invoice.id)!,
-              state: advanceState(invoice.total!, deductions.get(invoice.id)!),
-            }
-          : null,
-      })),
+      invoices: invoices.map((invoice) => {
+        const advance = advances.get(invoice.id)
+        return {
+          id: invoice.id,
+          number: invoice.formattedNumber,
+          status: invoice.status,
+          total: invoice.totals.total,
+          advance: invoice.advance,
+          // An issued advance: how much issued Invoices deducted and Credit
+          // Notes credited of it (ADR 0011, 0014)
+          deduction: advance
+            ? {
+                deducted: advance.deducted,
+                credited: advance.credited,
+                state: advanceState(invoice.total!, advance.deducted, advance.credited),
+              }
+            : null,
+          creditNotes: creditNotes
+            .filter((note) => note.creditsInvoiceId === invoice.id)
+            .map((note) => ({
+              id: note.id,
+              number: note.formattedNumber,
+              status: note.status,
+              total: note.totals.total,
+            })),
+        }
+      }),
       // Every Job invoices from its Charges, Quote or not (ADR 0012), even
       // once closed or cancelled (#111), while some is to bill and no draft
       // waits
@@ -216,15 +242,16 @@ export default class JobsController {
       // What closing would leave behind, shown as a warning (ADR 0015)
       leftToClose: job.isActive ? await Jobs.leftToClose(job.id) : null,
       // Taxable amounts: what issued Invoices billed (deductions net out the
-      // advances) against the work recorded, and the sum of the accepted
-      // Quotes for comparison only, since they don't bind the bill (ADR
-      // 0012, 0013)
+      // advances), less what Credit Notes past draft credited (ADR 0014),
+      // against the work recorded, and the sum of the accepted Quotes for
+      // comparison only, since they don't bind the bill (ADR 0012, 0013)
       invoicedSoFar: {
-        amount: sumAmounts(
-          invoices
-            .filter((invoice) => invoice.status !== 'draft')
-            .map((invoice) => invoice.totals.taxable)
-        ),
+        amount: sumAmounts([
+          ...invoices.filter(issued).map((invoice) => invoice.totals.taxable),
+          ...creditNotes
+            .filter(issued)
+            .map((note) => new Big(note.totals.taxable).neg().toFixed(2)),
+        ]),
         of: sumAmounts(amounts),
         quoted: quotes.some((quote) => quote.status === 'accepted')
           ? sumAmounts(

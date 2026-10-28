@@ -92,21 +92,27 @@ async function amountsOf(invoice: Invoice) {
 
 /**
  * The draft Credit Note for `invoice` (a new one, or the one still open)
- * with its lines crediting `prices` (unit prices before VAT, quantity 1,
- * one per credited line, in order).
+ * with its lines crediting `prices` (unit prices before VAT, quantity 1),
+ * one per line of the Invoice, in order; the Invoice's lines after them
+ * aren't credited.
  */
 async function creditNote(invoice: Invoice, prices: string[]) {
   const note = await Invoices.createCreditNote(invoice)
   const lines = await linesOf(note)
+  const credited = await linesOf(invoice)
   await Invoices.save(note, {
-    lines: prices.map((unitPrice, index) => ({
-      id: lines[index].id,
-      ...(lines[index].itemId && { itemId: lines[index].itemId! }),
-      description: lines[index].description,
-      quantity: '1',
-      unitPrice,
-      vatCodeId: lines[index].vatCodeId,
-    })),
+    lines: prices.map((unitPrice, index) => {
+      const line = lines.find((prefilled) => prefilled.creditsLineId === credited[index].id)
+      return {
+        ...(line && { id: line.id }),
+        creditsLineId: credited[index].id,
+        ...(credited[index].itemId && { itemId: credited[index].itemId! }),
+        description: credited[index].description,
+        quantity: '1',
+        unitPrice,
+        vatCodeId: credited[index].vatCodeId,
+      }
+    }),
   })
   await note.refresh()
   return note
@@ -266,7 +272,7 @@ test.group('Credit Notes', () => {
     assert.equal(note.creditsInvoiceId, invoice.id)
   })
 
-  test('drafts, Invoices not yet delivered, rejected ones, advances and Credit Notes are refused', async ({
+  test('drafts, Invoices not yet delivered, rejected ones, advances all taken back and Credit Notes are refused', async ({
     client,
     assert,
   }) => {
@@ -295,6 +301,8 @@ test.group('Credit Notes', () => {
     })
     await Invoices.finalise(advance)
     await sentTo(advance, 'delivered')
+    // Credited in full: nothing is left of it to credit (#146)
+    await Invoices.finalise(await creditNote(advance, ['100']))
     const note = await creditNote(await issued(customer), ['10', '0'])
     await Invoices.finalise(note)
     await sentTo(note, 'delivered')
@@ -304,7 +312,7 @@ test.group('Credit Notes', () => {
       [notSent, 'notIssued'],
       [submitted, 'notIssued'],
       [rejected, 'notIssued'],
-      [advance, 'advance'],
+      [advance, 'advanceTakenBack'],
       [note, 'creditNote'],
     ]
     for (const [invoice, reason] of cases) {
@@ -319,7 +327,7 @@ test.group('Credit Notes', () => {
       const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
       page.assertInertiaPropsContains({ canCredit: false })
     }
-    assert.lengthOf(await Invoice.query().where('documentType', 'credit_note'), 1)
+    assert.lengthOf(await Invoice.query().where('documentType', 'credit_note'), 2)
   })
 
   test('the Credit Note follows the Invoice lifecycle, with TD04 XML naming the Invoice', async ({
@@ -530,7 +538,7 @@ test.group('Credit Notes', () => {
     const first = await creditNote(invoice, ['50', '0'])
     await Invoices.finalise(first)
     await sentTo(first, 'rejected')
-    const second = await creditNote(invoice, ['30', '0'])
+    const second = await creditNote(invoice, ['10', '20'])
     await Invoices.finalise(second)
     // 24.41 is more than the 24.40 left: refused when saved
     await assertRefused(assert, () => creditNote(invoice, ['0', '20.01']), 'creditTooLarge')

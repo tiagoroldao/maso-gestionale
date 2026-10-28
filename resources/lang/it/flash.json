@@ -97,19 +97,23 @@
   "invoiceFinalised": "Fattura {number} emessa.",
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",
-    "negativeTotal": "Il totale della fattura sarebbe negativo: gli acconti detratti superano quanto fatturato. Detrai meno.",
-    "deductionTooLarge": "Si detrae più di quanto resta di un acconto: riduci la detrazione.",
+    "negativeTotal": "Il totale sarebbe negativo: gli acconti detratti superano quanto fatturato (in una nota di credito, le detrazioni restituite superano quanto si storna). Detrai meno, o togli le righe di detrazione.",
+    "deductionTooLarge": "Si detrae più di quanto resta di un acconto (anche togliendo da una nota di credito la restituzione di una detrazione): riduci la detrazione, o lascia la restituzione.",
     "jobClosed": "La commessa è chiusa o annullata: un acconto non si emette più. Elimina la bozza, o riapri la commessa.",
     "belowDeducted": "L'acconto è già stato detratto da fatture emesse per più di questo importo.",
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture.",
-    "creditTooLarge": "La nota di credito supera quanto resta da stornare della fattura (il suo totale meno le altre note di credito emesse): riduci gli importi.",
-    "uncreditedLine": "Ogni riga della nota di credito deve stornare una riga della fattura."
+    "creditTooLarge": "La nota di credito supera quanto resta da stornare della fattura (il suo totale meno le altre note di credito emesse e, per un acconto, quanto già detratto): riduci gli importi.",
+    "uncreditedLine": "Ogni riga della nota di credito deve stornare una riga della fattura.",
+    "lineCreditTooLarge": "Una riga storna più di quanto resta della riga della fattura (il suo importo meno quanto già stornato da altre note di credito emesse): riduci l'importo.",
+    "negativeCredit": "Le righe di una nota di credito non possono avere prezzi o importi negativi.",
+    "partialDeduction": "Una detrazione d'acconto si restituisce per intero: tieni tutte le sue righe o nessuna.",
+    "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata."
   },
   "creditNoteCreated": "Bozza di nota di credito creata: riduci gli importi a quanto va stornato.",
   "creditNoteRefused": {
     "creditNote": "Una nota di credito non si storna con un'altra nota di credito.",
     "notIssued": "Si può stornare solo una fattura consegnata o non recapitabile: una bozza o una fattura non ancora consegnata no, e una scartata si corregge.",
-    "advance": "Lo storno di una fattura di acconto non è ancora disponibile."
+    "advanceTakenBack": "Dell'acconto non resta nulla da stornare: è già stato detratto o stornato per intero."
   },
   "creditNoteFinalised": "Nota di credito {number} emessa.",
   "creditNoteOverpaid": "La fattura {number} risulta ora pagata in eccesso di {amount}: rimborsa il cliente.",
@@ -164,6 +168,7 @@
   "chargeSetBackToBill": "Addebito rimesso da fatturare.",
   "chargeRefused": {
     "billed": "L'addebito è in una fattura: per modificarne la fatturazione, toglilo dalla bozza o rimettilo da fatturare.",
+    "credited": "L'addebito è stato stornato con una nota di credito: rimettilo da fatturare per modificarne la fatturazione.",
     "notBilled": "L'addebito non è in una fattura emessa: non c'è nulla da rimettere da fatturare.",
     "archived": "La tariffa o l'articolo scelto è archiviato.",
     "closed": "La commessa è chiusa: riaprila per aggiungere addebiti.",

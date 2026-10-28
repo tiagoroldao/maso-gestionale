@@ -6,7 +6,13 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput } from '@shared/money'
-import { isHeld, type ChargeEventKind, type ChargeKind, type ChargeState } from '@shared/charges'
+import {
+  canSetBackToBill,
+  isHeld,
+  type ChargeEventKind,
+  type ChargeKind,
+  type ChargeState,
+} from '@shared/charges'
 import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
 
@@ -284,7 +290,7 @@ const shown = (key: string, value: string | null) => {
           </fieldset>
         </Form>
         <Form
-          v-if="charge.state === 'billed'"
+          v-if="canSetBackToBill(charge.state)"
           route="charges.set_back_to_bill"
           :params="{ id: charge.id }"
           :on-before="confirmSetBack"
@@ -331,7 +337,9 @@ const shown = (key: string, value: string | null) => {
                           number: event.invoice.number ?? '',
                           amount: formatMoney(event.amount),
                         })
-                      : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
+                      : event.kind === 'credited' || event.kind === 'uncredited'
+                        ? t('ui.charges.creditedBy', { number: event.invoice.number ?? '' })
+                        : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
                   }}
                 </Link>
                 <div v-for="(after, key) in shownChanges(event.changes)" :key="key">
