@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Charge from '#models/charge'
 import ChargeEvent from '#models/charge_event'
+import InstalledEquipment from '#models/installed_equipment'
 import Invoice from '#models/invoice'
 import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
@@ -17,6 +18,7 @@ import StockLedger from '#stock/stock_ledger'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem } from '#tests/helpers/items'
+import { createSite } from '#tests/helpers/sites'
 import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
@@ -670,5 +672,76 @@ test.group('Charges on the Job itself', () => {
       .loginAs(await createUser('admin'))
       .redirects(0)
     added.assertFlashMessage('success', it('flash.chargeAdded'))
+  })
+})
+
+test.group('Charges for installed Items', () => {
+  test('changing the Item moves the equipment the Charge created', async ({ client, assert }) => {
+    const { office, job, visit } = await setup()
+    const site = await createSite()
+    job.siteId = site.id
+    await job.save()
+    const boiler = await createItem({ description: 'Caldaia A', maintenanceIntervalMonths: 12 })
+    const other = await createItem({ description: 'Caldaia B', maintenanceIntervalMonths: 24 })
+    const charge = await FieldWork.recordItem(visit, {
+      itemId: boiler.id,
+      quantity: '1',
+      installed: true,
+    })
+
+    const response = await client
+      .put(`/charges/${charge.id}/recorded`)
+      .form({ itemId: String(other.id), quantity: '1' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    response.assertFlashMessage('success', it('flash.chargeCorrected'))
+
+    const equipment = await InstalledEquipment.findOrFail(charge.installedEquipmentId)
+    assert.equal(equipment.itemId, other.id)
+    assert.equal(equipment.maintenanceIntervalMonths, 24)
+  })
+
+  test('equipment already at the Site keeps its Item; the change is refused', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, visit } = await setup()
+    const site = await createSite()
+    job.siteId = site.id
+    await job.save()
+    const boiler = await createItem({ description: 'Caldaia A' })
+    const other = await createItem({ description: 'Caldaia B' })
+    const existing = await InstalledEquipment.create({
+      siteId: site.id,
+      equipmentType: 'Caldaia',
+    })
+    const charge = await FieldWork.recordItem(visit, {
+      itemId: boiler.id,
+      quantity: '1',
+      installed: true,
+      equipmentId: existing.id,
+    })
+
+    const refused = await client
+      .put(`/charges/${charge.id}/recorded`)
+      .form({ itemId: String(other.id), quantity: '1' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refused.assertFlashMessage('error', it('flash.chargeRefused.installed'))
+    await existing.refresh()
+    assert.equal(existing.itemId, boiler.id)
+    await charge.refresh()
+    assert.equal(charge.itemId, boiler.id)
+
+    // The quantity alone can still be corrected
+    const kept = await client
+      .put(`/charges/${charge.id}/recorded`)
+      .form({ itemId: String(boiler.id), quantity: '2' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    kept.assertFlashMessage('success', it('flash.chargeCorrected'))
   })
 })

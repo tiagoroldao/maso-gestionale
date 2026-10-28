@@ -124,7 +124,8 @@
     "billed": "L'addebito è già in una fattura: la fatturazione non si può più modificare.",
     "archived": "La tariffa o l'articolo scelto è archiviato.",
     "cancelled": "La commessa è stata annullata: la fatturazione dell'addebito non si può più modificare.",
-    "worker": "Il tecnico scelto non è attivo o non fa parte dell'intervento."
+    "worker": "Il tecnico scelto non è attivo o non fa parte dell'intervento.",
+    "installed": "L'articolo è stato installato su un apparecchio già presente nell'immobile: non si può cambiare da qui."
   },
   "chargeAdded": "Addebito aggiunto."
 }

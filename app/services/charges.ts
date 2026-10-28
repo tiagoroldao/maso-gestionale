@@ -4,6 +4,7 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Charge from '#models/charge'
 import ChargeEvent, { type ChargeChanges } from '#models/charge_event'
+import InstalledEquipment from '#models/installed_equipment'
 import Item from '#models/item'
 import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
@@ -18,10 +19,11 @@ import { labourDescription } from '#services/field_work'
  * An Invoice holds the Charge (a draft or an issued one), so what is
  * billed changes only through billing (ADR 0010); its Job was cancelled,
  * which freezes billing; or a correction picked an archived Labour Rate
- * or Item, or a Technician who is inactive or not on the Visit.
+ * or Item, or a Technician who is inactive or not on the Visit; or it
+ * would change the Item of equipment the Charge only linked to.
  */
 export class ChargeRefusedError extends Error {
-  constructor(readonly reason: 'billed' | 'cancelled' | 'archived' | 'worker') {
+  constructor(readonly reason: 'billed' | 'cancelled' | 'archived' | 'worker' | 'installed') {
     super(reason)
   }
 }
@@ -139,6 +141,9 @@ export default class Charges {
       } else if (locked.kind === 'item') {
         const item = await Item.findOrFail(input.itemId, { client: trx })
         if (item.archivedAt && item.id !== locked.itemId) throw new ChargeRefusedError('archived')
+        if (item.id !== locked.itemId && locked.installedEquipmentId) {
+          await this.moveEquipment(trx, locked, item)
+        }
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })
         }
@@ -201,6 +206,29 @@ export default class Charges {
   private static refuseBillingChange(charge: Charge, job: Job) {
     if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
     if (charge.invoiceId !== null) throw new ChargeRefusedError('billed')
+  }
+
+  /**
+   * An installed Item replaced by another: the equipment this Charge
+   * created now is the new Item (with its maintenance interval, unless
+   * one was set by hand). Equipment that was already at the Site and only
+   * linked by this Charge isn't this Charge's to change.
+   */
+  private static async moveEquipment(trx: TransactionClientContract, charge: Charge, item: Item) {
+    if (!charge.createdEquipment) throw new ChargeRefusedError('installed')
+    // Locked after the Visit and Job, as removing the Charge does
+    const equipment = await InstalledEquipment.query({ client: trx })
+      .where('id', charge.installedEquipmentId!)
+      .forUpdate()
+      .first()
+    if (!equipment) return
+    const previous = await Item.findOrFail(charge.itemId, { client: trx })
+    const interval =
+      equipment.maintenanceIntervalMonths === previous.maintenanceIntervalMonths
+        ? item.maintenanceIntervalMonths
+        : equipment.maintenanceIntervalMonths
+    equipment.merge({ itemId: item.id, maintenanceIntervalMonths: interval })
+    await equipment.useTransaction(trx).save()
   }
 
   /**
