@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { QuoteStatus } from '@shared/quotes'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Pencil } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
@@ -32,7 +33,7 @@ function fillCallOut(fee: string) {
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
 defineProps<{
-  quote: { status: string } | null
+  quote: { status: QuoteStatus } | null
   canStartQuote: boolean
   invoices: {
     id: number

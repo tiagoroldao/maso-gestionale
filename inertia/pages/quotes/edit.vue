@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { QuoteStatus } from '@shared/quotes'
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
@@ -32,7 +33,7 @@ type Line = {
 const props = defineProps<{
   job: { id: number; number: string; title: string; status: string; customer: string }
   quote: {
-    status: string
+    status: QuoteStatus
     sentAt: string | null
     notes: string | null
     validityDays: number | null

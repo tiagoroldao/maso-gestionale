@@ -3,6 +3,8 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Big from 'big.js'
 import Charge from '#models/charge'
+import CompanySettings from '#models/company_settings'
+import Customer from '#models/customer'
 import ChargeEvent from '#models/charge_event'
 import Item from '#models/item'
 import Job from '#models/job'
@@ -12,6 +14,7 @@ import User from '#models/user'
 import VatCode from '#models/vat_code'
 import Visit from '#models/visit'
 import Scheduling from '#services/scheduling'
+import { companyDetailsFrom } from '#documents/document_renderer'
 import { lineTotal } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
@@ -137,7 +140,7 @@ export default class Quotes {
       if (!quote || !this.isSendable(job, quote)) throw new QuoteNotEditableError()
       quote.useTransaction(trx)
       quote.status = 'sent'
-      quote.sentAt = DateTime.now()
+      await this.copyAsSent(trx, job, quote, DateTime.now())
       await quote.save()
     })
   }
@@ -163,7 +166,7 @@ export default class Quotes {
       quote.status = quoteStatus
       quote.decidedAt = DateTime.now()
       // A draft decided on the spot was sent there and then
-      quote.sentAt ??= quote.decidedAt
+      if (!quote.sentAt) await this.copyAsSent(trx, job, quote, quote.decidedAt)
       await quote.save()
 
       job.status = jobStatus
@@ -179,12 +182,31 @@ export default class Quotes {
   }
 
   /**
+   * Dates the Quote as sent and copies what the Customer received: their
+   * details, the company's and the subject (the Job's title), so the PDF
+   * stays as it went out. The logo stays live, as on Invoices.
+   */
+  private static async copyAsSent(
+    trx: TransactionClientContract,
+    job: Job,
+    quote: Quote,
+    at: DateTime
+  ) {
+    const customer = await Customer.findOrFail(job.customerId, { client: trx })
+    const settings = await CompanySettings.current()
+    quote.sentAt = at
+    quote.subject = job.title
+    quote.customerSnapshot = customer.toSnapshot()
+    quote.companySnapshot = companyDetailsFrom(settings)
+  }
+
+  /**
    * Locks the Job, then its Quote, and refreshes the Job's status, so a
    * save, cancel or other decision can't interleave.
    */
   private static async lockForDecision(trx: TransactionClientContract, job: Job) {
     const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-    job.merge({ status: locked.status })
+    job.merge({ status: locked.status, title: locked.title, customerId: locked.customerId })
     job.useTransaction(trx)
     return Quote.query({ client: trx }).where('jobId', job.id).forUpdate().first()
   }

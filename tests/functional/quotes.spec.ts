@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
 import Charge from '#models/charge'
+import Job from '#models/job'
 import Quote from '#models/quote'
 import type User from '#models/user'
 import LabourRate from '#models/labour_rate'
@@ -848,9 +849,43 @@ test.group('Sending Quotes', () => {
       assert.equal(quote.status, status)
       assert.isNotNull(quote.sentAt)
       assert.equal(quote.sentAt?.toMillis(), quote.decidedAt?.toMillis())
+      // What the Customer received is kept, as when sending
+      assert.equal(quote.subject, job.title)
+      assert.equal(quote.customerSnapshot?.city, base.customer.city)
+      assert.isNotNull(quote.companySnapshot)
       await job.refresh()
       assert.equal(job.status, jobStatus)
     }
+  })
+
+  test("a sent Quote's document stays as it went out", async ({ client, assert }) => {
+    const { office, job, customer } = await draft(client)
+    const settings = await CompanySettings.current()
+    settings.merge({ name: 'Idraulica Maso', street: 'Via Roma', city: 'Trento' })
+    await settings.save()
+    const render = async () => {
+      const quote = await Quote.query()
+        .where('jobId', job.id)
+        .preload('lines', (lines) => lines.orderBy('position'))
+        .firstOrFail()
+      const current = await Job.query().where('id', job.id).preload('customer').firstOrFail()
+      const input = await quoteDocument(current, quote, i18nManager.locale('it'))
+      return new DocumentRenderer(noConverter).renderHtml(input)
+    }
+    await send(client, job.id, office)
+    const sent = await render()
+    assert.include(sent, 'Idraulica Maso')
+    assert.include(sent, customer.city)
+
+    // Everything the document printed changes afterwards
+    const other = await createCustomer({ name: 'Altro Cliente', city: 'Bolzano' })
+    customer.merge({ street: 'Via Nuova', city: 'Rovereto' })
+    await customer.save()
+    await Job.query().where('id', job.id).update({ customer_id: other.id, title: 'Altro lavoro' })
+    settings.merge({ name: 'Altra ditta', street: 'Via Verdi', city: 'Merano' })
+    await settings.save()
+
+    assert.equal(await render(), sent)
   })
 
   test("a sent Quote's lines can't be imported until it is accepted", async ({

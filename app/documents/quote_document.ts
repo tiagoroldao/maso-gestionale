@@ -2,7 +2,7 @@ import edge from 'edge.js'
 import type { I18n } from '@adonisjs/i18n'
 import type Job from '#models/job'
 import type Quote from '#models/quote'
-import type { DocumentInput } from '#documents/document_renderer'
+import { recipientFrom, type DocumentInput } from '#documents/document_renderer'
 
 const euro = new Intl.NumberFormat('it-IT', {
   style: 'currency',
@@ -18,13 +18,15 @@ const vatLabel = (rate: string, natura: string | null) =>
 /**
  * A Job's Quote as a document on the Base Layout (Customer preloaded on
  * the Job, lines on the Quote): dated by its issue date, with the optional
- * validity, the lines, the VAT summary and the legal notes.
+ * validity, the lines, the VAT summary and the legal notes. Once sent it
+ * prints the Customer, company and subject copied then; a draft reads them
+ * as they are now.
  */
 export async function quoteDocument(job: Job, quote: Quote, i18n: I18n): Promise<DocumentInput> {
   const t = (key: string, data?: Record<string, unknown>) => i18n.t(key, data)
   const issuedOn = quote.issuedOn ?? quote.createdAt
   const bodyHtml = await edge.render('documents/quote_body', {
-    job: { number: job.number, title: job.title },
+    job: { number: job.number, title: quote.subject ?? job.title },
     issuedOn: issuedOn.toFormat('dd/MM/yyyy'),
     validUntil: quote.validityDays
       ? issuedOn.plus({ days: quote.validityDays }).toFormat('dd/MM/yyyy')
@@ -53,7 +55,10 @@ export async function quoteDocument(job: Job, quote: Quote, i18n: I18n): Promise
 
   return {
     title: t('documents.quote.title', { number: job.number }),
-    recipient: job.customer.toRecipient(),
+    recipient: quote.customerSnapshot
+      ? recipientFrom(quote.customerSnapshot)
+      : job.customer.toRecipient(),
+    company: quote.companySnapshot ?? undefined,
     bodyHtml,
   }
 }

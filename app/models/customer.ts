@@ -4,6 +4,7 @@ import { CustomerSchema } from '#database/schema'
 import PaymentTerms from '#models/payment_terms'
 import Site from '#models/site'
 import Job from '#models/job'
+import type { CustomerSnapshot } from '#models/invoice'
 import { recipientFrom, type Recipient } from '#documents/document_renderer'
 
 export const CUSTOMER_TYPES = ['private', 'company', 'condominium', 'organisation'] as const
@@ -34,6 +35,28 @@ export default class Customer extends CustomerSchema {
     return this.type === 'private'
       ? [this.firstName, this.lastName].filter(Boolean).join(' ')
       : (this.name ?? '')
+  }
+
+  /**
+   * The Customer as a document received it, copied when it is finalised
+   * or sent.
+   */
+  toSnapshot(): CustomerSnapshot {
+    return {
+      type: this.type,
+      name: this.displayName,
+      firstName: this.firstName,
+      lastName: this.lastName,
+      vatNumber: this.vatNumber,
+      taxCode: this.taxCode,
+      sdiCode: this.sdiCode,
+      pec: this.pec,
+      street: this.street,
+      streetNumber: this.streetNumber,
+      postalCode: this.postalCode,
+      city: this.city,
+      province: this.province,
+    }
   }
 
   /**

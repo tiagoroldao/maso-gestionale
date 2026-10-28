@@ -6,7 +6,7 @@ import CompanySettings from '#models/company_settings'
 import Charge from '#models/charge'
 import ChargeEvent from '#models/charge_event'
 import Customer from '#models/customer'
-import Invoice, { type CompanySnapshot, type CustomerSnapshot } from '#models/invoice'
+import Invoice, { type CompanySnapshot } from '#models/invoice'
 import InvoiceSequence from '#models/invoice_sequence'
 import InvoiceLine from '#models/invoice_line'
 import Item from '#models/item'
@@ -481,7 +481,7 @@ export default class Invoices {
         if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
         const customer = await Customer.findOrFail(locked.customerId, { client: trx })
         locked.merge({
-          customerSnapshot: this.customerSnapshot(customer),
+          customerSnapshot: customer.toSnapshot(),
           companySnapshot: issuer,
         })
       }
@@ -714,7 +714,7 @@ export default class Invoices {
         issuedOn: today,
         dueOn: customer.paymentTerms.dueDate(today),
         paymentMethod: customer.paymentTerms.paymentMethod,
-        customerSnapshot: this.customerSnapshot(customer),
+        customerSnapshot: customer.toSnapshot(),
         companySnapshot: issuer,
         finalisedAt: DateTime.now(),
       })
@@ -802,24 +802,6 @@ export default class Invoices {
     sequence.nextNumber = number + 1
     await sequence.save()
     return number
-  }
-
-  private static customerSnapshot(customer: Customer): CustomerSnapshot {
-    return {
-      type: customer.type,
-      name: customer.displayName,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      vatNumber: customer.vatNumber,
-      taxCode: customer.taxCode,
-      sdiCode: customer.sdiCode,
-      pec: customer.pec,
-      street: customer.street,
-      streetNumber: customer.streetNumber,
-      postalCode: customer.postalCode,
-      city: customer.city,
-      province: customer.province,
-    }
   }
 
   /**

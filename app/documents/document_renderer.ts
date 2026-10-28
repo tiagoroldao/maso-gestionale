@@ -18,7 +18,8 @@ export type Recipient = {
 
 /**
  * The issuing company's details, when the document must show them as they
- * were (a finalised Invoice) rather than as Company settings are now.
+ * were (a finalised Invoice, a sent Quote) rather than as Company settings
+ * are now.
  */
 export type CompanyDetails = Pick<
   CompanySettings,
@@ -33,6 +34,25 @@ export type CompanyDetails = Pick<
   | 'email'
   | 'phone'
 >
+
+/**
+ * Company settings as a document prints them now, to keep on a document
+ * that must not change once it has gone out (a sent Quote).
+ */
+export function companyDetailsFrom(settings: CompanyDetails): CompanyDetails {
+  return {
+    name: settings.name,
+    street: settings.street,
+    streetNumber: settings.streetNumber,
+    postalCode: settings.postalCode,
+    city: settings.city,
+    province: settings.province,
+    vatNumber: settings.vatNumber,
+    taxCode: settings.taxCode,
+    email: settings.email,
+    phone: settings.phone,
+  }
+}
 
 /**
  * The recipient block for anyone with a billing address: a Customer, or

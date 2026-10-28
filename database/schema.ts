@@ -678,10 +678,14 @@ export class QuoteLineSchema extends BaseModel {
 }
 
 export class QuoteSchema extends BaseModel {
-  static $columns = ['createdAt', 'decidedAt', 'id', 'issuedOn', 'jobId', 'notes', 'sentAt', 'status', 'updatedAt', 'validityDays'] as const
+  static $columns = ['companySnapshot', 'createdAt', 'customerSnapshot', 'decidedAt', 'id', 'issuedOn', 'jobId', 'notes', 'sentAt', 'status', 'subject', 'updatedAt', 'validityDays'] as const
   $columns = QuoteSchema.$columns
+  @column()
+  declare companySnapshot: any | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare customerSnapshot: any | null
   @column.dateTime()
   declare decidedAt: DateTime | null
   @column({ isPrimary: true })
@@ -696,6 +700,8 @@ export class QuoteSchema extends BaseModel {
   declare sentAt: DateTime | null
   @column()
   declare status: string
+  @column()
+  declare subject: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
