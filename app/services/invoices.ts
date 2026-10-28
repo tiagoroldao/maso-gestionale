@@ -32,6 +32,16 @@ import {
 export class InvoiceNotEditableError extends Error {}
 
 /**
+ * The correction would bring the Invoice's total below what has already
+ * been paid on it.
+ */
+export class InvoiceBelowPaidError extends Error {
+  constructor(readonly paid: string) {
+    super(paid)
+  }
+}
+
+/**
  * Serialises finalising across years, so the issue date and the year's
  * number come from one reading of the clock taken after the lock.
  */
@@ -299,6 +309,13 @@ export default class Invoices {
       if (locked.status !== 'draft') {
         const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
         locked.total = this.totalOf(lines, locked.discountPercent)
+        // Payments are recorded with this Invoice locked: the sum is current
+        const paid = await trx
+          .from('payments')
+          .where('invoice_id', locked.id)
+          .sum('amount as paid')
+          .first()
+        if (new Big(locked.total).lt(paid?.paid ?? 0)) throw new InvoiceBelowPaidError(paid.paid)
         await locked.save()
       }
 

@@ -67,6 +67,7 @@
   "invoiceSaved": "Bozza salvata.",
   "invoiceDeleted": "Bozza eliminata.",
   "invoiceNotEditable": "La fattura non è più modificabile.",
+  "invoiceBelowPaid": "Il totale corretto sarebbe inferiore a quanto già incassato ({paid, number, ::currency/EUR}): elimina prima gli incassi in eccesso.",
   "invoiceFinalised": "Fattura {number} emessa.",
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",

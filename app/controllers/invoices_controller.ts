@@ -8,6 +8,7 @@ import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
 import Invoices, {
+  InvoiceBelowPaidError,
   InvoiceNotEditableError,
   InvoiceNotFinalisableError,
   JobNotInvoiceableError,
@@ -245,6 +246,8 @@ export default class InvoicesController {
         session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
       } else if (error instanceof InvoiceNotEditableError) {
         session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      } else if (error instanceof InvoiceBelowPaidError) {
+        session.flash('error', i18n.t('flash.invoiceBelowPaid', { paid: Number(error.paid) }))
       } else {
         throw error
       }
