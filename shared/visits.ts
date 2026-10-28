@@ -10,11 +10,10 @@ export function isClosedVisit(status: string) {
 }
 
 /**
- * Whether a Time & Materials Job's recorded work can be invoiced: there is
- * some, and every Visit holding work is closed (open Visits can still gain
- * or lose hours and Items).
+ * Whether a Time & Materials Job has work to invoice: hours or Items not
+ * yet billed on a closed Visit. Work on open Visits waits for a later
+ * Invoice, since those can still gain or lose hours and Items.
  */
-export function workReadyToInvoice(visits: { status: string; workLines: number }[]) {
-  const withWork = visits.filter((visit) => visit.workLines > 0)
-  return withWork.length > 0 && withWork.every((visit) => isClosedVisit(visit.status))
+export function hasBillableWork(visits: { status: string; unbilledLines: number }[]) {
+  return visits.some((visit) => isClosedVisit(visit.status) && visit.unbilledLines > 0)
 }

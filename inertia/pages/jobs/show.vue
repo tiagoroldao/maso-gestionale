@@ -12,7 +12,7 @@ const confirm = (message: string) => window.confirm(message)
 defineProps<{
   invoices: { id: number; number: string | null; status: string; total: string }[]
   canInvoice: boolean
-  timeAndMaterials: { total: string; lines: number }
+  timeAndMaterials: { total: string; billed: string; lines: number }
   job: {
     id: number
     number: string
@@ -97,6 +97,9 @@ defineProps<{
         <p :style="{ margin: 0 }">
           <strong>{{ formatMoney(timeAndMaterials.total) }}</strong>
           <span class="field__hint"> · {{ t('ui.jobs.timeAndMaterialsHint') }}</span>
+        </p>
+        <p v-if="job.kind === 'time_and_materials'" :style="{ margin: 0 }" data-testid="billed">
+          {{ t('ui.jobs.billed', { amount: formatMoney(timeAndMaterials.billed) }) }}
         </p>
       </Section>
 

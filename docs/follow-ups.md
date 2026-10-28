@@ -22,6 +22,8 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                 |
 | #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
+| #110  | Link billed Visit work to the Invoice line, not just the Invoice                          | —                                                 |
+| #111  | Can done work on a cancelled Time & Materials Job still be invoiced?                      | The business (`needs-human`)                      |
 
 ## Added to existing issues
 
@@ -33,7 +35,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#22** (Quoted Job → draft): Quote VAT Codes (#67); Job guards once invoiced.
 - **#74** (Time & Materials → draft): rounding vs. the Job page total; price policy (comment on #22).
-- **#75:** Visit lines linked to the Invoice that billed them.
+- **#75:** billed Visit work linked per Invoice, not per line (#110); Credit Notes freeing billed work (comment on #24); billing done work on a cancelled Time & Materials Job (#111, needs the business).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues
@@ -60,6 +62,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **"Paid" computed two ways:** `Invoices.save` sums Payments in SQL, `Payments.record` uses the preloaded `invoice.paid`. One shared helper would keep them from drifting (from the #106 review).
 - **PDF documents format euro themselves:** `invoice_document.ts` and `quote_document.ts` each build an `Intl.NumberFormat` instead of `formatMoney` from `shared/money.ts`, which itself hard-codes the `'it'` locale (the `LOCALE` constant lives in `inertia/i18n.ts`); fine while there is one language (from the #106 review).
 - **Visit team read before the lock** (#93): the edit validator reads "already on the Visit" before `Scheduling.update` locks it, so a stale form submitted just after someone was removed can put them back even if no longer a Technician. Same pattern as for deactivated Technicians; low risk (from the #105 review).
+- **Billed-work link update relies on the Job lock** (#75): the update in `fromTimeAndMaterials` could also add `whereNull('invoice_id')` as defence in depth; no concurrency test on separate connections covers two drafts racing (see #19) (from the #107 review).
 - **Archiving a VAT Code a rule uses** (#26): the rules quietly fall back to the standard rate (archiving N6.7 makes company building work 22%) and the Admin isn't told; warn on archive, or refuse while rules use it (from the #108 review).
 - **Archived VAT Code on new Invoice lines** (#26): the invoice validator lets any line use an archived code as long as another line of the draft already does (`meta.vatCodeIds` comes from the current lines) (from the #108 review).
 - **Untranslated structural validation messages:** a malformed VAT rules body gets English messages such as "The rules field must be an array"; the UI can't trigger them (from the #108 review).
@@ -68,4 +71,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **Secrets in flashed input** (#32): on a validation error, Adonis flashes the request input except `password`, `password_confirmation`, `_csrf` and `_method`, so `invoicetronicApiKey`, `webhookSecret` and camelCase `passwordConfirmation` sit (encrypted) in the session cookie for one request. Exclude them in the exception handler or session config (from the #109 review).
 - **CI's Gotenberg isn't hardened** (#29): compose.yaml starts Gotenberg with JavaScript disabled and an allow-list (the page and data URIs); CI's service container can't take a command, so tests run against the defaults. Start it with `docker run` in a step if a regression there matters.
 - **Item search returns null for an archived VAT Code untested** (#26): the behaviour Invoices without a Job rely on (from the #108 review).
+- **Job status needs the billing state** (#75): `deriveJobStatus`'s `billingOpen` defaults to false, so a caller that preloads Visits without the `withBillingState` scope would show a partly invoiced Job as Invoiced or Closed; make it required or fail when `$extras.billing_open` is missing (from the #107 review).
+- **A "needs another visit" Visit doesn't keep billing open** (#75): with no follow-up planned yet, a Job whose billed work is all invoiced shows Invoiced or Closed although a return visit is owed; same as before #75, a business choice (see #103) (from the #107 review).
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.
