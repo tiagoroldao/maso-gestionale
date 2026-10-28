@@ -46,6 +46,10 @@ _Avoid_: Intervention, appointment, call-out
 A Visit to see the Site, typically before a Quote; it never moves its Job to in progress. A Visit that isn't a Survey is a work Visit.
 _Avoid_: Inspection, preliminary visit
 
+**Cancelled Visit** (_Intervento annullato_):
+A Visit that didn't happen; it keeps its record, its Charges become not done, and it can be restored.
+_Avoid_: Deleted visit
+
 **Labour Rate**:
 An hourly price for a type of labour; hours recorded on a Visit at a Labour Rate become a Charge at that price.
 _Avoid_: Hourly cost, manodopera (as a price)
@@ -53,6 +57,14 @@ _Avoid_: Hourly cost, manodopera (as a price)
 **Charge** (_Addebito_):
 Something done or supplied for a Job that the Customer may be billed for (hours worked, an Item used, a call-out, any other cost), recorded on a Visit or on the Job and priced when recorded. Office decides whether, and at what price, it is billed.
 _Avoid_: Billable item (clashes with Item), billable entry
+
+**Work state** (_Stato di esecuzione_):
+Whether a Charge happened: planned, done or not done. Stock follows it; only done Charges are billed.
+_Avoid_: Status (ambiguous with billing)
+
+**Committed** (_Impegnato_):
+The quantity of an Item on planned Charges: still in stock but spoken for. Available is stock less committed.
+_Avoid_: Reserved, allocated
 
 **Call-out Fee** (_Diritto di chiamata_):
 A fixed price for attending a Visit, independent of hours worked, billed as a Charge.

@@ -23,6 +23,9 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | —                                                 |
+| #156  | Charges have a work state (ADR 0016)                                                      | #146                                              |
+| #157  | Cancelled Visits (ADR 0016)                                                               | #156                                              |
+| #158  | Committed stock (ADR 0016)                                                                | #156                                              |
 
 ## Added to existing issues
 
