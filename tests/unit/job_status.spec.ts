@@ -3,12 +3,20 @@ import { DateTime } from 'luxon'
 import type { VisitStatus } from '#models/visit'
 import { deriveJobStatus } from '#services/job_status'
 
+const day = DateTime.fromISO('2026-11-02T09:00')
+
 /**
- * Visits on consecutive days, in the given statuses.
+ * Work Visits on consecutive days, in the given statuses.
  */
 function visits(...statuses: VisitStatus[]) {
-  const day = DateTime.fromISO('2026-11-02T09:00')
-  return statuses.map((status, i) => ({ status, startsAt: day.plus({ days: i }) }))
+  return statuses.map((status, i) => ({ status, startsAt: day.plus({ days: i }), survey: false }))
+}
+
+/**
+ * The same, as Surveys.
+ */
+function surveys(...statuses: VisitStatus[]) {
+  return visits(...statuses).map((visit) => ({ ...visit, survey: true }))
 }
 
 test.group('Job status derivation', () => {
@@ -31,5 +39,13 @@ test.group('Job status derivation', () => {
     assert.equal(deriveJobStatus('quoted', visits('done')), 'quoted')
     assert.equal(deriveJobStatus('cancelled', visits('done')), 'cancelled')
     assert.equal(deriveJobStatus('in_progress', []), 'in_progress')
+  })
+
+  test('Surveys alone are no work done, but one still to do keeps work going', ({ assert }) => {
+    assert.equal(deriveJobStatus('in_progress', surveys('done')), 'in_progress')
+    assert.equal(deriveJobStatus('open', surveys('done')), 'open')
+    const work = { status: 'done' as const, startsAt: day.plus({ days: 5 }), survey: false }
+    assert.equal(deriveJobStatus('in_progress', [...surveys('done'), work]), 'work_complete')
+    assert.equal(deriveJobStatus('in_progress', [work, ...surveys('planned')]), 'in_progress')
   })
 })

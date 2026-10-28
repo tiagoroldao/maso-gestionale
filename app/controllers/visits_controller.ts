@@ -62,6 +62,7 @@ export default class VisitsController {
         endsAt: startsAt.plus({ minutes: data.durationMinutes }),
         technicianIds: data.technicianIds,
         notes: data.notes ?? null,
+        survey: data.survey ?? false,
       })
     } catch (error) {
       if (!(error instanceof JobNotSchedulableError)) throw error
@@ -115,6 +116,7 @@ export default class VisitsController {
           id: visit.id,
           startsAt: localDateTime(visit.startsAt),
           endsAt: localDateTime(visit.endsAt),
+          survey: visit.survey,
           job: { number: visit.job.number, customer: visit.job.customer.displayName },
         })),
       visits: visits.map((visit) => ({
@@ -122,6 +124,7 @@ export default class VisitsController {
         startsAt: localDateTime(visit.startsAt),
         endsAt: localDateTime(visit.endsAt),
         status: visit.status,
+        survey: visit.survey,
         technicianIds: visit.technicians.map((technician) => technician.id),
         job: {
           id: visit.job.id,
@@ -157,6 +160,7 @@ export default class VisitsController {
         durationMinutes: Math.round(visit.endsAt.diff(visit.startsAt, 'minutes').minutes),
         technicianIds: ids,
         notes: visit.notes,
+        survey: visit.survey,
         editable:
           !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
       },
@@ -176,6 +180,7 @@ export default class VisitsController {
         endsAt: startsAt.plus({ minutes: data.durationMinutes }),
         technicianIds: data.technicianIds,
         notes: data.notes ?? null,
+        survey: data.survey ?? false,
       })
     } catch (error) {
       if (error instanceof TechnicianHasHoursError) {

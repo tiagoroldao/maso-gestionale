@@ -23,7 +23,9 @@ test.group('Payment status', () => {
 })
 
 test.group('Job status from Invoices', () => {
-  const done = [{ status: 'done' as const, startsAt: DateTime.fromISO('2026-10-01') }]
+  const done = [
+    { status: 'done' as const, startsAt: DateTime.fromISO('2026-10-01'), survey: false },
+  ]
 
   test('Invoiced once an Invoice is past draft; Closed when all are paid', ({ assert }) => {
     const issued = (paid: string) => ({ status: 'finalised', total: '100.00', paid })

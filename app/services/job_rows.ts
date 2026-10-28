@@ -16,7 +16,11 @@ export function jobRow(job: Job) {
       'visits' in job.$preloaded
         ? deriveJobStatus(
             job.status,
-            job.visits.map((visit) => ({ status: visit.status, startsAt: visit.startsAt })),
+            job.visits.map((visit) => ({
+              status: visit.status,
+              startsAt: visit.startsAt,
+              survey: visit.survey,
+            })),
             'invoices' in job.$preloaded
               ? job.invoices.map((invoice) => ({
                   status: invoice.status,
