@@ -333,13 +333,19 @@ test.group('Quotes', () => {
     const { quote } = await write(client, office, job, { lines: quoteLines(item.id, rate.id) })
     await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
 
+    // The draft is neither changed, sent nor decided either way
     for (const request of [
       client.put(`/quotes/${quote!.id}`).json({ lines: [] }),
+      client.post(`/quotes/${quote!.id}/send`),
       client.post(`/quotes/${quote!.id}/accept`),
+      client.post(`/quotes/${quote!.id}/decline`),
     ]) {
       const response = await request.withCsrfToken().loginAs(office).redirects(0)
       response.assertFlashMessage('error', it('flash.quoteNotEditable'))
     }
+    await quote!.refresh()
+    assert.equal(quote!.status, 'draft')
+    assert.isNull(quote!.sentAt)
     const page = await client.get(`/quotes/${quote!.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ editable: false, decidable: false })
 
@@ -467,7 +473,10 @@ test.group('Quotes', () => {
     const waiting = await createJob(customer, { title: 'In attesa' })
     const signed = await createJob(customer, { title: 'Firmato' })
     const none = await createJob(customer, { title: 'Senza preventivo' })
+    // Cancelled before the Customer answered: no answer is awaited
+    const dropped = await createJob(customer, { title: 'Annullata', status: 'cancelled' })
     await createQuote(waiting, { status: 'sent' })
+    await createQuote(dropped, { status: 'sent' })
     await createQuote(signed, { status: 'declined' })
     await createQuote(signed, { status: 'accepted' })
 

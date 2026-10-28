@@ -17,6 +17,7 @@ import { companyDetailsFrom } from '#documents/document_renderer'
 import { lineTotal } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
+import { quoteNumber } from '#shared/quotes'
 
 export class QuoteNotEditableError extends Error {}
 
@@ -305,8 +306,15 @@ export default class Quotes {
             chargeId: charge.id,
             kind: 'recorded',
             userId: user.id,
-            // Which Quote line it came from, shown in its history
-            changes: { before: {}, after: { quoteLine: String(line.position + 1) } },
+            // Which Quote, and which of its lines, it came from, shown in
+            // its history
+            changes: {
+              before: {},
+              after: {
+                quoteLine: String(line.position + 1),
+                quote: quoteNumber(locked.number, current.sequence),
+              },
+            },
           },
           { client: trx }
         )

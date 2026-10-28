@@ -156,7 +156,7 @@ test.group('Importing Quote lines as Charges', () => {
       [1, 2, 3].map((position) => [
         'recorded',
         office.id,
-        { before: {}, after: { quoteLine: String(position) } },
+        { before: {}, after: { quoteLine: String(position), quote: `${job.number}-1` } },
       ])
     )
   })

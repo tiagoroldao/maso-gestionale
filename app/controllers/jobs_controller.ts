@@ -44,11 +44,14 @@ export default class JobsController {
         .whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
         .whereRaw(NOT_INVOICED_SQL)
     else if (status === 'cancelled') query.where('status', status)
-    // By their Quotes (ADR 0013): one waiting for the Customer, or accepted
-    else if (status === 'quote_sent' || status === 'quote_accepted')
-      query.whereHas('quotes', (quotes) =>
-        quotes.where('status', status === 'quote_sent' ? 'sent' : 'accepted')
-      )
+    // By their Quotes (ADR 0013): one waiting for the Customer (never on a
+    // cancelled Job, where no answer is recorded), or one accepted
+    else if (status === 'quote_sent')
+      query
+        .whereNot('status', 'cancelled')
+        .whereHas('quotes', (quotes) => quotes.where('status', 'sent'))
+    else if (status === 'quote_accepted')
+      query.whereHas('quotes', (quotes) => quotes.where('status', 'accepted'))
     else if (status !== 'all') query.where('status', status).whereRaw(NOT_INVOICED_SQL)
     if (q) {
       const pattern = likePattern(q)

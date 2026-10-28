@@ -1017,7 +1017,8 @@
     },
     "billedIn": "Fattura {number}: {amount}",
     "unbilledFrom": "Dalla fattura {number}",
-    "fromQuoteLine": "Importato dalla riga {position} del preventivo",
+    "fromQuoteLine": "Importato dalla riga {position} del preventivo {number}",
+    "fromUnnumberedQuoteLine": "Importato dalla riga {position} del preventivo",
     "fields": {
       "quantity": "quantità",
       "labourRate": "tariffa",
