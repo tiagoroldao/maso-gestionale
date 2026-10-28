@@ -23,15 +23,15 @@ _Avoid_: Service schedule, recurrence
 ## Work
 
 **Job** (_Commessa_):
-A whole piece of work for a Customer, which may span multiple Visits, may be quoted, and is invoiced from its Charges. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
-_Avoid_: Intervention, work order, ticket, Quoted Job / Time & Materials Job (a Job has no kind; it may have a Quote)
+A whole piece of work for a Customer, which may span multiple Visits, may have Quotes, and is invoiced from its Charges. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
+_Avoid_: Intervention, work order, ticket, Quoted Job / Time & Materials Job (a Job has no kind; it may have several Quotes)
 
 **Work Category** (_Tipo di lavoro_):
 The kind of work a Job is (new installation, maintenance, renovation, repair or sale), which together with the Customer and the Site decides the VAT normally charged.
 _Avoid_: Job type, intervention type
 
 **Quote** (_Preventivo_):
-A priced proposal for a Job, or part of one, that the Customer accepts or declines; a Job can have several, written at any time. Once sent it no longer changes. It is never billed itself and doesn't bind the final bill; its lines can be imported onto the Job or its Visits as Charges.
+A priced proposal for a Job, or part of one, that the Customer accepts or declines; a Job can have several, written at any time. Once sent it no longer changes. It is never billed itself and doesn't bind the final bill; an accepted Quote's lines can be imported onto the Job or its Visits as Charges.
 _Avoid_: Estimate, offer
 
 **Visit** (_Intervento_):
@@ -39,7 +39,7 @@ A single scheduled trip by one or more technicians to a Site as part of a Job.
 _Avoid_: Intervention, appointment, call-out
 
 **Survey** (_Sopralluogo_):
-A Visit to see the Site before quoting or starting work; it doesn't start the Job's work.
+A Visit to see the Site, typically before a Quote; it never moves its Job to in progress. A Visit that isn't a Survey is a work Visit.
 _Avoid_: Inspection, preliminary visit
 
 **Labour Rate**:
