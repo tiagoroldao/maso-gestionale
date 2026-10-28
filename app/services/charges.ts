@@ -10,8 +10,9 @@ import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
+import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
-import { isHeld, type ChargeState } from '#shared/charges'
+import { CHARGE_DESCRIPTION_MAX, isHeld, type ChargeState } from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { CHARGE_STATE_SQL } from '#services/job_status'
@@ -246,13 +247,24 @@ export default class Charges {
   /**
    * Sets what is billed from what was recorded: the quantity, the
    * description and, when `repriced` (a new Labour Rate or Item), its
-   * current price. Another cost keeps its own description and price.
+   * current price. Another cost keeps its own description and price, and
+   * so does a Charge imported from a Quote line (ADR 0012) until its
+   * Labour Rate or Item changes; then it also leaves the Quote's VAT Code
+   * for the Job's default rules, like any Charge.
    */
   private static async followRecorded(
     trx: TransactionClientContract,
     charge: Charge,
     repriced: boolean
   ) {
+    // Imported from a Quote line and never repriced (repricing drops the
+    // Quote's VAT Code): its own words and price stand
+    const asQuoted = charge.quoteLineId !== null && charge.vatCodeId !== null && !repriced
+    if (asQuoted) {
+      charge.billQuantity = charge.quantity
+      return
+    }
+    if (repriced) charge.vatCodeId = null
     if (charge.kind === 'labour') {
       const rate = await LabourRate.findOrFail(charge.labourRateId, { client: trx })
       const technician = charge.userId ? await User.find(charge.userId, { client: trx }) : null
@@ -262,7 +274,7 @@ export default class Charges {
     } else if (charge.kind === 'item') {
       const item = await Item.findOrFail(charge.itemId, { client: trx })
       if (repriced) charge.unitPrice = item.resalePrice
-      charge.description = item.description.slice(0, 255)
+      charge.description = item.description.slice(0, CHARGE_DESCRIPTION_MAX)
     }
     charge.billQuantity = charge.quantity
   }
@@ -273,17 +285,28 @@ export default class Charges {
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
     await this.whileLocked(charge, async (trx, locked, job) => {
       await this.refuseBillingChange(trx, locked, job)
-      const before = billingValues(locked)
+      const quotedCode = locked.vatCodeId
+        ? await VatCode.findOrFail(locked.vatCodeId, { client: trx })
+        : null
+      const quotedVat = quotedCode?.name ?? null
+      const before = { ...billingValues(locked), vatCode: quotedVat }
       locked.merge({
         billQuantity: input.quantity,
         unitPrice: input.unitPrice,
         description: input.description,
       })
       if (locked.kind === 'other') {
-        locked.merge({ unit: input.unit ?? null, vatKind: input.vatKind ?? locked.vatKind })
+        const vatKind = input.vatKind ?? locked.vatKind
+        // A new VAT kind replaces the Quote's VAT Code (ADR 0012): the
+        // draft bills at the Job's default for that kind
+        if (vatKind !== locked.vatKind) locked.vatCodeId = null
+        locked.merge({ unit: input.unit ?? null, vatKind })
       }
       await locked.save()
-      const changes = diff(before, billingValues(locked))
+      const changes = diff(before, {
+        ...billingValues(locked),
+        vatCode: locked.vatCodeId ? quotedVat : null,
+      })
       if (changes) await this.addEvent(trx, locked, 'billing_edited', user, changes)
     })
   }

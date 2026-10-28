@@ -331,12 +331,15 @@ const shown = (key: string, value: string | null) => {
                   }}
                 </Link>
                 <div v-for="(after, key) in event.changes?.after ?? {}" :key="key">
+                  <!-- Imported from a Quote line (ADR 0012) -->
                   {{
-                    t('ui.charges.change', {
-                      field: t(`ui.charges.fields.${key}`),
-                      before: shown(String(key), event.changes!.before[key]),
-                      after: shown(String(key), after),
-                    })
+                    key === 'quoteLine'
+                      ? t('ui.charges.fromQuoteLine', { position: after })
+                      : t('ui.charges.change', {
+                          field: t(`ui.charges.fields.${key}`),
+                          before: shown(String(key), event.changes!.before[key]),
+                          after: shown(String(key), after),
+                        })
                   }}
                 </div>
               </td>

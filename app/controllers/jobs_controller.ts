@@ -151,7 +151,7 @@ export default class JobsController {
     const settings = await CompanySettings.current()
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
     const quote = await job.related('quote').query().preload('lines').first()
-    // Advance Invoices don't count as the Job's own Invoice (#23)
+    // Advance Invoices don't count as a draft from the Job's Charges
     const ownInvoices = invoices.filter((invoice) => !invoice.advance)
     const advances = await Invoices.advancesOf(undefined, job.id)
     const deductions = new Map(advances.map(({ advance, deducted }) => [advance.id, deducted]))
@@ -171,42 +171,33 @@ export default class JobsController {
             }
           : null,
       })),
-      // Never for a cancelled Job; a Quote once, Time & Materials work as
-      // long as some is to bill and no draft is waiting
+      // Every Job invoices from its Charges, Quote or not (ADR 0012): never
+      // a cancelled one, and only while some is to bill and no draft waits
       canInvoice:
         job.status !== 'cancelled' &&
-        (job.kind === 'quoted'
-          ? ownInvoices.length === 0 && quote?.status === 'accepted'
-          : !ownInvoices.some((invoice) => invoice.status === 'draft') &&
-            (hasBillableWork(
-              job.visits.map((visit) => ({
-                status: visit.status,
-                unbilledLines: work.filter(
-                  (line) => line.visitId === visit.id && line.state === 'to_bill'
-                ).length,
-              }))
-            ) ||
-              // Costs Office added to the Job itself are billable at once
-              work.some((line) => line.visitId === null && line.state === 'to_bill'))),
-      // On a Quoted Job, only until the Quote's Invoice, which takes them
-      // back, is issued
-      canInvoiceAdvance:
-        job.status !== 'cancelled' &&
-        (job.kind !== 'quoted' || ownInvoices.every((invoice) => invoice.status === 'draft')),
+        !ownInvoices.some((invoice) => invoice.status === 'draft') &&
+        (hasBillableWork(
+          job.visits.map((visit) => ({
+            status: visit.status,
+            unbilledLines: work.filter(
+              (line) => line.visitId === visit.id && line.state === 'to_bill'
+            ).length,
+          }))
+        ) ||
+          // Charges on the Job itself are billable at once
+          work.some((line) => line.visitId === null && line.state === 'to_bill')),
+      canInvoiceAdvance: job.status !== 'cancelled',
       // Taxable amounts: what issued Invoices billed (deductions net out the
-      // advances) against the accepted Quote or the work recorded
+      // advances) against the work recorded, and the accepted Quote's total
+      // for comparison only, since it doesn't bind the bill (ADR 0012)
       invoicedSoFar: {
         amount: sumAmounts(
           invoices
             .filter((invoice) => invoice.status !== 'draft')
             .map((invoice) => invoice.totals.taxable)
         ),
-        of:
-          job.kind === 'quoted'
-            ? quote?.status === 'accepted'
-              ? quote.taxable
-              : null
-            : sumAmounts(amounts),
+        of: sumAmounts(amounts),
+        quoted: quote?.status === 'accepted' ? quote.taxable : null,
       },
       timeAndMaterials: {
         total: sumAmounts(amounts),

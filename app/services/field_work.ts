@@ -10,6 +10,7 @@ import ChargeEvent from '#models/charge_event'
 import InstalledEquipment from '#models/installed_equipment'
 import StockLedger from '#stock/stock_ledger'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 
 export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
@@ -105,8 +106,8 @@ export default class FieldWork {
 
   /**
    * Removes a Charge recorded by mistake, while the Visit is open and
-   * before Office has acted on it. An Item's Installed Equipment created
-   * with it goes too.
+   * before Office has acted on it (an imported Quote line is Office's).
+   * An Item's Installed Equipment created with it goes too.
    */
   static async removeCharge(charge: Charge) {
     await this.whileOpen(await Visit.findOrFail(charge.visitId), async (trx) => {
@@ -114,10 +115,13 @@ export default class FieldWork {
       if (!current) return
       // Already off stock: the Charge is part of the record
       if (current.stockMovementId) throw new FieldWorkRefusedError('done')
-      const reviewed = await ChargeEvent.query({ client: trx })
-        .where('chargeId', current.id)
-        .whereNot('kind', 'recorded')
-        .first()
+      // Office put it there from the Quote (ADR 0012), or acted on it since
+      const reviewed =
+        current.quoteLineId !== null ||
+        (await ChargeEvent.query({ client: trx })
+          .where('chargeId', current.id)
+          .whereNot('kind', 'recorded')
+          .first())
       if (reviewed) throw new FieldWorkRefusedError('reviewed')
       await current.useTransaction(trx).delete()
       if (current.kind === 'item') await this.removeCreatedEquipment(trx, current)
@@ -213,7 +217,7 @@ export default class FieldWork {
         billQuantity: input.quantity,
         // The Item's resale price when recorded
         unitPrice: item.resalePrice,
-        description: item.description.slice(0, 255),
+        description: item.description.slice(0, CHARGE_DESCRIPTION_MAX),
       })
     })
   }
@@ -347,5 +351,5 @@ export default class FieldWork {
  * A labour Charge's description: the Labour Rate and who worked.
  */
 export function labourDescription(rate: string, worker: string) {
-  return `${rate} – ${worker}`.slice(0, 255)
+  return `${rate} – ${worker}`.slice(0, CHARGE_DESCRIPTION_MAX)
 }

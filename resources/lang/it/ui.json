@@ -717,7 +717,16 @@
     "taxable": "Imponibile",
     "validityDays": "Validità (giorni)",
     "validityHint": "Facoltativa. Il preventivo è datato all'ultimo salvataggio finché non viene accettato o rifiutato.",
-    "issuedOn": "Datato {date}: la data resta fissa dopo l'accettazione o il rifiuto."
+    "issuedOn": "Datato {date}: la data resta fissa dopo l'accettazione o il rifiuto.",
+    "importTitle": "Importa come addebiti",
+    "importHint": "Le righe scelte diventano addebiti della commessa, al prezzo del preventivo, modificabili come gli altri. Il preventivo in sé non si fattura.",
+    "importOnto": "Dove",
+    "importOntoJob": "Sulla commessa",
+    "importOntoHint": "Gli articoli su un intervento si scaricano dal magazzino alla sua chiusura; sulla commessa non si scaricano. Il diritto di chiamata va sempre sulla commessa.",
+    "importWorkerHint": "Per le ore di manodopera importate; si può cambiare poi su ogni addebito.",
+    "importLineOf": "Importa la riga {position}",
+    "import": "{count, plural, one {Importa # riga} other {Importa # righe}}",
+    "imported": "{count, plural, one {importata} other {importata # volte}}"
   },
   "invoices": {
     "title": "Fatture",
@@ -824,15 +833,14 @@
     "advance": "acconto",
     "advanceHint": "Fattura di acconto (TD02): la fattura finale della commessa la detrarrà.",
     "newAdvance": "Crea fattura di acconto",
-    "invoicedSoFar": "Fatturato finora (imponibile): {amount}",
     "invoicedSoFarOf": "Fatturato finora (imponibile): {amount} su {of}",
+    "quotedTotal": "preventivo accettato: {amount} (solo per confronto)",
     "file": "File",
     "uploadedOn": "Caricato il",
     "downloadSent": "Scarica il file inviato",
     "unsubmittedWarning": "{count, plural, one {C'è # fattura emessa} other {Ci sono # fatture emesse}} non ancora {count, plural, one {inviata} other {inviate}} a SDI.",
-    "fromQuote": "Crea la fattura dal preventivo",
     "job": "Commessa {number}",
-    "fromTimeAndMaterials": "Crea la fattura da ore e materiali",
+    "fromCharges": "Crea la fattura dagli addebiti",
     "payment": "Pagamento",
     "paymentStatuses": {
       "unpaid": "Da pagare",
@@ -1012,6 +1020,7 @@
     },
     "billedIn": "Fattura {number}: {amount}",
     "unbilledFrom": "Dalla fattura {number}",
+    "fromQuoteLine": "Importato dalla riga {position} del preventivo",
     "fields": {
       "quantity": "quantità",
       "labourRate": "tariffa",
@@ -1020,7 +1029,8 @@
       "unitPrice": "prezzo",
       "description": "descrizione",
       "unit": "unità",
-      "vatKind": "tipo per l'IVA"
+      "vatKind": "tipo per l'IVA",
+      "vatCode": "IVA del preventivo"
     },
     "stockCorrection": "Correzione dell'addebito n. {id}",
     "change": "{field}: {before} → {after}",

@@ -20,7 +20,8 @@ import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 import type Job from '#models/job'
 
 /**
- * A Quoted Job with an accepted Quote of 1,000.00 at 22%.
+ * A Job with an accepted Quote of 1,000.00 at 22%, its line imported
+ * onto the Job as a Charge (ADR 0012).
  */
 async function acceptedJob() {
   const job = await createJob(await createCustomer(), { kind: 'quoted', workCategory: 'sale' })
@@ -40,6 +41,12 @@ async function acceptedJob() {
   })
   await Quotes.accept(job)
   await job.refresh()
+  const quote = await job.related('quote').query().preload('lines').firstOrFail()
+  await Quotes.importLines(
+    job,
+    { lineIds: quote.lines.map((line) => line.id), workerName: 'Ditta Rossi' },
+    await createUser('office')
+  )
   return job
 }
 
@@ -181,6 +188,7 @@ test.group('Advance Invoices', () => {
       .put(`/invoices/${final.id}`)
       .json({
         lines: final.lines.map((line) => ({
+          id: line.id,
           description: line.description,
           quantity: line.quantity,
           unitPrice: line.unitPrice,
@@ -518,53 +526,35 @@ test.group('Advance Invoices', () => {
     assert.equal(second.status, 'draft')
   })
 
-  test("advances while the Quote's Invoice is a draft, none once it is issued", async ({
+  test('a Job with a Quote takes advances back like any Job, even one issued late', async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
     await completeCompany()
     const job = await acceptedJob()
+    await issuedAdvance(job, '100')
+    // Nothing else to bill: the draft takes back what is left (ADR 0011)
     const final = await Invoices.fromJob(job)
-    // Issued while the Quote's Invoice is a draft, which can then take it back
-    const advance = await issuedAdvance(job, '100')
-    await final.load('lines')
-    await Invoices.save(final, {
-      lines: workLines(final),
-      deductions: [{ advanceId: advance.id, amount: '122' }],
-    })
     assert.deepEqual(await pricesOf(final), ['1000.0000', '-100.0000'])
-
-    const late = await Invoices.createAdvance(job)
-    await late.load('lines')
-    await Invoices.save(late, {
-      lines: [
-        {
-          description: 'Acconto',
-          quantity: '1',
-          unitPrice: '100',
-          vatCodeId: late.lines[0].vatCodeId,
-        },
-      ],
-    })
     await Invoices.finalise(final)
-    const refused = await client
-      .post(`/invoices/${late.id}/finalise`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    refused.assertFlashMessage('error', it('flash.invoiceNotFinalisable.jobInvoiced'))
-    await late.refresh()
-    assert.equal(late.status, 'draft')
 
+    // Issued after the Job's Invoice: a later Invoice takes it back
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoiceAdvance: false })
-    const another = await client
-      .post(`/jobs/${job.id}/advance-invoices`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    another.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
+    page.assertInertiaPropsContains({ canInvoiceAdvance: true, canInvoice: false })
+    const late = await issuedAdvance(job, '50')
+    await Charges.add(
+      job,
+      { description: 'Extra', quantity: '1', unit: null, unitPrice: '200', vatKind: 'labour' },
+      office
+    )
+    const last = await Invoices.fromJob(job)
+    assert.deepEqual(await deductionsOf(last), [[late.id, '61.00']])
+    assert.deepEqual(await pricesOf(last), ['200.0000', '-50.0000'])
+    await Invoices.finalise(last)
+
+    const after = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    after.assertInertiaPropsContains({ job: { status: 'invoiced' } })
   })
 
   test('Time & Materials: advances wait for the draft that bills the last of the work', async ({

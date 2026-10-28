@@ -47,6 +47,14 @@
   "vatCodeSaved": "Codice IVA salvato.",
   "vatCodeArchived": "Codice IVA «{name}» archiviato.",
   "callOutFeeSaved": "Diritto di chiamata salvato.",
+  "quoteLinesImported": "{count, plural, one {Importata # riga} other {Importate # righe}} del preventivo come addebiti.",
+  "quoteImportRefused": {
+    "notAccepted": "Si importano solo le righe di un preventivo accettato.",
+    "cancelled": "La commessa è annullata: non si possono aggiungere addebiti.",
+    "done": "L'intervento scelto è chiuso o non è di questa commessa: scegli un intervento aperto o la commessa.",
+    "noLines": "Scegli almeno una riga con un prezzo da importare.",
+    "worker": "Indica chi ha lavorato le ore: un tecnico dell'intervento (sulla commessa, un tecnico attivo) o il nome di una persona esterna."
+  },
   "quoteSaved": "Preventivo salvato.",
   "quoteNotEditable": "Il preventivo non è più modificabile.",
   "quoteAccepted": "Preventivo accettato: la commessa è accettata.",
@@ -80,7 +88,6 @@
     "negativeTotal": "Il totale della fattura sarebbe negativo: gli acconti detratti superano quanto fatturato. Detrai meno.",
     "deductionTooLarge": "Si detrae più di quanto resta di un acconto: riduci la detrazione.",
     "belowDeducted": "L'acconto è già stato detratto da fatture emesse per più di questo importo.",
-    "jobInvoiced": "La fattura del preventivo è già emessa: nessuna fattura potrebbe più detrarre questo acconto.",
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
   },
   "numberingSaved": "Numerazione {year} salvata.",
@@ -109,7 +116,7 @@
   "archivedRecord": "Il cliente o l'immobile è archiviato: ripristinalo per aprire una nuova commessa.",
   "jobInvoiced": "La commessa ha fatture: non si può annullare.",
   "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
-  "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (preventivo accettato o ore e materiali registrati), oppure è annullata.",
+  "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (addebiti sulla commessa o su interventi chiusi), oppure è annullata.",
   "paymentRecorded": "Incasso registrato.",
   "paymentRemoved": "Incasso eliminato.",
   "paymentRefused": {

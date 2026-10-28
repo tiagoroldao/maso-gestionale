@@ -1086,6 +1086,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'quotes.import_lines': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/quote/import'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/quote').quoteImportValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/quote').quoteImportValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['importLines']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['importLines']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['importLines']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'quotes.accept': {
     methods: ["POST"]
     pattern: '/jobs/:id/quote/accept'

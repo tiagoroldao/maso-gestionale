@@ -1,15 +1,20 @@
+import db from '@adonisjs/lucid/services/db'
 import Job from '#models/job'
+import User from '#models/user'
+import Visit from '#models/visit'
 import Quote from '#models/quote'
 import QuoteLine from '#models/quote_line'
 import LabourRate from '#models/labour_rate'
 import VatCode from '#models/vat_code'
 import CompanySettings from '#models/company_settings'
 import VatDefaults from '#services/vat_defaults'
-import Quotes, { QuoteNotEditableError } from '#services/quotes'
+import Quotes, { QuoteImportRefusedError, QuoteNotEditableError } from '#services/quotes'
 import DocumentRenderer from '#documents/document_renderer'
 import { quoteDocument } from '#documents/quote_document'
 import { PdfConversionError } from '#documents/pdf_converter'
-import { quoteValidator } from '#validators/quote'
+import { quoteImportValidator, quoteValidator } from '#validators/quote'
+import { localDateTime } from '#services/dates'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import type { HttpContext } from '@adonisjs/core/http'
 
 async function loadJob(id: number) {
@@ -49,6 +54,30 @@ export default class QuotesController {
     const quote = job.quote ?? null
     const rates = await LabourRate.query().whereNull('archived_at').orderBy('name')
     const settings = await CompanySettings.current()
+    // Importing lines as Charges (ADR 0012): how often each line was
+    // imported, the open Visits to import onto, and who can work the hours
+    const importable = quote?.status === 'accepted' && job.status !== 'cancelled'
+    const imported = quote
+      ? await db
+          .from('charges')
+          .whereIn(
+            'quote_line_id',
+            quote.lines.map((line) => line.id)
+          )
+          .groupBy('quote_line_id')
+          .select('quote_line_id')
+          .count('* as count')
+      : []
+    const visits = importable
+      ? await Visit.query()
+          .where('jobId', job.id)
+          .whereNotIn('status', [...CLOSED_VISIT_STATUSES])
+          .preload('technicians')
+          .orderBy('startsAt')
+      : []
+    const technicians = importable
+      ? await User.query().where('role', 'technician').where('isActive', true).orderBy('email')
+      : []
 
     return inertia.render('quotes/edit', {
       job: {
@@ -67,6 +96,8 @@ export default class QuotesController {
             issuedOn: quote.issuedOn?.toISODate() ?? null,
             totals: quote.totals,
             lines: quote.lines.map((line) => ({
+              id: line.id,
+              imported: Number(imported.find((row) => row.quote_line_id === line.id)?.count ?? 0),
               vatCodeId: line.vatCodeId,
               kind: line.kind,
               itemId: line.itemId,
@@ -81,6 +112,13 @@ export default class QuotesController {
           }
         : null,
       editable: Quotes.isEditable(job, quote),
+      importable,
+      openVisits: visits.map((visit) => ({
+        id: visit.id,
+        startsAt: localDateTime(visit.startsAt),
+        technicianIds: visit.technicians.map((technician) => technician.id),
+      })),
+      technicians: technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
       labourRates: rates.map((rate) => ({
         id: rate.id,
         name: rate.name,
@@ -123,6 +161,25 @@ export default class QuotesController {
 
     session.flash('success', i18n.t('flash.quoteSaved'))
     response.redirect().toRoute('quotes.edit', { id: job.id })
+  }
+
+  /**
+   * Imports the chosen lines of the accepted Quote as Charges, onto the
+   * Job or one of its open Visits (ADR 0012).
+   */
+  async importLines({ params, request, response, session, auth, i18n }: HttpContext) {
+    const job = await Job.findOrFail(params.id)
+    const data = await request.validateUsing(quoteImportValidator)
+
+    try {
+      const charges = await Quotes.importLines(job, data, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.quoteLinesImported', { count: charges.length }))
+      return response.redirect().toRoute('jobs.show', { id: job.id })
+    } catch (error) {
+      if (!(error instanceof QuoteImportRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.quoteImportRefused.${error.reason}`))
+      return response.redirect().toRoute('quotes.edit', { id: job.id })
+    }
   }
 
   async accept({ params, response, session, i18n }: HttpContext) {
