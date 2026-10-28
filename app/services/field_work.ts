@@ -19,7 +19,7 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
  * Visit, an install without a Site).
  */
 export class FieldWorkRefusedError extends Error {
-  constructor(readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite') {
+  constructor(readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite' | 'notAtSite') {
     super(reason)
   }
 }
@@ -94,7 +94,16 @@ export default class FieldWork {
    */
   static async recordItem(
     visit: Visit,
-    input: { itemId: number; quantity: string; installed?: boolean; serialNumber?: string | null }
+    input: {
+      itemId: number
+      quantity: string
+      installed?: boolean
+      serialNumber?: string | null
+      equipmentId?: number | null
+      equipmentType?: string | null
+      make?: string | null
+      model?: string | null
+    }
   ) {
     return this.whileOpen(visit, async (trx, locked) => {
       await locked.load('job')
@@ -102,12 +111,33 @@ export default class FieldWork {
 
       const item = await Item.findOrFail(input.itemId, { client: trx })
       let equipmentId: number | null = null
-      if (input.installed) {
+      let created = false
+      if (input.installed && input.equipmentId) {
+        // Installed onto equipment already registered at this Site
+        const existing = await InstalledEquipment.query({ client: trx })
+          .where('id', input.equipmentId)
+          .where('siteId', locked.job.siteId!)
+          .whereNull('removedOn')
+          .forUpdate()
+          .first()
+        if (!existing) throw new FieldWorkRefusedError('notAtSite')
+        existing.merge({
+          itemId: item.id,
+          serialNumber: input.serialNumber ?? existing.serialNumber,
+          installedOn: existing.installedOn ?? locked.startsAt.startOf('day'),
+          maintenanceIntervalMonths:
+            existing.maintenanceIntervalMonths ?? item.maintenanceIntervalMonths,
+        })
+        await existing.useTransaction(trx).save()
+        equipmentId = existing.id
+      } else if (input.installed) {
         const equipment = await InstalledEquipment.create(
           {
             siteId: locked.job.siteId!,
             itemId: item.id,
-            equipmentType: item.description.slice(0, 100),
+            equipmentType: (input.equipmentType || item.description).slice(0, 100),
+            make: input.make ?? null,
+            model: input.model ?? null,
             serialNumber: input.serialNumber ?? null,
             installedOn: locked.startsAt.startOf('day'),
             maintenanceIntervalMonths: item.maintenanceIntervalMonths,
@@ -115,6 +145,7 @@ export default class FieldWork {
           { client: trx }
         )
         equipmentId = equipment.id
+        created = true
       }
 
       return VisitItem.create(
@@ -125,6 +156,7 @@ export default class FieldWork {
           unitPrice: item.resalePrice,
           installed: Boolean(input.installed),
           installedEquipmentId: equipmentId,
+          createdEquipment: created,
         },
         { client: trx }
       )
@@ -141,10 +173,36 @@ export default class FieldWork {
       // Already off stock: the line is part of the record
       if (current.stockMovementId) throw new FieldWorkRefusedError('done')
       await current.useTransaction(trx).delete()
-      if (current.installedEquipmentId) {
+      // Only equipment this line created goes with it; linked equipment stays
+      if (current.installedEquipmentId && current.createdEquipment) {
         await InstalledEquipment.query({ client: trx })
           .where('id', current.installedEquipmentId)
           .delete()
+      }
+    })
+  }
+
+  /**
+   * Records which of the Site's current equipment the Visit serviced
+   * (replacing the previous choice). Their service date is set when the
+   * Visit is closed.
+   */
+  static async setServiced(visit: Visit, equipmentIds: number[]) {
+    await this.whileOpen(visit, async (trx, locked) => {
+      await locked.load('job')
+      const found = equipmentIds.length
+        ? await InstalledEquipment.query({ client: trx })
+            .whereIn('id', equipmentIds)
+            .where('siteId', locked.job.siteId ?? 0)
+            .whereNull('removedOn')
+        : []
+      const ids = found.map((equipment) => equipment.id)
+      if (ids.length !== equipmentIds.length) throw new FieldWorkRefusedError('notAtSite')
+      await trx.from('visit_serviced_equipment').where('visit_id', locked.id).delete()
+      if (ids.length) {
+        await trx
+          .table('visit_serviced_equipment')
+          .insert(ids.map((id) => ({ visit_id: locked.id, installed_equipment_id: id })))
       }
     })
   }
@@ -171,6 +229,22 @@ export default class FieldWork {
             .where('id', line.id)
             .update({ stock_movement_id: movement.id })
         }
+      }
+
+      if (CLOSED_VISIT_STATUSES.includes(status)) {
+        // Serviced equipment was serviced on the Visit's day (never moved back)
+        const day = locked.startsAt.toISODate()!
+        await trx
+          .from('installed_equipment')
+          .whereIn(
+            'id',
+            trx
+              .from('visit_serviced_equipment')
+              .where('visit_id', locked.id)
+              .select('installed_equipment_id')
+          )
+          .where((q) => q.whereNull('last_serviced_on').orWhere('last_serviced_on', '<', day))
+          .update({ last_serviced_on: day })
       }
 
       locked.status = status

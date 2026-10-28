@@ -26,6 +26,13 @@ export default class InstalledEquipment extends InstalledEquipmentSchema {
    * the last service, or after installation if it has never been serviced.
    * Null without an interval or a date to count from.
    */
+  /**
+   * The same due date in SQL, for lists and filters: an expression on the
+   * `installed_equipment` table (null without an interval or a date).
+   */
+  static NEXT_DUE_SQL = `(coalesce(installed_equipment.last_serviced_on, installed_equipment.installed_on)
+    + make_interval(months => installed_equipment.maintenance_interval_months))::date`
+
   get nextDueOn() {
     const from = this.lastServicedOn ?? this.installedOn
     if (!this.maintenanceIntervalMonths || !from) return null

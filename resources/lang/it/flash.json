@@ -59,7 +59,8 @@
     "done": "L'intervento è chiuso e non si può più modificare.",
     "cancelled": "La commessa è stata annullata: l'intervento non si può più modificare.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
-    "noSite": "La commessa non ha un immobile: non si può registrare un'installazione."
+    "noSite": "La commessa non ha un immobile: non si può registrare un'installazione.",
+    "notAtSite": "L'apparecchio scelto non è installato in questo immobile."
   },
   "invoiceCreated": "Bozza di fattura creata.",
   "invoiceSaved": "Bozza salvata.",
@@ -94,5 +95,6 @@
   "archivedRecord": "Il cliente o l'immobile è archiviato: ripristinalo per aprire una nuova commessa.",
   "jobInvoiced": "La commessa ha fatture: non si può annullare.",
   "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
-  "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (preventivo accettato o ore e materiali registrati), oppure è annullata."
+  "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (preventivo accettato o ore e materiali registrati), oppure è annullata.",
+  "servicedSaved": "Apparecchi revisionati salvati."
 }
