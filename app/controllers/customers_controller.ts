@@ -1,6 +1,6 @@
 import Customer from '#models/customer'
 import Invoice from '#models/invoice'
-import { outstanding } from '#shared/payment_status'
+import { overpaidBy, owed } from '#shared/payment_status'
 import { sumAmounts } from '#shared/money'
 import Archiving, { HasOpenJobsError } from '#services/archiving'
 import PaymentTerms from '#models/payment_terms'
@@ -125,17 +125,25 @@ export default class CustomersController {
       )
       .firstOrFail()
 
-    // Outstanding on the Customer's issued Invoices
+    // What the Customer still owes on issued Invoices; an overpaid one
+    // doesn't offset the others (Payments belong to one Invoice, ADR 0014)
+    // but is flagged, to refund or correct
     const issued = await Invoice.query()
       .where('customerId', customer.id)
       .whereNot('status', 'draft')
       .preload('payments')
+      .orderBy('id')
+    const amounts = issued.map((invoice) => ({ total: invoice.total ?? '0', paid: invoice.paid }))
     const balance = sumAmounts(
-      issued.map((invoice) => outstanding(invoice.total ?? '0', invoice.paid))
+      amounts.filter((amount) => !overpaidBy(amount)).map((amount) => owed(amount))
     )
 
     return inertia.render('customers/show', {
       balance,
+      overpaid: issued.flatMap((invoice, index) => {
+        const by = overpaidBy(amounts[index])
+        return by ? [{ id: invoice.id, number: invoice.formattedNumber!, overpaidBy: by }] : []
+      }),
       customer: {
         id: customer.id,
         displayName: customer.displayName,

@@ -3,14 +3,14 @@ import Customer from '#models/customer'
 import Job from '#models/job'
 import Payment from '#models/payment'
 import Payments, { PaymentRefusedError } from '#services/payments'
-import { outstanding, paymentStatus } from '#shared/payment_status'
+import { overpaidBy, owed, paymentStatus } from '#shared/payment_status'
+import { OWED_SQL } from '#services/job_status'
 import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
 import VatDefaults from '#services/vat_defaults'
 import Invoices, {
-  InvoiceBelowPaidError,
   InvoiceNotEditableError,
   InvoiceNotFinalisableError,
   JobNotInvoiceableError,
@@ -24,6 +24,7 @@ import Submissions, {
   SubmissionRefusedError,
 } from '#services/submissions'
 import { formatMoney } from '#shared/money'
+import { formatDate } from '#shared/dates'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
@@ -80,7 +81,8 @@ async function vatDefaultProps(job: Job | null) {
 export default class InvoicesController {
   /**
    * Invoices by stage: drafts, finalised but not submitted, submitted
-   * without an outcome yet, rejected (to correct and resubmit), or all.
+   * without an outcome yet, rejected (to correct and resubmit), or all;
+   * or by payment: overdue, or overpaid (to refund or correct).
    */
   async index({ request, inertia }: HttpContext) {
     const { stage = 'all' } = await invoiceStageValidator.validate(request.qs())
@@ -89,14 +91,15 @@ export default class InvoicesController {
       .preload('lines')
       .preload('payments')
       .orderBy('created_at', 'desc')
+    // As paymentStatus(): overdue when past due with something owed,
+    // overpaid when what is owed is below zero
     if (stage === 'overdue') {
-      // Past due and not fully paid
       query
         .whereNot('status', 'draft')
         .where('dueOn', '<', DateTime.now().toISODate()!)
-        .whereRaw(
-          'total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = invoices.id)'
-        )
+        .whereRaw(`${OWED_SQL('invoices')} > 0`)
+    } else if (stage === 'overpaid') {
+      query.whereNot('status', 'draft').whereRaw(`${OWED_SQL('invoices')} < 0`)
     } else if (stage !== 'all') query.where('status', stage)
     const today = DateTime.now().toISODate()!
     const invoices = await query
@@ -279,7 +282,9 @@ export default class InvoicesController {
                 today: DateTime.now().toISODate()!,
               }),
               paid: invoice.paid,
-              outstanding: outstanding(invoice.total, invoice.paid),
+              // Below zero when overpaid
+              owed: owed({ total: invoice.total, paid: invoice.paid }),
+              overpaidBy: overpaidBy({ total: invoice.total, paid: invoice.paid }),
             }
           : null,
       vatCodes: await vatCodeOptions(invoice.lines.map((line) => line.vatCodeId)),
@@ -298,7 +303,7 @@ export default class InvoicesController {
     })
 
     try {
-      await Invoices.save(
+      const { belowPaid } = await Invoices.save(
         invoice,
         {
           discountPercent: data.discountPercent,
@@ -308,20 +313,21 @@ export default class InvoicesController {
         },
         auth.getUserOrFail()
       )
+      // Saved all the same: the Invoice is now overpaid (ADR 0014)
+      if (belowPaid) {
+        session.flash('warning', i18n.t('flash.invoiceBelowPaid', { paid: formatMoney(belowPaid) }))
+      } else {
+        session.flash('success', i18n.t('flash.invoiceSaved'))
+      }
     } catch (error) {
       if (error instanceof InvoiceNotFinalisableError) {
         session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
       } else if (error instanceof InvoiceNotEditableError) {
         session.flash('error', i18n.t('flash.invoiceNotEditable'))
-      } else if (error instanceof InvoiceBelowPaidError) {
-        session.flash('error', i18n.t('flash.invoiceBelowPaid', { paid: formatMoney(error.paid) }))
       } else {
         throw error
       }
-      return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     }
-
-    session.flash('success', i18n.t('flash.invoiceSaved'))
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }
 
@@ -468,15 +474,30 @@ export default class InvoicesController {
     }
   }
 
+  /**
+   * Records a Payment, or a refund as a negative amount. Anything unusual
+   * is recorded with a warning, never refused (ADR 0014).
+   */
   async recordPayment({ params, request, response, session, i18n, auth }: HttpContext) {
     const invoice = await Invoice.findOrFail(params.id)
     const data = await request.validateUsing(paymentValidator)
     try {
-      await Payments.record(invoice, data, auth.getUserOrFail())
-      session.flash('success', i18n.t('flash.paymentRecorded'))
+      const { warnings } = await Payments.record(invoice, data, auth.getUserOrFail())
+      if (warnings.length) {
+        const parts = warnings.map((warning) =>
+          warning.reason === 'beforeIssued'
+            ? i18n.t('flash.paymentWarning.beforeIssued', { date: formatDate(warning.date) })
+            : i18n.t(`flash.paymentWarning.${warning.reason}`, {
+                amount: formatMoney(warning.amount),
+              })
+        )
+        session.flash('warning', [i18n.t('flash.paymentWarning.recorded'), ...parts].join(' '))
+      } else {
+        session.flash('success', i18n.t('flash.paymentRecorded'))
+      }
     } catch (error) {
       if (!(error instanceof PaymentRefusedError)) throw error
-      session.flash('error', i18n.t(`flash.paymentRefused.${error.reason}`))
+      session.flash('error', i18n.t('flash.paymentRefused'))
     }
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }

@@ -83,7 +83,7 @@
   "invoiceSaved": "Bozza salvata.",
   "invoiceDeleted": "Bozza eliminata.",
   "invoiceNotEditable": "La fattura non è più modificabile.",
-  "invoiceBelowPaid": "Il totale corretto sarebbe inferiore a quanto già incassato ({paid}): elimina prima gli incassi in eccesso.",
+  "invoiceBelowPaid": "Fattura salvata, ma il totale è inferiore a quanto già incassato ({paid}): risulta pagata in eccesso.",
   "invoiceFinalised": "Fattura {number} emessa.",
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",
@@ -121,9 +121,12 @@
   "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (addebiti sulla commessa o su interventi chiusi), oppure è annullata.",
   "paymentRecorded": "Incasso registrato.",
   "paymentRemoved": "Incasso eliminato.",
-  "paymentRefused": {
-    "draft": "Una bozza non si incassa: emetti prima la fattura.",
-    "tooMuch": "L'importo supera quanto resta da incassare."
+  "paymentRefused": "Una bozza non si incassa: emetti prima la fattura.",
+  "paymentWarning": {
+    "recorded": "Incasso registrato, da verificare.",
+    "overpaid": "Supera quanto restava da incassare: la fattura risulta pagata in eccesso di {amount}.",
+    "refundBeyondOverpaid": "Il rimborso supera quanto era stato pagato in eccesso: restano da incassare {amount}.",
+    "beforeIssued": "La data è precedente all'emissione della fattura ({date})."
   },
   "servicedSaved": "Apparecchi revisionati salvati.",
   "chargeCorrected": "Addebito corretto.",
