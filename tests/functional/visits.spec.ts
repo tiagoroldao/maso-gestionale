@@ -3,6 +3,8 @@ import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
 import Visit from '#models/visit'
 import Quote from '#models/quote'
+import LabourRate from '#models/labour_rate'
+import FieldWork from '#services/field_work'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
@@ -618,6 +620,92 @@ test.group('Editing and deleting Visits', () => {
     day.assertInertiaPropsContains({
       technicians: [{ id: old.id, active: false }],
       visits: [{ id: visit.id, technicianIds: [old.id] }],
+    })
+  })
+
+  test('a Technician with logged hours stays on the Visit', async ({ client, assert }) => {
+    const anna = await createUser('technician')
+    const bruno = await createUser('technician')
+    const { office, visit } = await planned(client, [anna.id])
+    const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' })
+    await FieldWork.recordHours(visit, { technicianId: anna.id, labourRateId: rate.id, hours: '1' })
+
+    const edited = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([bruno.id]))
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    edited.assertFlashMessage('error', it('flash.technicianHasHours'))
+
+    const handedOver = await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T09:00', fromTechnicianId: anna.id, toTechnicianId: bruno.id })
+      .header('referer', '/agenda')
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    handedOver.assertFlashMessage('error', it('flash.technicianHasHours'))
+
+    await visit.load('technicians')
+    assert.deepEqual(
+      visit.technicians.map((t) => t.id),
+      [anna.id]
+    )
+
+    // Adding someone alongside is fine
+    await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id, bruno.id]))
+      .withCsrfToken()
+      .loginAs(office)
+    await visit.load('technicians')
+    assert.sameMembers(
+      visit.technicians.map((t) => t.id),
+      [anna.id, bruno.id]
+    )
+  })
+
+  test('a Visit stays on the Agenda when its Technician changes role, and can be kept', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician', { fullName: 'Anna' })
+    const { office, visit } = await planned(client, [anna.id])
+    await anna.merge({ role: 'office' }).save()
+
+    const day = await client.get('/agenda').qs({ date: '2026-11-03' }).withInertia().loginAs(office)
+    day.assertInertiaPropsContains({
+      technicians: [{ id: anna.id }],
+      visits: [{ id: visit.id, technicianIds: [anna.id] }],
+    })
+
+    // Editing the Visit with them still on it is allowed
+    const edited = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id], { notes: 'Citofonare' }))
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    edited.assertFlashMessage('success', it('flash.visitSaved'))
+    await visit.refresh()
+    assert.equal(visit.notes, 'Citofonare')
+  })
+
+  test('Visits with no Technician are listed apart on the Agenda', async ({ client }) => {
+    const office = await createUser('office')
+    const job = await createJob(await createCustomer())
+    const start = DateTime.fromISO('2026-11-03T09:00')
+    const visit = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+
+    const day = await client.get('/agenda').qs({ date: '2026-11-03' }).withInertia().loginAs(office)
+    day.assertInertiaPropsContains({
+      unassigned: [{ id: visit.id, job: { number: job.number } }],
     })
   })
 
