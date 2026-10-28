@@ -70,8 +70,9 @@ export default class Scheduling {
 
   /**
    * Changes a Visit that isn't closed: when, how long, who and the notes
-   * for the team. Technicians already on it stay allowed even if since
-   * deactivated (the validator checks the rest).
+   * for the team. Anyone already on it may stay, even if since deactivated
+   * or no longer a Technician (the validator checks the rest); anyone who
+   * logged hours on it must stay.
    */
   static async update(
     visit: Visit,

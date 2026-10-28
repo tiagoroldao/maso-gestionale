@@ -632,7 +632,7 @@ test.group('Editing and deleting Visits', () => {
 
     const edited = await client
       .put(`/visits/${visit.id}`)
-      .json(plan([bruno.id]))
+      .json(plan([bruno.id], { startTime: '10:00', notes: 'Altro' }))
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
@@ -647,6 +647,10 @@ test.group('Editing and deleting Visits', () => {
       .redirects(0)
     handedOver.assertFlashMessage('error', it('flash.technicianHasHours'))
 
+    // Refused whole: the time and notes didn't change either
+    await visit.refresh()
+    assert.equal(visit.startsAt.toFormat('HH:mm'), '09:00')
+    assert.equal(visit.notes, 'Portare la chiave del locale caldaia')
     await visit.load('technicians')
     assert.deepEqual(
       visit.technicians.map((t) => t.id),
@@ -690,6 +694,57 @@ test.group('Editing and deleting Visits', () => {
     edited.assertFlashMessage('success', it('flash.visitSaved'))
     await visit.refresh()
     assert.equal(visit.notes, 'Citofonare')
+  })
+
+  test('a Visit can still be moved within the lane of someone no longer a Technician', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit } = await planned(client, [anna.id])
+    await anna.merge({ role: 'office' }).save()
+
+    await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T11:00', fromTechnicianId: anna.id, toTechnicianId: anna.id })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await visit.refresh()
+    assert.equal(visit.startsAt.toFormat('HH:mm'), '11:00')
+  })
+
+  test('only active Technicians can join a Visit, by edit or hand-over', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit } = await planned(client, [anna.id])
+    const clerk = await createUser('office')
+
+    const edited = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id, clerk.id]))
+      .header('referer', `/visits/${visit.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(edited.flashMessage('inputErrorsBag'), ['technicianIds.1'])
+
+    const handedOver = await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T09:00', fromTechnicianId: anna.id, toTechnicianId: clerk.id })
+      .header('referer', '/agenda')
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(handedOver.flashMessage('inputErrorsBag'), ['toTechnicianId'])
+
+    await visit.load('technicians')
+    assert.deepEqual(
+      visit.technicians.map((t) => t.id),
+      [anna.id]
+    )
   })
 
   test('Visits with no Technician are listed apart on the Agenda', async ({ client }) => {

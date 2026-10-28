@@ -19,8 +19,9 @@ import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
- * Active Technicians, plus `extra` ones (e.g. deactivated since but still
- * on Visits being shown), marked inactive.
+ * Active Technicians, plus the `extra` people already on Visits being
+ * shown, whether since deactivated (marked inactive) or no longer
+ * Technicians.
  */
 async function technicians(extra: number[] = []) {
   const users = await User.query()
@@ -75,9 +76,9 @@ export default class VisitsController {
   }
 
   /**
-   * The calendar: one lane per active Technician (plus deactivated ones
-   * with Visits in view), for a day or a week
-   * (Monday to Sunday).
+   * The calendar: one lane per active Technician (plus anyone else on a
+   * Visit in view), for a day or a week (Monday to Sunday); Visits with
+   * no one on them are listed apart.
    */
   async schedule({ request, inertia }: HttpContext) {
     const { date, view = 'day' } = await scheduleValidator.validate(request.qs())
