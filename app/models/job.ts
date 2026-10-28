@@ -7,7 +7,7 @@ import Site from '#models/site'
 import Quote from '#models/quote'
 import Visit from '#models/visit'
 import Invoice from '#models/invoice'
-import type { JobStatus, WorkCategory } from '#shared/jobs'
+import { takesNewWork, type JobStatus, type WorkCategory } from '#shared/jobs'
 import { BILLING_OPEN_SQL } from '#services/job_status'
 
 export { JOB_STATUSES, type JobStatus } from '#shared/jobs'
@@ -22,7 +22,7 @@ export default class Job extends JobSchema {
 
   /**
    * Adds whether work is still left to bill (`$extras.billing_open`),
-   * which the displayed status needs (job_status.ts).
+   * which the invoiced indicator needs (job_status.ts).
    */
   static withBillingState = scope((query) => {
     query.select('jobs.*').select(db.raw(`(${BILLING_OPEN_SQL}) AS billing_open`))
@@ -50,7 +50,10 @@ export default class Job extends JobSchema {
     return `${this.year}/${String(this.sequence).padStart(4, '0')}`
   }
 
+  /**
+   * Takes new work: neither closed nor cancelled (ADR 0015).
+   */
   get isActive() {
-    return this.status !== 'cancelled'
+    return takesNewWork(this.status)
   }
 }

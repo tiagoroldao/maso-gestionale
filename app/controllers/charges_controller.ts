@@ -114,7 +114,6 @@ export default class ChargesController {
         id: job.id,
         number: job.number,
         title: job.title,
-        cancelled: job.status === 'cancelled',
       },
       labourRates: rates.map((rate) => ({ id: rate.id, name: rate.name })),
       technicians: technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),

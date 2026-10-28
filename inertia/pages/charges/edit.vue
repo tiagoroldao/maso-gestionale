@@ -44,7 +44,7 @@ const props = defineProps<{
       amount: string | null
     }[]
   }
-  job: { id: number; number: string; title: string; cancelled: boolean }
+  job: { id: number; number: string; title: string }
   labourRates: { id: number; name: string }[]
   technicians: { id: number; name: string }[]
 }>()
@@ -59,8 +59,9 @@ function pickItem(picked: PickedItem) {
   changingItem.value = false
 }
 
-// What is billed is frozen while an Invoice holds or bills the Charge
-const frozen = computed(() => isHeld(props.charge.state) || props.job.cancelled)
+// What is billed is frozen while an Invoice holds or bills the Charge,
+// whatever the Job's status (#111)
+const frozen = computed(() => isHeld(props.charge.state))
 const confirmSetBack = () =>
   window.confirm(
     t('ui.charges.setBackToBillConfirm', { number: props.charge.invoice?.number ?? '' })
@@ -283,7 +284,7 @@ const shown = (key: string, value: string | null) => {
           </fieldset>
         </Form>
         <Form
-          v-if="charge.state === 'billed' && !job.cancelled"
+          v-if="charge.state === 'billed'"
           route="charges.set_back_to_bill"
           :params="{ id: charge.id }"
           :on-before="confirmSetBack"

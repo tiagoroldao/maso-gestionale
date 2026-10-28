@@ -23,7 +23,7 @@ _Avoid_: Service schedule, recurrence
 ## Work
 
 **Job** (_Commessa_):
-A whole piece of work for a Customer, which may span multiple Visits, may have Quotes, and is invoiced from its Charges. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
+A whole piece of work for a Customer, which may span multiple Visits, may have Quotes, and is invoiced from its Charges. When a Job is closed or cancelled its Visits are kept as history and accept no further work, while Office can still bill the Charges already recorded: they leave the Technicians' lists, and the Agenda too once the Job is cancelled (a closed Job's stay there, read-only).
 _Avoid_: Intervention, work order, ticket, Quoted Job / Time & Materials Job (a Job has no kind; it may have several Quotes)
 
 **Closed Job** (_Commessa chiusa_):

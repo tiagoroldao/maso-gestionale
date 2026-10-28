@@ -413,7 +413,7 @@ test.group('Payments', () => {
     )
   })
 
-  test('Jobs become Invoiced, then Closed; the lists and archiving follow', async ({
+  test('Jobs show as invoiced, then paid, but only Office closes them; archiving follows', async ({
     client,
     assert,
   }) => {
@@ -423,19 +423,22 @@ test.group('Payments', () => {
     const job = await createJob(customer)
     const invoice = await issued(customer, job.id)
 
+    type Row = { id: number; status: string; indicators: { invoiced: boolean; paid: boolean } }
     const ids = async (status?: string) => {
       const list = await client
         .get('/jobs')
         .qs(status ? { status } : {})
         .withInertia()
         .loginAs(office)
-      return (list.inertiaProps.jobs as { id: number; status: string }[]).map((j) => [
+      return (list.inertiaProps.jobs as Row[]).map((j) => [
         j.id,
         j.status,
+        j.indicators.invoiced,
+        j.indicators.paid,
       ])
     }
-    assert.deepEqual(await ids('invoiced'), [[job.id, 'invoiced']])
-    assert.deepEqual(await ids('open'), [])
+    assert.deepEqual(await ids('invoiced'), [[job.id, 'open', true, false]])
+    assert.deepEqual(await ids('open'), [[job.id, 'open', true, false]])
     const archive = await client
       .post(`/customers/${customer.id}/archive`)
       .withCsrfToken()
@@ -443,9 +446,9 @@ test.group('Payments', () => {
       .redirects(0)
     archive.assertFlashMessage('error', it('flash.hasOpenJobs'))
 
-    // Overpaid isn't settled: still Invoiced, as the status shown says
+    // Overpaid isn't settled: not paid
     await Payments.record(invoice, { amount: '130', paidOn: DateTime.now() })
-    assert.deepEqual(await ids('invoiced'), [[job.id, 'invoiced']])
+    assert.deepEqual(await ids('invoiced'), [[job.id, 'open', true, false]])
     assert.deepEqual(await ids('closed'), [])
     const notYet = await client
       .post(`/customers/${customer.id}/archive`)
@@ -454,10 +457,20 @@ test.group('Payments', () => {
       .redirects(0)
     notYet.assertFlashMessage('error', it('flash.hasOpenJobs'))
 
-    // Refunding what was overpaid settles it
+    // Refunding what was overpaid settles it: paid, yet still open (ADR 0015)
     await Payments.record(invoice, { amount: '-8', paidOn: DateTime.now() })
-    assert.deepEqual(await ids('closed'), [[job.id, 'closed']])
-    // The active list leaves Closed Jobs out
+    assert.deepEqual(await ids(), [[job.id, 'open', true, true]])
+    assert.deepEqual(await ids('closed'), [])
+    const stillOpen = await client
+      .post(`/customers/${customer.id}/archive`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    stillOpen.assertFlashMessage('error', it('flash.hasOpenJobs'))
+
+    // Office closes it: the active list leaves it out
+    await client.post(`/jobs/${job.id}/close`).withCsrfToken().loginAs(office)
+    assert.deepEqual(await ids('closed'), [[job.id, 'closed', true, true]])
     assert.deepEqual(await ids(), [])
     const archived = await client
       .post(`/customers/${customer.id}/archive`)
@@ -495,13 +508,12 @@ test.group('Payments', () => {
 
     const ids = async (status: string) => {
       const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
-      return (list.inertiaProps.jobs as { id: number; status: string }[])
-        .map((j) => [j.id, j.status])
-        .sort()
+      return (list.inertiaProps.jobs as { id: number }[]).map((j) => j.id).sort()
     }
-    assert.deepEqual(await ids('invoiced'), [[billed.id, 'invoiced']])
-    assert.deepEqual(await ids('work_complete'), [[drafted.id, 'work_complete']])
-    assert.deepEqual(await ids('in_progress'), [])
+    assert.deepEqual(await ids('invoiced'), [billed.id])
+    assert.deepEqual(await ids('work_complete'), [billed.id, drafted.id].sort())
+    assert.deepEqual(await ids('in_progress'), [billed.id, drafted.id].sort())
+    assert.deepEqual(await ids('ready_to_close'), [])
     assert.deepEqual(await ids('closed'), [])
   })
 

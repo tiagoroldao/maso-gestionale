@@ -7,12 +7,16 @@ import { computed } from 'vue'
 import { Link } from '@adonisjs/inertia/vue'
 import { formatDate, t } from '~/i18n'
 import type { QuoteStatus } from '@shared/quotes'
+import type { JobIndicators } from '@shared/jobs'
+import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 
 export type JobRow = {
   id: number
   number: string
   title: string
   status: string
+  // Shown beside the status (ADR 0015)
+  indicators: JobIndicators | null
   customer: { id: number; displayName: string } | null
   site: { id: number; summary: string } | null
   createdAt: string
@@ -54,6 +58,7 @@ const showQuotes = computed(() => props.jobs.some((job) => job.quotes))
         <td v-if="showSite">{{ job.site?.summary }}</td>
         <td>
           <span class="tag">{{ t(`ui.jobs.statuses.${job.status}`) }}</span>
+          <JobIndicatorTags v-if="job.indicators" :indicators="job.indicators" />
         </td>
         <td v-if="showQuotes" data-testid="job-quotes">
           <div v-for="quote in job.quotes" :key="quote.number">

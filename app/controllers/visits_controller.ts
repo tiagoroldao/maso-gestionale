@@ -9,6 +9,7 @@ import Scheduling, {
   VisitNotMovableError,
 } from '#services/scheduling'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
   editVisitValidator,
   moveVisitValidator,
@@ -90,7 +91,8 @@ export default class VisitsController {
     const visits = await Visit.query()
       .where('startsAt', '<', to.toJSDate())
       .where('endsAt', '>', from.toJSDate())
-      // Abandoned work leaves the Agenda; the Visits stay in the Job's history
+      // A cancelled Job's Visits leave the Agenda (abandoned work); a closed
+      // Job's stay, as history that no longer moves (ADR 0015)
       .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
       .preload('technicians')
       .preload('job', (job) => job.preload('customer').preload('site'))
@@ -126,6 +128,8 @@ export default class VisitsController {
         status: visit.status,
         survey: visit.survey,
         technicianIds: visit.technicians.map((technician) => technician.id),
+        // Closed Visits and a closed Job's Visits can't move (Scheduling)
+        movable: !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
         job: {
           id: visit.job.id,
           number: visit.job.number,
@@ -246,7 +250,7 @@ export default class VisitsController {
   async toSchedule({ inertia }: HttpContext) {
     const visits = await Visit.query()
       .where('status', 'needs_return')
-      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      .whereHas('job', (job) => job.whereIn('status', [...ACTIVE_JOB_STATUSES]))
       .whereNotExists((later) =>
         later
           .from('visits as later')

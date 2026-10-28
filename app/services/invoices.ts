@@ -50,13 +50,18 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * The draft can't be finalised (or the deductions saved) yet: it has no
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
- * advance than is left, or an advance corrected below what issued
- * Invoices already took back of it.
+ * advance than is left, an advance corrected below what issued
+ * Invoices already took back of it, or an advance for a Job since closed.
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
     readonly reason:
-      'empty' | 'companyIncomplete' | 'negativeTotal' | 'deductionTooLarge' | 'belowDeducted'
+      | 'empty'
+      | 'companyIncomplete'
+      | 'negativeTotal'
+      | 'deductionTooLarge'
+      | 'belowDeducted'
+      | 'jobClosed'
   ) {
     super(reason)
   }
@@ -69,7 +74,7 @@ export type Deduction = { advanceId: number; amount: string }
 
 /**
  * The Job has nothing to invoice yet (no Charge to bill on the Job or its
- * closed Visits), or it was cancelled.
+ * closed Visits), or, for an Advance Invoice, it is closed or cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 
@@ -117,7 +122,8 @@ export default class Invoices {
   static async createAdvance(job: Job) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
+      // An advance is for work to come: none on a closed or cancelled Job
+      if (!locked.isActive) throw new JobNotInvoiceableError()
       const { labour: code } = await VatDefaults.forJob(locked, trx)
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft', advance: true },
@@ -339,8 +345,8 @@ export default class Invoices {
    */
   static async fromJob(job: Job) {
     return db.transaction(async (trx) => {
+      // Recorded work is billed whatever the Job's status (#111)
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
       const draft = await Invoice.query({ client: trx })
         .where('jobId', locked.id)
         .where('status', 'draft')
@@ -673,6 +679,12 @@ export default class Invoices {
   static async finalise(invoice: Invoice, user: User | null = null) {
     const finalisable = (status: InvoiceStatus) => canTransition(status, 'finalise')
     return this.whileIn(finalisable, invoice, async (trx, locked) => {
+      // An advance is for work to come: not once its Job is closed or
+      // cancelled, as when drafting one (the Job is locked by whileIn)
+      if (locked.advance) {
+        const job = await Job.findOrFail(locked.jobId, { client: trx })
+        if (!job.isActive) throw new InvoiceNotFinalisableError('jobClosed')
+      }
       // Issued Invoices may have taken advances back since the draft was
       // saved: its deductions must still fit, their lines as they are now
       const regular = await InvoiceLine.query({ client: trx })

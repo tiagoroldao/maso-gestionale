@@ -1,14 +1,8 @@
 import type { DateTime } from 'luxon'
-import type { JobStatus } from '#models/job'
 import type { VisitStatus } from '#models/visit'
+import type { JobIndicators } from '#shared/jobs'
 import { isSettled } from '#shared/payment_status'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
-
-/**
- * The status shown for a Job: the stored status, refined from its Visits
- * (Work Complete) and its Invoices (Invoiced, then Closed once settled).
- */
-export type DisplayedJobStatus = JobStatus | 'work_complete' | 'invoiced' | 'closed'
 
 type InvoiceSummary = { status: string; total: string | null; paid: string }
 
@@ -24,32 +18,31 @@ function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
 }
 
 /**
- * Work Complete: the Job is in progress, it has a work Visit, and every
- * Visit is finished, Surveys included, so nothing is left to do or to
- * plan. A Job with only Surveys has had no work (ADR 0013).
+ * The indicators shown beside a Job's stored status (ADR 0015), whatever
+ * that status is; WORK_COMPLETE_SQL, INVOICED_SQL and JOB_PAID_SQL say the
+ * same in SQL:
+ * - work complete: the Job has a work Visit and every Visit is finished,
+ *   Surveys included, so nothing is left to do or to plan. A Job with only
+ *   Surveys has had no work (ADR 0013);
+ * - invoiced: an Invoice is past draft and nothing is left to bill
+ *   (`billingOpen`, from BILLING_OPEN_SQL), every advance taken back;
+ * - paid: an Invoice is past draft and every one is settled: nothing owed,
+ *   and none overpaid (ADR 0014).
  */
-export function deriveJobStatus(
-  stored: JobStatus,
+export function jobIndicators(
   visits: VisitSummary[],
-  invoices: InvoiceSummary[] = [],
-  billingOpen = false
-): DisplayedJobStatus {
-  if (stored === 'cancelled') return stored
-  // Invoiced once an Invoice is past draft and nothing is left to bill
-  // (BILLING_OPEN_SQL); Closed when every Invoice is settled: nothing
-  // owed, and none overpaid (ADR 0014)
+  invoices: InvoiceSummary[],
+  billingOpen: boolean
+): JobIndicators {
   const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
-  if (issued.length && !billingOpen) {
-    const settled = issued.every((invoice) =>
-      isSettled({ total: invoice.total!, paid: invoice.paid })
-    )
-    return settled ? 'closed' : 'invoiced'
+  return {
+    workComplete:
+      visits.some((visit) => !visit.survey) && visits.every((visit) => isFinished(visit, visits)),
+    invoiced: issued.length > 0 && !billingOpen,
+    paid:
+      issued.length > 0 &&
+      issued.every((invoice) => isSettled({ total: invoice.total!, paid: invoice.paid })),
   }
-  const workComplete =
-    stored === 'in_progress' &&
-    visits.some((visit) => !visit.survey) &&
-    visits.every((visit) => isFinished(visit, visits))
-  return workComplete ? 'work_complete' : stored
 }
 
 /**
@@ -71,7 +64,7 @@ export const OWED_SQL = (alias: string) => `(${alias}.total - ${PAID_SQL(alias)}
 const ISSUED_SQL = `EXISTS (SELECT 1 FROM invoices i
   WHERE i.job_id = jobs.id AND i.status <> 'draft')`
 /** An issued Invoice not settled (isSettled()): something owed, or overpaid */
-const UNSETTLED_SQL = `EXISTS (SELECT 1 FROM invoices i
+export const UNSETTLED_SQL = `EXISTS (SELECT 1 FROM invoices i
   WHERE i.job_id = jobs.id AND i.status <> 'draft' AND ${OWED_SQL('i')} <> 0)`
 
 /**
@@ -140,19 +133,20 @@ export const BILLING_OPEN_SQL = `(
     WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
       AND a.total > ${ADVANCE_DEDUCTED_SQL('a')}))`
 
-const FULLY_INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
+/**
+ * The Visit `alias` isn't finished (isFinished()): planned or under way,
+ * or needing another visit with none planned after it.
+ */
+export const VISIT_TO_DO_SQL = (alias: string) => `(${alias}.status IN ('planned', 'in_progress')
+  OR (${alias}.status = 'needs_return' AND NOT EXISTS (SELECT 1 FROM visits later
+    WHERE later.job_id = ${alias}.job_id AND later.starts_at > ${alias}.starts_at)))`
 
-export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND NOT ${UNSETTLED_SQL}`
-export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND ${UNSETTLED_SQL}`
-/** Not yet invoiced in full: what Work Complete and stored statuses describe */
-export const NOT_INVOICED_SQL = `NOT ${FULLY_INVOICED_SQL}`
-
-export const WORK_COMPLETE_SQL = `${NOT_INVOICED_SQL} AND jobs.status = 'in_progress'
-  AND EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT v.survey)
-  AND NOT EXISTS (
-    SELECT 1 FROM visits v
-    WHERE v.job_id = jobs.id
-      AND (v.status IN ('planned', 'in_progress')
-        OR (v.status = 'needs_return' AND NOT EXISTS (
-          SELECT 1 FROM visits later WHERE later.job_id = v.job_id AND later.starts_at > v.starts_at)))
-  )`
+/**
+ * The indicators of jobIndicators() as SQL conditions, for the Jobs list's
+ * filters: work complete, invoiced, paid, and all three (ready to close).
+ */
+export const WORK_COMPLETE_SQL = `(EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT v.survey)
+  AND NOT EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND ${VISIT_TO_DO_SQL('v')}))`
+export const INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
+export const JOB_PAID_SQL = `(${ISSUED_SQL} AND NOT ${UNSETTLED_SQL})`
+export const READY_TO_CLOSE_SQL = `(${WORK_COMPLETE_SQL} AND ${INVOICED_SQL} AND ${JOB_PAID_SQL})`

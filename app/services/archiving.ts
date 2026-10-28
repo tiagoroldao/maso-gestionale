@@ -4,10 +4,11 @@ import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
 import Site from '#models/site'
-import { CLOSED_SQL } from '#services/job_status'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 
 /**
- * The Customer or Site still has Jobs that are neither Closed nor cancelled.
+ * The Customer or Site still has Jobs that are neither closed nor
+ * cancelled.
  */
 export class HasOpenJobsError extends Error {}
 
@@ -46,7 +47,7 @@ export default class Archiving {
 
   /**
    * Archiving is refused while the record has Jobs that are neither
-   * cancelled nor Closed.
+   * closed nor cancelled.
    */
   private static setArchived(
     model: typeof Customer | typeof Site,
@@ -57,12 +58,13 @@ export default class Archiving {
     return db.transaction(async (trx) => {
       const record = await model.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
       if (archived) {
-        // Jobs still in play: neither cancelled nor Closed (fully invoiced and paid)
+        // Jobs still in play: neither closed nor cancelled (ADR 0015). Not
+        // locked: a Job reopening (Jobs.reopen) share-locks this record
+        // after its Job, so it waits for the archiving and then sees it
         const open = await trx
           .from('jobs')
           .where(jobColumn, id)
-          .whereNot('status', 'cancelled')
-          .whereRaw(`NOT (${CLOSED_SQL})`)
+          .whereIn('status', [...ACTIVE_JOB_STATUSES])
           .first()
         if (open) throw new HasOpenJobsError()
       }
@@ -81,6 +83,18 @@ export default class Archiving {
     trx: TransactionClientContract,
     ids: { customerId: number; siteId?: number | null }
   ) {
+    if (await this.lockShared(trx, ids)) throw new ArchivedRecordError()
+  }
+
+  /**
+   * Share-locks the Customer (and Site) inside the caller's transaction,
+   * the rows archiving locks for update, and tells whether either is
+   * archived. Callers lock their Job first: Job, then Customer, then Site.
+   */
+  static async lockShared(
+    trx: TransactionClientContract,
+    ids: { customerId: number; siteId?: number | null }
+  ) {
     const customer = await Customer.query({ client: trx })
       .where('id', ids.customerId)
       .forShare()
@@ -88,7 +102,7 @@ export default class Archiving {
     const site = ids.siteId
       ? await Site.query({ client: trx }).where('id', ids.siteId).forShare().firstOrFail()
       : null
-    if (customer.archivedAt || site?.archivedAt) throw new ArchivedRecordError()
+    return Boolean(customer.archivedAt || site?.archivedAt)
   }
 
   /**

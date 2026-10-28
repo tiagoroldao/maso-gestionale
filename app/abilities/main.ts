@@ -60,7 +60,7 @@ export const viewVisit = Bouncer.ability(async (user: User, visit: Visit) => {
 })
 
 /**
- * Jobs: creating, editing and cancelling them.
+ * Jobs: creating, editing, closing, reopening and cancelling them.
  */
 export const manageJobs = Bouncer.ability((user: User) => {
   return user.role === 'admin' || user.role === 'office'

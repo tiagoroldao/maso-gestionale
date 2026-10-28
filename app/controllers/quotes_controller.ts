@@ -69,7 +69,7 @@ export default class QuotesController {
     const job = quote.job
     // Importing lines as Charges (ADR 0012): how often each line was
     // imported, the open Visits to import onto, and who can work the hours
-    const importable = quote.status === 'accepted' && job.status !== 'cancelled'
+    const importable = quote.status === 'accepted' && job.isActive
     const imported = await db
       .from('charges')
       .whereIn(

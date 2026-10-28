@@ -287,7 +287,7 @@ test.group('Field work', () => {
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
       timeAndMaterials: { total: '1300.00' },
-      job: { status: 'work_complete' },
+      job: { status: 'in_progress', indicators: { workComplete: true } },
     })
 
     const titles = async (status: string) => {
@@ -295,62 +295,64 @@ test.group('Field work', () => {
       return (list.inertiaProps.jobs as { id: number }[]).map((row) => row.id)
     }
     assert.deepEqual(await titles('work_complete'), [job.id])
-    assert.deepEqual(await titles('in_progress'), [])
+    assert.deepEqual(await titles('in_progress'), [job.id])
 
     const technicianJob = await client.get(`/jobs/${job.id}`).withInertia().loginAs(anna)
     technicianJob.assertStatus(403)
   })
 })
 
-test.group("Field work on a cancelled Job's Visits", () => {
-  test('hours, Items, status changes, notes and photos are all refused', async ({
-    client,
-    assert,
-  }) => {
-    const { anna, job, visit, rate, item } = await setup()
-    const hour = await FieldWork.recordHours(visit, {
-      technicianId: anna.id,
-      labourRateId: rate.id,
-      hours: '1',
+test.group("Field work on a closed or cancelled Job's Visits", () => {
+  test('hours, Items, status changes, notes and photos are all refused once {$self}')
+    .with(['closed', 'cancelled'] as const)
+    .run(async ({ client, assert }, status) => {
+      const action = status === 'closed' ? 'close' : 'cancel'
+      const { anna, job, visit, rate, item } = await setup()
+      const hour = await FieldWork.recordHours(visit, {
+        technicianId: anna.id,
+        labourRateId: rate.id,
+        hours: '1',
+      })
+      const line = await FieldWork.recordItem(visit, { itemId: item.id, quantity: '1' })
+      await client
+        .post(`/jobs/${job.id}/${action}`)
+        .withCsrfToken()
+        .loginAs(await createUser('office'))
+
+      for (const request of [
+        client
+          .post(`/my-visits/${visit.id}/hours`)
+          .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '1' }),
+        client
+          .post(`/my-visits/${visit.id}/items`)
+          .form({ itemId: String(item.id), quantity: '1' }),
+        client.delete(`/charges/${hour.id}`),
+        client.delete(`/charges/${line.id}`),
+        client.post(`/my-visits/${visit.id}/status`).form({ status: 'done' }),
+        client.post(`/my-visits/${visit.id}/notes`).form({ body: 'Lavoro finito' }),
+        client
+          .post(`/my-visits/${visit.id}/photos`)
+          .file('photo', app.makePath('tests/fixtures/logo.png')),
+      ]) {
+        const response = await request.withCsrfToken().loginAs(anna).redirects(0)
+        response.assertFlashMessage('error', it(`flash.fieldWorkRefused.${status}`))
+      }
+
+      await visit.refresh()
+      await visit.load('hours')
+      await visit.load('items')
+      await visit.load('fieldNotes')
+      await visit.load('photos')
+      assert.equal(visit.status, 'planned', status)
+      assert.lengthOf(visit.hours, 1)
+      assert.lengthOf(visit.items, 1)
+      // The refused photo's file was removed again
+      const folder = storagePath(`visits/${visit.id}`)
+      assert.isTrue(!existsSync(folder) || readdirSync(folder).length === 0)
+      assert.lengthOf(visit.fieldNotes, 0)
+      assert.lengthOf(visit.photos, 0)
+      assert.lengthOf(await StockMovement.all(), 0)
     })
-    const line = await FieldWork.recordItem(visit, { itemId: item.id, quantity: '1' })
-    await client
-      .post(`/jobs/${job.id}/cancel`)
-      .withCsrfToken()
-      .loginAs(await createUser('office'))
-
-    for (const request of [
-      client
-        .post(`/my-visits/${visit.id}/hours`)
-        .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '1' }),
-      client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
-      client.delete(`/charges/${hour.id}`),
-      client.delete(`/charges/${line.id}`),
-      client.post(`/my-visits/${visit.id}/status`).form({ status: 'done' }),
-      client.post(`/my-visits/${visit.id}/notes`).form({ body: 'Lavoro finito' }),
-      client
-        .post(`/my-visits/${visit.id}/photos`)
-        .file('photo', app.makePath('tests/fixtures/logo.png')),
-    ]) {
-      const response = await request.withCsrfToken().loginAs(anna).redirects(0)
-      response.assertFlashMessage('error', it('flash.fieldWorkRefused.cancelled'))
-    }
-
-    await visit.refresh()
-    await visit.load('hours')
-    await visit.load('items')
-    await visit.load('fieldNotes')
-    await visit.load('photos')
-    assert.equal(visit.status, 'planned')
-    assert.lengthOf(visit.hours, 1)
-    assert.lengthOf(visit.items, 1)
-    // The refused photo's file was removed again
-    const folder = storagePath(`visits/${visit.id}`)
-    assert.isTrue(!existsSync(folder) || readdirSync(folder).length === 0)
-    assert.lengthOf(visit.fieldNotes, 0)
-    assert.lengthOf(visit.photos, 0)
-    assert.lengthOf(await StockMovement.all(), 0)
-  })
 
   test('notes and photos still go on a closed Visit of an active Job', async ({
     client,
@@ -378,13 +380,15 @@ test.group("Field work on a cancelled Job's Visits", () => {
     await rm(storagePath(), { recursive: true, force: true })
   })
 
-  test("the Visit page shows a cancelled Job's Visit as read-only", async ({ client }) => {
-    const { anna, job, visit } = await setup()
-    job.merge({ status: 'cancelled', cancelledAt: DateTime.now() })
-    await job.save()
+  test("the Visit page shows a {$self} Job's Visit as read-only")
+    .with(['closed', 'cancelled'] as const)
+    .run(async ({ client }, status) => {
+      const { anna, job, visit } = await setup()
+      job.merge({ status })
+      await job.save()
 
-    const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
+      const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
 
-    page.assertInertiaPropsContains({ done: true })
-  })
+      page.assertInertiaPropsContains({ done: true })
+    })
 })
