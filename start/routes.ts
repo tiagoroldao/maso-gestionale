@@ -192,6 +192,9 @@ router
         router
           .get('invoices/:id/pdf', [controllers.Invoices, 'pdf'])
           .where('id', router.matchers.number())
+        router
+          .get('invoices/:id/xml', [controllers.Invoices, 'xml'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageInvoices'))
 

@@ -23,7 +23,7 @@ export class CategorySchema extends BaseModel {
 }
 
 export class CompanySettingSchema extends BaseModel {
-  static $columns = ['callOutFee', 'city', 'createdAt', 'email', 'iban', 'id', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
+  static $columns = ['callOutFee', 'city', 'createdAt', 'email', 'iban', 'id', 'liquidationStatus', 'logoFile', 'name', 'phone', 'postalCode', 'province', 'reaNumber', 'reaOffice', 'shareCapital', 'soleShareholder', 'street', 'streetNumber', 'taxCode', 'taxRegime', 'updatedAt', 'vatNumber'] as const
   $columns = CompanySettingSchema.$columns
   @column()
   declare callOutFee: string | null
@@ -38,6 +38,8 @@ export class CompanySettingSchema extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
   @column()
+  declare liquidationStatus: string
+  @column()
   declare logoFile: string | null
   @column()
   declare name: string | null
@@ -47,6 +49,14 @@ export class CompanySettingSchema extends BaseModel {
   declare postalCode: string | null
   @column()
   declare province: string | null
+  @column()
+  declare reaNumber: string | null
+  @column()
+  declare reaOffice: string | null
+  @column()
+  declare shareCapital: string | null
+  @column()
+  declare soleShareholder: string | null
   @column()
   declare street: string | null
   @column()

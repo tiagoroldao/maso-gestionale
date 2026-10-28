@@ -127,7 +127,12 @@
       "workCategory": "tipo di lavoro",
       "discountPercent": "sconto",
       "nextNumber": "prossimo numero",
-      "paymentMethod": "modalità di pagamento"
+      "paymentMethod": "modalità di pagamento",
+      "reaOffice": "ufficio REA",
+      "reaNumber": "numero REA",
+      "shareCapital": "capitale sociale",
+      "soleShareholder": "socio unico",
+      "liquidationStatus": "stato di liquidazione"
     }
   }
 }

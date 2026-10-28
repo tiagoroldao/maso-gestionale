@@ -117,6 +117,7 @@ export interface ApiDefinition {
     destroy: typeof routes['invoices.destroy']
     finalise: typeof routes['invoices.finalise']
     pdf: typeof routes['invoices.pdf']
+    xml: typeof routes['invoices.xml']
   }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']

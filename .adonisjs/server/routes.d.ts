@@ -75,6 +75,7 @@ export type ScannedRoutes = {
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -152,6 +153,7 @@ export type ScannedRoutes = {
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -205,6 +207,7 @@ export type ScannedRoutes = {
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

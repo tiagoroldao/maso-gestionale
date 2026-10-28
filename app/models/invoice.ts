@@ -6,6 +6,7 @@ import InvoiceLine from '#models/invoice_line'
 import { invoiceTotals } from '#shared/invoice_totals'
 import { formatInvoiceNumber } from '#shared/invoice_numbers'
 import type { PaymentMethod } from '#shared/payments'
+import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 
 export const INVOICE_STATUSES = ['draft', 'finalised'] as const
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number]
@@ -45,6 +46,14 @@ export type CompanySnapshot = {
   email: string | null
   phone: string | null
   iban: string | null
+  /** Registro Imprese (IscrizioneREA); absent before it was recorded */
+  rea?: {
+    office: string
+    number: string
+    shareCapital: string | null
+    soleShareholder: SoleShareholder | null
+    liquidationStatus: LiquidationStatus
+  } | null
 }
 
 /**

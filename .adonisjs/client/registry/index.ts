@@ -432,6 +432,12 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"],[0,"pdf"]],
     types: placeholder as Registry['invoices.pdf']['types'],
   },
+  'invoices.xml': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/xml',
+    tokens: [[0,"invoices"],[1,"id"],[0,"xml"]],
+    types: placeholder as Registry['invoices.xml']['types'],
+  },
   'items.index': {
     methods: ["GET","HEAD"],
     pattern: '/items',
