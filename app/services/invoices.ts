@@ -16,7 +16,7 @@ import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
-import { workReadyToInvoice } from '#shared/visits'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import {
   canTransition,
   isDeletable,
@@ -90,9 +90,10 @@ export default class Invoices {
    * and per Item recorded on its Visits, at the prices recorded with the
    * work (the policy noted on #22), so its total before VAT equals the Job
    * page's running total. Items take their own default VAT Code, labour
-   * the standard rate, until the default rules (#26). Like a Quote, the
-   * work is invoiced once: an existing Invoice is returned instead, until
-   * billed lines are tracked (#75).
+   * the standard rate, until the default rules (#26). Only work not yet
+   * billed, on closed Visits, goes in, and is marked as billed by this
+   * Invoice; deleting the draft frees it again. While a draft is open it
+   * is returned instead of starting another.
    */
   static async fromTimeAndMaterials(job: Job) {
     return db.transaction(async (trx) => {
@@ -100,27 +101,33 @@ export default class Invoices {
       if (locked.kind !== 'time_and_materials' || locked.status === 'cancelled') {
         throw new JobNotInvoiceableError()
       }
-      const existing = await Invoice.query({ client: trx }).where('jobId', locked.id).first()
-      if (existing) return existing
+      const draft = await Invoice.query({ client: trx })
+        .where('jobId', locked.id)
+        .where('status', 'draft')
+        .first()
+      if (draft) return draft
 
+      // Closed Visits' hours and Items are final; with the Job locked, no
+      // other draft can claim them meanwhile
       const visits = await Visit.query({ client: trx })
         .where('jobId', locked.id)
+        .whereIn('status', [...CLOSED_VISIT_STATUSES])
         .preload('hours', (hours) =>
-          hours.preload('labourRate').preload('technician').orderBy('createdAt')
+          hours
+            .whereNull('invoiceId')
+            .preload('labourRate')
+            .preload('technician')
+            .orderBy('createdAt')
         )
-        .preload('items', (items) => items.preload('item').orderBy('createdAt'))
+        .preload('items', (items) =>
+          items.whereNull('invoiceId').preload('item').orderBy('createdAt')
+        )
         .orderBy('startsAt')
       const work = visits.flatMap((visit) => [
         ...visit.hours.map((hour) => ({ visit, hour, line: null })),
         ...visit.items.map((line) => ({ visit, hour: null, line })),
       ])
-      const ready = workReadyToInvoice(
-        visits.map((visit) => ({
-          status: visit.status,
-          workLines: visit.hours.length + visit.items.length,
-        }))
-      )
-      if (!ready) throw new JobNotInvoiceableError()
+      if (!work.length) throw new JobNotInvoiceableError()
 
       const standard = await VatCode.query({ client: trx })
         .whereNull('archived_at')
@@ -166,6 +173,10 @@ export default class Invoices {
         }),
         { client: trx }
       )
+      const hourIds = work.flatMap(({ hour }) => (hour ? [hour.id] : []))
+      const itemIds = work.flatMap(({ line }) => (line ? [line.id] : []))
+      await trx.from('visit_hours').whereIn('id', hourIds).update({ invoice_id: invoice.id })
+      await trx.from('visit_items').whereIn('id', itemIds).update({ invoice_id: invoice.id })
       return invoice
     })
   }

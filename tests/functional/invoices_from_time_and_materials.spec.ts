@@ -115,10 +115,14 @@ test.group('Invoices from Time & Materials Jobs', () => {
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    again.assertHeader('location', `/invoices/${invoice.id}/edit`)
+    // All its work is billed now: nothing left for another Invoice
+    again.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
     assert.lengthOf(await Invoice.query().where('jobId', job.id), 1)
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: false })
+    page.assertInertiaPropsContains({
+      canInvoice: false,
+      timeAndMaterials: { total: '1362.50', billed: '1362.50' },
+    })
   })
 
   test('a Job with no recorded work has nothing to invoice', async ({ client, assert }) => {
@@ -136,8 +140,12 @@ test.group('Invoices from Time & Materials Jobs', () => {
     assert.lengthOf(await Invoice.all(), 0)
   })
 
-  test('work on Visits still open is not invoiced yet', async ({ client, assert }) => {
+  test('done work is invoiced while a follow-up is open; the follow-up goes on the next', async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
+    await completeCompany()
     const { job, anna, rate } = await workedJob()
     const start = DateTime.now().plus({ days: 1 })
     const followUp = await Visit.create({
@@ -153,19 +161,46 @@ test.group('Invoices from Time & Materials Jobs', () => {
       hours: '1',
     })
 
-    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    // The first Visit's four lines, not the open follow-up's hour
+    const first = await Invoices.fromJob(job)
+    await first.load('lines')
+    assert.lengthOf(first.lines, 4)
+    // While that draft is open, asking again returns it
+    const returned = await Invoices.fromJob(job)
+    assert.equal(returned.id, first.id)
+    await Invoices.finalise(first)
+    let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ canInvoice: false })
-    const response = await client
-      .post(`/jobs/${job.id}/invoices`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    response.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
-    assert.lengthOf(await Invoice.all(), 0)
 
     await FieldWork.setStatus(followUp, 'done', anna)
-    const ready = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    ready.assertInertiaPropsContains({ canInvoice: true })
+    page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: true })
+    const second = await Invoices.fromJob(job)
+    await second.load('lines')
+    assert.notEqual(second.id, first.id)
+    assert.deepEqual(
+      second.lines.map((line) => line.quantity),
+      ['1.000']
+    )
+  })
+
+  test('deleting a draft frees its work for the next one', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const { job, visit } = await workedJob()
+    const draft = await Invoices.fromJob(job)
+    // Editing the draft keeps its work billed
+    await Invoices.save(draft, { lines: [] })
+    let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ timeAndMaterials: { billed: '1362.50' } })
+
+    await client.delete(`/invoices/${draft.id}`).withCsrfToken().loginAs(office)
+    await visit.load('hours')
+    assert.isTrue(visit.hours.every((hour) => hour.invoiceId === null))
+    page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: true, timeAndMaterials: { billed: '0.00' } })
+    const again = await Invoices.fromJob(job)
+    await again.load('lines')
+    assert.lengthOf(again.lines, 4)
   })
 
   test("an Item's archived VAT Code gives way to the standard rate", async ({ assert }) => {

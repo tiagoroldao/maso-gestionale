@@ -1,5 +1,5 @@
 import Job from '#models/job'
-import { workReadyToInvoice } from '#shared/visits'
+import { hasBillableWork } from '#shared/visits'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
 import { ArchivedRecordError } from '#services/archiving'
@@ -124,11 +124,19 @@ export default class JobsController {
       )
       .firstOrFail()
 
-    // Time and materials recorded so far, at the prices when recorded
-    const amounts = job.visits.flatMap((visit) => [
-      ...visit.hours.map((hour) => lineTotal(hour.hours, hour.unitPrice)),
-      ...visit.items.map((line) => lineTotal(line.quantity, line.unitPrice)),
+    // Time and materials recorded so far, at the prices when recorded,
+    // and how much of it an Invoice already billed
+    const work = job.visits.flatMap((visit) => [
+      ...visit.hours.map((hour) => ({
+        amount: lineTotal(hour.hours, hour.unitPrice),
+        billed: hour.invoiceId !== null,
+      })),
+      ...visit.items.map((line) => ({
+        amount: lineTotal(line.quantity, line.unitPrice),
+        billed: line.invoiceId !== null,
+      })),
     ])
+    const amounts = work.map((line) => line.amount)
 
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
     const quote = await job.related('quote').query().first()
@@ -140,19 +148,26 @@ export default class JobsController {
         status: invoice.status,
         total: invoice.totals.total,
       })),
-      // Once per Job (until billed lines are tracked, #75), never cancelled
+      // Never for a cancelled Job; a Quote once, Time & Materials work as
+      // long as some is unbilled and no draft is waiting
       canInvoice:
         job.status !== 'cancelled' &&
-        invoices.length === 0 &&
         (job.kind === 'quoted'
-          ? quote?.status === 'accepted'
-          : workReadyToInvoice(
+          ? invoices.length === 0 && quote?.status === 'accepted'
+          : !invoices.some((invoice) => invoice.status === 'draft') &&
+            hasBillableWork(
               job.visits.map((visit) => ({
                 status: visit.status,
-                workLines: visit.hours.length + visit.items.length,
+                unbilledLines:
+                  visit.hours.filter((hour) => hour.invoiceId === null).length +
+                  visit.items.filter((line) => line.invoiceId === null).length,
               }))
             )),
-      timeAndMaterials: { total: sumAmounts(amounts), lines: amounts.length },
+      timeAndMaterials: {
+        total: sumAmounts(amounts),
+        billed: sumAmounts(work.filter((line) => line.billed).map((line) => line.amount)),
+        lines: amounts.length,
+      },
       job: {
         ...jobRow(job),
         description: job.description,
