@@ -7,7 +7,15 @@ import { formatDate } from '@shared/dates'
 import { formatMoney, t } from '~/i18n'
 
 defineProps<{
-  invoices: { id: number; status: string; customer: string; createdAt: string; total: string }[]
+  invoices: {
+    id: number
+    number: string | null
+    issuedOn: string | null
+    status: string
+    customer: string
+    createdAt: string
+    total: string
+  }[]
 }>()
 </script>
 
@@ -23,6 +31,7 @@ defineProps<{
       <table v-if="invoices.length" class="table">
         <thead>
           <tr>
+            <th>{{ t('ui.invoices.number') }}</th>
             <th>{{ t('ui.invoices.customer') }}</th>
             <th>{{ t('ui.invoices.status') }}</th>
             <th>{{ t('ui.invoices.createdOn') }}</th>
@@ -31,6 +40,7 @@ defineProps<{
         </thead>
         <tbody>
           <tr v-for="invoice in invoices" :key="invoice.id">
+            <td class="mono">{{ invoice.number ?? '' }}</td>
             <td>
               <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
                 {{ invoice.customer }}
@@ -39,7 +49,7 @@ defineProps<{
             <td>
               <span class="tag">{{ t(`ui.invoices.statuses.${invoice.status}`) }}</span>
             </td>
-            <td>{{ formatDate(invoice.createdAt) }}</td>
+            <td>{{ formatDate(invoice.issuedOn ?? invoice.createdAt) }}</td>
             <td :style="{ textAlign: 'right' }">{{ formatMoney(invoice.total) }}</td>
           </tr>
         </tbody>

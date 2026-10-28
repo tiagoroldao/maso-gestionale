@@ -13,5 +13,23 @@
     "total": "Totale",
     "vatExcluded": "IVA esclusa",
     "issuedOn": "Data: {date}"
+  },
+  "invoice": {
+    "title": "Fattura {number}",
+    "number": "Fattura n.",
+    "issuedOn": "Data",
+    "dueOn": "Scadenza",
+    "paymentMethod": "Pagamento",
+    "iban": "IBAN {iban}",
+    "description": "Descrizione",
+    "quantity": "Quantità",
+    "unitPrice": "Prezzo",
+    "discount": "Sconto",
+    "vat": "IVA",
+    "amount": "Importo",
+    "taxable": "Imponibile",
+    "vatAmount": "Imposta",
+    "globalDiscount": "Sconto",
+    "total": "Totale documento"
   }
 }

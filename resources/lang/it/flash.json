@@ -63,5 +63,12 @@
   "invoiceCreated": "Bozza di fattura creata.",
   "invoiceSaved": "Bozza salvata.",
   "invoiceDeleted": "Bozza eliminata.",
-  "invoiceNotEditable": "La fattura non è più modificabile."
+  "invoiceNotEditable": "La fattura non è più modificabile.",
+  "invoiceFinalised": "Fattura {number} emessa.",
+  "invoiceNotFinalisable": {
+    "empty": "La fattura non ha righe.",
+    "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
+  },
+  "numberingSaved": "Numerazione {year} salvata.",
+  "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura."
 }

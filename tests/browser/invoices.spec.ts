@@ -4,14 +4,16 @@ import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem } from '#tests/helpers/items'
 import { it } from '#tests/helpers/i18n'
+import { completeCompany } from '#tests/helpers/company'
 
 test.group('Invoices in the browser', () => {
-  test('Office drafts a direct sale with a global discount', async ({
+  test('Office drafts a direct sale with a global discount and issues it', async ({
     browserContext,
     visit,
     assert,
   }) => {
     await browserContext.loginAs(await createUser('office'))
+    await completeCompany()
     await createCustomer({ name: 'Bar Centrale' })
     await createItem({ code: 'RUB-1', description: 'Rubinetto', resalePrice: '50' })
 
@@ -34,8 +36,14 @@ test.group('Invoices in the browser', () => {
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
     await page.getByText(it('flash.invoiceSaved')).waitFor()
 
+    page.on('dialog', (dialog) => dialog.accept())
+    await page.getByRole('button', { name: it('ui.invoices.finalise') }).click()
+    const number = `1/${new Date().getFullYear()}`
+    await page.getByText(it('flash.invoiceFinalised', { number })).waitFor()
+
     const invoice = await Invoice.query().preload('lines').firstOrFail()
     assert.equal(invoice.totals.total, '219.60')
     assert.lengthOf(invoice.lines, 2)
+    assert.equal(invoice.formattedNumber, number)
   })
 })

@@ -27,6 +27,7 @@ export default class PaymentTermsController {
         name: term.name,
         days: term.days,
         endOfMonth: term.endOfMonth,
+        paymentMethod: term.paymentMethod,
         customerCount: Number(term.$extras.customer_count),
       })),
     })

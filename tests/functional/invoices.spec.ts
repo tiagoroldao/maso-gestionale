@@ -42,7 +42,7 @@ test.group('Draft Invoices', () => {
     response.assertHeader('location', `/invoices/${invoice.id}/edit`)
     assert.equal(invoice.customerId, customer.id)
     assert.equal(invoice.status, 'draft')
-    assert.notProperty(invoice.$attributes, 'number')
+    assert.isNull(invoice.number)
   })
 
   test('saving prices the lines and copies the VAT treatment onto them', async ({

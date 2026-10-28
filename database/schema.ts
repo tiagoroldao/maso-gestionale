@@ -149,7 +149,7 @@ export class InstalledEquipmentSchema extends BaseModel {
 }
 
 export class InvoiceLineSchema extends BaseModel {
-  static $columns = ['description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
+  static $columns = ['description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
   $columns = InvoiceLineSchema.$columns
   @column()
   declare description: string
@@ -161,6 +161,8 @@ export class InvoiceLineSchema extends BaseModel {
   declare invoiceId: number
   @column()
   declare itemId: number | null
+  @column()
+  declare legalNote: string | null
   @column()
   declare lineTotal: string
   @column()
@@ -179,23 +181,54 @@ export class InvoiceLineSchema extends BaseModel {
   declare vatRate: string
 }
 
+export class InvoiceSequenceSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'nextNumber', 'updatedAt', 'year'] as const
+  $columns = InvoiceSequenceSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare nextNumber: number
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
+}
+
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['createdAt', 'customerId', 'discountPercent', 'id', 'notes', 'status', 'updatedAt'] as const
+  static $columns = ['companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'notes', 'number', 'paymentMethod', 'status', 'updatedAt', 'year'] as const
   $columns = InvoiceSchema.$columns
+  @column()
+  declare companySnapshot: any | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
   declare customerId: number
   @column()
+  declare customerSnapshot: any | null
+  @column()
   declare discountPercent: string
+  @column.date()
+  declare dueOn: DateTime | null
+  @column.dateTime()
+  declare finalisedAt: DateTime | null
   @column({ isPrimary: true })
   declare id: number
+  @column.date()
+  declare issuedOn: DateTime | null
   @column()
   declare notes: string | null
+  @column()
+  declare number: number | null
+  @column()
+  declare paymentMethod: string | null
   @column()
   declare status: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare year: number | null
 }
 
 export class ItemDocumentSchema extends BaseModel {
@@ -305,7 +338,7 @@ export class LabourRateSchema extends BaseModel {
 }
 
 export class PaymentTermSchema extends BaseModel {
-  static $columns = ['createdAt', 'days', 'endOfMonth', 'id', 'name', 'updatedAt'] as const
+  static $columns = ['createdAt', 'days', 'endOfMonth', 'id', 'name', 'paymentMethod', 'updatedAt'] as const
   $columns = PaymentTermSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -317,6 +350,8 @@ export class PaymentTermSchema extends BaseModel {
   declare id: number
   @column()
   declare name: string
+  @column()
+  declare paymentMethod: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

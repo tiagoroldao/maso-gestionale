@@ -58,8 +58,12 @@ export const configureSuite: Config['configureSuite'] = (suite) => {
 
   /**
    * Every test runs inside a transaction that is rolled back afterwards,
-   * so each one starts from an empty, migrated database.
+   * so each one starts from an empty, migrated database. Tests tagged
+   * `@committed` opt out: they need real commits on separate connections
+   * (concurrency, locks) and clean up with `tests/helpers/committed.ts`.
    */
-  suite.onTest((test) => test.setup(() => testUtils.db().withGlobalTransaction()))
-  suite.onGroup((group) => group.each.setup(() => testUtils.db().withGlobalTransaction()))
+  const transaction = (test: { options: { tags: string[] } }) =>
+    test.options.tags.includes('@committed') ? undefined : testUtils.db().withGlobalTransaction()
+  suite.onTest((test) => test.setup(() => transaction(test)))
+  suite.onGroup((group) => group.each.setup((test) => transaction(test)))
 }

@@ -59,3 +59,7 @@ export const invoiceValidator = vine
       )
       .maxLength(200),
   })
+
+export const invoiceNumberingValidator = vine.create({
+  nextNumber: vine.number().withoutDecimals().min(1).max(999999),
+})

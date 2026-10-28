@@ -4,6 +4,7 @@ import { Form } from '@adonisjs/inertia/vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import SettingsLayout from '~/layouts/settings.vue'
+import { PAYMENT_METHODS } from '@shared/payments'
 
 defineProps<{
   paymentTerms: {
@@ -11,6 +12,7 @@ defineProps<{
     name: string
     days: number
     endOfMonth: boolean
+    paymentMethod: string
     customerCount: number
   }[]
 }>()
@@ -65,6 +67,21 @@ defineProps<{
                     />
                     {{ t('ui.paymentTerms.endOfMonth') }}
                   </label>
+                  <select
+                    name="paymentMethod"
+                    class="field__input"
+                    :aria-label="t('ui.paymentTerms.paymentMethodOf', { name: terms.name })"
+                    :style="{ maxWidth: '200px' }"
+                  >
+                    <option
+                      v-for="method in PAYMENT_METHODS"
+                      :key="method"
+                      :value="method"
+                      :selected="method === terms.paymentMethod"
+                    >
+                      {{ t(`ui.paymentMethods.${method}`) }}
+                    </option>
+                  </select>
                   <span :style="{ color: 'var(--subtle)' }">{{
                     t('ui.paymentTerms.customerCount', { count: terms.customerCount })
                   }}</span>
@@ -122,6 +139,21 @@ defineProps<{
             <input type="checkbox" name="endOfMonth" value="true" />
             {{ t('ui.paymentTerms.endOfMonth') }}
           </label>
+          <div class="field">
+            <label class="field__label" for="new-method">{{
+              t('ui.paymentTerms.paymentMethod')
+            }}</label>
+            <select id="new-method" name="paymentMethod" class="field__input">
+              <option
+                v-for="method in PAYMENT_METHODS"
+                :key="method"
+                :value="method"
+                :selected="method === 'MP05'"
+              >
+                {{ t(`ui.paymentMethods.${method}`) }}
+              </option>
+            </select>
+          </div>
           <button
             type="submit"
             class="btn btn--primary"
