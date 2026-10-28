@@ -125,7 +125,9 @@
       "legalNote": "nota in fattura",
       "vatCodeId": "codice IVA",
       "workCategory": "tipo di lavoro",
-      "discountPercent": "sconto"
+      "discountPercent": "sconto",
+      "nextNumber": "prossimo numero",
+      "paymentMethod": "modalità di pagamento"
     }
   }
 }

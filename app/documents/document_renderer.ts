@@ -16,9 +16,53 @@ export type Recipient = {
   taxCode?: string | null
 }
 
+/**
+ * The issuing company's details, when the document must show them as they
+ * were (a finalised Invoice) rather than as Company settings are now.
+ */
+export type CompanyDetails = Pick<
+  CompanySettings,
+  | 'name'
+  | 'street'
+  | 'streetNumber'
+  | 'postalCode'
+  | 'city'
+  | 'province'
+  | 'vatNumber'
+  | 'taxCode'
+  | 'email'
+  | 'phone'
+>
+
+/**
+ * The recipient block for anyone with a billing address: a Customer, or
+ * the Customer copy on a finalised Invoice.
+ */
+export function recipientFrom(party: {
+  name: string
+  street: string
+  streetNumber: string | null
+  postalCode: string
+  city: string
+  province: string
+  vatNumber: string | null
+  taxCode: string | null
+}): Recipient {
+  return {
+    name: party.name,
+    addressLines: [
+      [party.street, party.streetNumber].filter(Boolean).join(', '),
+      `${party.postalCode} ${party.city} (${party.province})`,
+    ],
+    vatNumber: party.vatNumber,
+    taxCode: party.taxCode,
+  }
+}
+
 export type DocumentInput = {
   title: string
   recipient: Recipient | null
+  company?: CompanyDetails
   /**
    * The document's body. Trusted HTML produced by the app's own templates,
    * inserted without escaping.
@@ -41,7 +85,8 @@ export default class DocumentRenderer {
   constructor(private converter: PdfConverter = new GotenbergPdfConverter()) {}
 
   async renderHtml(input: DocumentInput) {
-    const company = await CompanySettings.current()
+    const settings = await CompanySettings.current()
+    const company = input.company ?? settings
 
     return edge.render('documents/base_layout', {
       title: input.title,
@@ -54,7 +99,7 @@ export default class DocumentRenderer {
         taxCode: company.taxCode && company.taxCode !== company.vatNumber ? company.taxCode : null,
         email: company.email ?? null,
         phone: company.phone ?? null,
-        logoDataUri: await this.logoDataUri(company.logoFile ?? null),
+        logoDataUri: await this.logoDataUri(settings.logoFile ?? null),
       },
     })
   }
@@ -63,7 +108,7 @@ export default class DocumentRenderer {
     return this.converter.convert(await this.renderHtml(input))
   }
 
-  private companyAddressLines(company: CompanySettings) {
+  private companyAddressLines(company: CompanyDetails) {
     const street = [company.street, company.streetNumber].filter(Boolean).join(', ')
     const town = [company.postalCode, company.city, company.province && `(${company.province})`]
       .filter(Boolean)

@@ -420,6 +420,18 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"]],
     types: placeholder as Registry['invoices.destroy']['types'],
   },
+  'invoices.finalise': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/finalise',
+    tokens: [[0,"invoices"],[1,"id"],[0,"finalise"]],
+    types: placeholder as Registry['invoices.finalise']['types'],
+  },
+  'invoices.pdf': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/pdf',
+    tokens: [[0,"invoices"],[1,"id"],[0,"pdf"]],
+    types: placeholder as Registry['invoices.pdf']['types'],
+  },
   'items.index': {
     methods: ["GET","HEAD"],
     pattern: '/items',
@@ -605,6 +617,18 @@ const routes = {
     pattern: '/settings/vat-codes/:id/archive',
     tokens: [[0,"settings"],[0,"vat-codes"],[1,"id"],[0,"archive"]],
     types: placeholder as Registry['vat_codes.archive']['types'],
+  },
+  'invoice_numbering.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/invoice-numbering',
+    tokens: [[0,"settings"],[0,"invoice-numbering"]],
+    types: placeholder as Registry['invoice_numbering.index']['types'],
+  },
+  'invoice_numbering.update': {
+    methods: ["PUT"],
+    pattern: '/settings/invoice-numbering/:year',
+    tokens: [[0,"settings"],[0,"invoice-numbering"],[1,"year"]],
+    types: placeholder as Registry['invoice_numbering.update']['types'],
   },
   'payment_terms.index': {
     methods: ["GET","HEAD"],

@@ -186,6 +186,12 @@ router
         router
           .delete('invoices/:id', [controllers.Invoices, 'destroy'])
           .where('id', router.matchers.number())
+        router
+          .post('invoices/:id/finalise', [controllers.Invoices, 'finalise'])
+          .where('id', router.matchers.number())
+        router
+          .get('invoices/:id/pdf', [controllers.Invoices, 'pdf'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageInvoices'))
 
@@ -255,6 +261,10 @@ router
         router
           .post('settings/vat-codes/:id/archive', [controllers.VatCodes, 'archive'])
           .where('id', router.matchers.number())
+        router.get('settings/invoice-numbering', [controllers.InvoiceNumbering, 'index'])
+        router
+          .put('settings/invoice-numbering/:year', [controllers.InvoiceNumbering, 'update'])
+          .where('year', router.matchers.number())
         router.get('settings/payment-terms', [controllers.PaymentTerms, 'index'])
         router.post('settings/payment-terms', [controllers.PaymentTerms, 'store'])
         router.put('settings/payment-terms/:id', [controllers.PaymentTerms, 'update'])

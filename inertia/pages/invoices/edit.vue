@@ -2,13 +2,14 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, FileText, Trash2 } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { urlFor } from '~/client'
 import { formatMoney, t } from '~/i18n'
+import { formatDate } from '@shared/dates'
 import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
 
@@ -29,6 +30,9 @@ const props = defineProps<{
   invoice: {
     id: number
     status: string
+    number: string | null
+    issuedOn: string | null
+    dueOn: string | null
     customer: { id: number; displayName: string }
     discountPercent: string
     notes: string | null
@@ -194,19 +198,44 @@ function save() {
 
 const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
 const confirmDelete = () => window.confirm(t('ui.invoices.deleteConfirm'))
+const confirmFinalise = () => window.confirm(t('ui.invoices.finaliseConfirm'))
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="t('ui.invoices.draftTitle')" :description="invoice.customer.displayName">
+    <Page
+      :title="
+        invoice.number
+          ? t('ui.invoices.invoiceTitle', { number: invoice.number })
+          : t('ui.invoices.draftTitle')
+      "
+      :description="invoice.customer.displayName"
+    >
       <template #actions>
+        <a
+          v-if="invoice.number"
+          :href="urlFor('invoices.pdf', { id: invoice.id })"
+          target="_blank"
+          rel="noopener"
+          class="btn btn--secondary btn--sm"
+        >
+          <FileText :size="15" /> {{ t('ui.invoices.pdf') }}
+        </a>
         <Link route="invoices.index" class="btn btn--ghost btn--sm">
           {{ t('ui.invoices.backToList') }}
         </Link>
       </template>
 
       <Section>
-        <p v-if="!editable" class="field__hint">{{ t('ui.invoices.notEditable') }}</p>
+        <p v-if="invoice.number" class="field__hint">
+          {{
+            t('ui.invoices.issued', {
+              date: formatDate(invoice.issuedOn),
+              due: formatDate(invoice.dueOn),
+            })
+          }}
+        </p>
+        <p v-else-if="!editable" class="field__hint">{{ t('ui.invoices.notEditable') }}</p>
 
         <table class="table">
           <thead>
@@ -417,6 +446,11 @@ const confirmDelete = () => window.confirm(t('ui.invoices.deleteConfirm'))
             {{ t('ui.invoices.save') }}
           </button>
           <span v-if="dirty" class="field__hint">{{ t('ui.invoices.unsaved') }}</span>
+          <Form route="invoices.finalise" :params="{ id: invoice.id }" :on-before="confirmFinalise">
+            <button type="submit" class="btn btn--secondary" :disabled="dirty || !lines.length">
+              {{ t('ui.invoices.finalise') }}
+            </button>
+          </Form>
           <Form
             route="invoices.destroy"
             :params="{ id: invoice.id }"

@@ -15,20 +15,22 @@ test.group('Payment Terms', () => {
 
     await client
       .post('/settings/payment-terms')
-      .form({ name: '30 gg fine mese', days: '30', endOfMonth: 'true' })
+      .form({ name: '30 gg fine mese', days: '30', endOfMonth: 'true', paymentMethod: 'MP05' })
       .withCsrfToken()
       .loginAs(admin)
     const terms = await PaymentTerms.findByOrFail('name', '30 gg fine mese')
     assert.equal(terms.days, 30)
     assert.isTrue(terms.endOfMonth)
+    assert.equal(terms.paymentMethod, 'MP05')
 
     await client
       .put(`/settings/payment-terms/${terms.id}`)
-      .form({ name: '60 gg', days: '60' })
+      .form({ name: '60 gg', days: '60', paymentMethod: 'MP12' })
       .withCsrfToken()
       .loginAs(admin)
     await terms.refresh()
     assert.equal(terms.name, '60 gg')
+    assert.equal(terms.paymentMethod, 'MP12')
     assert.isFalse(terms.endOfMonth)
   })
 
@@ -37,13 +39,13 @@ test.group('Payment Terms', () => {
 
     const response = await client
       .post('/settings/payment-terms')
-      .form({ name: 'rimessa diretta', days: '-1' })
+      .form({ name: 'rimessa diretta', days: '-1', paymentMethod: 'MP99' })
       .header('referer', '/settings/payment-terms')
       .withCsrfToken()
       .loginAs(admin)
       .redirects(0)
 
-    assert.properties(response.flashMessage('inputErrorsBag'), ['name', 'days'])
+    assert.properties(response.flashMessage('inputErrorsBag'), ['name', 'days', 'paymentMethod'])
   })
 
   test('deletes unused terms but keeps terms used by Customers', async ({ client, assert }) => {

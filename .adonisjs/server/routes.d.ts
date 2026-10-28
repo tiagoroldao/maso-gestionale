@@ -73,6 +73,8 @@ export type ScannedRoutes = {
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -104,6 +106,8 @@ export type ScannedRoutes = {
     'vat_codes.store': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_codes.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoice_numbering.index': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -147,6 +151,7 @@ export type ScannedRoutes = {
     'invoices.index': { paramsTuple?: []; params?: {} }
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -158,6 +163,7 @@ export type ScannedRoutes = {
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
   }
@@ -198,6 +204,7 @@ export type ScannedRoutes = {
     'invoices.index': { paramsTuple?: []; params?: {} }
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -209,6 +216,7 @@ export type ScannedRoutes = {
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
   }
@@ -234,6 +242,7 @@ export type ScannedRoutes = {
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store': { paramsTuple?: []; params?: {} }
+    'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
     'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -271,6 +280,7 @@ export type ScannedRoutes = {
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update_call_out_fee': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {

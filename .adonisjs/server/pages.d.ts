@@ -33,6 +33,7 @@ declare module '@adonisjs/inertia/types' {
     'quotes/edit': ExtractProps<(typeof import('../../inertia/pages/quotes/edit.vue'))['default']>
     'settings/categories': ExtractProps<(typeof import('../../inertia/pages/settings/categories.vue'))['default']>
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
+    'settings/invoice_numbering': ExtractProps<(typeof import('../../inertia/pages/settings/invoice_numbering.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
     'settings/rates': ExtractProps<(typeof import('../../inertia/pages/settings/rates.vue'))['default']>
     'settings/vat_codes': ExtractProps<(typeof import('../../inertia/pages/settings/vat_codes.vue'))['default']>
