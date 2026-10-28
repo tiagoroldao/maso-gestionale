@@ -27,6 +27,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
 | #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
+| #134  | Survey Visits before a Quote (ADR 0012)                                                   | The business (`needs-human`)                                  |
 
 ## Added to existing issues
 
@@ -56,6 +57,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Archived Item or VAT Code allowed on any line** of an Invoice once one line uses it. Now that lines have ids, narrow it to the line that holds it (from the #122 review).
 - **Equipment moved with a corrected Item** (#123): a description or interval counts as "set by hand" when it differs from the old Item's _current_ one, so editing that Item after the install makes an untouched value look manual and it is kept. No test corrects the Item after the Visit is closed. Any service blocks the move, even the installing Visit marking its own new equipment as serviced, so Office can't correct the Item then (from the #125 review).
 - **Call-out Fee wording** (ADR 0012): the glossary calls it a price for attending a Visit, while an imported Quote call-out becomes a Job Charge. Revisit if it confuses anyone (from the #131 review).
+- **Test file names** (#130): `invoices_from_time_and_materials.spec.ts` (functional and browser) now test Jobs without a Quote; rename them (from the #133 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
 - **Small leftovers from the #97 review:** the zero-amount Payment test checks the field, not the `amount.positive` message; the `amountRule` docstring line is over 100 characters.
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).
