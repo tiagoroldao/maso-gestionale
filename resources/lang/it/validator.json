@@ -34,6 +34,8 @@
       "natura.withRate": "La natura si indica solo con aliquota 0%",
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
       "amount": "Il campo {field} deve essere un importo valido",
+      "distinct": "Il campo {field} contiene valori ripetuti",
+      "fields.distinct": "Due campi hanno lo stesso codice",
       "templateBody": "Il testo contiene elementi non ammessi o dati che il modello non prevede",
       "amount.positive": "Il campo {field} deve essere maggiore di zero",
       "quantity": "Il campo {field} deve essere una quantità valida",
@@ -146,7 +148,10 @@
       "paidOn": "data",
       "note": "nota",
       "equipmentId": "apparecchio",
-      "equipmentIds": "apparecchi"
+      "equipmentIds": "apparecchi",
+      "key": "codice",
+      "options": "scelte",
+      "required": "obbligatorio"
     }
   }
 }

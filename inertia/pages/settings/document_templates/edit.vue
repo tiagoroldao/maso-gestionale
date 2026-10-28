@@ -101,17 +101,23 @@ function xsrfToken() {
 }
 
 async function refreshPreview() {
-  const response = await fetch(urlFor('document_templates.preview'), {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-      'X-XSRF-TOKEN': xsrfToken(),
-    },
-    body: JSON.stringify(payload()),
-  })
-  previewFailed.value = !response.ok
-  if (response.ok) previewHtml.value = ((await response.json()) as { html: string }).html
+  try {
+    const response = await fetch(urlFor('document_templates.preview'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'X-XSRF-TOKEN': xsrfToken(),
+      },
+      body: JSON.stringify(payload()),
+    })
+    // A refusal or an expired session answers with something other than JSON
+    const json = response.headers.get('content-type')?.includes('application/json')
+    previewFailed.value = !response.ok || !json
+    if (!previewFailed.value) previewHtml.value = ((await response.json()) as { html: string }).html
+  } catch {
+    previewFailed.value = true
+  }
 }
 </script>
 
@@ -158,6 +164,9 @@ async function refreshPreview() {
                   :aria-label="t('ui.documentTemplates.fieldLabelOf', { position: index + 1 })"
                   :placeholder="t('ui.documentTemplates.fieldLabel')"
                 />
+                <span v-if="errors[`fields.${index}.label`]" class="field__error">
+                  {{ errors[`fields.${index}.label`] }}
+                </span>
               </td>
               <td>
                 <select
@@ -176,6 +185,12 @@ async function refreshPreview() {
                   :aria-label="t('ui.documentTemplates.fieldOptionsOf', { position: index + 1 })"
                   :placeholder="t('ui.documentTemplates.fieldOptions')"
                 />
+                <span v-if="errors[`fields.${index}.options`]" class="field__error">
+                  {{ errors[`fields.${index}.options`] }}
+                </span>
+                <span v-if="errors[`fields.${index}.type`]" class="field__error">
+                  {{ errors[`fields.${index}.type`] }}
+                </span>
               </td>
               <td>
                 <label>

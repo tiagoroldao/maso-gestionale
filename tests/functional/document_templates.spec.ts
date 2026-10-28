@@ -58,6 +58,10 @@ test.group('Document Templates', () => {
       [1, 2]
     )
     assert.deepEqual(versions[0].fields, fields as never)
+    assert.deepEqual(
+      versions.map((v) => v.name),
+      [certificate.name, certificate.name]
+    )
     assert.equal(versions[1].body.content![0].content![0].text, 'Seconda versione')
 
     // The editor opens on the latest version
@@ -74,17 +78,30 @@ test.group('Document Templates', () => {
     const version = await DocumentTemplateVersion.create({
       documentTemplateId: template.id,
       version: 1,
+      name: 'Modello',
       body: body({ type: 'text', text: 'Originale' }) as never,
       fields: [],
       createdBy: admin.id,
     })
 
-    await assert.rejects(() =>
-      db.from('document_template_versions').where('id', version.id).update({ version: 9 })
-    )
-    await assert.rejects(() =>
-      db.from('document_template_versions').where('id', version.id).delete()
-    )
+    const refusal = async (change: () => Promise<unknown>) => {
+      try {
+        await change()
+      } catch (error) {
+        return (error as Error).message
+      }
+      return 'allowed'
+    }
+    // Each in its own savepoint: a refused statement aborts its transaction
+    const versions = () => db.from('document_template_versions').where('id', version.id)
+    for (const change of [
+      () => db.transaction((trx) => versions().useTransaction(trx).update({ version: 9 })),
+      () => db.transaction((trx) => versions().useTransaction(trx).delete()),
+    ]) {
+      assert.include(await refusal(change), 'Document Template versions can not be changed')
+    }
+    const row = await db.from('document_template_versions').where('id', version.id).firstOrFail()
+    assert.equal(row.version, 1)
   })
 
   test('raw HTML, other nodes and unknown placeholders are refused', async ({ client, assert }) => {

@@ -7,7 +7,7 @@ import SettingsLayout from '~/layouts/settings.vue'
 import { formatDate, t } from '~/i18n'
 
 defineProps<{
-  templates: { id: number; name: string; version: number; updatedAt: string }[]
+  templates: { id: number; name: string; version: number; savedAt: string }[]
 }>()
 </script>
 
@@ -35,7 +35,7 @@ defineProps<{
                 </Link>
               </td>
               <td>{{ t('ui.documentTemplates.version', { version: template.version }) }}</td>
-              <td>{{ formatDate(template.updatedAt) }}</td>
+              <td>{{ formatDate(template.savedAt) }}</td>
             </tr>
           </tbody>
         </table>

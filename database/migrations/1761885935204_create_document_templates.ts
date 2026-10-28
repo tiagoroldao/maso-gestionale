@@ -22,10 +22,13 @@ export default class extends BaseSchema {
         .inTable('document_templates')
         .onDelete('RESTRICT')
       table.integer('version').notNullable()
+      // The printed title, as it was in this version
+      table.string('name', 150).notNullable()
       // A TipTap document (JSON), rendered by shared/document_templates.ts
       table.jsonb('body').notNullable()
       table.jsonb('fields').notNullable().defaultTo('[]')
-      table.integer('created_by').nullable().references('id').inTable('users').onDelete('SET NULL')
+      // RESTRICT: the version can't change, so it can't lose its author either
+      table.integer('created_by').nullable().references('id').inTable('users').onDelete('RESTRICT')
       table.timestamp('created_at').notNullable()
       table.unique(['document_template_id', 'version'])
     })

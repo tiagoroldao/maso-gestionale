@@ -59,6 +59,7 @@ export default class DocumentTemplates {
       {
         documentTemplateId: template.id,
         version,
+        name: input.name,
         body: input.body,
         fields: input.fields,
         createdBy: user?.id ?? null,

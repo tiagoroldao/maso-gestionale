@@ -37,19 +37,43 @@ export type TemplateNode = {
   text?: string
 }
 
-const NODES = new Set([
-  'doc',
-  'paragraph',
-  'heading',
-  'text',
-  'bulletList',
-  'orderedList',
-  'listItem',
-  'hardBreak',
-  'horizontalRule',
-  'placeholder',
-])
+const BLOCKS = ['paragraph', 'heading', 'bulletList', 'orderedList', 'horizontalRule']
+const INLINE = ['text', 'hardBreak', 'placeholder']
+
+/**
+ * The allow-list: for each node type, the children it may hold and the
+ * attributes it may carry (with a check per attribute). Anything else, in
+ * a node or a mark, is refused.
+ */
+const NODE_RULES: Record<
+  string,
+  { children: string[]; attrs: Record<string, (v: unknown) => boolean> }
+> = {
+  doc: { children: BLOCKS, attrs: {} },
+  paragraph: { children: INLINE, attrs: {} },
+  heading: { children: INLINE, attrs: { level: (v) => v === 1 || v === 2 || v === 3 } },
+  bulletList: { children: ['listItem'], attrs: {} },
+  orderedList: {
+    children: ['listItem'],
+    attrs: {
+      start: (v) => Number.isInteger(v) && (v as number) >= 0 && (v as number) < 10_000,
+      type: (v) => v === null || v === '1',
+    },
+  },
+  listItem: { children: ['paragraph', 'bulletList', 'orderedList'], attrs: {} },
+  text: { children: [], attrs: {} },
+  hardBreak: { children: [], attrs: {} },
+  horizontalRule: { children: [], attrs: {} },
+  placeholder: {
+    children: [],
+    attrs: {
+      key: (v) => typeof v === 'string',
+      label: (v) => v === null || (typeof v === 'string' && v.length <= 100),
+    },
+  },
+}
 const MARKS = new Set(['bold', 'italic', 'underline'])
+const NODE_KEYS = new Set(['type', 'attrs', 'content', 'marks', 'text'])
 
 /**
  * The placeholders a template may use: the built-in ones and its fields.
@@ -58,27 +82,51 @@ export function placeholderKeys(fields: Pick<TemplateField, 'key'>[]) {
   return [...BUILT_IN_PLACEHOLDERS, ...fields.map((field) => `field.${field.key}`)]
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
 /**
- * Whether `doc` is a template body made only of allowed nodes and marks,
- * whose placeholders all exist.
+ * Whether `doc` is a template body made only of allowed nodes, nesting,
+ * attributes and marks, whose placeholders all exist.
  */
 export function isValidTemplateBody(doc: unknown, allowedPlaceholders: string[]) {
   const allowed = new Set(allowedPlaceholders)
-  const check = (node: unknown, depth: number): boolean => {
-    if (depth > 20 || typeof node !== 'object' || node === null) return false
-    const { type, attrs, content, marks, text } = node as TemplateNode
-    if (typeof type !== 'string' || !NODES.has(type)) return false
-    if (type === 'text' && typeof text !== 'string') return false
-    if (type === 'heading' && ![1, 2, 3].includes(Number(attrs?.level))) return false
-    if (type === 'placeholder' && !allowed.has(String(attrs?.key))) return false
+  const check = (node: unknown, parent: string | null, depth: number): boolean => {
+    if (depth > 20 || !isObject(node)) return false
+    if (!Object.keys(node).every((key) => NODE_KEYS.has(key))) return false
+    const { type, attrs, content, marks, text } = node
+    if (typeof type !== 'string' || !(type in NODE_RULES)) return false
+    if (parent === null ? type !== 'doc' : !NODE_RULES[parent].children.includes(type)) return false
+    const rules = NODE_RULES[type]
+
+    if (attrs !== undefined) {
+      if (!isObject(attrs)) return false
+      for (const [name, value] of Object.entries(attrs)) {
+        if (!(name in rules.attrs) || !rules.attrs[name](value)) return false
+      }
+    }
+    if (type === 'heading' && !isObject(attrs)) return false
+    if (type === 'placeholder' && !(isObject(attrs) && allowed.has(String(attrs.key)))) return false
+    if ((type === 'text') !== (typeof text === 'string')) return false
+    if (type === 'text' && (text as string).length === 0) return false
+
     if (marks !== undefined) {
-      if (!Array.isArray(marks)) return false
-      if (!marks.every((mark) => MARKS.has(mark?.type))) return false
+      if (type !== 'text' || !Array.isArray(marks)) return false
+      const validMark = (mark: unknown) =>
+        isObject(mark) &&
+        MARKS.has(String(mark.type)) &&
+        Object.keys(mark).every(
+          (key) =>
+            key === 'type' ||
+            (key === 'attrs' && isObject(mark.attrs) && Object.keys(mark.attrs).length === 0)
+        )
+      if (!marks.every(validMark)) return false
     }
     if (content === undefined) return true
-    return Array.isArray(content) && content.every((child) => check(child, depth + 1))
+    if (!Array.isArray(content) || rules.children.length === 0) return false
+    return content.every((child) => check(child, type, depth + 1))
   }
-  return check(doc, 0) && (doc as TemplateNode).type === 'doc'
+  return check(doc, null, 0)
 }
 
 function escapeHtml(value: string) {

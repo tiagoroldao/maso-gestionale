@@ -90,4 +90,66 @@ test.group('Document Template bodies', () => {
       )
     )
   })
+
+  test('refuses unknown attributes, properties and nesting', ({ assert }) => {
+    const keys = placeholderKeys([])
+    const p = (node: object) => ({ type: 'doc', content: [node] })
+    const refused = [
+      // Attributes a node doesn't have
+      p({ type: 'paragraph', attrs: { onclick: 'x', style: 'color:red' } }),
+      // Properties a node doesn't have
+      { type: 'doc', content: [], evil: true },
+      // A text node with children, a hard break with children
+      p({ type: 'paragraph', content: [{ type: 'text', text: 'x', content: [] }] }),
+      p({ type: 'paragraph', content: [{ type: 'hardBreak', content: [] }] }),
+      // Nesting: a list item outside a list, inline at the top, a block inside a paragraph
+      p({ type: 'listItem', content: [] }),
+      { type: 'doc', content: [{ type: 'text', text: 'x' }] },
+      p({ type: 'paragraph', content: [{ type: 'paragraph' }] }),
+      // A placeholder label that isn't text
+      p({
+        type: 'paragraph',
+        content: [
+          { type: 'placeholder', attrs: { key: 'today', label: ['img', { onerror: 'x' }] } },
+        ],
+      }),
+      // A mark with attributes
+      p({
+        type: 'paragraph',
+        content: [{ type: 'text', text: 'x', marks: [{ type: 'bold', attrs: { href: 'x' } }] }],
+      }),
+    ]
+    for (const doc of refused) assert.isFalse(isValidTemplateBody(doc, keys), JSON.stringify(doc))
+
+    // What the editor produces is accepted
+    assert.isTrue(
+      isValidTemplateBody(
+        {
+          type: 'doc',
+          content: [
+            {
+              type: 'orderedList',
+              attrs: { start: 1, type: null },
+              content: [
+                {
+                  type: 'listItem',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        { type: 'placeholder', attrs: { key: 'today', label: 'Data di oggi' } },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+            { type: 'paragraph' },
+            { type: 'horizontalRule' },
+          ],
+        },
+        keys
+      )
+    )
+  })
 })

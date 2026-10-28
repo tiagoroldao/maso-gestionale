@@ -132,7 +132,7 @@ export class CustomerSchema extends BaseModel {
 }
 
 export class DocumentTemplateVersionSchema extends BaseModel {
-  static $columns = ['body', 'createdAt', 'createdBy', 'documentTemplateId', 'fields', 'id', 'version'] as const
+  static $columns = ['body', 'createdAt', 'createdBy', 'documentTemplateId', 'fields', 'id', 'name', 'version'] as const
   $columns = DocumentTemplateVersionSchema.$columns
   @column()
   declare body: any
@@ -146,6 +146,8 @@ export class DocumentTemplateVersionSchema extends BaseModel {
   declare fields: any
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare name: string
   @column()
   declare version: number
 }

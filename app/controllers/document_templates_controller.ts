@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import CompanySettings from '#models/company_settings'
 import DocumentTemplate from '#models/document_template'
 import DocumentRenderer from '#documents/document_renderer'
@@ -26,6 +27,7 @@ export default class DocumentTemplatesController {
     const templates = await DocumentTemplate.query()
       .withScopes((scopes) => scopes.active())
       .withAggregate('versions', (versions) => versions.max('version').as('latest'))
+      .withAggregate('versions', (versions) => versions.max('created_at').as('savedAt'))
       .orderBy('name')
 
     return inertia.render('settings/document_templates/index', {
@@ -33,7 +35,8 @@ export default class DocumentTemplatesController {
         id: template.id,
         name: template.name,
         version: Number(template.$extras.latest),
-        updatedAt: (template.updatedAt ?? template.createdAt).toISODate()!,
+        // When the latest version was saved
+        savedAt: DateTime.fromJSDate(template.$extras.savedAt).toISODate()!,
       })),
     })
   }
