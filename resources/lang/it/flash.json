@@ -83,5 +83,8 @@
     "rejected": "Scarto registrato: correggi e reinvia la fattura entro 5 giorni."
   },
   "submissionRefused": "Questa operazione non è possibile nello stato attuale della fattura.",
-  "sdiPrefixSaved": "Lettera dei file SDI salvata."
+  "sdiPrefixSaved": "Lettera dei file SDI salvata.",
+  "jobInvoiced": "La commessa ha fatture: non si può annullare.",
+  "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
+  "jobNotInvoiceable": "La commessa non ha un preventivo accettato da fatturare, oppure è annullata."
 }

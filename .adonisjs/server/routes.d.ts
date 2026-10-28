@@ -73,6 +73,7 @@ export type ScannedRoutes = {
     'invoices.index': { paramsTuple?: []; params?: {} }
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.store': { paramsTuple?: []; params?: {} }
+    'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -254,6 +255,7 @@ export type ScannedRoutes = {
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store': { paramsTuple?: []; params?: {} }
+    'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
