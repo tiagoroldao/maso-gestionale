@@ -930,6 +930,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['pdf']>>>
     }
   }
+  'invoices.xml': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/xml'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
+    }
+  }
   'items.index': {
     methods: ["GET","HEAD"]
     pattern: '/items'

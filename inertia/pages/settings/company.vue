@@ -15,12 +15,16 @@ type TextField =
   | 'postalCode'
   | 'city'
   | 'province'
+  | 'reaOffice'
+  | 'reaNumber'
+  | 'shareCapital'
   | 'iban'
   | 'email'
   | 'phone'
 
 const props = defineProps<{
-  settings: Record<TextField | 'taxRegime', string | null> & {
+  settings: Record<TextField | 'taxRegime' | 'soleShareholder', string | null> & {
+    liquidationStatus: string
     hasLogo: boolean
     updatedAt: string | null
   }
@@ -52,6 +56,16 @@ const sections: { key: string; title: string; description?: string; fields: Fiel
       { name: 'postalCode', label: t('ui.address.postalCode') },
       { name: 'city', label: t('ui.address.city') },
       { name: 'province', label: t('ui.address.province'), hint: t('ui.address.provinceHint') },
+    ],
+  },
+  {
+    key: 'rea',
+    title: t('ui.company.reaSection'),
+    description: t('ui.company.reaDescription'),
+    fields: [
+      { name: 'reaOffice', label: t('ui.company.reaOffice'), hint: t('ui.address.provinceHint') },
+      { name: 'reaNumber', label: t('ui.company.reaNumber') },
+      { name: 'shareCapital', label: t('ui.company.shareCapital') },
     ],
   },
   {
@@ -109,6 +123,38 @@ const logoUrl = props.settings.updatedAt
             </select>
             <span v-if="errors.taxRegime" class="field__error">{{ errors.taxRegime }}</span>
           </div>
+
+          <template v-if="section.key === 'rea'">
+            <div class="field">
+              <label class="field__label" for="soleShareholder">{{
+                t('ui.company.soleShareholder')
+              }}</label>
+              <select
+                id="soleShareholder"
+                name="soleShareholder"
+                class="field__input"
+                :value="settings.soleShareholder ?? ''"
+              >
+                <option value="">{{ t('ui.company.notApplicable') }}</option>
+                <option value="SU">{{ t('ui.company.soleShareholders.SU') }}</option>
+                <option value="SM">{{ t('ui.company.soleShareholders.SM') }}</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="field__label" for="liquidationStatus">{{
+                t('ui.company.liquidationStatus')
+              }}</label>
+              <select
+                id="liquidationStatus"
+                name="liquidationStatus"
+                class="field__input"
+                :value="settings.liquidationStatus"
+              >
+                <option value="LN">{{ t('ui.company.liquidationStatuses.LN') }}</option>
+                <option value="LS">{{ t('ui.company.liquidationStatuses.LS') }}</option>
+              </select>
+            </div>
+          </template>
         </Section>
 
         <Section

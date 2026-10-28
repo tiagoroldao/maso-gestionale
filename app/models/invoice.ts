@@ -45,6 +45,14 @@ export type CompanySnapshot = {
   email: string | null
   phone: string | null
   iban: string | null
+  /** Registro Imprese (IscrizioneREA); absent before it was recorded */
+  rea?: {
+    office: string
+    number: string
+    shareCapital: string | null
+    soleShareholder: 'SU' | 'SM' | null
+    liquidationStatus: 'LN' | 'LS'
+  } | null
 }
 
 /**

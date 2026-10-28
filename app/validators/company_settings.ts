@@ -1,6 +1,7 @@
 import vine from '@vinejs/vine'
 import { TAX_REGIMES, type TaxRegime } from '#fiscal/tax_regimes'
 import { italianIbanRule, taxCodeRule, vatNumberRule } from '#validators/rules/italian_ids'
+import { amountRule } from '#validators/rules/amount'
 
 /**
  * Validator for the Admin saving the company settings. The fields that
@@ -26,6 +27,22 @@ export const companySettingsValidator = vine.create({
     .trim()
     .toUpperCase()
     .regex(/^[A-Z]{2}$/),
+
+  // Registro Imprese: office and number go together; the rest is optional
+  reaOffice: vine
+    .string()
+    .trim()
+    .toUpperCase()
+    .regex(/^[A-Z]{2}$/)
+    .optional()
+    .requiredIfExists('reaNumber'),
+  reaNumber: vine.string().trim().maxLength(20).optional().requiredIfExists('reaOffice'),
+  shareCapital: vine
+    .string()
+    .use(amountRule({ decimals: 2, max: '9999999999999' }))
+    .optional(),
+  soleShareholder: vine.enum(['SU', 'SM'] as const).optional(),
+  liquidationStatus: vine.enum(['LN', 'LS'] as const).optional(),
 
   iban: vine.string().use(italianIbanRule()).optional(),
   email: vine.string().trim().email().maxLength(254).optional(),

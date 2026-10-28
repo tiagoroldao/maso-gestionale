@@ -248,6 +248,16 @@ export default class Invoices {
       email: company.email,
       phone: company.phone,
       iban: company.iban,
+      rea:
+        company.reaOffice && company.reaNumber
+          ? {
+              office: company.reaOffice,
+              number: company.reaNumber,
+              shareCapital: company.shareCapital,
+              soleShareholder: company.soleShareholder as 'SU' | 'SM' | null,
+              liquidationStatus: company.liquidationStatus as 'LN' | 'LS',
+            }
+          : null,
     }
   }
 

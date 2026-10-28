@@ -6,6 +6,7 @@ import Invoices, { InvoiceNotEditableError, InvoiceNotFinalisableError } from '#
 import DocumentRenderer from '#documents/document_renderer'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { invoiceDocument } from '#documents/invoice_document'
+import { buildFatturaPA, fatturaFileName, fatturaInputFor } from '#fiscal/fattura_pa'
 import { invoiceValidator, newInvoiceValidator } from '#validators/invoice'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -165,6 +166,31 @@ export default class InvoicesController {
       logger.warn({ err: error }, 'PDF conversion failed')
       return response.serviceUnavailable(i18n.t('errors.pdfUnavailable'))
     }
+  }
+
+  /**
+   * The FatturaPA XML of a finalised Invoice, to upload to SDI. Drafts have
+   * none: they aren't fiscal documents yet.
+   */
+  async xml({ params, response, i18n }: HttpContext) {
+    const invoice = await Invoice.query()
+      .where('id', params.id)
+      .preload('lines', (lines) => lines.orderBy('position'))
+      .firstOrFail()
+    if (invoice.status === 'draft') return response.notFound()
+
+    const input = fatturaInputFor(
+      invoice,
+      i18n.t('documents.invoice.globalDiscountLine', {
+        percent: Number(invoice.discountPercent).toLocaleString('it-IT'),
+      })
+    )
+    response.header('content-type', 'application/xml; charset=utf-8')
+    response.header(
+      'content-disposition',
+      `attachment; filename="${fatturaFileName(input.company.taxCode ?? input.company.vatNumber, input.progressive)}"`
+    )
+    return buildFatturaPA(input)
   }
 
   async destroy({ params, response, session, i18n }: HttpContext) {
