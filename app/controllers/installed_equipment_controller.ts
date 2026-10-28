@@ -1,9 +1,11 @@
+import db from '@adonisjs/lucid/services/db'
 import Site from '#models/site'
 import InstalledEquipment from '#models/installed_equipment'
 import Archiving, { InvalidRemovalError } from '#services/archiving'
 import {
   installedEquipmentValidator,
   removeEquipmentValidator,
+  updateInstalledEquipmentValidator,
 } from '#validators/installed_equipment'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
@@ -78,10 +80,24 @@ export default class InstalledEquipmentController {
   }
 
   async update({ params, request, response, session, i18n }: HttpContext) {
-    const equipment = await InstalledEquipment.findOrFail(params.id)
-    const data = await request.validateUsing(installedEquipmentValidator)
+    const { lastServicedOnWas, ...data } = await request.validateUsing(
+      updateInstalledEquipmentValidator
+    )
 
-    await equipment.merge(toAttributes(data)).save()
+    const equipment = await db.transaction(async (trx) => {
+      // Closing a Visit sets the service date on this row too: one at a time
+      const locked = await InstalledEquipment.query({ client: trx })
+        .where('id', params.id)
+        .forUpdate()
+        .firstOrFail()
+      const { lastServicedOn, ...attributes } = toAttributes(data)
+      locked.useTransaction(trx).merge(attributes)
+      // Left as the page loaded it: keep any date a Visit set since
+      if (lastServicedOn?.toISODate() !== lastServicedOnWas?.toISODate()) {
+        locked.lastServicedOn = lastServicedOn
+      }
+      return locked.save()
+    })
 
     session.flash('success', i18n.t('flash.equipmentSaved'))
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
