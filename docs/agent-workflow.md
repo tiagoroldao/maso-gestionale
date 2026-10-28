@@ -6,7 +6,7 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 
 1. **Branch** from a fresh `origin/main`: `git fetch && git checkout -b <feat|fix|chore>/<issue>-<slug> origin/main`.
 2. **Build** the slice end to end (migration, model, validator, controller, page, catalogue strings, tests). Vocabulary from `GLOSSARY.md`; every visible word in `resources/lang/it/*.json`. Pages stay within "UI scope" in `CODING_STANDARDS.md`: functional only, no UX work (ADR 0009).
-3. **Regenerate** after route, controller or migration changes: `npm run codegen` (needs migrations applied to the dev database). Commit `.adonisjs/` and `database/schema.ts` with the change; CI fails on stale generated files.
+3. **Regenerate** after route, controller or migration changes: `npm run codegen` (needs migrations applied to the dev or scratch database). Commit `.adonisjs/` and `database/schema.ts` with the change; CI fails on stale generated files.
 4. **Check** locally: `npm run lint`, `npm run typecheck`, then `node ace test --files <touched specs>` while iterating and the full `node ace test` once before pushing.
 5. **Push and open the PR** (`Closes #N`). Wait for the CI run whose `headSha` is the pushed commit; fix until green.
 6. **Review** with the `pr-reviewer` agent. Fix what it marks to fix; send fixes back to the _same_ reviewer for a re-review. Merge only on a MERGE verdict for the latest commit.
@@ -23,5 +23,5 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 - **Money** is decimal strings through `shared/money.ts` (ADR 0007); dates and times are Europe/Rome (`shared/dates.ts`).
 - **Imports from `shared/`**: `#shared/*` on the server, `@shared/*` in pages.
 - **Controllers: the controller class comes first in its file.** Codegen reads the first class, so a helper class (e.g. an error) above it silently drops the 422 validation-error types for every action, and the pages' `<Form>` errors become `{}` (typecheck fails). Put helper classes after the controller, or in a service.
-- **Worktrees never use the dev database.** A worktree's `.env` copied from the main checkout points at `maso`: set its `DB_DATABASE` to a scratch database before running any `ace` command there, and chain setup commands with `&&`, never `;`, so a failed step can't leave the next one on `maso`. A rollback on `maso` runs real `down()` migrations (some delete data).
+- **Worktrees never use the dev database.** A worktree's `.env` copied from the main checkout points at `maso`: set its `DB_DATABASE` to a scratch database (or prefix each command, as below) before running any `ace` command there, and chain setup commands with `&&`, never `;`, so a failed step can't leave the next one on `maso`. A rollback on `maso` runs real `down()` migrations (some delete data).
 - **Scratch databases:** `docker compose exec -T db psql -U maso -d postgres -c "CREATE DATABASE maso_bNN"`, then `DB_DATABASE=maso_bNN node ace migration:run` and `DB_DATABASE=maso_bNN npm run codegen` (plain `npm run codegen` reads the dev database). Drop it when the branch merges (`DROP DATABASE maso_bNN`).
