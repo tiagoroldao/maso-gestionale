@@ -187,12 +187,6 @@ test.group('SDI Submissions', (group) => {
       .get(`/invoices/${other.id}/submissions/${prepared.id}/xml`)
       .loginAs(office)
     elsewhere.assertStatus(404)
-
-    const technician = await createUser('technician')
-    const denied = await client
-      .get(`/invoices/${invoice.id}/submissions/${prepared.id}/xml`)
-      .loginAs(technician)
-    denied.assertStatus(403)
   })
 
   test('a Rejection reopens the Invoice: corrected, rebooked in stock and resubmitted', async ({
@@ -449,6 +443,16 @@ test.group('SDI Submissions', (group) => {
       }
     }
     assert.lengthOf(await InvoiceSubmission.all(), 0)
+
+    // Nor can they download a file that was sent
+    const submission = await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    for (const role of ['technician', 'superuser'] as const) {
+      const response = await client
+        .get(`/invoices/${invoice.id}/submissions/${submission.id}/xml`)
+        .loginAs(await createUser(role))
+      response.assertStatus(403)
+    }
   })
 
   test('only the Admin sets the SDI file letter', async ({ client, assert }) => {

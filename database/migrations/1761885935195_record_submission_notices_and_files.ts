@@ -10,7 +10,8 @@ export default class extends BaseSchema {
       table.string('sdi_id', 20).nullable()
     })
     this.schema.raw(
-      'UPDATE invoice_submissions SET notice_on = outcome_at::date WHERE outcome IS NOT NULL'
+      `UPDATE invoice_submissions SET notice_on = (outcome_at AT TIME ZONE 'Europe/Rome')::date
+        WHERE outcome IS NOT NULL`
     )
     this.schema.raw(
       `ALTER TABLE invoice_submissions ADD CONSTRAINT invoice_submissions_notice_with_outcome

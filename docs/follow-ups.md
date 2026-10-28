@@ -18,14 +18,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                |
 | #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                       |
 | #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
-| #67   | VAT Codes and VAT summary on Quotes (needed by #22)                                       | —                                                 |
-| #68   | Edit and delete Visits; deactivated Technicians' Visits stay visible                      | —                                                 |
-| #69   | Archive Customers and Sites; mark Installed Equipment removed or replaced                 | —                                                 |
-| #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)      | —                                                 |
-| #72   | Stable issue date and validity on Quote PDFs                                              | —                                                 |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
-| #90   | Record SDI's notice date with each outcome (5-day deadline from the notice)               | —                                                 |
-| #91   | Keep the XML sent with each Submission (archiving)                                        | —                                                 |
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 
 ## Added to existing issues
@@ -54,4 +47,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **Release image is amd64 only** (#36): add `docker/setup-qemu-action` and `platforms: linux/amd64,linux/arm64` if the server turns out to be ARM (ADR 0002: whatever hardware the business owns) (from the #100 review).
 - **`latest` follows the newest tag pushed** (#36): a hotfix on an older line (`v1.0.1` after `v1.1.0`) moves `latest` back. Only matters once old lines get patches; pin `APP_VERSION` meanwhile (from the #100 review).
 - **Concurrent equipment removal untested:** `FieldWork.removeItem` locks the equipment it created before checking whether another line or Visit uses it. Only reading the code checks this; no test runs two connections against it (from the #98 review).
+- **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).
+- **Invoice edit page loads every Submission's XML** to work out \`hasFile\`; select a boolean instead if Invoices accumulate many Submissions (from the #101 review).
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.
