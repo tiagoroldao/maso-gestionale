@@ -33,13 +33,9 @@ declare module '@adonisjs/inertia/types' {
     'quotes/edit': ExtractProps<(typeof import('../../inertia/pages/quotes/edit.vue'))['default']>
     'settings/categories': ExtractProps<(typeof import('../../inertia/pages/settings/categories.vue'))['default']>
     'settings/company': ExtractProps<(typeof import('../../inertia/pages/settings/company.vue'))['default']>
-    'settings/document_templates/edit': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/edit.vue'))['default']>
-    'settings/document_templates/index': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/index.vue'))['default']>
-    'settings/invoice_numbering': ExtractProps<(typeof import('../../inertia/pages/settings/invoice_numbering.vue'))['default']>
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
     'settings/rates': ExtractProps<(typeof import('../../inertia/pages/settings/rates.vue'))['default']>
     'settings/vat_codes': ExtractProps<(typeof import('../../inertia/pages/settings/vat_codes.vue'))['default']>
-    'settings/vat_rules': ExtractProps<(typeof import('../../inertia/pages/settings/vat_rules.vue'))['default']>
     'setup': ExtractProps<(typeof import('../../inertia/pages/setup.vue'))['default']>
     'sites/form': ExtractProps<(typeof import('../../inertia/pages/sites/form.vue'))['default']>
     'sites/index': ExtractProps<(typeof import('../../inertia/pages/sites/index.vue'))['default']>
@@ -51,5 +47,9 @@ declare module '@adonisjs/inertia/types' {
     'visits/create': ExtractProps<(typeof import('../../inertia/pages/visits/create.vue'))['default']>
     'visits/schedule': ExtractProps<(typeof import('../../inertia/pages/visits/schedule.vue'))['default']>
     'visits/to_schedule': ExtractProps<(typeof import('../../inertia/pages/visits/to_schedule.vue'))['default']>
+    'settings/invoice_numbering': ExtractProps<(typeof import('../../inertia/pages/settings/invoice_numbering.vue'))['default']>
+    'settings/vat_rules': ExtractProps<(typeof import('../../inertia/pages/settings/vat_rules.vue'))['default']>
+    'settings/document_templates/edit': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/edit.vue'))['default']>
+    'settings/document_templates/index': ExtractProps<(typeof import('../../inertia/pages/settings/document_templates/index.vue'))['default']>
   }
 }

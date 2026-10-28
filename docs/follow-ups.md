@@ -22,7 +22,13 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                 |
 | #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
-| #110  | Link billed Visit work to the Invoice line, not just the Invoice                          | —                                                 |
+| #110  | Invoice lines keep their identity when a draft is saved (ADR 0010)                        | —                                                 |
+| #114  | Charges replace recorded hours and Items (ADR 0010)                                       | —                                                 |
+| #115  | Office adds Charges to a Job directly                                                     | —                                                 |
+| #116  | Invoicing from Charges (replaces #75's links and the billing-open rule)                   | —                                                 |
+| #117  | Add Charges from the accepted Quote                                                       | —                                                 |
+| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
+| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #111  | Can done work on a cancelled Time & Materials Job still be invoiced?                      | The business (`needs-human`)                      |
 
 ## Added to existing issues
@@ -35,7 +41,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#22** (Quoted Job → draft): Quote VAT Codes (#67); Job guards once invoiced.
 - **#74** (Time & Materials → draft): rounding vs. the Job page total; price policy (comment on #22).
-- **#75:** billed Visit work linked per Invoice, not per line (#110); Credit Notes freeing billed work (comment on #24); billing done work on a cancelled Time & Materials Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#24); billing done work on a cancelled Time & Materials Job (#111, needs the business).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues

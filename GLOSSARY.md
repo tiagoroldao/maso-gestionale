@@ -27,10 +27,10 @@ A whole piece of work for a Customer, which may span multiple Visits and is the 
 _Avoid_: Intervention, work order, ticket
 
 **Quoted Job**:
-A Job invoiced from an accepted Quote.
+A Job priced by an accepted Quote, whose lines Office adds to the Job as Charges.
 
 **Time & Materials Job**:
-A Job invoiced from the labour and Items recorded on its Visits.
+A Job invoiced from the Charges recorded on it and its Visits.
 
 **Work Category** (_Tipo di lavoro_):
 The kind of work a Job is (new installation, maintenance, renovation, repair or sale), which together with the Customer and the Site decides the VAT normally charged.
@@ -45,8 +45,12 @@ A single scheduled trip by one or more technicians to a Site as part of a Job.
 _Avoid_: Intervention, appointment, call-out
 
 **Labour Rate**:
-An hourly price for a type of labour, billed per technician-hour recorded on a Visit.
+An hourly price for a type of labour; hours recorded on a Visit at a Labour Rate become a Charge at that price.
 _Avoid_: Hourly cost, manodopera (as a price)
+
+**Charge** (_Addebito_):
+Something done or supplied for a Job that the Customer may be billed for (hours worked, an Item used, a call-out, any other cost), recorded on a Visit or on the Job itself and priced when recorded. Office corrects it, sets what is billed and at what price, or marks it not billable. Its history records each correction, billing, credit and change of mind, and what is still outstanding follows from that history. A Visit is billed when none of its Charges are outstanding.
+_Avoid_: Billable item (clashes with Item), billable entry, work
 
 **Call-out Fee** (_Diritto di chiamata_):
 A fixed charge for attending a Visit, independent of hours worked.
