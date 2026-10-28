@@ -27,7 +27,9 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
 | #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
-| #134  | Survey Visits before a Quote (ADR 0012)                                                   | The business (`needs-human`)                                  |
+| #136  | Survey Visits (ADR 0013)                                                                  | —                                                             |
+| #137  | Quotes are frozen once sent (ADR 0013)                                                    | —                                                             |
+| #138  | Several Quotes per Job; a Job's status follows its work (ADR 0013)                        | #136, #137                                                    |
 
 ## Added to existing issues
 
@@ -42,7 +44,7 @@ Review findings folded into planned work, so they are picked up with it:
 
 ## Not yet issues
 
-- **Quote declines cancel the Job inside `Quotes.decide`** (two lines setting status and date), not through `Jobs.cancel`, which opens its own transaction and would deadlock on the Job row `decide` holds. Harmless today (a draft Quote's Job can't have Invoices); when Job cancellation gains more guards or side effects, let `Jobs.cancel` take the caller's transaction and use it from both (from the #86 and #94 reviews).
+- **Quote declines cancel the Job inside `Quotes.decide`** (dropped by #138, ADR 0013: remove when it merges) (two lines setting status and date), not through `Jobs.cancel`, which opens its own transaction and would deadlock on the Job row `decide` holds. Harmless today (a draft Quote's Job can't have Invoices); when Job cancellation gains more guards or side effects, let `Jobs.cancel` take the caller's transaction and use it from both (from the #86 and #94 reviews).
 - **A sent Quote's PDF reads its Job and Customer live** (#137): the lines, notes, validity and date are frozen once sent, but the PDF prints the Job's title and the Customer's current name and address, and the Job's Customer can still be changed. Accepted Quotes already have the same gap. Snapshot the recipient when the Quote is sent, or refuse changing the Customer of a Job with a sent Quote, alongside #138's numbering.
 - **Customer's role at a Site** (owner, administrator, tenant): a domain question raised in the #43 review; decide during the UX pass or when a feature needs it.
 - **Archived-reference check outside the lock:** Quote and Invoice saves read which archived Items and VAT Codes the record already uses before locking it, so a concurrent save or archive could let an archived reference onto a draft. Move the check inside the locked transaction for both (from the #77 review); likewise `Invoices.create` checks an archived Customer only in the validator (harmless: Invoices don't block archiving) (from the #95 review).
