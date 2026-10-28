@@ -179,6 +179,9 @@ router
           .delete('visits/:id', [controllers.Visits, 'destroy'])
           .where('id', router.matchers.number())
         router
+          .post('jobs/:id/charges', [controllers.Charges, 'store'])
+          .where('id', router.matchers.number())
+        router
           .get('charges/:id/edit', [controllers.Charges, 'edit'])
           .where('id', router.matchers.number())
         router

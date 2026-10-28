@@ -110,6 +110,7 @@ export interface ApiDefinition {
     destroy: typeof routes['visits.destroy']
   }
   charges: {
+    store: typeof routes['charges.store']
     edit: typeof routes['charges.edit']
     correct: typeof routes['charges.correct']
     updateBilling: typeof routes['charges.update_billing']

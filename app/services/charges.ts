@@ -11,6 +11,7 @@ import User from '#models/user'
 import Visit from '#models/visit'
 import StockLedger from '#stock/stock_ledger'
 import { chargeState } from '#shared/charges'
+import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 
 /**
@@ -35,15 +36,53 @@ type Recorded = {
   itemId?: number
 }
 
-type Billing = { quantity: string; unitPrice: string; description: string }
+type Billing = {
+  quantity: string
+  unitPrice: string
+  description: string
+  // Another cost's own unit and VAT kind (ignored for hours and Items)
+  unit?: string | null
+  vatKind?: LineKind
+}
 
 /**
- * Office's side of Charges (ADR 0010): correcting what was recorded,
- * editing what is billed, and marking a Charge not billable. Each is an
- * event in the Charge's history. Every change locks the Charge's Visit,
- * then its Job (the order field work and invoicing use), then the Charge.
+ * Office's side of Charges (ADR 0010): adding other costs to a Job,
+ * correcting what was recorded, editing what is billed, and marking a
+ * Charge not billable. Each is an event in the Charge's history. Every
+ * change locks the Charge's Visit, then its Job (the order field work and
+ * invoicing use), then the Charge.
  */
 export default class Charges {
+  /**
+   * Adds another cost to the Job itself (a call-out, a contractor's day,
+   * materials bought for the Job), priced by Office. Not on a cancelled
+   * Job.
+   */
+  static async add(job: Job, input: Required<Billing>, user: User) {
+    return db.transaction(async (trx) => {
+      const locked = await Job.query({ client: trx }).where('id', job.id).forShare().firstOrFail()
+      if (locked.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+      const charge = await Charge.create(
+        {
+          jobId: locked.id,
+          kind: 'other',
+          quantity: input.quantity,
+          billQuantity: input.quantity,
+          unitPrice: input.unitPrice,
+          description: input.description,
+          unit: input.unit,
+          vatKind: input.vatKind,
+        },
+        { client: trx }
+      )
+      await ChargeEvent.create(
+        { chargeId: charge.id, kind: 'recorded', userId: user.id },
+        { client: trx }
+      )
+      return charge
+    })
+  }
+
   /**
    * Corrects what was recorded, at any time. An Item already taken off
    * stock moves stock by the difference, with new Stock Movements. While
@@ -97,7 +136,7 @@ export default class Charges {
           userId: technician?.id ?? null,
           workerName: technician ? null : worker,
         })
-      } else {
+      } else if (locked.kind === 'item') {
         const item = await Item.findOrFail(input.itemId, { client: trx })
         if (item.archivedAt && item.id !== locked.itemId) throw new ChargeRefusedError('archived')
         if (locked.stockMovementId) {
@@ -130,6 +169,9 @@ export default class Charges {
         unitPrice: input.unitPrice,
         description: input.description,
       })
+      if (locked.kind === 'other') {
+        locked.merge({ unit: input.unit ?? null, vatKind: input.vatKind ?? locked.vatKind })
+      }
       await locked.save()
       const changes = diff(before, billingValues(locked))
       if (changes) await this.addEvent(trx, locked, 'billing_edited', user, changes)
@@ -256,6 +298,7 @@ export default class Charges {
         worker: technician ? (technician.fullName ?? technician.email) : charge.workerName,
       }
     }
+    if (charge.kind === 'other') return { quantity: charge.quantity }
     const item = await Item.findOrFail(charge.itemId, { client: trx })
     return { quantity: charge.quantity, item: `${item.code} ${item.description}` }
   }
@@ -266,6 +309,8 @@ function billingValues(charge: Charge) {
     quantity: charge.billQuantity,
     unitPrice: charge.unitPrice,
     description: charge.description,
+    unit: charge.unit,
+    vatKind: charge.vatKind,
   }
 }
 

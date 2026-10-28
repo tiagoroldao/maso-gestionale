@@ -402,6 +402,12 @@ const routes = {
     tokens: [[0,"visits"],[1,"id"]],
     types: placeholder as Registry['visits.destroy']['types'],
   },
+  'charges.store': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/charges',
+    tokens: [[0,"jobs"],[1,"id"],[0,"charges"]],
+    types: placeholder as Registry['charges.store']['types'],
+  },
   'charges.edit': {
     methods: ["GET","HEAD"],
     pattern: '/charges/:id/edit',

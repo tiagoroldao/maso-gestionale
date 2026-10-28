@@ -3,6 +3,7 @@ import Big from 'big.js'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import CompanySettings from '#models/company_settings'
+import Charge from '#models/charge'
 import Customer from '#models/customer'
 import Invoice, { type CompanySnapshot, type CustomerSnapshot } from '#models/invoice'
 import InvoiceSequence from '#models/invoice_sequence'
@@ -15,7 +16,6 @@ import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import VatDefaults from '#services/vat_defaults'
-import { lineKindOf } from '#shared/vat'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
@@ -201,9 +201,9 @@ export default class Invoices {
 
   /**
    * A draft Invoice for a Time & Materials Job: one line per billable
-   * Charge on its closed Visits, with what Office set to bill (quantity,
-   * price, description; ADR 0010), so its total before VAT equals the Job
-   * page's running total. Each line gets the VAT Code of the default rules
+   * Charge on its closed Visits and on the Job itself, with what Office
+   * set to bill (quantity, price, description; ADR 0010), so its total
+   * before VAT equals the Job page's running total. Each line gets the VAT Code of the default rules
    * for its kind (labour, material or significant good). Only Charges not
    * yet billed go in, and are marked as billed by this Invoice; deleting
    * the draft frees them again. While a draft is open it is returned
@@ -235,7 +235,19 @@ export default class Invoices {
             .orderByRaw("kind = 'item', created_at, id")
         )
         .orderBy('startsAt')
-      const work = visits.flatMap((visit) => visit.charges.map((charge) => ({ visit, charge })))
+      const onJob = await Charge.query({ client: trx })
+        .withScopes((scopes) => scopes.billable())
+        .where('jobId', locked.id)
+        .whereNull('visitId')
+        .whereNull('invoiceId')
+        .preload('item')
+        .orderBy(['createdAt', 'id'])
+      const work = [
+        ...visits.flatMap((visit) =>
+          visit.charges.map((charge) => ({ day: visit.startsAt.toFormat('dd/MM'), charge }))
+        ),
+        ...onJob.map((charge) => ({ day: null, charge })),
+      ]
       if (!work.length) throw new JobNotInvoiceableError()
 
       const defaults = await VatDefaults.forJob(locked, trx)
@@ -245,15 +257,15 @@ export default class Invoices {
         { client: trx }
       )
       await InvoiceLine.createMany(
-        work.map(({ visit, charge }, position) => {
-          const code = defaults[lineKindOf(charge.kind === 'item' ? charge.item : null)]
+        work.map(({ day, charge }, position) => {
+          const code = defaults[charge.lineKind]
           return {
             invoiceId: invoice.id,
             position,
             itemId: charge.itemId,
-            description: `${charge.description} (${visit.startsAt.toFormat('dd/MM')})`,
+            description: day ? `${charge.description} (${day})` : charge.description,
             quantity: charge.billQuantity,
-            unit: charge.unit,
+            unit: charge.billUnit,
             unitPrice: charge.unitPrice,
             discountPercent: '0',
             vatCodeId: code.id,
