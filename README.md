@@ -60,6 +60,8 @@ node ace test functional           # one suite
 
 Tests run against the `maso_test` database, which the Postgres container creates on first start. Each test runs in a transaction that is rolled back afterwards.
 
+The backup tests run `pg_dump` and `pg_restore` (version 17, like the database) and `tar` from the `PATH`; on macOS, `brew install libpq` and add its `bin` to the `PATH`.
+
 ## Running the full stack
 
 ```sh
@@ -67,6 +69,8 @@ docker compose up -d --build
 ```
 
 The `app` container runs pending migrations on start-up and then serves on port 3333. Uploaded files (such as the company logo) live in the `app-storage` volume; in development they go to `storage/` in the repo (git-ignored), or wherever `STORAGE_PATH` points.
+
+The `backup` container (the same image) takes the nightly encrypted off-site backup at `BACKUP_TIME` (01:30 by default), once the Superuser has set the bucket and the passphrase in Instance settings; `node ace backup:run` takes one now. Restoring: [docs/restore.md](docs/restore.md).
 
 ## Releases
 

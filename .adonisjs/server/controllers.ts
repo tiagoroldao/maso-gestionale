@@ -11,6 +11,7 @@ export const controllers = {
   Customers: () => import('#controllers/customers_controller'),
   DocumentTemplates: () => import('#controllers/document_templates_controller'),
   InstalledEquipment: () => import('#controllers/installed_equipment_controller'),
+  InstanceBackups: () => import('#controllers/instance_backups_controller'),
   Instance: () => import('#controllers/instance_controller'),
   InvoiceNumbering: () => import('#controllers/invoice_numbering_controller'),
   Invoices: () => import('#controllers/invoices_controller'),

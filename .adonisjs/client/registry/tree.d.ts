@@ -222,6 +222,9 @@ export interface ApiDefinition {
   }
   instance: typeof routes['instance'] & {
     update: typeof routes['instance.update']
+    backups: typeof routes['instance.backups'] & {
+      run: typeof routes['instance.backups.run']
+    }
     adminPassword: typeof routes['instance.admin_password']
   }
 }

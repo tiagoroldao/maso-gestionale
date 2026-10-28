@@ -23,5 +23,7 @@
   "issuedDocuments": {
     "templateArchived": "Il modello è archiviato: non si possono emettere documenti.",
     "alreadyReplaced": "Il documento è già stato sostituito."
-  }
+  },
+  "backupNotConfigured": "I backup non sono configurati: imposta lo spazio di archiviazione e la passphrase.",
+  "backupPruneFailed": "Backup caricato, ma l'eliminazione dei backup più vecchi non è riuscita: {message}"
 }

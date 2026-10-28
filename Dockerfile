@@ -11,6 +11,8 @@ RUN node ace build
 
 FROM base AS production
 ENV NODE_ENV=production
+# pg_dump for the nightly backups (#33), the same major version as the db
+RUN apk add --no-cache postgresql17-client
 COPY --from=build /app/build ./
 RUN npm ci --omit=dev
 COPY docker/entrypoint.sh /usr/local/bin/entrypoint.sh
