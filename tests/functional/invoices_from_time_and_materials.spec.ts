@@ -15,6 +15,8 @@ import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
 import { it } from '#tests/helpers/i18n'
+import { stateOf } from '#tests/helpers/charges'
+import ChargeEvent from '#models/charge_event'
 
 /**
  * A Time & Materials Job with one done Visit: hours by two Technicians
@@ -210,20 +212,25 @@ test.group('Invoices from Time & Materials Jobs', () => {
     assert.deepEqual(await listed('invoiced'), [[job.id, 'invoiced']])
   })
 
-  test('deleting a draft frees its work for the next one', async ({ client, assert }) => {
+  test('deleting a draft releases its Charges for the next one', async ({ client, assert }) => {
     const office = await createUser('office')
     const { job, visit } = await workedJob()
     const draft = await Invoices.fromJob(job)
-    // Editing the draft keeps its work billed
-    await Invoices.save(draft, { lines: [] })
     let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ timeAndMaterials: { billed: '1362.50' } })
+    page.assertInertiaPropsContains({
+      canInvoice: false,
+      timeAndMaterials: { billed: '0.00', inDraft: '1362.50' },
+    })
 
     await client.delete(`/invoices/${draft.id}`).withCsrfToken().loginAs(office)
-    await visit.load('hours')
-    assert.isTrue(visit.hours.every((hour) => hour.invoiceId === null))
+    await visit.load('charges')
+    for (const charge of visit.charges) assert.equal(await stateOf(charge), 'to_bill')
+    assert.lengthOf(await ChargeEvent.query().whereIn('kind', ['billed', 'unbilled']), 0)
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: true, timeAndMaterials: { billed: '0.00' } })
+    page.assertInertiaPropsContains({
+      canInvoice: true,
+      timeAndMaterials: { billed: '0.00', inDraft: '0.00' },
+    })
     const again = await Invoices.fromJob(job)
     await again.load('lines')
     assert.lengthOf(again.lines, 4)

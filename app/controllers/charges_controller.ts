@@ -18,7 +18,7 @@ import type { HttpContext } from '@adonisjs/core/http'
 /**
  * Office's review of a Charge (ADR 0010): adding other costs to a Job,
  * correcting what was recorded, editing what is billed, marking it not
- * billable, and its history.
+ * billable, setting it back to bill, and its history.
  */
 export default class ChargesController {
   async store({ params, request, response, session, auth, i18n }: HttpContext) {
@@ -38,12 +38,13 @@ export default class ChargesController {
   async edit({ params, inertia }: HttpContext) {
     const charge = await Charge.query()
       .where('id', params.id)
-      .preload('events', (events) => events.preload('user').orderBy('id'))
-      .preload('invoice')
+      .preload('events', (events) => events.preload('user').preload('invoice').orderBy('id'))
+      .preload('invoiceLines', (lines) => lines.preload('invoice'))
       .preload('item')
       .preload('labourRate')
       .preload('technician')
       .firstOrFail()
+    const invoice = charge.heldBy ?? charge.billing?.invoice ?? null
     const job = await Job.findOrFail(charge.jobId)
     const visit = charge.visitId ? await Visit.findOrFail(charge.visitId) : null
 
@@ -95,15 +96,18 @@ export default class ChargesController {
           unit: charge.billUnit,
           vatKind: charge.vatKind,
         },
-        invoice: charge.invoice
-          ? { id: charge.invoice.id, number: charge.invoice.formattedNumber }
-          : null,
+        // The draft holding it, or the Invoice billing it
+        invoice: invoice ? { id: invoice.id, number: invoice.formattedNumber } : null,
         history: charge.events.map((event) => ({
           id: event.id,
           kind: event.kind,
           at: localDateTime(event.createdAt),
           user: event.user ? (event.user.fullName ?? event.user.email) : null,
           changes: event.changes,
+          invoice: event.invoice
+            ? { id: event.invoice.id, number: event.invoice.formattedNumber }
+            : null,
+          amount: event.amount,
         })),
       },
       job: {
@@ -160,6 +164,17 @@ export default class ChargesController {
     return this.refusable(charge, { response, session, i18n }, async () => {
       await Charges.setBillable(charge, true, auth.getUserOrFail())
       session.flash('success', i18n.t('flash.chargeBillable'))
+    })
+  }
+
+  /**
+   * Sets a billed Charge back to "to bill", to bill it again by hand.
+   */
+  async setBackToBill({ params, response, session, auth, i18n }: HttpContext) {
+    const charge = await Charge.findOrFail(params.id)
+    return this.refusable(charge, { response, session, i18n }, async () => {
+      await Charges.setBackToBill(charge, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.chargeSetBackToBill'))
     })
   }
 

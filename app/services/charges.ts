@@ -11,22 +11,31 @@ import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
 import StockLedger from '#stock/stock_ledger'
-import { chargeState } from '#shared/charges'
+import type { ChargeState } from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
+import { CHARGE_STATE_SQL } from '#services/job_status'
 
 /**
- * An Invoice holds the Charge (a draft or an issued one), so what is
- * billed changes only through billing (ADR 0010); its Job was cancelled,
- * which freezes billing; or a correction picked an archived Labour Rate
- * or Item, or a Technician who is inactive or not on the Visit; or it
- * would change the Item of equipment the Charge doesn't own alone.
+ * An Invoice holds or bills the Charge, so what is billed changes only
+ * through billing (ADR 0010); only a billed Charge is set back to bill;
+ * its Job was cancelled, which freezes billing; or a correction picked an
+ * archived Labour Rate or Item, or a Technician who is inactive or not on
+ * the Visit; or it would change the Item of equipment the Charge doesn't
+ * own alone.
  */
 export class ChargeRefusedError extends Error {
-  constructor(readonly reason: 'billed' | 'cancelled' | 'archived' | 'worker' | 'installed') {
+  constructor(
+    readonly reason: 'billed' | 'notBilled' | 'cancelled' | 'archived' | 'worker' | 'installed'
+  ) {
     super(reason)
   }
 }
+
+/**
+ * A draft holds the Charge, or an issued Invoice bills it.
+ */
+const isHeld = (state: ChargeState) => state === 'in_draft' || state === 'billed'
 
 type Recorded = {
   quantity: string
@@ -49,10 +58,11 @@ type Billing = {
 
 /**
  * Office's side of Charges (ADR 0010): adding other costs to a Job,
- * correcting what was recorded, editing what is billed, and marking a
- * Charge not billable. Each is an event in the Charge's history. Every
- * change locks the Charge's Visit, then its Job (the order field work and
- * invoicing use), then the Charge.
+ * correcting what was recorded, editing what is billed, marking a Charge
+ * not billable, and setting a billed one back to bill. Each is an event in
+ * the Charge's history. Every change locks the Charge's Visit, then its
+ * Job (the order field work uses), then the Charge; invoicing locks the
+ * Job, then its Invoices, then their Charges, and never a Visit.
  */
 export default class Charges {
   /**
@@ -102,8 +112,9 @@ export default class Charges {
       const before = await this.recordedValues(trx, locked)
       const billingFollows =
         job.status !== 'cancelled' &&
-        locked.invoiceId === null &&
+        !isHeld(await this.stateOf(trx, locked.id)) &&
         !(await this.hasEvent(trx, locked.id, 'billing_edited'))
+      let repriced = false
 
       if (locked.kind === 'labour') {
         const rate = await LabourRate.findOrFail(input.labourRateId, { client: trx })
@@ -129,10 +140,7 @@ export default class Charges {
         const worker = technician
           ? (technician.fullName ?? technician.email)
           : input.workerName!.trim()
-        if (billingFollows) {
-          if (rate.id !== locked.labourRateId) locked.unitPrice = rate.hourlyPrice
-          locked.description = labourDescription(rate.name, worker)
-        }
+        repriced = rate.id !== locked.labourRateId
         locked.merge({
           labourRateId: rate.id,
           userId: technician?.id ?? null,
@@ -147,14 +155,11 @@ export default class Charges {
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })
         }
-        if (billingFollows) {
-          if (item.id !== locked.itemId) locked.unitPrice = item.resalePrice
-          locked.description = item.description.slice(0, 255)
-        }
+        repriced = item.id !== locked.itemId
         locked.itemId = item.id
       }
       locked.quantity = input.quantity
-      if (billingFollows) locked.billQuantity = input.quantity
+      if (billingFollows) await this.followRecorded(trx, locked, repriced)
       await locked.save()
 
       const changes = diff(before, await this.recordedValues(trx, locked))
@@ -163,11 +168,116 @@ export default class Charges {
   }
 
   /**
+   * Sets a billed Charge back to "to bill" (ADR 0010), to bill it again by
+   * hand: a partial or repeated bill. The Invoice that billed it is
+   * unchanged; what is billed becomes editable again and, if Office never
+   * edited it, follows what was recorded (see release).
+   */
+  static async setBackToBill(charge: Charge, user: User): Promise<void> {
+    await this.whileLocked(charge, async (trx, locked, job) => {
+      if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+      const billed = await ChargeEvent.query({ client: trx })
+        .where('chargeId', locked.id)
+        .whereIn('kind', ['billed', 'unbilled'])
+        .orderBy('id', 'desc')
+        .first()
+      if (billed?.kind !== 'billed') throw new ChargeRefusedError('notBilled')
+      const line = await trx
+        .from('invoice_line_charges')
+        .where('charge_id', locked.id)
+        .where('invoice_line_id', billed.invoiceLineId ?? 0)
+        .first()
+      await ChargeEvent.create(
+        { chargeId: locked.id, kind: 'unbilled', userId: user.id, invoiceId: billed.invoiceId },
+        { client: trx }
+      )
+      const heldSince = line ? DateTime.fromJSDate(line.created_at) : billed.createdAt
+      await this.rederive(trx, locked, job, heldSince)
+    })
+  }
+
+  /**
+   * Charges an Invoice no longer holds or bills: a draft's line removed or
+   * the draft deleted, or a billed line removed when correcting a rejected
+   * Invoice. A correction made while the Invoice held a Charge didn't reach
+   * what is billed; unless Office edited its billing, it follows what was
+   * recorded now, as correct() would have, repriced if the Labour Rate or
+   * Item changed since `heldSince`. Runs inside the caller's transaction,
+   * with the Charges' Job locked.
+   */
+  static async release(
+    trx: TransactionClientContract,
+    held: { chargeId: number; heldSince: DateTime }[]
+  ) {
+    if (!held.length) return
+    const charges = await Charge.query({ client: trx })
+      .whereIn(
+        'id',
+        held.map(({ chargeId }) => chargeId)
+      )
+      .orderBy('id')
+      .forUpdate()
+    for (const charge of charges) {
+      const job = await Job.findOrFail(charge.jobId, { client: trx })
+      const { heldSince } = held.find(({ chargeId }) => chargeId === charge.id)!
+      await this.rederive(trx, charge, job, heldSince)
+    }
+  }
+
+  /**
+   * What is billed follows what was recorded again, for a Charge just
+   * released: unless its Job is cancelled or Office edited its billing.
+   */
+  private static async rederive(
+    trx: TransactionClientContract,
+    charge: Charge,
+    job: Job,
+    heldSince: DateTime
+  ) {
+    if (job.status === 'cancelled') return
+    if (await this.hasEvent(trx, charge.id, 'billing_edited')) return
+    const corrections = await ChargeEvent.query({ client: trx })
+      .where('chargeId', charge.id)
+      .where('kind', 'corrected')
+      .where('createdAt', '>=', heldSince.toSQL()!)
+    const repriced = corrections.some(
+      (event) =>
+        event.changes && ('labourRate' in event.changes.after || 'item' in event.changes.after)
+    )
+    await this.followRecorded(trx, charge, repriced)
+    await charge.useTransaction(trx).save()
+  }
+
+  /**
+   * Sets what is billed from what was recorded: the quantity, the
+   * description and, when `repriced` (a new Labour Rate or Item), its
+   * current price. Another cost keeps its own description and price.
+   */
+  private static async followRecorded(
+    trx: TransactionClientContract,
+    charge: Charge,
+    repriced: boolean
+  ) {
+    if (charge.kind === 'labour') {
+      const rate = await LabourRate.findOrFail(charge.labourRateId, { client: trx })
+      const technician = charge.userId ? await User.find(charge.userId, { client: trx }) : null
+      const worker = technician ? (technician.fullName ?? technician.email) : charge.workerName!
+      if (repriced) charge.unitPrice = rate.hourlyPrice
+      charge.description = labourDescription(rate.name, worker)
+    } else if (charge.kind === 'item') {
+      const item = await Item.findOrFail(charge.itemId, { client: trx })
+      if (repriced) charge.unitPrice = item.resalePrice
+      charge.description = item.description.slice(0, 255)
+    }
+    charge.billQuantity = charge.quantity
+  }
+
+  /**
    * Edits what is billed, until an Invoice holds the Charge.
    */
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
     await this.whileLocked(charge, async (trx, locked, job) => {
-      this.refuseBillingChange(locked, job)
+      await this.refuseBillingChange(trx, locked, job)
       const before = billingValues(locked)
       locked.merge({
         billQuantity: input.quantity,
@@ -189,23 +299,39 @@ export default class Charges {
    */
   static async setBillable(charge: Charge, billable: boolean, user: User): Promise<void> {
     await this.whileLocked(charge, async (trx, locked, job) => {
-      this.refuseBillingChange(locked, job)
-      const events = await ChargeEvent.query({ client: trx })
-        .where('chargeId', locked.id)
-        .orderBy('id')
-      const notBillable = chargeState(events, null) === 'not_billable'
+      await this.refuseBillingChange(trx, locked, job)
+      const notBillable = (await this.stateOf(trx, locked.id)) === 'not_billable'
       if (notBillable !== billable) return
       await this.addEvent(trx, locked, billable ? 'billable' : 'not_billable', user, null)
     })
   }
 
   /**
-   * What is billed is frozen once an Invoice holds the Charge, and on a
-   * cancelled Job (what was recorded can still be corrected).
+   * What is billed is frozen while an Invoice holds or bills the Charge,
+   * and on a cancelled Job (what was recorded can still be corrected).
    */
-  private static refuseBillingChange(charge: Charge, job: Job) {
+  private static async refuseBillingChange(
+    trx: TransactionClientContract,
+    charge: Charge,
+    job: Job
+  ) {
     if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
-    if (charge.invoiceId !== null) throw new ChargeRefusedError('billed')
+    if (isHeld(await this.stateOf(trx, charge.id))) throw new ChargeRefusedError('billed')
+  }
+
+  /**
+   * The Charge's state as chargeState() gives it, read in the transaction.
+   */
+  private static async stateOf(
+    trx: TransactionClientContract,
+    chargeId: number
+  ): Promise<ChargeState> {
+    const row = await trx
+      .from('charges')
+      .where('id', chargeId)
+      .select(db.raw(`${CHARGE_STATE_SQL('charges')} AS state`))
+      .firstOrFail()
+    return row.state
   }
 
   /**

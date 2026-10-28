@@ -200,6 +200,9 @@ router
           .post('charges/:id/billable', [controllers.Charges, 'markBillable'])
           .where('id', router.matchers.number())
         router
+          .post('charges/:id/to-bill', [controllers.Charges, 'setBackToBill'])
+          .where('id', router.matchers.number())
+        router
           .get('jobs/:id/quote', [controllers.Quotes, 'edit'])
           .where('id', router.matchers.number())
         router

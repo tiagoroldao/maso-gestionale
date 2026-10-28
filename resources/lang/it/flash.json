@@ -120,8 +120,10 @@
   "chargeBillingSaved": "Fatturazione dell'addebito salvata.",
   "chargeNotBillable": "Addebito segnato come non fatturabile.",
   "chargeBillable": "Addebito di nuovo fatturabile.",
+  "chargeSetBackToBill": "Addebito rimesso da fatturare.",
   "chargeRefused": {
-    "billed": "L'addebito è già in una fattura: la fatturazione non si può più modificare.",
+    "billed": "L'addebito è in una fattura: per modificarne la fatturazione, toglilo dalla bozza o rimettilo da fatturare.",
+    "notBilled": "L'addebito non è in una fattura emessa: non c'è nulla da rimettere da fatturare.",
     "archived": "La tariffa o l'articolo scelto è archiviato.",
     "cancelled": "La commessa è stata annullata: la fatturazione dell'addebito non si può più modificare.",
     "worker": "Il tecnico scelto non è attivo o non fa parte dell'intervento.",

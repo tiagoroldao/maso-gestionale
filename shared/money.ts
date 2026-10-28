@@ -89,6 +89,32 @@ export function sumAmounts(amounts: string[]) {
   return amounts.reduce((sum, amount) => sum.plus(amount), new Big(0)).toFixed(2)
 }
 
+/**
+ * Splits a 2-decimal amount into parts proportional to `weights`, each
+ * rounded to the cent, so the parts add up to the amount exactly: the
+ * cents lost to rounding go to the largest remainders (the first on a
+ * tie). Weights that are all zero split it evenly.
+ */
+export function splitAmount(amount: string, weights: string[]) {
+  const total = new Big(amount)
+  const sum = weights.reduce((acc, weight) => acc.plus(weight), new Big(0))
+  const shares = sum.eq(0) ? weights.map(() => new Big(1)) : weights.map((w) => new Big(w))
+  const shareSum = sum.eq(0) ? new Big(weights.length) : sum
+  const exact = shares.map((share) => total.times(share).div(shareSum))
+  const parts = exact.map((value) => value.round(2, Big.roundDown))
+  const cent = new Big(total.lt(0) ? '-0.01' : '0.01')
+  let left = total.minus(parts.reduce((acc, part) => acc.plus(part), new Big(0)))
+  const order = exact
+    .map((value, index) => ({ index, remainder: value.minus(parts[index]).abs() }))
+    .sort((a, b) => b.remainder.cmp(a.remainder) || a.index - b.index)
+  for (const { index } of order) {
+    if (left.eq(0)) break
+    parts[index] = parts[index].plus(cent)
+    left = left.minus(cent)
+  }
+  return parts.map((part) => part.toFixed(2))
+}
+
 const money = new Intl.NumberFormat('it', {
   style: 'currency',
   currency: 'EUR',

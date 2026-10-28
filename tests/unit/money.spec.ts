@@ -4,6 +4,7 @@ import {
   lineTotal,
   markupPercent,
   parseAmount,
+  splitAmount,
   suggestedResalePrice,
   sumAmounts,
 } from '#shared/money'
@@ -51,5 +52,13 @@ test.group('Money', () => {
   test('sums amounts exactly', ({ assert }) => {
     assert.equal(sumAmounts(['0.10', '0.20']), '0.30')
     assert.equal(sumAmounts([]), '0.00')
+  })
+
+  test('splits an amount in proportion, the parts adding up to it', ({ assert }) => {
+    assert.deepEqual(splitAmount('100.00', ['80.00', '22.50']), ['78.05', '21.95'])
+    assert.deepEqual(splitAmount('10.00', ['1', '1', '1']), ['3.34', '3.33', '3.33'])
+    assert.deepEqual(splitAmount('-10.00', ['1', '2']), ['-3.33', '-6.67'])
+    assert.deepEqual(splitAmount('5.00', ['0', '0']), ['2.50', '2.50'])
+    assert.deepEqual(splitAmount('42.00', ['7']), ['42.00'])
   })
 })

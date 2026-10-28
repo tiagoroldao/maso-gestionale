@@ -71,6 +71,11 @@ export const invoiceValidator = vine
             .use(amountRule({ decimals: 2, max: '100' }))
             .optional(),
           deductsInvoiceId: vine.number().withoutDecimals().optional(),
+          // The Charges the line bills, among the Invoice's own (ADR 0010)
+          chargeIds: vine
+            .array(vine.number().withoutDecimals().positive())
+            .maxLength(500)
+            .optional(),
           vatCodeId: vine.number().exists({
             table: 'vat_codes',
             column: 'id',

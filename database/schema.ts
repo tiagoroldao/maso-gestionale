@@ -23,8 +23,10 @@ export class CategorySchema extends BaseModel {
 }
 
 export class ChargeEventSchema extends BaseModel {
-  static $columns = ['changes', 'chargeId', 'createdAt', 'id', 'kind', 'userId'] as const
+  static $columns = ['amount', 'changes', 'chargeId', 'createdAt', 'id', 'invoiceId', 'invoiceLineId', 'kind', 'userId'] as const
   $columns = ChargeEventSchema.$columns
+  @column()
+  declare amount: string | null
   @column()
   declare changes: any | null
   @column()
@@ -34,13 +36,17 @@ export class ChargeEventSchema extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
   @column()
+  declare invoiceId: number | null
+  @column()
+  declare invoiceLineId: number | null
+  @column()
   declare kind: string
   @column()
   declare userId: number | null
 }
 
 export class ChargeSchema extends BaseModel {
-  static $columns = ['billQuantity', 'createdAt', 'createdEquipment', 'description', 'id', 'installed', 'installedEquipmentId', 'invoiceId', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'stockMovementId', 'unit', 'unitPrice', 'updatedAt', 'userId', 'vatKind', 'visitId', 'workerName'] as const
+  static $columns = ['billQuantity', 'createdAt', 'createdEquipment', 'description', 'id', 'installed', 'installedEquipmentId', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'stockMovementId', 'unit', 'unitPrice', 'updatedAt', 'userId', 'vatKind', 'visitId', 'workerName'] as const
   $columns = ChargeSchema.$columns
   @column()
   declare billQuantity: string
@@ -56,8 +62,6 @@ export class ChargeSchema extends BaseModel {
   declare installed: boolean
   @column()
   declare installedEquipmentId: number | null
-  @column()
-  declare invoiceId: number | null
   @column()
   declare itemId: number | null
   @column()
@@ -285,6 +289,19 @@ export class InstanceSettingSchema extends BaseModel {
   declare webhookEnabled: boolean
   @column()
   declare webhookSecret: string | null
+}
+
+export class InvoiceLineChargeSchema extends BaseModel {
+  static $columns = ['chargeId', 'createdAt', 'id', 'invoiceLineId'] as const
+  $columns = InvoiceLineChargeSchema.$columns
+  @column()
+  declare chargeId: number
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceLineId: number
 }
 
 export class InvoiceLineSchema extends BaseModel {

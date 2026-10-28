@@ -506,6 +506,8 @@
     "cancelledNotEditable": "Una commessa annullata non si può modificare.",
     "timeAndMaterials": "Ore e materiali registrati",
     "billed": "Già fatturato: {amount}",
+    "inDraft": "In bozza di fattura: {amount}",
+    "visitBilled": "Fatturato",
     "timeAndMaterialsHint": "IVA esclusa, ai prezzi del momento in cui sono stati registrati"
   },
   "rates": {
@@ -746,6 +748,8 @@
     "amount": "Importo",
     "itemLine": "Articolo",
     "freeLine": "Riga libera",
+    "billsCharges": "{count, plural, one {fattura # addebito} other {fattura # addebiti}}",
+    "mergeUp": "Unisci alla riga sopra",
     "descriptionOf": "Descrizione della riga {position}",
     "quantityOf": "Quantità della riga {position}",
     "unitPriceOf": "Prezzo unitario della riga {position}",
@@ -982,14 +986,20 @@
     "inDraft": "In una bozza di fattura",
     "markNotBillable": "Segna come non fatturabile",
     "markBillable": "Rendi di nuovo fatturabile",
+    "setBackToBill": "Rimetti da fatturare",
+    "setBackToBillConfirm": "Rimettere l'addebito da fatturare? La fattura {number} resta com'è; l'addebito potrà andare in una nuova fattura.",
     "history": "Storico",
     "events": {
       "recorded": "Registrato",
       "corrected": "Corretto",
       "billing_edited": "Fatturazione modificata",
       "not_billable": "Segnato non fatturabile",
-      "billable": "Di nuovo fatturabile"
+      "billable": "Di nuovo fatturabile",
+      "billed": "Fatturato",
+      "unbilled": "Rimesso da fatturare"
     },
+    "billedIn": "Fattura {number}: {amount}",
+    "unbilledFrom": "Dalla fattura {number}",
     "fields": {
       "quantity": "quantità",
       "labourRate": "tariffa",

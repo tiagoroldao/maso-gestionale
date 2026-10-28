@@ -58,29 +58,57 @@ const UNPAID_SQL = `EXISTS (SELECT 1 FROM invoices i
     AND i.total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = i.id))`
 
 /**
- * The SQL equivalent of a "not billable" Charge in chargeState(): the
- * latest decision in the history of the Charge `alias`.
+ * The SQL equivalents of chargeState() for the Charge `alias`: the latest
+ * decision in its history ("not billable" or "billable"), the latest
+ * billing event ("billed" or "unbilled"), and whether a draft holds it.
  */
 export const NOT_BILLABLE_SQL = (alias: string) => `coalesce((SELECT e.kind = 'not_billable'
   FROM charge_events e
   WHERE e.charge_id = ${alias}.id AND e.kind IN ('not_billable', 'billable')
   ORDER BY e.id DESC LIMIT 1), false)`
 
+const BILLED_SQL = (alias: string) => `coalesce((SELECT e.kind = 'billed'
+  FROM charge_events e
+  WHERE e.charge_id = ${alias}.id AND e.kind IN ('billed', 'unbilled')
+  ORDER BY e.id DESC LIMIT 1), false)`
+
+const IN_DRAFT_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_charges lc
+  JOIN invoice_lines l ON l.id = lc.invoice_line_id
+  JOIN invoices d ON d.id = l.invoice_id
+  WHERE lc.charge_id = ${alias}.id AND d.status = 'draft')`
+
+export const CHARGE_STATE_SQL = (alias: string) => `(CASE
+  WHEN ${NOT_BILLABLE_SQL(alias)} THEN 'not_billable'
+  WHEN ${BILLED_SQL(alias)} THEN 'billed'
+  WHEN ${IN_DRAFT_SQL(alias)} THEN 'in_draft'
+  ELSE 'to_bill' END)`
+
+/**
+ * Outstanding, as isOutstanding(): to bill, or only held by a draft.
+ */
+export const OUTSTANDING_SQL = (alias: string) =>
+  `(NOT ${NOT_BILLABLE_SQL(alias)} AND NOT ${BILLED_SQL(alias)})`
+
+/**
+ * The SQL equivalent of isVisitBilled() for the Visit `alias`.
+ */
+export const VISIT_BILLED_SQL = (alias: string) => `(${alias}.status IN ('done', 'needs_return')
+  AND NOT EXISTS (SELECT 1 FROM charges vc
+    WHERE vc.visit_id = ${alias}.id AND ${OUTSTANDING_SQL('vc')}))`
+
 /**
  * A Job still has something to bill, so an issued Invoice was a partial
  * one and the Job isn't Invoiced yet:
- * - a Time & Materials Job with a Visit not yet closed, or billable
- *   Charges no Invoice billed yet or only a draft holds;
+ * - a Time & Materials Job with a Visit not billed (still open, or with
+ *   outstanding Charges) or an outstanding Charge on the Job itself
+ *   (Quoted Jobs are invoiced from their Quote until #117);
  * - any Job with an issued Advance Invoice not yet taken back on an issued
  *   Invoice (its final Invoice is still to come, or still a draft).
  */
 export const BILLING_OPEN_SQL = `((jobs.kind = 'time_and_materials' AND (
-  EXISTS (SELECT 1 FROM visits v
-    WHERE v.job_id = jobs.id AND v.status IN ('planned', 'in_progress'))
+  EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT ${VISIT_BILLED_SQL('v')})
   OR EXISTS (SELECT 1 FROM charges c
-    LEFT JOIN invoices bi ON bi.id = c.invoice_id
-    WHERE c.job_id = jobs.id AND (c.invoice_id IS NULL OR bi.status = 'draft')
-      AND NOT ${NOT_BILLABLE_SQL('c')})))
+    WHERE c.job_id = jobs.id AND c.visit_id IS NULL AND ${OUTSTANDING_SQL('c')})))
   OR EXISTS (SELECT 1 FROM invoices a
     LEFT JOIN invoices fi ON fi.id = a.deducted_in_id
     WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'

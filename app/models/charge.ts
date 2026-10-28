@@ -1,14 +1,14 @@
-import { belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
-import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
+import { belongsTo, hasMany, manyToMany, scope } from '@adonisjs/lucid/orm'
+import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { ChargeSchema } from '#database/schema'
 import ChargeEvent from '#models/charge_event'
-import Invoice from '#models/invoice'
+import InvoiceLine from '#models/invoice_line'
 import Item from '#models/item'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import { chargeState, type ChargeKind } from '#shared/charges'
 import { lineKindOf, type LineKind } from '#shared/vat'
-import { NOT_BILLABLE_SQL } from '#services/job_status'
+import { CHARGE_STATE_SQL } from '#services/job_status'
 
 /**
  * Something a Job can be billed for (ADR 0010): hours someone worked at a
@@ -31,17 +31,24 @@ export default class Charge extends ChargeSchema {
   @belongsTo(() => Item)
   declare item: BelongsTo<typeof Item>
 
-  @belongsTo(() => Invoice)
-  declare invoice: BelongsTo<typeof Invoice>
-
   @hasMany(() => ChargeEvent)
   declare events: HasMany<typeof ChargeEvent>
 
   /**
-   * Charges Office hasn't marked not billable.
+   * The Invoice lines that bill it, hold it (a draft's), or billed it
+   * before it was set back to bill. At most one is on a draft.
    */
-  static billable = scope((query) => {
-    query.whereRaw(`NOT ${NOT_BILLABLE_SQL('charges')}`)
+  @manyToMany(() => InvoiceLine, {
+    pivotTable: 'invoice_line_charges',
+    pivotTimestamps: { createdAt: 'created_at', updatedAt: false },
+  })
+  declare invoiceLines: ManyToMany<typeof InvoiceLine>
+
+  /**
+   * Charges to bill: billable, neither held by a draft nor billed.
+   */
+  static toBill = scope((query) => {
+    query.whereRaw(`${CHARGE_STATE_SQL('charges')} = 'to_bill'`)
   })
 
   /**
@@ -71,10 +78,29 @@ export default class Charge extends ChargeSchema {
   }
 
   /**
-   * The state from the history (needs `events` ordered by id and `invoice`
-   * preloaded).
+   * The draft Invoice holding it, if any (needs `invoiceLines` preloaded
+   * with their `invoice`).
+   */
+  get heldBy() {
+    return this.invoiceLines.find((line) => line.invoice.status === 'draft')?.invoice ?? null
+  }
+
+  /**
+   * The "billed" event while an issued Invoice bills it (needs `events`
+   * ordered by id).
+   */
+  get billing() {
+    const latest = this.events.findLast(
+      (event) => event.kind === 'billed' || event.kind === 'unbilled'
+    )
+    return latest?.kind === 'billed' ? latest : null
+  }
+
+  /**
+   * The state from the history (needs `events` ordered by id and
+   * `invoiceLines` preloaded with their `invoice`).
    */
   get state() {
-    return chargeState(this.events, this.invoice?.status ?? null)
+    return chargeState(this.events, this.heldBy !== null)
   }
 }

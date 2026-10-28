@@ -956,6 +956,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markBillable']>>>
     }
   }
+  'charges.set_back_to_bill': {
+    methods: ["POST"]
+    pattern: '/charges/:id/to-bill'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
+    }
+  }
   'quotes.edit': {
     methods: ["GET","HEAD"]
     pattern: '/jobs/:id/quote'

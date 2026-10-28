@@ -77,6 +77,7 @@ export type ScannedRoutes = {
     'charges.update_billing': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_not_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'charges.set_back_to_bill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -311,6 +312,7 @@ export type ScannedRoutes = {
     'charges.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_not_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'charges.set_back_to_bill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store': { paramsTuple?: []; params?: {} }

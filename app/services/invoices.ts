@@ -4,6 +4,7 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import CompanySettings from '#models/company_settings'
 import Charge from '#models/charge'
+import ChargeEvent from '#models/charge_event'
 import Customer from '#models/customer'
 import Invoice, { type CompanySnapshot, type CustomerSnapshot } from '#models/invoice'
 import InvoiceSequence from '#models/invoice_sequence'
@@ -16,8 +17,10 @@ import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import VatDefaults from '#services/vat_defaults'
+import Charges from '#services/charges'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
+import { lineTotal, splitAmount } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import {
   canTransition,
@@ -85,7 +88,16 @@ export type InvoiceLineInput = {
   vatCodeId: number
   // A deduction line keeps the Advance Invoice it takes back
   deductsInvoiceId?: number
+  // The Charges the line bills, among those this Invoice's lines already
+  // bill (to merge lines); a kept line sent without them keeps its own
+  chargeIds?: number[]
 }
+
+/**
+ * A line's link to a Charge it bills (or holds, on a draft), and since
+ * when this Invoice has held the Charge.
+ */
+type Link = { lineId: number; chargeId: number; since: DateTime }
 
 /**
  * Invoices: drafting, correcting after a Rejection, finalising and
@@ -200,13 +212,13 @@ export default class Invoices {
   }
 
   /**
-   * A draft Invoice for a Time & Materials Job: one line per billable
-   * Charge on its closed Visits and on the Job itself, with what Office
-   * set to bill (quantity, price, description; ADR 0010), so its total
-   * before VAT equals the Job page's running total. Each line gets the VAT Code of the default rules
-   * for its kind (labour, material or significant good). Only Charges not
-   * yet billed go in, and are marked as billed by this Invoice; deleting
-   * the draft frees them again. While a draft is open it is returned
+   * A draft Invoice for a Time & Materials Job: one line per Charge to
+   * bill on its closed Visits and on the Job itself, with what Office set
+   * to bill (quantity, price, description; ADR 0010), so its total before
+   * VAT equals the Job page's running total. Each line gets the VAT Code
+   * of the default rules for its kind (labour, material or significant
+   * good), and holds its Charge: finalising bills it, removing the line or
+   * deleting the draft releases it. While a draft is open it is returned
    * instead of starting another.
    */
   static async fromTimeAndMaterials(job: Job) {
@@ -229,17 +241,15 @@ export default class Invoices {
         .whereIn('status', [...CLOSED_VISIT_STATUSES])
         .preload('charges', (charges) =>
           charges
-            .withScopes((scopes) => scopes.billable())
-            .whereNull('invoiceId')
+            .withScopes((scopes) => scopes.toBill())
             .preload('item')
             .orderByRaw("kind = 'item', created_at, id")
         )
         .orderBy('startsAt')
       const onJob = await Charge.query({ client: trx })
-        .withScopes((scopes) => scopes.billable())
+        .withScopes((scopes) => scopes.toBill())
         .where('jobId', locked.id)
         .whereNull('visitId')
-        .whereNull('invoiceId')
         .preload('item')
         .orderBy(['createdAt', 'id'])
       const work = [
@@ -256,7 +266,7 @@ export default class Invoices {
         { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
         { client: trx }
       )
-      await InvoiceLine.createMany(
+      const lines = await InvoiceLine.createMany(
         work.map(({ day, charge }, position) => {
           const code = defaults[charge.lineKind]
           return {
@@ -277,13 +287,10 @@ export default class Invoices {
         }),
         { client: trx }
       )
-      await trx
-        .from('charges')
-        .whereIn(
-          'id',
-          work.map(({ charge }) => charge.id)
-        )
-        .update({ invoice_id: invoice.id })
+      await this.hold(
+        trx,
+        lines.map((line, index) => ({ lineId: line.id, chargeId: work[index].charge.id }))
+      )
       // The advances are taken back by the draft that bills the last of the
       // work: none while Visits are still to come
       const moreWork = await Visit.query({ client: trx })
@@ -361,9 +368,9 @@ export default class Invoices {
    * Saves the lines of a draft, or of a rejected Invoice being corrected
    * (which keeps its number and date): lines sent back with their id are
    * updated, the others removed and new ones added, copying each VAT
-   * Code's rate and Natura and each Item's unit onto the line. A rejected
-   * Invoice already took its Items off stock, so the difference is booked
-   * in the stock.
+   * Code's rate and Natura and each Item's unit onto the line. Lines keep
+   * the Charges they bill (see relink). A rejected Invoice already took
+   * its Items off stock, so the difference is booked in the stock.
    */
   static async save(
     invoice: Invoice,
@@ -389,7 +396,10 @@ export default class Invoices {
         const issuer = this.companySnapshot(await CompanySettings.current())
         if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
         const customer = await Customer.findOrFail(locked.customerId, { client: trx })
-        locked.merge({ customerSnapshot: this.customerSnapshot(customer), companySnapshot: issuer })
+        locked.merge({
+          customerSnapshot: this.customerSnapshot(customer),
+          companySnapshot: issuer,
+        })
       }
       locked.merge({ discountPercent: input.discountPercent ?? '0', notes: input.notes ?? null })
       await locked.save()
@@ -438,16 +448,21 @@ export default class Invoices {
       const kept = new Set<number>()
       const updates: [InvoiceLine, (typeof values)[number]][] = []
       const additions: (typeof values)[number][] = []
+      // Each line as saved: an existing one, or the index of a new one
+      const saved: (InvoiceLine | number)[] = []
       input.lines.forEach((line, index) => {
         const current = line.id ? byId.get(line.id) : undefined
         // An id sent twice, or not of this Invoice, is a new line
         if (current && !kept.has(current.id)) {
           kept.add(current.id)
           updates.push([current, values[index]])
+          saved.push(current)
         } else {
+          saved.push(additions.length)
           additions.push(values[index])
         }
       })
+      const links = await this.links(trx, locked.id)
       await InvoiceLine.query({ client: trx })
         .where('invoiceId', locked.id)
         .whereNotIn('id', [...kept])
@@ -455,7 +470,24 @@ export default class Invoices {
       for (const [line, value] of updates) {
         await line.useTransaction(trx).merge(value).save()
       }
-      await InvoiceLine.createMany(additions, { client: trx })
+      const added = await InvoiceLine.createMany(additions, { client: trx })
+      await this.relink(
+        trx,
+        locked,
+        links,
+        input.lines.map((line, index) => {
+          const entry = saved[index]
+          const lineId = typeof entry === 'number' ? added[entry].id : entry.id
+          // Kept lines keep their Charges unless sent with others
+          const chargeIds =
+            line.chargeIds ??
+            (typeof entry === 'number'
+              ? []
+              : links.filter((link) => link.lineId === entry.id).map((link) => link.chargeId))
+          return { lineId, chargeIds }
+        }),
+        user
+      )
 
       // A corrected Invoice's total changes with its lines; it must still
       // be one that could be issued
@@ -545,68 +577,79 @@ export default class Invoices {
    */
   static async finalise(invoice: Invoice, user: User | null = null) {
     const finalisable = (status: InvoiceStatus) => canTransition(status, 'finalise')
-    return this.whileIn(
-      finalisable,
-      invoice,
-      async (trx, locked) => {
-        const lines = await InvoiceLine.query({ client: trx })
-          .where('invoiceId', locked.id)
-          .orderBy('position')
-        if (!lines.length) throw new InvoiceNotFinalisableError('empty')
-        const total = new Big(this.totalOf(lines, locked.discountPercent))
-        if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
-        // An advance of nothing would only add empty deduction lines
-        if (locked.advance && total.eq(0)) throw new InvoiceNotFinalisableError('empty')
-        await this.checkDeductions(trx, locked, lines)
-        if (locked.advance) await this.checkAdvanceStillDeductible(trx, locked)
-        const issuer = this.companySnapshot(await CompanySettings.current())
-        if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
-        const customer = await Customer.query({ client: trx })
-          .where('id', locked.customerId)
-          .preload('paymentTerms')
-          .firstOrFail()
+    return this.whileIn(finalisable, invoice, async (trx, locked) => {
+      const lines = await InvoiceLine.query({ client: trx })
+        .where('invoiceId', locked.id)
+        .orderBy('position')
+      if (!lines.length) throw new InvoiceNotFinalisableError('empty')
+      const total = new Big(this.totalOf(lines, locked.discountPercent))
+      if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+      // An advance of nothing would only add empty deduction lines
+      if (locked.advance && total.eq(0)) throw new InvoiceNotFinalisableError('empty')
+      await this.checkDeductions(trx, locked, lines)
+      if (locked.advance) await this.checkAdvanceStillDeductible(trx, locked)
+      const issuer = this.companySnapshot(await CompanySettings.current())
+      if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
+      const customer = await Customer.query({ client: trx })
+        .where('id', locked.customerId)
+        .preload('paymentTerms')
+        .firstOrFail()
 
-        // Dated after the lock, so a later number never gets an earlier date
-        // than one finalised while this one waited, and the year always
-        // matches the date (even at midnight on 31 December)
-        await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
-        const today = DateTime.now().startOf('day')
-        locked.merge({
-          status: transition(locked.status, 'finalise'),
-          total: this.totalOf(lines, locked.discountPercent),
-          year: today.year,
-          number: await this.takeNumber(trx, today.year),
-          issuedOn: today,
-          dueOn: customer.paymentTerms.dueDate(today),
-          paymentMethod: customer.paymentTerms.paymentMethod,
-          customerSnapshot: this.customerSnapshot(customer),
-          companySnapshot: issuer,
-          finalisedAt: DateTime.now(),
+      // Dated after the lock, so a later number never gets an earlier date
+      // than one finalised while this one waited, and the year always
+      // matches the date (even at midnight on 31 December)
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
+      const today = DateTime.now().startOf('day')
+      locked.merge({
+        status: transition(locked.status, 'finalise'),
+        total: this.totalOf(lines, locked.discountPercent),
+        year: today.year,
+        number: await this.takeNumber(trx, today.year),
+        issuedOn: today,
+        dueOn: customer.paymentTerms.dueDate(today),
+        paymentMethod: customer.paymentTerms.paymentMethod,
+        customerSnapshot: this.customerSnapshot(customer),
+        companySnapshot: issuer,
+        finalisedAt: DateTime.now(),
+      })
+      await locked.save()
+
+      // The Charges the draft held are billed now, each with its part of
+      // its line's amount
+      for (const [chargeId, share] of await this.shares(trx, locked.id)) {
+        await ChargeEvent.create(
+          {
+            chargeId,
+            kind: 'billed',
+            userId: user?.id ?? null,
+            invoiceId: locked.id,
+            invoiceLineId: share.lineId,
+            amount: share.amount,
+          },
+          { client: trx }
+        )
+      }
+
+      // Items sold without a Job leave the Warehouse now (a Job's Items left
+      // through its Visits); locked in id order so two Invoices sharing
+      // Items can't deadlock
+      const sold = locked.jobId ? [] : lines.filter((line) => line.itemId)
+      const ids = [...new Set(sold.map((line) => line.itemId!))].sort((a, b) => a - b)
+      const items = ids.length
+        ? await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()
+        : []
+      const byId = new Map(items.map((item) => [item.id, item]))
+      for (const line of sold) {
+        await StockLedger.sell(byId.get(line.itemId!)!, {
+          quantity: line.quantity,
+          occurredOn: today,
+          reference: locked.formattedNumber,
+          user,
+          client: trx,
         })
-        await locked.save()
-
-        // Items sold without a Job leave the Warehouse now (a Job's Items left
-        // through its Visits); locked in id order so two Invoices sharing
-        // Items can't deadlock
-        const sold = locked.jobId ? [] : lines.filter((line) => line.itemId)
-        const ids = [...new Set(sold.map((line) => line.itemId!))].sort((a, b) => a - b)
-        const items = ids.length
-          ? await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()
-          : []
-        const byId = new Map(items.map((item) => [item.id, item]))
-        for (const line of sold) {
-          await StockLedger.sell(byId.get(line.itemId!)!, {
-            quantity: line.quantity,
-            occurredOn: today,
-            reference: locked.formattedNumber,
-            user,
-            client: trx,
-          })
-        }
-        return locked
-      },
-      { lockJob: true }
-    )
+      }
+      return locked
+    })
   }
 
   /**
@@ -767,26 +810,182 @@ export default class Invoices {
     }
   }
 
+  /**
+   * Deletes a draft, releasing the Charges it held.
+   */
   static async destroy(invoice: Invoice) {
-    await this.whileIn(isDeletable, invoice, (_, locked) => locked.delete())
+    await this.whileIn(isDeletable, invoice, async (trx, locked) => {
+      const links = await this.links(trx, locked.id)
+      await locked.delete()
+      await Charges.release(
+        trx,
+        links.map((link) => ({ chargeId: link.chargeId, heldSince: link.since }))
+      )
+    })
   }
 
   /**
-   * Runs `work` with the Invoice locked and re-read, refusing unless its
-   * status passes `allowed`.
+   * The Invoice's links between its lines and the Charges they bill.
+   */
+  private static async links(trx: TransactionClientContract, invoiceId: number): Promise<Link[]> {
+    const rows = await trx
+      .from('invoice_line_charges as lc')
+      .join('invoice_lines as l', 'l.id', 'lc.invoice_line_id')
+      .where('l.invoice_id', invoiceId)
+      .select('lc.invoice_line_id', 'lc.charge_id', 'lc.created_at')
+      .orderBy('lc.id')
+    return rows.map((row) => ({
+      lineId: row.invoice_line_id,
+      chargeId: row.charge_id,
+      since: DateTime.fromJSDate(row.created_at),
+    }))
+  }
+
+  /**
+   * Links lines to the Charges they bill (ADR 0010).
+   */
+  private static async hold(
+    trx: TransactionClientContract,
+    links: { lineId: number; chargeId: number; since?: DateTime }[]
+  ) {
+    if (!links.length) return
+    await trx
+      .insertQuery()
+      .table('invoice_line_charges')
+      .multiInsert(
+        links.map((link) => ({
+          invoice_line_id: link.lineId,
+          charge_id: link.chargeId,
+          created_at: (link.since ?? DateTime.now()).toJSDate(),
+        }))
+      )
+  }
+
+  /**
+   * Puts the saved lines' Charges in place: each line bills the Charges
+   * asked for among those the Invoice already had (each on one line only),
+   * and the others are let go. A draft only held them, so they are just
+   * released. On a rejected Invoice being corrected, a Charge it billed and
+   * no longer does is set back to bill ("unbilled") and released, and one
+   * whose line or part of the amount changed is billed again as corrected.
+   */
+  private static async relink(
+    trx: TransactionClientContract,
+    invoice: Invoice,
+    before: Link[],
+    wanted: { lineId: number; chargeIds: number[] }[],
+    user: User | null
+  ) {
+    const had = new Map(before.map((link) => [link.chargeId, link]))
+    const after = new Map<number, Link>()
+    for (const { lineId, chargeIds } of wanted) {
+      for (const chargeId of chargeIds) {
+        const link = had.get(chargeId)
+        if (link && !after.has(chargeId)) after.set(chargeId, { ...link, lineId })
+      }
+    }
+    const lineIds = [...new Set(before.map((link) => link.lineId))]
+    if (lineIds.length) {
+      await trx.from('invoice_line_charges').whereIn('invoice_line_id', lineIds).delete()
+    }
+    await this.hold(trx, [...after.values()])
+    const released = before.filter((link) => !after.has(link.chargeId))
+    if (invoice.status === 'draft') {
+      await Charges.release(
+        trx,
+        released.map((link) => ({ chargeId: link.chargeId, heldSince: link.since }))
+      )
+      return
+    }
+
+    // The Charges this Invoice bills now, as their latest billing says
+    const billing = await ChargeEvent.query({ client: trx })
+      .whereIn(
+        'chargeId',
+        before.map((link) => link.chargeId)
+      )
+      .whereIn('kind', ['billed', 'unbilled'])
+      .orderBy('id')
+    const latest = new Map(billing.map((event) => [event.chargeId, event]))
+    const billedHere = (chargeId: number) => {
+      const event = latest.get(chargeId)
+      return event?.kind === 'billed' && event.invoiceId === invoice.id ? event : null
+    }
+    const event = (chargeId: number, values: Partial<ChargeEvent>) =>
+      ChargeEvent.create(
+        { chargeId, userId: user?.id ?? null, invoiceId: invoice.id, ...values },
+        { client: trx }
+      )
+    const unbilled = released.filter((link) => billedHere(link.chargeId))
+    for (const link of unbilled) await event(link.chargeId, { kind: 'unbilled' })
+    await Charges.release(
+      trx,
+      unbilled.map((link) => ({ chargeId: link.chargeId, heldSince: link.since }))
+    )
+    for (const [chargeId, share] of await this.shares(trx, invoice.id)) {
+      const current = billedHere(chargeId)
+      if (!current) continue
+      const same =
+        current.invoiceLineId === share.lineId && new Big(current.amount!).eq(share.amount)
+      if (same) continue
+      await event(chargeId, { kind: 'billed', invoiceLineId: share.lineId, amount: share.amount })
+    }
+  }
+
+  /**
+   * Each Charge the Invoice's lines bill, with its line and its part of
+   * the line's amount: a line billing several splits its amount in
+   * proportion to their billing values, so the parts add up to it. The
+   * Charges are locked (after the Job and the Invoice).
+   */
+  private static async shares(trx: TransactionClientContract, invoiceId: number) {
+    const links = await this.links(trx, invoiceId)
+    const charges = links.length
+      ? await Charge.query({ client: trx })
+          .whereIn(
+            'id',
+            links.map((link) => link.chargeId)
+          )
+          .orderBy('id')
+          .forUpdate()
+      : []
+    const value = new Map(
+      charges.map((charge) => [charge.id, lineTotal(charge.billQuantity, charge.unitPrice)])
+    )
+    const lines = await InvoiceLine.query({ client: trx })
+      .whereIn(
+        'id',
+        links.map((link) => link.lineId)
+      )
+      .orderBy('position')
+    const shares = new Map<number, { lineId: number; amount: string }>()
+    for (const line of lines) {
+      const billed = links.filter((link) => link.lineId === line.id)
+      const parts = splitAmount(
+        line.lineTotal,
+        billed.map((link) => value.get(link.chargeId)!)
+      )
+      billed.forEach((link, index) => {
+        shares.set(link.chargeId, { lineId: line.id, amount: parts[index] })
+      })
+    }
+    return shares
+  }
+
+  /**
+   * Runs `work` with the Invoice's Job locked, then the Invoice locked and
+   * re-read, refusing unless its status passes `allowed`.
    */
   private static whileIn<T>(
     allowed: (status: InvoiceStatus) => boolean,
     invoice: Invoice,
-    work: (trx: TransactionClientContract, locked: Invoice) => Promise<T>,
-    { lockJob = false } = {}
+    work: (trx: TransactionClientContract, locked: Invoice) => Promise<T>
   ) {
     return db.transaction(async (trx) => {
-      // The Job first, in the order deductions take them (Job, then Invoices)
-      if (lockJob) {
-        const row = await trx.from('invoices').where('id', invoice.id).select('job_id').first()
-        if (row?.job_id) await trx.from('jobs').where('id', row.job_id).forUpdate().first()
-      }
+      // The Job first, in the order drafting takes them (Job, then
+      // Invoices, then their Charges)
+      const row = await trx.from('invoices').where('id', invoice.id).select('job_id').first()
+      if (row?.job_id) await trx.from('jobs').where('id', row.job_id).forUpdate().first()
       const locked = await Invoice.query({ client: trx })
         .where('id', invoice.id)
         .forUpdate()
