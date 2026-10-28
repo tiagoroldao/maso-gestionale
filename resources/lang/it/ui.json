@@ -500,8 +500,7 @@
     "quantity": "Quantità",
     "unitPrice": "Prezzo unitario",
     "amount": "Importo",
-    "total": "Totale",
-    "vatExcluded": "IVA esclusa",
+    "total": "Totale IVA inclusa",
     "descriptionOf": "Descrizione della riga {position}",
     "quantityOf": "Quantità della riga {position}",
     "unitPriceOf": "Prezzo unitario della riga {position}",
@@ -536,7 +535,11 @@
     "unsaved": "Modifiche non salvate.",
     "saveBeforeDeciding": "Salva il preventivo prima di registrarne l'esito.",
     "acceptConfirm": "Confermi che il cliente ha accettato il preventivo di {total}? Non sarà più modificabile.",
-    "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo? La commessa {number} verrà annullata."
+    "declineConfirm": "Confermi che il cliente ha rifiutato il preventivo? La commessa {number} verrà annullata.",
+    "vatCode": "IVA",
+    "vatCodeOf": "IVA della riga {position}",
+    "vatRow": "IVA {vat} su {taxable}",
+    "taxable": "Imponibile"
   },
   "invoices": {
     "title": "Fatture",

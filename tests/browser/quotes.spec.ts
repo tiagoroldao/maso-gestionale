@@ -27,14 +27,14 @@ test.group('Quotes in the browser', () => {
     await page.getByLabel(it('ui.quotes.quantityOf', { position: 2 })).fill('2,5')
 
     // 1200 + 2.5 × 40 = 1300
-    await page.getByText('1.300,00 €').waitFor()
+    await page.getByRole('cell', { name: '1.300,00 €', exact: true }).waitFor()
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
     await page.getByRole('button', { name: it('ui.quotes.accept') }).click()
 
     await page.waitForURL(`**/jobs/${job.id}`)
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(quote.status, 'accepted')
-    assert.equal(quote.total, '1300.00')
+    assert.equal(quote.taxable, '1300.00')
   })
 
   test('Accept waits until the edits are saved', async ({ browserContext, visit, assert }) => {

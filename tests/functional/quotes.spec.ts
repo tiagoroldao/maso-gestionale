@@ -5,11 +5,16 @@ import LabourRate from '#models/labour_rate'
 import CompanySettings from '#models/company_settings'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
-import { createItem } from '#tests/helpers/items'
+import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
+// The standard 22% code, looked up by setup() for quoteLines()
+let standardVat = 0
+
 async function setup() {
+  const standard = await vatCode()
+  standardVat = standard.id
   const office = await createUser('office')
   const customer = await createCustomer()
   const job = await createJob(customer, { kind: 'quoted' })
@@ -26,6 +31,7 @@ function quoteLines(itemId: number, rateId: number) {
       description: 'Caldaia a condensazione',
       quantity: '1',
       unitPrice: '1199,99',
+      vatCodeId: standardVat,
     },
     {
       kind: 'labour',
@@ -33,8 +39,15 @@ function quoteLines(itemId: number, rateId: number) {
       description: 'Installazione',
       quantity: '3,5',
       unitPrice: '38,50',
+      vatCodeId: standardVat,
     },
-    { kind: 'call_out', description: 'Diritto di chiamata', quantity: '1', unitPrice: '30' },
+    {
+      kind: 'call_out',
+      description: 'Diritto di chiamata',
+      quantity: '1',
+      unitPrice: '30',
+      vatCodeId: standardVat,
+    },
     { kind: 'text', description: 'Smaltimento della vecchia caldaia incluso' },
   ]
 }
@@ -70,10 +83,103 @@ test.group('Quotes', () => {
         ['text', null, null, null, null],
       ]
     )
-    assert.equal(quote.total, '1364.74')
+    assert.equal(quote.taxable, '1364.74')
+    // 22% on 1364.74 = 300.24
+    assert.equal(quote.totals.total, '1664.98')
     assert.equal(quote.notes, 'Validità 30 giorni')
     await job.refresh()
     assert.equal(job.status, 'quoted')
+  })
+
+  test('each priced line keeps its VAT treatment, summed per rate', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+    const reduced = await vatCode('10%')
+    const reverse = await vatCode('Inversione contabile – impianti su edifici')
+
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({
+        lines: [
+          {
+            kind: 'item',
+            itemId: item.id,
+            description: 'Caldaia',
+            quantity: '1',
+            unitPrice: '1000',
+            vatCodeId: reduced.id,
+          },
+          {
+            kind: 'labour',
+            labourRateId: rate.id,
+            description: 'Posa',
+            quantity: '2',
+            unitPrice: '50',
+            vatCodeId: reverse.id,
+          },
+          { kind: 'text', description: 'Nota' },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+
+    reduced.rate = '11'
+    await reduced.save()
+    const quote = await Quote.query()
+      .where('jobId', job.id)
+      .preload('lines', (l) => l.orderBy('position'))
+      .firstOrFail()
+    assert.deepEqual(
+      quote.lines.map((line) => [line.vatRate, line.natura, line.legalNote !== null]),
+      [
+        ['10.00', null, false],
+        ['0.00', 'N6.7', true],
+        [null, null, false],
+      ]
+    )
+    assert.deepEqual(
+      quote.totals.summary.map((row) => [row.vatRate, row.natura, row.taxable, row.vat]),
+      [
+        ['10.00', null, '1000.00', '100.00'],
+        ['0.00', 'N6.7', '100.00', '0.00'],
+      ]
+    )
+    assert.equal(quote.totals.total, '1200.00')
+  })
+
+  test('priced lines need a VAT Code; archived codes stay only where already used', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, item } = await setup()
+    const reduced = await vatCode('10%')
+    const line = (vatCodeId?: number) => ({
+      kind: 'item',
+      itemId: item.id,
+      description: 'Caldaia',
+      quantity: '1',
+      unitPrice: '1000',
+      ...(vatCodeId && { vatCodeId }),
+    })
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: [line(reduced.id)] })
+      .withCsrfToken()
+      .loginAs(office)
+    const four = await vatCode('4%')
+    for (const code of [reduced, four]) {
+      code.archivedAt = DateTime.now()
+      await code.save()
+    }
+
+    const refused = await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: [line(reduced.id), line(four.id), line()] })
+      .header('referer', `/jobs/${job.id}/quote`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    const errors = refused.flashMessage('inputErrorsBag') as Record<string, unknown>
+    assert.deepEqual(Object.keys(errors).sort(), ['lines.1.vatCodeId', 'lines.2.vatCodeId'])
   })
 
   test('saving again replaces the lines', async ({ client, assert }) => {
@@ -85,7 +191,7 @@ test.group('Quotes', () => {
 
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.lengthOf(quote.lines, 1)
-    assert.equal(quote.total, '30.00')
+    assert.equal(quote.taxable, '30.00')
   })
 
   test('priced lines need a quantity and a price; text lines only words', async ({

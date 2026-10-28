@@ -9,7 +9,8 @@ import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { urlFor } from '~/client'
 import { formatMoney, formatUnitPrice, t } from '~/i18n'
-import { amountForInput, lineTotal, parseAmount, parseQuantity, sumAmounts } from '@shared/money'
+import { amountForInput, lineTotal, parseAmount, parseQuantity } from '@shared/money'
+import { invoiceTotals } from '@shared/invoice_totals'
 
 type Kind = 'item' | 'labour' | 'call_out' | 'text'
 
@@ -22,6 +23,7 @@ type Line = {
   quantity: string
   unit: string | null
   unitPrice: string
+  vatCodeId: number | null
 }
 
 const props = defineProps<{
@@ -29,8 +31,9 @@ const props = defineProps<{
   quote: {
     status: string
     notes: string | null
-    total: string
+    totals: { total: string }
     lines: {
+      vatCodeId: number | null
       kind: Kind
       itemId: number | null
       labourRateId: number | null
@@ -44,6 +47,7 @@ const props = defineProps<{
   editable: boolean
   labourRates: { id: number; name: string; hourlyPrice: string }[]
   callOutFee: string | null
+  vatCodes: { id: number; name: string; rate: string; natura: string | null }[]
 }>()
 
 const page = usePage()
@@ -62,8 +66,13 @@ function linesFromProps() {
     quantity: line.quantity ? trim(line.quantity) : '',
     unit: line.unit,
     unitPrice: line.unitPrice ? amountForInput(line.unitPrice) : '',
+    vatCodeId: line.vatCodeId,
   }))
 }
+
+const codes = computed(() => new Map(props.vatCodes.map((code) => [code.id, code])))
+// New lines start on the standard rate: the highest rate charging VAT
+const standardCode = computed(() => props.vatCodes.find((code) => !code.natura)?.id ?? null)
 
 const lines = reactive<Line[]>(linesFromProps())
 const notes = ref(props.quote?.notes ?? '')
@@ -103,16 +112,29 @@ function totalOf(line: Line) {
   return lineTotal(quantity.toFixed(), price.toFixed())
 }
 
-const total = computed(() =>
-  sumAmounts(
+const totals = computed(() =>
+  invoiceTotals(
     lines.flatMap((line) => {
-      const amount = totalOf(line)
-      return amount ? [amount] : []
+      const quantity = parseQuantity(line.quantity)
+      const price = parseAmount(line.unitPrice)
+      const code = line.vatCodeId ? codes.value.get(line.vatCodeId) : undefined
+      if (line.kind === 'text' || !quantity || !price || !code) return []
+      return [
+        {
+          quantity: quantity.toFixed(),
+          unitPrice: price.toFixed(),
+          vatRate: code.rate,
+          natura: code.natura,
+        },
+      ]
     })
   )
 )
 
-function addItem(item: PickedItem & { resalePrice?: string }) {
+const vatLabel = (row: { vatRate: string; natura: string | null }) =>
+  row.natura ?? `${trim(row.vatRate)}%`
+
+function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }) {
   lines.push({
     key: nextKey++,
     kind: 'item',
@@ -122,6 +144,8 @@ function addItem(item: PickedItem & { resalePrice?: string }) {
     quantity: '1',
     unit: item.unit,
     unitPrice: item.resalePrice ? amountForInput(item.resalePrice) : '',
+    vatCodeId:
+      item.vatCodeId && codes.value.has(item.vatCodeId) ? item.vatCodeId : standardCode.value,
   })
 }
 
@@ -137,6 +161,7 @@ function addLabour() {
     quantity: '1',
     unit: 'h',
     unitPrice: amountForInput(rate.hourlyPrice),
+    vatCodeId: standardCode.value,
   })
   labourRateId.value = ''
 }
@@ -151,6 +176,7 @@ function addCallOut() {
     quantity: '1',
     unit: null,
     unitPrice: props.callOutFee ? amountForInput(props.callOutFee) : '',
+    vatCodeId: standardCode.value,
   })
 }
 
@@ -164,6 +190,7 @@ function addText() {
     quantity: '',
     unit: null,
     unitPrice: '',
+    vatCodeId: null,
   })
 }
 
@@ -182,7 +209,11 @@ function save() {
         ...(line.itemId && { itemId: line.itemId }),
         ...(line.labourRateId && { labourRateId: line.labourRateId }),
         description: line.description,
-        ...(line.kind !== 'text' && { quantity: line.quantity, unitPrice: line.unitPrice }),
+        ...(line.kind !== 'text' && {
+          quantity: line.quantity,
+          unitPrice: line.unitPrice,
+          vatCodeId: line.vatCodeId,
+        }),
       })),
     },
     {
@@ -231,6 +262,7 @@ const confirmDecision = (message: string) => () => window.confirm(message)
               <th>{{ t('ui.quotes.description') }}</th>
               <th :style="{ width: '110px' }">{{ t('ui.quotes.quantity') }}</th>
               <th :style="{ width: '140px' }">{{ t('ui.quotes.unitPrice') }}</th>
+              <th :style="{ width: '170px' }">{{ t('ui.quotes.vatCode') }}</th>
               <th :style="{ textAlign: 'right', width: '120px' }">{{ t('ui.quotes.amount') }}</th>
               <th v-if="editable" />
             </tr>
@@ -284,6 +316,23 @@ const confirmDecision = (message: string) => () => window.confirm(message)
                   </span>
                 </template>
               </td>
+              <td>
+                <template v-if="line.kind !== 'text'">
+                  <select
+                    v-model="line.vatCodeId"
+                    class="field__input"
+                    :disabled="!editable"
+                    :aria-label="t('ui.quotes.vatCodeOf', { position: index + 1 })"
+                  >
+                    <option v-for="code in vatCodes" :key="code.id" :value="code.id">
+                      {{ code.name }}
+                    </option>
+                  </select>
+                  <span v-if="lineError(index, 'vatCodeId')" class="field__error">
+                    {{ lineError(index, 'vatCodeId') }}
+                  </span>
+                </template>
+              </td>
               <td :style="{ textAlign: 'right' }">
                 {{ totalOf(line) ? formatMoney(totalOf(line)!) : '' }}
               </td>
@@ -317,17 +366,30 @@ const confirmDecision = (message: string) => () => window.confirm(message)
               </td>
             </tr>
             <tr v-if="lines.length === 0">
-              <td colspan="5" :style="{ color: 'var(--subtle)' }">{{ t('ui.quotes.noLines') }}</td>
+              <td colspan="6" :style="{ color: 'var(--subtle)' }">{{ t('ui.quotes.noLines') }}</td>
             </tr>
           </tbody>
           <tfoot>
+            <tr v-for="row in totals.summary" :key="`${row.vatRate}-${row.natura}`">
+              <td colspan="4" :style="{ textAlign: 'right' }">
+                {{
+                  t('ui.quotes.vatRow', { vat: vatLabel(row), taxable: formatMoney(row.taxable) })
+                }}
+              </td>
+              <td :style="{ textAlign: 'right' }">{{ formatMoney(row.vat) }}</td>
+              <td v-if="editable" />
+            </tr>
             <tr>
-              <td colspan="3" :style="{ textAlign: 'right' }">
+              <td colspan="4" :style="{ textAlign: 'right' }">{{ t('ui.quotes.taxable') }}</td>
+              <td :style="{ textAlign: 'right' }">{{ formatMoney(totals.taxable) }}</td>
+              <td v-if="editable" />
+            </tr>
+            <tr>
+              <td colspan="4" :style="{ textAlign: 'right' }">
                 <strong>{{ t('ui.quotes.total') }}</strong>
-                <span class="field__hint"> ({{ t('ui.quotes.vatExcluded') }})</span>
               </td>
               <td :style="{ textAlign: 'right' }">
-                <strong>{{ formatMoney(total) }}</strong>
+                <strong>{{ formatMoney(totals.total) }}</strong>
               </td>
               <td v-if="editable" />
             </tr>
@@ -394,7 +456,9 @@ const confirmDecision = (message: string) => () => window.confirm(message)
             route="quotes.accept"
             :params="{ id: job.id }"
             :on-before="
-              confirmDecision(t('ui.quotes.acceptConfirm', { total: formatMoney(quote.total) }))
+              confirmDecision(
+                t('ui.quotes.acceptConfirm', { total: formatMoney(quote.totals.total) })
+              )
             "
           >
             <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
