@@ -37,8 +37,8 @@ export default class Scheduling {
   }
 
   /**
-   * Whether the Job has a Quote, which decides how Visits move it: with
-   * one, work starts once the Quote is accepted (ADR 0012). Quotes are
+   * Whether the Job has a Quote, which decides how work Visits move it:
+   * with one, work starts once the Quote is accepted (ADR 0012). Quotes are
    * created under the Job's lock (Quotes.save), which callers hold.
    */
   private static async hasQuote(trx: TransactionClientContract, jobId: number) {
@@ -46,24 +46,22 @@ export default class Scheduling {
   }
 
   /**
-   * Whether the Job has any work Visit, past or to come. For a Job with a
-   * Quote, Visits that ended before the Quote was accepted were surveys.
+   * Whether the Job has any work Visit, past or to come: Surveys don't
+   * count (ADR 0013).
    */
   private static async hasWorkVisits(trx: TransactionClientContract, jobId: number) {
-    const query = trx.from('visits').where('job_id', jobId)
-    const quote = await trx.from('quotes').where('job_id', jobId).first()
-    if (quote?.decided_at) query.where('ends_at', '>', quote.decided_at)
-    return Boolean(await query.first())
+    return Boolean(await trx.from('visits').where('job_id', jobId).where('survey', false).first())
   }
 
   /**
-   * Whether the Job has upcoming or ongoing work: a Visit in progress, or a
-   * planned one not yet over. A past survey doesn't count.
+   * Whether the Job has upcoming or ongoing work: a work Visit in progress,
+   * or a planned one not yet over. Surveys don't count.
    */
   static async hasPendingWork(trx: TransactionClientContract, jobId: number) {
     const pending = await trx
       .from('visits')
       .where('job_id', jobId)
+      .where('survey', false)
       .where((visits) =>
         visits
           .where('status', 'in_progress')
@@ -76,25 +74,45 @@ export default class Scheduling {
   }
 
   /**
-   * Changes a Visit that isn't closed: when, how long, who and the notes
-   * for the team. Anyone already on it may stay, even if since deactivated
-   * or no longer a Technician (the validator checks the rest); anyone who
-   * logged hours on it must stay.
+   * Changes a Visit that isn't closed: when, how long, who, the notes for
+   * the team and whether it is a Survey. Anyone already on it may stay,
+   * even if since deactivated or no longer a Technician (the validator
+   * checks the rest); anyone who logged hours on it must stay. Turning it
+   * into a Survey or into work moves the Job as deleting or planning it
+   * would.
    */
   static async update(
     visit: Visit,
-    input: { startsAt: DateTime; endsAt: DateTime; technicianIds: number[]; notes: string | null }
+    input: {
+      startsAt: DateTime
+      endsAt: DateTime
+      technicianIds: number[]
+      notes: string | null
+      survey: boolean
+    }
   ) {
     await db.transaction(async (trx) => {
-      const locked = await this.lockOpenVisit(trx, visit.id)
+      // The Job may change status below: lock it for update from the start
+      const locked = await this.lockOpenVisit(trx, visit.id, 'update')
+      const surveyChanged = locked.survey !== input.survey
       locked.useTransaction(trx)
-      locked.merge({ startsAt: input.startsAt, endsAt: input.endsAt, notes: input.notes })
+      locked.merge({
+        startsAt: input.startsAt,
+        endsAt: input.endsAt,
+        notes: input.notes,
+        survey: input.survey,
+      })
       await locked.save()
       const removed = locked.technicians
         .map((technician) => technician.id)
         .filter((id) => !input.technicianIds.includes(id))
       await this.refuseIfLoggedHours(trx, locked.id, removed)
       await locked.related('technicians').sync(input.technicianIds)
+
+      if (!surveyChanged) return
+      const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
+      if (input.survey) await this.backToReady(trx, job)
+      else await this.startWork(trx, job)
     })
   }
 
@@ -133,20 +151,40 @@ export default class Scheduling {
       await locked.useTransaction(trx).delete()
 
       const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
-      job.useTransaction(trx)
-      // With no other work Visit left (for a Job with a Quote, a survey
-      // finished before the Quote was accepted doesn't count), the Job is
-      // back to waiting for its first work Visit
-      if (job.status === 'in_progress' && !(await this.hasWorkVisits(trx, job.id))) {
-        job.status = (await this.hasQuote(trx, job.id)) ? 'accepted' : 'open'
-        await job.save()
-      }
+      await this.backToReady(trx, job)
     })
   }
 
   /**
-   * Locks the Visit, then share-locks its Job (the order field work uses),
-   * refusing a closed Visit or one whose Job was cancelled.
+   * With no work Visit left (Surveys don't count), an In Progress Job is
+   * back to waiting for its first work Visit. The caller holds the Job's
+   * update lock.
+   */
+  private static async backToReady(trx: TransactionClientContract, job: Job) {
+    if (job.status !== 'in_progress' || (await this.hasWorkVisits(trx, job.id))) return
+    job.useTransaction(trx)
+    job.status = (await this.hasQuote(trx, job.id)) ? 'accepted' : 'open'
+    await job.save()
+  }
+
+  /**
+   * A work Visit starts a Job ready for work (accepted, for a Job with a
+   * Quote; open, for one without). The caller holds the Job's update lock.
+   */
+  private static async startWork(trx: TransactionClientContract, job: Job) {
+    const readyForWork = (await this.hasQuote(trx, job.id))
+      ? job.status === 'accepted'
+      : job.status === 'open'
+    if (!readyForWork) return
+    await Job.query({ client: trx }).where('id', job.id).update({ status: 'in_progress' })
+    job.status = 'in_progress'
+  }
+
+  /**
+   * Locks the Visit, then its Job (the order field work uses): shared by
+   * default, for update when the caller may change the Job's status
+   * (update, destroy). Refuses a closed Visit or one whose Job was
+   * cancelled.
    */
   private static async lockOpenVisit(
     trx: TransactionClientContract,
@@ -167,13 +205,18 @@ export default class Scheduling {
   }
 
   /**
-   * Plans a Visit. When the Job is ready for work (accepted, for a Job with
-   * a Quote; open, for one without) it moves to In Progress; a survey
-   * before the Quote is accepted leaves the Job's status alone.
+   * Plans a Visit. A work Visit moves a Job ready for work to In Progress
+   * (startWork); a Survey never moves the Job (ADR 0013).
    */
   static async plan(
     job: Job,
-    input: { startsAt: DateTime; endsAt: DateTime; technicianIds: number[]; notes?: string | null }
+    input: {
+      startsAt: DateTime
+      endsAt: DateTime
+      technicianIds: number[]
+      notes?: string | null
+      survey?: boolean
+    }
   ) {
     return db.transaction(async (trx) => {
       // Locked and re-read, so a concurrent cancel can't be overwritten
@@ -188,18 +231,13 @@ export default class Scheduling {
           endsAt: input.endsAt,
           status: 'planned',
           notes: input.notes ?? null,
+          survey: input.survey ?? false,
         },
         { client: trx }
       )
       await visit.related('technicians').attach(input.technicianIds)
 
-      const readyForWork = (await this.hasQuote(trx, job.id))
-        ? job.status === 'accepted'
-        : job.status === 'open'
-      if (readyForWork) {
-        await Job.query({ client: trx }).where('id', job.id).update({ status: 'in_progress' })
-        job.status = 'in_progress'
-      }
+      if (!visit.survey) await this.startWork(trx, job)
       return visit
     })
   }

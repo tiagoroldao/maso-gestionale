@@ -230,6 +230,7 @@ export default class JobsController {
         startsAt: localDateTime(visit.startsAt),
         endsAt: localDateTime(visit.endsAt),
         status: visit.status,
+        survey: visit.survey,
         billed: isVisitBilled(
           isClosedVisit(visit.status),
           charges.filter((charge) => charge.visitId === visit.id).map((charge) => charge.state)

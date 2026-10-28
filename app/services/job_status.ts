@@ -12,7 +12,7 @@ export type DisplayedJobStatus = JobStatus | 'work_complete' | 'invoiced' | 'clo
 
 type InvoiceSummary = { status: string; total: string | null; paid: string }
 
-type VisitSummary = { status: VisitStatus; startsAt: DateTime }
+type VisitSummary = { status: VisitStatus; startsAt: DateTime; survey: boolean }
 
 /**
  * A Visit is finished when it is done, or when it needed another visit and
@@ -24,8 +24,9 @@ function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
 }
 
 /**
- * Work Complete: the Job is in progress and every Visit is finished, so
- * nothing is left to do or to plan.
+ * Work Complete: the Job is in progress, it has a work Visit, and every
+ * Visit is finished, Surveys included, so nothing is left to do or to
+ * plan. A Job with only Surveys has had no work (ADR 0013).
  */
 export function deriveJobStatus(
   stored: JobStatus,
@@ -43,7 +44,7 @@ export function deriveJobStatus(
   }
   const workComplete =
     stored === 'in_progress' &&
-    visits.length > 0 &&
+    visits.some((visit) => !visit.survey) &&
     visits.every((visit) => isFinished(visit, visits))
   return workComplete ? 'work_complete' : stored
 }
@@ -132,7 +133,7 @@ export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL
 export const NOT_INVOICED_SQL = `NOT ${FULLY_INVOICED_SQL}`
 
 export const WORK_COMPLETE_SQL = `${NOT_INVOICED_SQL} AND jobs.status = 'in_progress'
-  AND EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id)
+  AND EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT v.survey)
   AND NOT EXISTS (
     SELECT 1 FROM visits v
     WHERE v.job_id = jobs.id

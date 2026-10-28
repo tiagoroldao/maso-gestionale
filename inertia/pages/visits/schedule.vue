@@ -14,6 +14,7 @@ type CalendarVisit = {
   startsAt: string
   endsAt: string
   status: string
+  survey: boolean
   technicianIds: number[]
   job: { id: number; number: string; title: string; customer: string; site: string | null }
 }
@@ -29,6 +30,7 @@ const props = defineProps<{
     id: number
     startsAt: string
     endsAt: string
+    survey: boolean
     job: { number: string; customer: string }
   }[]
 }>()
@@ -259,6 +261,7 @@ const weekday = (iso: string) =>
               }}
               · {{ visit.job.number }} · {{ visit.job.customer }}
             </Link>
+            <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
           </li>
         </ul>
       </section>
@@ -305,6 +308,7 @@ const weekday = (iso: string) =>
               }}</Link>
               <span>{{ visit.job.customer }}</span>
               <span v-if="visit.job.site" class="field__hint">{{ visit.job.site }}</span>
+              <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
             </div>
           </div>
         </div>
@@ -350,6 +354,7 @@ const weekday = (iso: string) =>
                   visit.job.number
                 }}</Link>
                 <span>{{ visit.job.customer }}</span>
+                <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
               </div>
             </td>
           </tr>

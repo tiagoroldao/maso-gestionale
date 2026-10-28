@@ -174,7 +174,7 @@ export default class Quotes {
       if (jobStatus === 'cancelled') job.cancelledAt = DateTime.now()
       // Work booked while waiting for the signature starts the Job at once
       if (jobStatus === 'accepted') {
-        // Upcoming or ongoing work only: a past survey doesn't count
+        // Upcoming or ongoing work only: past Visits and Surveys don't count
         if (await Scheduling.hasPendingWork(trx, job.id)) job.status = 'in_progress'
       }
       await job.save()

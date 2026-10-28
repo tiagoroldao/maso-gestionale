@@ -18,6 +18,7 @@ defineProps<{
     startsAt: string
     endsAt: string
     status: string
+    survey: boolean
     officeNotes: string | null
     technicians: string[]
   }
@@ -72,7 +73,7 @@ const page = usePage()
   <AppLayout>
     <Page
       :title="customer.name"
-      :description="`${formatDate(visit.startsAt)} ${visit.startsAt.slice(11, 16)}–${visit.endsAt.slice(11, 16)}`"
+      :description="`${visit.survey ? `${t('ui.visits.survey')} · ` : ''}${formatDate(visit.startsAt)} ${visit.startsAt.slice(11, 16)}–${visit.endsAt.slice(11, 16)}`"
     >
       <template #actions>
         <Link

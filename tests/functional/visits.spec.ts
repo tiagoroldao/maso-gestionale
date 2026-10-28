@@ -52,7 +52,7 @@ test.group('Planning Visits', () => {
     const cases = [
       { quote: null, status: 'open' as const, expected: 'in_progress' },
       { quote: 'accepted' as const, status: 'accepted' as const, expected: 'in_progress' },
-      // A survey before the Quote is accepted leaves the Job alone
+      // Work booked before the Quote is accepted leaves the Job alone
       { quote: 'draft' as const, status: 'open' as const, expected: 'open' },
       { quote: 'draft' as const, status: 'quoted' as const, expected: 'quoted' },
     ]
@@ -98,7 +98,7 @@ test.group('Planning Visits', () => {
     assert.equal(job.status, 'in_progress')
   })
 
-  test('a past survey does not start the Job on acceptance', async ({ client, assert }) => {
+  test('a past Visit does not start the Job on acceptance', async ({ client, assert }) => {
     const office = await createUser('office')
     const technician = await createUser('technician')
     const job = await createJob(await createCustomer(), { status: 'quoted' })
@@ -511,6 +511,7 @@ test.group('Editing and deleting Visits', () => {
       startsAt: past,
       endsAt: past.plus({ hours: 1 }),
       status: 'done',
+      survey: true,
     })
 
     await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
