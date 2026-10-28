@@ -111,6 +111,7 @@ export default class SitesController {
         jobs
           .preload('customer')
           .preload('visits')
+          .preload('invoices', (invoices) => invoices.preload('payments'))
           .orderBy([
             { column: 'year', order: 'desc' },
             { column: 'sequence', order: 'desc' },

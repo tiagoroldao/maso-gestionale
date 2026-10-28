@@ -233,6 +233,12 @@ router
           .where('id', router.matchers.number())
           .where('submissionId', router.matchers.number())
         router
+          .post('invoices/:id/payments', [controllers.Invoices, 'recordPayment'])
+          .where('id', router.matchers.number())
+        router
+          .delete('payments/:paymentId', [controllers.Invoices, 'removePayment'])
+          .where('paymentId', router.matchers.number())
+        router
           .post('invoices/:id/submissions', [controllers.Invoices, 'prepareSubmission'])
           .where('id', router.matchers.number())
         router

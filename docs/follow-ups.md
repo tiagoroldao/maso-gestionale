@@ -20,6 +20,8 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
+| #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                 |
+| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
 
 ## Added to existing issues
 
@@ -49,4 +51,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Concurrent equipment removal untested:** `FieldWork.removeItem` locks the equipment it created before checking whether another line or Visit uses it. Only reading the code checks this; no test runs two connections against it (from the #98 review).
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).
 - **Invoice edit page loads every Submission's XML** to work out `hasFile`; select a boolean instead if Invoices accumulate many Submissions (from the #101 review).
+- **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).
+- **Job filter values copied in two places** (#25): the page and the validator each list the Job filter values, and `DisplayedJobStatus` lives in `app/services`, not `shared/`. Move them to one shared list (from the #97 review).
+- **Payment dated before the Invoice** (#25): `paidOn` can be earlier than the Invoice's `issuedOn` (an advance paid before issuing is plausible, so decide before refusing it) (from the #97 review).
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.

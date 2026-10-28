@@ -20,6 +20,7 @@ const props = defineProps<{
     customer: string
     createdAt: string
     total: string
+    payment: string | null
   }[]
 }>()
 
@@ -58,6 +59,7 @@ function filter() {
             <th>{{ t('ui.invoices.customer') }}</th>
             <th>{{ t('ui.invoices.status') }}</th>
             <th>{{ t('ui.invoices.createdOn') }}</th>
+            <th>{{ t('ui.invoices.payment') }}</th>
             <th :style="{ textAlign: 'right' }">{{ t('ui.invoices.total') }}</th>
           </tr>
         </thead>
@@ -73,6 +75,11 @@ function filter() {
               <span class="tag">{{ t(`ui.invoices.statuses.${invoice.status}`) }}</span>
             </td>
             <td>{{ formatDate(invoice.issuedOn ?? invoice.createdAt) }}</td>
+            <td>
+              <span v-if="invoice.payment" class="tag">
+                {{ t(`ui.invoices.paymentStatuses.${invoice.payment}`) }}
+              </span>
+            </td>
             <td :style="{ textAlign: 'right' }">{{ formatMoney(invoice.total) }}</td>
           </tr>
         </tbody>

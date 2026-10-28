@@ -87,6 +87,8 @@ export type ScannedRoutes = {
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.submission_xml': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'submissionId': ParamValue} }
+    'invoices.record_payment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.remove_payment': { paramsTuple: [ParamValue]; params: {'paymentId': ParamValue} }
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -272,6 +274,7 @@ export type ScannedRoutes = {
     'invoices.store': { paramsTuple?: []; params?: {} }
     'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.record_payment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -295,6 +298,7 @@ export type ScannedRoutes = {
     'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
     'visits.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.remove_payment': { paramsTuple: [ParamValue]; params: {'paymentId': ParamValue} }
     'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

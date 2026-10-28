@@ -5,6 +5,7 @@ import Customer from '#models/customer'
 import Site from '#models/site'
 import Quote from '#models/quote'
 import Visit from '#models/visit'
+import Invoice from '#models/invoice'
 import type { WorkCategory } from '#shared/jobs'
 
 export const JOB_KINDS = ['quoted', 'time_and_materials'] as const
@@ -25,6 +26,9 @@ export default class Job extends JobSchema {
   declare kind: JobKind
   declare status: JobStatus
   declare workCategory: WorkCategory
+
+  @hasMany(() => Invoice)
+  declare invoices: HasMany<typeof Invoice>
 
   @belongsTo(() => Customer)
   declare customer: BelongsTo<typeof Customer>

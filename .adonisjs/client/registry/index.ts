@@ -504,6 +504,18 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"],[0,"submissions"],[1,"submissionId"],[0,"xml"]],
     types: placeholder as Registry['invoices.submission_xml']['types'],
   },
+  'invoices.record_payment': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/payments',
+    tokens: [[0,"invoices"],[1,"id"],[0,"payments"]],
+    types: placeholder as Registry['invoices.record_payment']['types'],
+  },
+  'invoices.remove_payment': {
+    methods: ["DELETE"],
+    pattern: '/payments/:paymentId',
+    tokens: [[0,"payments"],[1,"paymentId"]],
+    types: placeholder as Registry['invoices.remove_payment']['types'],
+  },
   'invoices.prepare_submission': {
     methods: ["POST"],
     pattern: '/invoices/:id/submissions',

@@ -7,7 +7,7 @@ import { it } from '#tests/helpers/i18n'
 import { completeCompany } from '#tests/helpers/company'
 
 test.group('Invoices in the browser', () => {
-  test('Office drafts a direct sale with a global discount and issues it', async ({
+  test('Office drafts a direct sale with a global discount, issues it and records the payment', async ({
     browserContext,
     visit,
     assert,
@@ -40,6 +40,12 @@ test.group('Invoices in the browser', () => {
     await page.getByRole('button', { name: it('ui.invoices.finalise') }).click()
     const number = `1/${new Date().getFullYear()}`
     await page.getByText(it('flash.invoiceFinalised', { number })).waitFor()
+
+    // Paid in full at the counter
+    await page.getByLabel(it('ui.invoices.amountPaid')).fill('219,60')
+    await page.getByRole('button', { name: it('ui.invoices.recordPayment') }).click()
+    await page.getByText(it('flash.paymentRecorded')).waitFor()
+    await page.getByText(it('ui.invoices.paymentStatuses.paid'), { exact: true }).waitFor()
 
     const invoice = await Invoice.query().preload('lines').firstOrFail()
     assert.equal(invoice.totals.total, '219.60')

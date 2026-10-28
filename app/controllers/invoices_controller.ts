@@ -1,5 +1,9 @@
 import Customer from '#models/customer'
 import Job from '#models/job'
+import Payment from '#models/payment'
+import Payments, { PaymentRefusedError } from '#services/payments'
+import { outstanding, paymentStatus } from '#shared/payment_status'
+import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
@@ -19,6 +23,7 @@ import Submissions, {
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
+  paymentValidator,
   invoiceStageValidator,
   invoiceValidator,
   newInvoiceValidator,
@@ -63,8 +68,21 @@ export default class InvoicesController {
    */
   async index({ request, inertia }: HttpContext) {
     const { stage = 'all' } = await invoiceStageValidator.validate(request.qs())
-    const query = Invoice.query().preload('customer').preload('lines').orderBy('created_at', 'desc')
-    if (stage !== 'all') query.where('status', stage)
+    const query = Invoice.query()
+      .preload('customer')
+      .preload('lines')
+      .preload('payments')
+      .orderBy('created_at', 'desc')
+    if (stage === 'overdue') {
+      // Past due and not fully paid
+      query
+        .whereNot('status', 'draft')
+        .where('dueOn', '<', DateTime.now().toISODate()!)
+        .whereRaw(
+          'total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = invoices.id)'
+        )
+    } else if (stage !== 'all') query.where('status', stage)
+    const today = DateTime.now().toISODate()!
     const invoices = await query
 
     return inertia.render('invoices/index', {
@@ -77,6 +95,15 @@ export default class InvoicesController {
         customer: invoice.customer.displayName,
         createdAt: invoice.createdAt.toISODate()!,
         total: invoice.totals.total,
+        payment:
+          invoice.total && invoice.dueOn
+            ? paymentStatus({
+                total: invoice.total,
+                paid: invoice.paid,
+                dueOn: invoice.dueOn.toISODate()!,
+                today,
+              })
+            : null,
       })),
     })
   }
@@ -117,6 +144,7 @@ export default class InvoicesController {
       .preload('job')
       .preload('lines', (lines) => lines.orderBy('position'))
       .preload('submissions', (submissions) => submissions.orderBy('preparedAt'))
+      .preload('payments', (payments) => payments.orderBy('paidOn'))
       .firstOrFail()
     const open = invoice.submissions.find((submission) => !submission.outcome) ?? null
     const lastRejection = invoice.submissions.findLast(
@@ -126,7 +154,7 @@ export default class InvoicesController {
     const unsubmitted = await Invoice.query()
       .whereIn('status', ['finalised', 'rejected'])
       .whereNot('id', invoice.id)
-      .count('* as total')
+      .count('* as waiting')
       .first()
 
     return inertia.render('invoices/edit', {
@@ -172,7 +200,26 @@ export default class InvoicesController {
         invoice.status === 'rejected' && lastRejection?.noticeOn
           ? lastRejection.noticeOn.plus({ days: RESUBMISSION_DAYS }).toISODate()
           : null,
-      unsubmittedCount: Number(unsubmitted?.$extras.total ?? 0),
+      unsubmittedCount: Number(unsubmitted?.$extras.waiting ?? 0),
+      payments: invoice.payments.map((payment) => ({
+        id: payment.id,
+        amount: payment.amount,
+        paidOn: payment.paidOn.toISODate()!,
+        note: payment.note,
+      })),
+      paymentSummary:
+        invoice.total && invoice.dueOn
+          ? {
+              status: paymentStatus({
+                total: invoice.total,
+                paid: invoice.paid,
+                dueOn: invoice.dueOn.toISODate()!,
+                today: DateTime.now().toISODate()!,
+              }),
+              paid: invoice.paid,
+              outstanding: outstanding(invoice.total, invoice.paid),
+            }
+          : null,
       vatCodes: await vatCodeOptions(invoice.lines.map((line) => line.vatCodeId)),
     })
   }
@@ -349,6 +396,26 @@ export default class InvoicesController {
       session.flash('error', i18n.t('flash.submissionRefused'))
       return false
     }
+  }
+
+  async recordPayment({ params, request, response, session, i18n, auth }: HttpContext) {
+    const invoice = await Invoice.findOrFail(params.id)
+    const data = await request.validateUsing(paymentValidator)
+    try {
+      await Payments.record(invoice, data, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.paymentRecorded'))
+    } catch (error) {
+      if (!(error instanceof PaymentRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.paymentRefused.${error.reason}`))
+    }
+    response.redirect().toRoute('invoices.edit', { id: invoice.id })
+  }
+
+  async removePayment({ params, response, session, i18n }: HttpContext) {
+    const payment = await Payment.findOrFail(params.paymentId)
+    await Payments.remove(payment)
+    session.flash('success', i18n.t('flash.paymentRemoved'))
+    response.redirect().toRoute('invoices.edit', { id: payment.invoiceId })
   }
 
   async destroy({ params, response, session, i18n }: HttpContext) {
