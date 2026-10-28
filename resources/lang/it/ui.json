@@ -275,7 +275,9 @@
       "noMatches": "Nessun cliente corrisponde.",
       "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
     },
-    "balance": "Da incassare"
+    "balance": "Da incassare",
+    "overpaid": "Fatture pagate in eccesso, da rimborsare o correggere",
+    "overpaidInvoice": "n. {number} (in eccesso di {amount})"
   },
   "sites": {
     "title": "Immobili",
@@ -829,7 +831,8 @@
       "finalised": "Emesse da inviare",
       "submitted": "Inviate, in attesa di esito",
       "rejected": "Scartate",
-      "overdue": "Scadute"
+      "overdue": "Scadute",
+      "overpaid": "Pagate in eccesso"
     },
     "resubmitBy": "Scartata: correggi e reinvia entro il {date}.",
     "sdiTitle": "Invio a SDI",
@@ -865,10 +868,13 @@
       "unpaid": "Da pagare",
       "partly_paid": "Pagata in parte",
       "paid": "Pagata",
+      "overpaid": "Pagata in eccesso",
       "overdue": "Scaduta"
     },
     "paymentsTitle": "Incassi",
-    "paidOf": "Incassato {paid}, da incassare {outstanding}.",
+    "paidOf": "Incassato {paid}, da incassare {owed}.",
+    "overpaidBy": "Incassato {paid}, pagata in eccesso di {amount}: rimborsa o correggi gli incassi.",
+    "refundHint": "Per un rimborso, un importo negativo.",
     "removePayment": "Elimina",
     "removePaymentConfirm": "Eliminare questo incasso?",
     "amountPaid": "Importo (€)",

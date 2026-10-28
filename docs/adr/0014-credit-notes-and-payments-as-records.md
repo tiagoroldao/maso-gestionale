@@ -19,4 +19,4 @@ Credit Notes take their numbers from the Invoice sequence or from a series of th
 
 - Payment status gains "overpaid", alongside paid, partly paid, unpaid and overdue, all derived.
 - The refusals for a Payment above what is owed, and for correcting a rejected Invoice below what is paid (#102), become warnings.
-- A Job is Closed only when its Invoices owe nothing after Credit Notes (an overpaid Invoice keeps it open); Invoiced follows credited Charges and advances (ADR 0010, 0011).
+- A Job is Closed only when its Invoices owe nothing after Credit Notes (an overpaid Invoice keeps it open); Invoiced follows credited Charges and advances (ADR 0010, 0011). (Refined by ADR 0015: this now defines the paid indicator; Office closes the Job.)

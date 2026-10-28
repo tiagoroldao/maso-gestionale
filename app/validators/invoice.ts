@@ -132,7 +132,10 @@ export const sdiPrefixValidator = vine.create({
 })
 
 export const paymentValidator = vine.create({
-  amount: vine.string().use(amountRule({ decimals: 2, max: '9999999999', positive: true })),
+  // A refund is a negative Payment; zero isn't a payment (ADR 0014)
+  amount: vine
+    .string()
+    .use(amountRule({ decimals: 2, max: '9999999999', signed: true, nonZero: true })),
   paidOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
   note: vine.string().trim().maxLength(255).optional(),
 })

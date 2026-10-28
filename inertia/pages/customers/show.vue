@@ -32,6 +32,7 @@ const props = defineProps<{
   jobs: JobRow[]
   issuedDocuments: IssuedDocumentRow[]
   balance: string
+  overpaid: { id: number; number: string; overpaidBy: string }[]
 }>()
 
 const confirm = (message: string) => window.confirm(message)
@@ -68,6 +69,18 @@ function linkSite(site: PickedSite) {
       <p v-if="customer.archived" class="tag">{{ t('ui.archive.archivedTag') }}</p>
       <p>
         <strong>{{ t('ui.customers.balance') }}:</strong> {{ formatMoney(balance) }}
+      </p>
+      <p v-if="overpaid.length" data-testid="overpaid">
+        <strong>{{ t('ui.customers.overpaid') }}:</strong>
+        <template v-for="(invoice, index) in overpaid" :key="invoice.id">
+          {{ index ? ', ' : '' }}
+          <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">{{
+            t('ui.customers.overpaidInvoice', {
+              number: invoice.number,
+              amount: formatMoney(invoice.overpaidBy),
+            })
+          }}</Link>
+        </template>
       </p>
 
       <Section :title="t('ui.customers.details')">

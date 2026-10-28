@@ -26,6 +26,10 @@ _Avoid_: Service schedule, recurrence
 A whole piece of work for a Customer, which may span multiple Visits, may have Quotes, and is invoiced from its Charges. When a Job is cancelled its Visits are kept as history: they leave the Agenda and the Technicians' lists and accept no further work.
 _Avoid_: Intervention, work order, ticket, Quoted Job / Time & Materials Job (a Job has no kind; it may have several Quotes)
 
+**Closed Job** (_Commessa chiusa_):
+A Job Office has closed because its work is finished; it takes no new work but still records Payments and Credit Notes, and can be reopened.
+_Avoid_: Completed job, archived job
+
 **Work Category** (_Tipo di lavoro_):
 The kind of work a Job is (new installation, maintenance, renovation, repair or sale), which together with the Customer and the Site decides the VAT normally charged.
 _Avoid_: Job type, intervention type

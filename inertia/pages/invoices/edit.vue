@@ -87,7 +87,13 @@ const props = defineProps<{
   resubmitBy: string | null
   unsubmittedCount: number
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
-  paymentSummary: { status: string; paid: string; outstanding: string } | null
+  // owed is below zero when overpaid, by overpaidBy
+  paymentSummary: {
+    status: string
+    paid: string
+    owed: string
+    overpaidBy: string | null
+  } | null
   // A Job's Invoice: the issued advances it can take back (ADR 0011)
   deductions:
     | { advanceId: number; number: string; total: string; left: string; amount: string | null }[]
@@ -759,12 +765,22 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
       <Section v-if="paymentSummary" :title="t('ui.invoices.paymentsTitle')">
         <p>
           <span class="tag">{{ t(`ui.invoices.paymentStatuses.${paymentSummary.status}`) }}</span>
-          {{
-            t('ui.invoices.paidOf', {
-              paid: formatMoney(paymentSummary.paid),
-              outstanding: formatMoney(paymentSummary.outstanding),
-            })
-          }}
+          <template v-if="paymentSummary.overpaidBy">
+            {{
+              t('ui.invoices.overpaidBy', {
+                paid: formatMoney(paymentSummary.paid),
+                amount: formatMoney(paymentSummary.overpaidBy),
+              })
+            }}
+          </template>
+          <template v-else>
+            {{
+              t('ui.invoices.paidOf', {
+                paid: formatMoney(paymentSummary.paid),
+                owed: formatMoney(paymentSummary.owed),
+              })
+            }}
+          </template>
         </p>
         <table v-if="payments.length" class="table">
           <tbody>
@@ -787,7 +803,6 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
           </tbody>
         </table>
         <Form
-          v-if="paymentSummary.status !== 'paid'"
           v-slot="{ processing: paying, errors: paymentErrors }"
           route="invoices.record_payment"
           :params="{ id: invoice.id }"
@@ -799,6 +814,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               t('ui.invoices.amountPaid')
             }}</label>
             <input id="payment-amount" name="amount" inputmode="decimal" class="field__input" />
+            <span class="field__hint">{{ t('ui.invoices.refundHint') }}</span>
             <span v-if="paymentErrors.amount" class="field__error">{{ paymentErrors.amount }}</span>
           </div>
           <div class="field">

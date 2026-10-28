@@ -42,8 +42,10 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
 
     const success: string | undefined = session?.flashMessages.get('success')
     const error: string | undefined = session?.flashMessages.get('error')
+    // Done, but with something unusual to look at (a Payment that overpays)
+    const warning: string | undefined = session?.flashMessages.get('warning')
 
-    return { success, error }
+    return { success, error, warning }
   }
 
   async handle(ctx: HttpContext, next: NextFn) {

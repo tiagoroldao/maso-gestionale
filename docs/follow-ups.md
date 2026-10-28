@@ -20,12 +20,11 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
-| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
-| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                      |
+| #103  | Closing a Job is manual (ADR 0015)                                                        | —                                                 |
+| #111  | Finished work on a cancelled Job can still be invoiced (decided)                          | —                                                 |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #144  | Payments are records: overpaid Invoices, refunds, warnings (ADR 0014)                     | —                                                 |
-| #145  | Credit Notes (ADR 0014)                                                                   | #144                                              |
+| #145  | Credit Notes (ADR 0014)                                                                   | —                                                 |
 | #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | #145                                              |
 
 ## Added to existing issues
@@ -36,12 +35,14 @@ Review findings folded into planned work, so they are picked up with it:
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, decided: it stays billable).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
+- **#146:** billed amount before the global discount: a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount (#116). Decide when Credit Notes credit Charges.
 - **#34:** the update's backup is `docker compose run --rm backup backup:run` (non-zero exit on failure), taken before pulling the new image (not yet commented on #34).
 
 ## Not yet issues
 
+- **"Issued invoice" wording:** ADRs 0008, 0011 and 0014 use "issued Invoice" informally, while the glossary lists "Issued invoice" under _Avoid_. Align the wording at some point.
 - **Sending a Quote while it is saved is untested under concurrency** (#137): `Quotes.send` and `Quotes.save` both lock the Job, then the Quote, so a save racing a send either lands before it or is refused. Tests share one connection, where locks are re-entrant, so none proves it; test it on separate connections with the other locking tests (#19).
 - **Quote numbers untested under concurrency** (#138): `Quotes.create` takes the Job's next Quote number under the Job's lock, and `(job_id, sequence)` is unique, so two Quotes written at once get different numbers or one fails. Tests share one connection; test it with the other locking tests (#19).
 - **A sent Quote on a cancelled Job stays "Inviato"** (#138): when Office cancels the Job before recording the Customer's "no", the Quote can no longer be decided, so it reads as still waiting (the Jobs list's "waiting for an answer" filter leaves cancelled Jobs out). Consider allowing a decline, only, on a cancelled Job.
@@ -64,17 +65,12 @@ Review findings folded into planned work, so they are picked up with it:
 - **Call-out Fee wording** (ADR 0012): the glossary calls it a price for attending a Visit, while an imported Quote call-out becomes a Job Charge. Revisit if it confuses anyone (from the #131 review).
 - **Test file names** (#130): `invoices_from_time_and_materials.spec.ts` (functional and browser) now test Jobs without a Quote; rename them (from the #133 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
-- **Small leftovers from the #97 review:** the zero-amount Payment test checks the field, not the `amount.positive` message; the `amountRule` docstring line is over 100 characters.
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).
 - **Invoice edit page loads every Submission's XML** to work out `hasFile`; select a boolean instead if Invoices accumulate many Submissions (from the #101 review).
 - **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).
 - **`DisplayedJobStatus` lives in `app/services`** (#25), not `shared/`, while the stored statuses and the Job list's filters are in `shared/jobs.ts` (#138). Move it there when a page needs it (from the #97 review).
-- **Payment dated before the Invoice** (#25): `paidOn` can be earlier than the Invoice's `issuedOn` (an advance paid before issuing is plausible, so decide before refusing it) (from the #97 review).
-- **Correction below paid, stock side untested** (#102; dropped by #144: remove when it merges): no test refuses a correction on a Job-less Invoice with Item lines to show stock isn't rebooked and the snapshots stay (the throw precedes `rebookSale` in the transaction) (from the #106 review).
-- **"Paid" computed two ways:** `Invoices.save` sums Payments in SQL, `Payments.record` uses the preloaded `invoice.paid`. One shared helper would keep them from drifting (from the #106 review).
 - **PDF documents format euro themselves:** `invoice_document.ts` and `quote_document.ts` each build an `Intl.NumberFormat` instead of `formatMoney` from `shared/money.ts`, which itself hard-codes the `'it'` locale (the `LOCALE` constant lives in `inertia/i18n.ts`); fine while there is one language (from the #106 review).
 - **Visit team read before the lock** (#93): the edit validator reads "already on the Visit" before `Scheduling.update` locks it, so a stale form submitted just after someone was removed can put them back even if no longer a Technician. Same pattern as for deactivated Technicians; low risk (from the #105 review).
-- **Billed amount before the global discount** (#116): a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount. Decide with #146, where Credit Notes credit Charges.
 - **One draft holds a Charge at a time, by the Job lock** (#116): nothing in the schema stops two drafts' lines linking the same Charge; drafting, saving, finalising and deleting all lock the Job first, and only Charges the Invoice already holds can move between its lines.
 - **Backfilled links are matched by description** (#116): the migration links each Charge to the line drafted from it by description, quantity and price. A line Office had edited can't be matched: in a draft its Charge is released, on an issued Invoice it is billed without a line (`invoice_line_id` null) and at the Charge's own value, not the line's (a repriced line). Links are dated `now()`, so a correction made before the migration while a draft held the Charge isn't re-derived when that draft releases it.
 - **Deploying #116's migration** (`1761885935209_invoice_line_charges`): finalise or delete open drafts with edited lines first. Their Charges are released by the backfill while the draft still has the lines, so the work could be billed twice.
