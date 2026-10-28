@@ -94,5 +94,5 @@
   "archivedRecord": "Il cliente o l'immobile è archiviato: ripristinalo per aprire una nuova commessa.",
   "jobInvoiced": "La commessa ha fatture: non si può annullare.",
   "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
-  "jobNotInvoiceable": "La commessa non ha un preventivo accettato da fatturare, oppure è annullata."
+  "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (preventivo accettato o ore e materiali registrati), oppure è annullata."
 }

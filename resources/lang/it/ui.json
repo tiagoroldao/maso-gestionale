@@ -658,7 +658,8 @@
     "uploadedOn": "Caricato il",
     "unsubmittedWarning": "{count, plural, one {C'è # fattura emessa} other {Ci sono # fatture emesse}} non ancora {count, plural, one {inviata} other {inviate}} a SDI.",
     "fromQuote": "Crea la fattura dal preventivo",
-    "job": "Commessa {number}"
+    "job": "Commessa {number}",
+    "fromTimeAndMaterials": "Crea la fattura da ore e materiali"
   },
   "visits": {
     "title": "Interventi",

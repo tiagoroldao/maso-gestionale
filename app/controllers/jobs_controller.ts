@@ -1,4 +1,5 @@
 import Job from '#models/job'
+import { workReadyToInvoice } from '#shared/visits'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
 import { ArchivedRecordError } from '#services/archiving'
@@ -127,12 +128,18 @@ export default class JobsController {
         status: invoice.status,
         total: invoice.totals.total,
       })),
-      // Once per Quote, and never for a cancelled Job
-      canInvoiceFromQuote:
-        job.kind === 'quoted' &&
-        quote?.status === 'accepted' &&
+      // Once per Job (until billed lines are tracked, #75), never cancelled
+      canInvoice:
         job.status !== 'cancelled' &&
-        invoices.length === 0,
+        invoices.length === 0 &&
+        (job.kind === 'quoted'
+          ? quote?.status === 'accepted'
+          : workReadyToInvoice(
+              job.visits.map((visit) => ({
+                status: visit.status,
+                workLines: visit.hours.length + visit.items.length,
+              }))
+            )),
       timeAndMaterials: { total: sumAmounts(amounts), lines: amounts.length },
       job: {
         ...jobRow(job),

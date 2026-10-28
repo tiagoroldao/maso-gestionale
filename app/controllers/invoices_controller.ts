@@ -91,13 +91,13 @@ export default class InvoicesController {
   }
 
   /**
-   * A draft Invoice from a Quoted Job's accepted Quote (or the Job's
-   * existing draft).
+   * A draft Invoice from a Job: its accepted Quote, or its recorded time
+   * and materials (or the Job's existing Invoice).
    */
   async storeFromJob({ params, response, session, i18n }: HttpContext) {
     const job = await Job.findOrFail(params.id)
     try {
-      const invoice = await Invoices.fromQuote(job)
+      const invoice = await Invoices.fromJob(job)
       session.flash('success', i18n.t('flash.invoiceCreated'))
       return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     } catch (error) {

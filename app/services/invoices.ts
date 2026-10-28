@@ -10,11 +10,13 @@ import InvoiceLine from '#models/invoice_line'
 import Item from '#models/item'
 import Job from '#models/job'
 import Quote from '#models/quote'
+import Visit from '#models/visit'
 import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal } from '#shared/invoice_totals'
+import { workReadyToInvoice } from '#shared/visits'
 import {
   canTransition,
   isDeletable,
@@ -46,8 +48,8 @@ export class InvoiceNotFinalisableError extends Error {
 }
 
 /**
- * The Job can't be invoiced from its Quote: it isn't a Quoted Job with an
- * accepted Quote, or it was cancelled.
+ * The Job has nothing to invoice yet (no accepted Quote; no recorded work,
+ * or work on Visits still open), or it was cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 
@@ -73,6 +75,99 @@ export type InvoiceLineInput = {
 export default class Invoices {
   static create(customer: Customer) {
     return Invoice.create({ customerId: customer.id, status: 'draft' })
+  }
+
+  /**
+   * A draft Invoice for a Job: from its accepted Quote, or from the time
+   * and materials recorded on its Visits.
+   */
+  static fromJob(job: Job) {
+    return job.kind === 'quoted' ? this.fromQuote(job) : this.fromTimeAndMaterials(job)
+  }
+
+  /**
+   * A draft Invoice for a Time & Materials Job: one line per hours entry
+   * and per Item recorded on its Visits, at the prices recorded with the
+   * work (the policy noted on #22), so its total before VAT equals the Job
+   * page's running total. Items take their own default VAT Code, labour
+   * the standard rate, until the default rules (#26). Like a Quote, the
+   * work is invoiced once: an existing Invoice is returned instead, until
+   * billed lines are tracked (#75).
+   */
+  static async fromTimeAndMaterials(job: Job) {
+    return db.transaction(async (trx) => {
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      if (locked.kind !== 'time_and_materials' || locked.status === 'cancelled') {
+        throw new JobNotInvoiceableError()
+      }
+      const existing = await Invoice.query({ client: trx }).where('jobId', locked.id).first()
+      if (existing) return existing
+
+      const visits = await Visit.query({ client: trx })
+        .where('jobId', locked.id)
+        .preload('hours', (hours) =>
+          hours.preload('labourRate').preload('technician').orderBy('createdAt')
+        )
+        .preload('items', (items) => items.preload('item').orderBy('createdAt'))
+        .orderBy('startsAt')
+      const work = visits.flatMap((visit) => [
+        ...visit.hours.map((hour) => ({ visit, hour, line: null })),
+        ...visit.items.map((line) => ({ visit, hour: null, line })),
+      ])
+      const ready = workReadyToInvoice(
+        visits.map((visit) => ({
+          status: visit.status,
+          workLines: visit.hours.length + visit.items.length,
+        }))
+      )
+      if (!ready) throw new JobNotInvoiceableError()
+
+      const standard = await VatCode.query({ client: trx })
+        .whereNull('archived_at')
+        .whereNull('natura')
+        .orderBy('rate', 'desc')
+        .firstOrFail()
+      const itemCodeIds = [
+        ...new Set(work.flatMap(({ line }) => (line ? [line.item.vatCodeId] : []))),
+      ]
+      // An Item's archived code isn't offered: those lines get the standard rate
+      const itemCodes = await VatCode.query({ client: trx })
+        .whereIn('id', itemCodeIds)
+        .whereNull('archived_at')
+      const codes = new Map(itemCodes.map((code) => [code.id, code]))
+
+      const invoice = await Invoice.create(
+        { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
+        { client: trx }
+      )
+      await InvoiceLine.createMany(
+        work.map(({ visit, hour, line }, position) => {
+          const day = visit.startsAt.toFormat('dd/MM')
+          const code = line ? (codes.get(line.item.vatCodeId) ?? standard) : standard
+          const quantity = hour ? hour.hours : line!.quantity
+          const unitPrice = hour ? hour.unitPrice : line!.unitPrice
+          return {
+            invoiceId: invoice.id,
+            position,
+            itemId: line?.itemId ?? null,
+            description: hour
+              ? `${hour.labourRate.name} – ${hour.technician.fullName ?? hour.technician.email} (${day})`
+              : `${line!.item.description} (${day})`,
+            quantity,
+            unit: hour ? 'h' : line!.item.unit,
+            unitPrice,
+            discountPercent: '0',
+            vatCodeId: code.id,
+            vatRate: code.rate,
+            natura: code.natura,
+            legalNote: code.legalNote,
+            lineTotal: invoiceLineTotal(quantity, unitPrice),
+          }
+        }),
+        { client: trx }
+      )
+      return invoice
+    })
   }
 
   /**
