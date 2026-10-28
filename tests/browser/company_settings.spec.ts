@@ -22,9 +22,9 @@ test.group('Company settings in the browser', (group) => {
     await page.getByLabel(it('ui.company.taxCode')).fill('12345678903')
     await page.getByLabel(it('ui.company.taxRegime')).selectOption('RF19')
     await page.getByLabel(it('ui.address.street'), { exact: true }).fill('Via Roma')
-    await page.getByLabel(it('ui.address.postalCode')).fill('20121')
+    await page.getByLabel(it('ui.address.postalCode'), { exact: true }).fill('20121')
     await page.getByLabel(it('ui.address.city')).fill('Milano')
-    await page.getByLabel(it('ui.address.province')).fill('MI')
+    await page.getByLabel(it('ui.address.province'), { exact: true }).fill('MI')
     await page
       .getByLabel(it('ui.company.uploadLogo'))
       .setInputFiles(app.makePath('tests/fixtures/logo.png'))
