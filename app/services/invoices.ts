@@ -18,6 +18,12 @@ import { invoiceLineTotal } from '#shared/invoice_totals'
 export class InvoiceNotEditableError extends Error {}
 
 /**
+ * Serialises finalising across years, so the issue date and the year's
+ * number come from one reading of the clock taken after the lock.
+ */
+const NUMBERING_LOCK_KEY = 4_190_419
+
+/**
  * The draft can't be finalised yet: it has no lines, or the company
  * details an invoice must carry are missing from Company settings.
  */
@@ -117,15 +123,15 @@ export default class Invoices {
         .preload('paymentTerms')
         .firstOrFail()
 
-      const year = DateTime.now().year
-      const number = await this.takeNumber(trx, year)
-      // Dated after the sequence lock, so a later number never gets an
-      // earlier date than one finalised while this one waited
+      // Dated after the lock, so a later number never gets an earlier date
+      // than one finalised while this one waited, and the year always
+      // matches the date (even at midnight on 31 December)
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
       const today = DateTime.now().startOf('day')
       locked.merge({
         status: 'finalised',
-        year,
-        number,
+        year: today.year,
+        number: await this.takeNumber(trx, today.year),
         issuedOn: today,
         dueOn: customer.paymentTerms.dueDate(today),
         paymentMethod: customer.paymentTerms.paymentMethod,

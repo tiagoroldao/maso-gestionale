@@ -65,7 +65,8 @@ export default class extends BaseSchema {
       table.dropColumn('legal_note')
     })
     // Finalised Invoices can't exist without these columns: delete them,
-    // with the direct-sale Stock Movements they created (referenced by number)
+    // with the direct-sale Stock Movements they created (referenced by the
+    // number as formatInvoiceNumber writes it, "N/YYYY")
     this.defer(async (db) => {
       await db.rawQuery(`DELETE FROM stock_movements WHERE kind = 'sale' AND reference IN (
         SELECT number || '/' || year FROM invoices WHERE status <> 'draft')`)
