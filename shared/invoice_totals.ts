@@ -49,8 +49,10 @@ export function invoiceLineTotal(quantity: string, unitPrice: string, discountPe
 
 /**
  * Splits `amount` (in cents) across `weights` in proportion, so the parts
- * add up exactly: each gets its rounded-down share, and the cents left go
- * to the largest remainders (ties to the first).
+ * add up exactly. Weights may be negative (a deduction line's VAT row):
+ * each part is first rounded toward zero, then the cents left go, in the
+ * direction they're missing, to the parts whose exact share is furthest
+ * that way (ties to the first).
  */
 function splitProportionally(amount: Big, weights: Big[]) {
   const sum = weights.reduce((acc, weight) => acc.plus(weight), new Big(0))
@@ -58,13 +60,14 @@ function splitProportionally(amount: Big, weights: Big[]) {
   const exact = weights.map((weight) => amount.times(weight).div(sum))
   const parts = exact.map((value) => value.round(2, Big.roundDown))
   let left = amount.minus(parts.reduce((acc, part) => acc.plus(part), new Big(0)))
+  const step = new Big(left.lt(0) ? '-0.01' : '0.01')
   const byRemainder = exact
-    .map((value, index) => ({ index, remainder: value.minus(parts[index]) }))
+    .map((value, index) => ({ index, remainder: value.minus(parts[index]).times(step.s) }))
     .sort((a, b) => b.remainder.cmp(a.remainder) || a.index - b.index)
   for (const { index } of byRemainder) {
-    if (left.lte(0)) break
-    parts[index] = parts[index].plus('0.01')
-    left = left.minus('0.01')
+    if (left.eq(0)) break
+    parts[index] = parts[index].plus(step)
+    left = left.minus(step)
   }
   return parts
 }

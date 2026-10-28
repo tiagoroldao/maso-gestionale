@@ -2,11 +2,12 @@ import vine from '@vinejs/vine'
 import type { FieldContext } from '@vinejs/vine/types'
 import { parseAmount } from '#shared/money'
 
-type Options = { decimals: number; max: string; positive?: boolean }
+type Options = { decimals: number; max: string; positive?: boolean; signed?: boolean }
 
 /**
- * A non-negative (or, with `positive`, above zero) decimal amount typed with a comma or a dot ("12,50"),
- * stored as a fixed-decimal string ("12.5000") (ADR 0007).
+ * A decimal amount typed with a comma or a dot ("12,50"), stored as a
+ * fixed-decimal string ("12.5000") (ADR 0007): non-negative, above zero
+ * with `positive`, or of either sign within ±max with `signed`.
  */
 export const amountRule = vine.createRule(
   (value: unknown, options: Options, field: FieldContext) => {
@@ -15,7 +16,10 @@ export const amountRule = vine.createRule(
     const amount = parseAmount(String(value))
     // More decimals than are stored would be rounded without anyone noticing
     const decimals = (String(value).trim().split(/[.,]/)[1] ?? '').replace(/0+$/, '').length
-    if (!amount || amount.lt(0) || amount.gt(options.max) || decimals > options.decimals) {
+    const outOfRange = options.signed
+      ? amount?.abs().gt(options.max)
+      : amount?.lt(0) || amount?.gt(options.max)
+    if (!amount || outOfRange || decimals > options.decimals) {
       field.report('The {{ field }} field must be a valid amount', 'amount', field)
       return
     }

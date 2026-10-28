@@ -456,6 +456,12 @@ const routes = {
     tokens: [[0,"invoices"]],
     types: placeholder as Registry['invoices.store']['types'],
   },
+  'invoices.store_advance': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/advance-invoices',
+    tokens: [[0,"jobs"],[1,"id"],[0,"advance-invoices"]],
+    types: placeholder as Registry['invoices.store_advance']['types'],
+  },
   'invoices.store_from_job': {
     methods: ["POST"],
     pattern: '/jobs/:id/invoices',

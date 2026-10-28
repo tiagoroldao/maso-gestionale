@@ -152,6 +152,22 @@ export default class InvoicesController {
     }
   }
 
+  /**
+   * A draft Advance Invoice for part of a Job, for Office to price.
+   */
+  async storeAdvance({ params, response, session, i18n }: HttpContext) {
+    const job = await Job.findOrFail(params.id)
+    try {
+      const invoice = await Invoices.createAdvance(job)
+      session.flash('success', i18n.t('flash.invoiceCreated'))
+      return response.redirect().toRoute('invoices.edit', { id: invoice.id })
+    } catch (error) {
+      if (!(error instanceof JobNotInvoiceableError)) throw error
+      session.flash('error', i18n.t('flash.jobNotInvoiceable'))
+      return response.redirect().toRoute('jobs.show', { id: job.id })
+    }
+  }
+
   async edit({ params, inertia }: HttpContext) {
     const invoice = await Invoice.query()
       .where('id', params.id)
@@ -181,6 +197,7 @@ export default class InvoicesController {
         dueOn: invoice.dueOn?.toISODate() ?? null,
         customer: { id: invoice.customer.id, displayName: invoice.customer.displayName },
         job: invoice.job ? { id: invoice.job.id, number: invoice.job.number } : null,
+        advance: invoice.advance,
         discountPercent: invoice.discountPercent,
         notes: invoice.notes,
         lines: invoice.lines.map((line) => ({

@@ -12,6 +12,8 @@ import { BANK_TRANSFER } from '#shared/payments'
 export type FatturaInput = {
   /** Unique per file sent; also the file name's suffix */
   progressive: string
+  /** TD01 an invoice, TD02 an Advance Invoice (acconto) */
+  documentType: 'TD01' | 'TD02'
   number: string
   issuedOn: string
   dueOn: string
@@ -294,7 +296,7 @@ export function buildFatturaPA(input: FatturaInput): string {
             [
               'DatiGeneraliDocumento',
               [
-                ['TipoDocumento', 'TD01'],
+                ['TipoDocumento', input.documentType],
                 ['Divisa', 'EUR'],
                 ['Data', input.issuedOn],
                 ['Numero', input.number],
@@ -352,6 +354,7 @@ export function fatturaInputFor(
   }
   return {
     progressive,
+    documentType: invoice.advance ? 'TD02' : 'TD01',
     number: invoice.formattedNumber!,
     issuedOn: invoice.issuedOn!.toISODate()!,
     dueOn: invoice.dueOn!.toISODate()!,

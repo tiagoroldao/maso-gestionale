@@ -98,6 +98,90 @@ export default class Invoices {
   }
 
   /**
+   * A draft Advance Invoice for part of a Job (FatturaPA TD02): one line
+   * for Office to price, on the Job's default VAT for labour.
+   */
+  static async createAdvance(job: Job) {
+    return db.transaction(async (trx) => {
+      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
+      const { labour: code } = await VatDefaults.forJob(locked, trx)
+      const invoice = await Invoice.create(
+        { customerId: locked.customerId, jobId: locked.id, status: 'draft', advance: true },
+        { client: trx }
+      )
+      await InvoiceLine.create(
+        {
+          invoiceId: invoice.id,
+          position: 0,
+          description: `Acconto – ${locked.number} ${locked.title}`,
+          quantity: '1',
+          unitPrice: '0',
+          discountPercent: '0',
+          vatCodeId: code.id,
+          vatRate: code.rate,
+          natura: code.natura,
+          legalNote: code.legalNote,
+          lineTotal: '0.00',
+        },
+        { client: trx }
+      )
+      return invoice
+    })
+  }
+
+  /**
+   * Takes back the Job's issued Advance Invoices on its final Invoice: one
+   * negative line per Advance Invoice and VAT treatment, for its taxable
+   * amount, naming the Advance Invoice. Each is marked as deducted here,
+   * and freed again if this draft is deleted. Runs with the Job locked.
+   */
+  private static async addDeductions(
+    trx: TransactionClientContract,
+    jobId: number,
+    invoice: Invoice,
+    firstPosition: number
+  ) {
+    const advances = await Invoice.query({ client: trx })
+      .where('jobId', jobId)
+      .where('advance', true)
+      .whereNot('status', 'draft')
+      .whereNull('deductedInId')
+      .preload('lines', (lines) => lines.orderBy('position'))
+      .orderBy('id')
+    let position = firstPosition
+    for (const advance of advances) {
+      const label = `Detrazione acconto fattura ${advance.formattedNumber} del ${advance.issuedOn!.toFormat('dd/MM/yyyy')}`
+      for (const row of advance.totals.summary) {
+        // The VAT Code of a line in that row, copied as the advance had it
+        const source = advance.lines.find(
+          (line) => Number(line.vatRate) === Number(row.vatRate) && line.natura === row.natura
+        )!
+        const unitPrice = new Big(row.taxable).neg().toFixed(2)
+        await InvoiceLine.create(
+          {
+            invoiceId: invoice.id,
+            position: position++,
+            description: label,
+            quantity: '1',
+            unitPrice,
+            discountPercent: '0',
+            vatCodeId: source.vatCodeId,
+            vatRate: source.vatRate,
+            natura: source.natura,
+            legalNote: source.legalNote,
+            lineTotal: invoiceLineTotal('1', unitPrice),
+          },
+          { client: trx }
+        )
+      }
+      await Invoice.query({ client: trx })
+        .where('id', advance.id)
+        .update({ deducted_in_id: invoice.id })
+    }
+  }
+
+  /**
    * A draft Invoice for a Time & Materials Job: one line per hours entry
    * and per Item recorded on its Visits, at the prices recorded with the
    * work (the policy noted on #22), so its total before VAT equals the Job
@@ -116,6 +200,7 @@ export default class Invoices {
       const draft = await Invoice.query({ client: trx })
         .where('jobId', locked.id)
         .where('status', 'draft')
+        .where('advance', false)
         .first()
       if (draft) return draft
 
@@ -177,6 +262,7 @@ export default class Invoices {
       const itemIds = work.flatMap(({ line }) => (line ? [line.id] : []))
       await trx.from('visit_hours').whereIn('id', hourIds).update({ invoice_id: invoice.id })
       await trx.from('visit_items').whereIn('id', itemIds).update({ invoice_id: invoice.id })
+      await this.addDeductions(trx, locked.id, invoice, work.length)
       return invoice
     })
   }
@@ -203,7 +289,11 @@ export default class Invoices {
       ) {
         throw new JobNotInvoiceableError()
       }
-      const existing = await Invoice.query({ client: trx }).where('jobId', locked.id).first()
+      // The Quote is invoiced once; Advance Invoices are taken back on it
+      const existing = await Invoice.query({ client: trx })
+        .where('jobId', locked.id)
+        .where('advance', false)
+        .first()
       if (existing) return existing
 
       const texts = quote.lines.filter((line) => line.kind === 'text')
@@ -233,6 +323,7 @@ export default class Invoices {
         })),
         { client: trx }
       )
+      await this.addDeductions(trx, locked.id, invoice, priced.length)
       return invoice
     })
   }

@@ -10,8 +10,10 @@ import { urlFor } from '~/client'
 const confirm = (message: string) => window.confirm(message)
 
 defineProps<{
-  invoices: { id: number; number: string | null; status: string; total: string }[]
+  invoices: { id: number; number: string | null; status: string; total: string; advance: boolean }[]
   canInvoice: boolean
+  canInvoiceAdvance: boolean
+  invoicedSoFar: { amount: string; of: string | null }
   timeAndMaterials: { total: string; billed: string; lines: number }
   job: {
     id: number
@@ -162,15 +164,39 @@ defineProps<{
         </Link>
       </Section>
 
-      <Section v-if="invoices.length || canInvoice" :title="t('ui.invoices.title')">
+      <Section
+        v-if="invoices.length || canInvoice || canInvoiceAdvance"
+        :title="t('ui.invoices.title')"
+      >
+        <p v-if="invoices.length" :style="{ margin: '0 0 8px' }" data-testid="invoiced-so-far">
+          {{
+            invoicedSoFar.of
+              ? t('ui.invoices.invoicedSoFarOf', {
+                  amount: formatMoney(invoicedSoFar.amount),
+                  of: formatMoney(invoicedSoFar.of),
+                })
+              : t('ui.invoices.invoicedSoFar', { amount: formatMoney(invoicedSoFar.amount) })
+          }}
+        </p>
         <ul v-if="invoices.length" :style="{ margin: 0, paddingLeft: '18px' }">
           <li v-for="invoice in invoices" :key="invoice.id">
             <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
               {{ invoice.number ?? t('ui.invoices.statuses.draft') }}
             </Link>
+            <span v-if="invoice.advance"> · {{ t('ui.invoices.advance') }}</span>
             · {{ t(`ui.invoices.statuses.${invoice.status}`) }} · {{ formatMoney(invoice.total) }}
           </li>
         </ul>
+        <Form
+          v-if="canInvoiceAdvance"
+          route="invoices.store_advance"
+          :params="{ id: job.id }"
+          :style="{ marginBottom: '8px' }"
+        >
+          <button type="submit" class="btn btn--ghost btn--sm">
+            {{ t('ui.invoices.newAdvance') }}
+          </button>
+        </Form>
         <Form v-if="canInvoice" route="invoices.store_from_job" :params="{ id: job.id }">
           <button type="submit" class="btn btn--secondary btn--sm">
             {{

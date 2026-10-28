@@ -61,6 +61,7 @@ function input(lines: Line[], extra: Partial<FatturaInput> = {}, discount = '0')
   }))
   return {
     progressive: '0000A',
+    documentType: 'TD01',
     number: '12/2026',
     issuedOn: '2026-10-28',
     dueOn: '2026-11-30',
@@ -116,6 +117,38 @@ test.group('FatturaPA XML', () => {
     assert.deepEqual(tag(xml, 'ModalitaPagamento'), ['MP05'])
     assert.deepEqual(tag(xml, 'IBAN'), ['IT60X0542811101000000123456'])
     assert.deepEqual(tag(xml, 'EsigibilitaIVA'), ['I'])
+  })
+
+  test('an Advance Invoice is TD02', async ({ assert }) => {
+    const xml = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '300', vatRate: '22' }], { documentType: 'TD02' })
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assert.deepEqual(tag(xml, 'TipoDocumento'), ['TD02'])
+  })
+
+  test('the final Invoice takes an advance back with a negative line', async ({ assert }) => {
+    const xml = buildFatturaPA(
+      input(
+        [
+          { quantity: '1', unitPrice: '1000', vatRate: '22' },
+          {
+            description: 'Detrazione acconto fattura 3/2026 del 01/10/2026',
+            quantity: '1',
+            unitPrice: '-300',
+            vatRate: '22',
+          },
+        ],
+        {},
+        '10'
+      )
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assertSummaryAddsUp(xml, assert)
+    // (1000 − 300) less 10% = 630, plus 22% VAT
+    assert.deepEqual(tag(xml, 'ImportoTotaleDocumento'), ['768.60'])
   })
 
   test('10% residential maintenance', async ({ assert }) => {

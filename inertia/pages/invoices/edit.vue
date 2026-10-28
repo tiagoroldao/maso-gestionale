@@ -43,6 +43,7 @@ const props = defineProps<{
     dueOn: string | null
     customer: { id: number; displayName: string }
     job: { id: number; number: string } | null
+    advance: boolean
     discountPercent: string
     notes: string | null
     lines: {
@@ -290,6 +291,10 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
           {{ t('ui.invoices.backToList') }}
         </Link>
       </template>
+
+      <p v-if="invoice.advance" class="field__hint" data-testid="advance">
+        {{ t('ui.invoices.advanceHint') }}
+      </p>
 
       <Section>
         <p>
