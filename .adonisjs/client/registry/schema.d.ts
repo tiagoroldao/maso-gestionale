@@ -609,13 +609,13 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/equipment/:id/remove'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').removeEquipmentValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').removeEquipmentValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'installed_equipment.create': {
@@ -635,13 +635,13 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/sites/:siteId/equipment'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
       paramsTuple: [ParamValue]
       params: { siteId: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'installed_equipment.edit': {
@@ -661,13 +661,13 @@ export interface Registry {
     methods: ["PUT"]
     pattern: '/equipment/:id'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').updateInstalledEquipmentValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').updateInstalledEquipmentValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'my_visits.index': {

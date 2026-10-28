@@ -24,12 +24,6 @@ function toAttributes(data: Infer<typeof installedEquipmentValidator>) {
   }
 }
 
-/**
- * A Visit set the service date while Office was changing it on the edit
- * page: neither silently wins.
- */
-class ServiceDateChangedError extends Error {}
-
 function siteProps(site: Site) {
   return { id: site.id, summary: site.summary }
 }
@@ -144,3 +138,9 @@ export default class InstalledEquipmentController {
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
   }
 }
+
+/**
+ * A Visit set the service date while Office was changing it on the edit
+ * page: neither silently wins.
+ */
+class ServiceDateChangedError extends Error {}
