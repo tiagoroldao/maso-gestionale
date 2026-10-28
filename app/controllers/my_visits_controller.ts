@@ -93,7 +93,8 @@ export default class MyVisitsController {
             })),
           }
         : null,
-      done: CLOSED_VISIT_STATUSES.includes(visit.status),
+      // Closed, or frozen because the Job was cancelled: read-only either way
+      done: CLOSED_VISIT_STATUSES.includes(visit.status) || job.status === 'cancelled',
       currentUserId: auth.getUserOrFail().id,
       team: visit.technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
       // Rate names only: Technicians never see prices
@@ -138,16 +139,24 @@ export default class MyVisitsController {
     await bouncer.authorize('viewVisit', visit)
     const { body } = await request.validateUsing(visitNoteValidator)
 
-    await visit.related('fieldNotes').create({ body, userId: auth.user!.id })
-
-    session.flash('success', i18n.t('flash.visitNoteAdded'))
-    response.redirect().toRoute('my_visits.show', { id: visit.id })
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.assertJobActive(visit)
+      await visit.related('fieldNotes').create({ body, userId: auth.user!.id })
+      session.flash('success', i18n.t('flash.visitNoteAdded'))
+    })
   }
 
   async addPhoto({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
     await bouncer.authorize('viewVisit', visit)
     const { photo } = await request.validateUsing(visitPhotoValidator)
+    try {
+      await FieldWork.assertJobActive(visit)
+    } catch (error) {
+      if (!(error instanceof FieldWorkRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.fieldWorkRefused.${error.reason}`))
+      return response.redirect().toRoute('my_visits.show', { id: visit.id })
+    }
 
     const extname = photo.extname!.toLowerCase()
     const directory = `visits/${visit.id}`

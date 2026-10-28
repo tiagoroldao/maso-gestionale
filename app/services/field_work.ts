@@ -1,6 +1,7 @@
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Item from '#models/item'
+import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import type User from '#models/user'
 import Visit, { type VisitStatus } from '#models/visit'
@@ -13,23 +14,35 @@ import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
- * The Visit is closed (its hours, Items and stock are final), or the
- * request doesn't fit it (a Technician not on the Visit, an install
- * without a Site).
+ * The Visit is closed (its hours, Items and stock are final), its Job was
+ * cancelled, or the request doesn't fit it (a Technician not on the
+ * Visit, an install without a Site).
  */
 export class FieldWorkRefusedError extends Error {
-  constructor(readonly reason: 'done' | 'notOnVisit' | 'noSite') {
+  constructor(readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite') {
     super(reason)
   }
 }
 
 /**
  * What Technicians record on a Visit: hours, Items used (some installed at
- * the Site) and closing it, which takes the Items off stock. Every change
- * locks the Visit, so a colleague closing it at the same moment can't
- * leave lines off stock or reopen it.
+ * the Site), notes and photos, and closing it, which takes the Items off
+ * stock. Every change locks the Visit, so a colleague closing it at the
+ * same moment can't leave lines off stock or reopen it.
+ *
+ * A cancelled Job's Visits are frozen as history: they leave the Agenda
+ * and the Technicians' lists, and accept no further work.
  */
 export default class FieldWork {
+  /**
+   * Notes and photos may still be added to a closed Visit (a follow-up
+   * remark, a forgotten picture), but not once its Job is cancelled.
+   */
+  static async assertJobActive(visit: Visit) {
+    const job = await Job.findOrFail(visit.jobId)
+    if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
+  }
+
   static async recordHours(
     visit: Visit,
     input: { technicianId: number; labourRateId: number; hours: string }
@@ -152,7 +165,7 @@ export default class FieldWork {
 
   /**
    * Runs `work` with the Visit locked and re-read, refusing if it is
-   * already closed.
+   * already closed or its Job is cancelled.
    */
   private static whileOpen<T>(
     visit: Visit,
@@ -164,6 +177,12 @@ export default class FieldWork {
         .forUpdate()
         .firstOrFail()
       if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
+      // Shared lock: cancelling the Job (an update lock) waits for this work
+      const job = await Job.query({ client: trx })
+        .where('id', locked.jobId)
+        .forShare()
+        .firstOrFail()
+      if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
       return work(trx, locked)
     })
   }
