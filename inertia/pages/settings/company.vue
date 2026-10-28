@@ -5,6 +5,7 @@ import { urlFor } from '~/client'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import SettingsLayout from '~/layouts/settings.vue'
+import { LIQUIDATION_STATUSES, SOLE_SHAREHOLDER } from '@shared/company'
 
 type TextField =
   | 'name'
@@ -136,8 +137,9 @@ const logoUrl = props.settings.updatedAt
                 :value="settings.soleShareholder ?? ''"
               >
                 <option value="">{{ t('ui.company.notApplicable') }}</option>
-                <option value="SU">{{ t('ui.company.soleShareholders.SU') }}</option>
-                <option value="SM">{{ t('ui.company.soleShareholders.SM') }}</option>
+                <option v-for="code in SOLE_SHAREHOLDER" :key="code" :value="code">
+                  {{ t(`ui.company.soleShareholders.${code}`) }}
+                </option>
               </select>
             </div>
             <div class="field">
@@ -150,8 +152,9 @@ const logoUrl = props.settings.updatedAt
                 class="field__input"
                 :value="settings.liquidationStatus"
               >
-                <option value="LN">{{ t('ui.company.liquidationStatuses.LN') }}</option>
-                <option value="LS">{{ t('ui.company.liquidationStatuses.LS') }}</option>
+                <option v-for="code in LIQUIDATION_STATUSES" :key="code" :value="code">
+                  {{ t(`ui.company.liquidationStatuses.${code}`) }}
+                </option>
               </select>
             </div>
           </template>

@@ -209,5 +209,27 @@ test.group('FatturaPA XML', () => {
 
   test('text is written in Latin-1, as FatturaPA requires', ({ assert }) => {
     assert.equal(latin1('Città “Nord” – 5€ … ✓'), 'Città "Nord" - 5EUR ... ?')
+    // Control characters would make the XML malformed
+    assert.equal(latin1('a\u0000b\u000bc\td\ne'), 'a b c\td\ne')
+  })
+
+  test('the phone drops the Italian prefix; contacts are left out when empty', async ({
+    assert,
+  }) => {
+    const mobile = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '10', vatRate: '22' }], {
+        company: { ...company, phone: '+39 333 1234567', email: null },
+      })
+    )
+    assert.deepEqual(tag(mobile, 'Telefono'), ['3331234567'])
+    assert.deepEqual(await fatturaSchemaErrors(mobile), [])
+
+    const none = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '10', vatRate: '22' }], {
+        company: { ...company, phone: null, email: null },
+      })
+    )
+    assert.notInclude(none, '<Contatti>')
+    assert.deepEqual(await fatturaSchemaErrors(none), [])
   })
 })

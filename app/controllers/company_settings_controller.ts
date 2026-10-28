@@ -1,5 +1,6 @@
 import { unlink } from 'node:fs/promises'
 import CompanySettings from '#models/company_settings'
+import { DEFAULT_LIQUIDATION_STATUS } from '#shared/company'
 import { storagePath } from '#services/storage'
 import { TAX_REGIMES } from '#fiscal/tax_regimes'
 import { companySettingsValidator } from '#validators/company_settings'
@@ -26,7 +27,7 @@ export default class CompanySettingsController {
         reaNumber: settings.reaNumber ?? null,
         shareCapital: settings.shareCapital ?? null,
         soleShareholder: settings.soleShareholder ?? null,
-        liquidationStatus: settings.liquidationStatus ?? 'LN',
+        liquidationStatus: settings.liquidationStatus ?? DEFAULT_LIQUIDATION_STATUS,
         iban: settings.iban ?? null,
         email: settings.email ?? null,
         phone: settings.phone ?? null,
@@ -48,7 +49,7 @@ export default class CompanySettingsController {
       reaNumber: fields.reaNumber ?? null,
       shareCapital: fields.shareCapital ?? null,
       soleShareholder: fields.soleShareholder ?? null,
-      liquidationStatus: fields.liquidationStatus ?? 'LN',
+      liquidationStatus: fields.liquidationStatus ?? DEFAULT_LIQUIDATION_STATUS,
       iban: fields.iban ?? null,
       email: fields.email ?? null,
       phone: fields.phone ?? null,

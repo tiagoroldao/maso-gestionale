@@ -10,6 +10,7 @@ import Item from '#models/item'
 import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
+import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal } from '#shared/invoice_totals'
 
 /**
@@ -254,8 +255,8 @@ export default class Invoices {
               office: company.reaOffice,
               number: company.reaNumber,
               shareCapital: company.shareCapital,
-              soleShareholder: company.soleShareholder as 'SU' | 'SM' | null,
-              liquidationStatus: company.liquidationStatus as 'LN' | 'LS',
+              soleShareholder: company.soleShareholder as SoleShareholder | null,
+              liquidationStatus: company.liquidationStatus as LiquidationStatus,
             }
           : null,
     }

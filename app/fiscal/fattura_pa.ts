@@ -57,7 +57,12 @@ const REPLACEMENTS: Record<string, string> = {
 
 export function latin1(text: string) {
   return [...text]
-    .map((char) => REPLACEMENTS[char] ?? (char.charCodeAt(0) <= 0xff ? char : '?'))
+    .map((char) => {
+      const code = char.charCodeAt(0)
+      // Control characters other than tab and line breaks aren't allowed in XML
+      if (code < 0x20 && char !== '\t' && char !== '\n' && char !== '\r') return ' '
+      return REPLACEMENTS[char] ?? (code <= 0xff ? char : '?')
+    })
     .join('')
 }
 
@@ -111,7 +116,12 @@ function address(party: {
 }
 
 function seller(company: CompanySnapshot): Node[] {
-  const phone = company.phone?.replace(/[^\d+]/g, '') ?? ''
+  // Telefono is 5 to 12 characters: digits only, without the Italian prefix
+  const phone = company.phone?.replace(/[^\d+]/g, '').replace(/^(\+|00)39/, '') ?? ''
+  const contacts: Node[] = [
+    ['Telefono', phone.length >= 5 && phone.length <= 12 ? phone : null],
+    ['Email', company.email],
+  ]
   const rea = company.rea
   return [
     [
@@ -142,15 +152,7 @@ function seller(company: CompanySnapshot): Node[] {
           ]
         : null,
     ],
-    [
-      'Contatti',
-      phone.length >= 5 || company.email
-        ? [
-            ['Telefono', phone.length >= 5 && phone.length <= 12 ? phone : null],
-            ['Email', company.email],
-          ]
-        : null,
-    ],
+    ['Contatti', contacts.some(([, value]) => value) ? contacts : null],
   ]
 }
 
@@ -256,7 +258,7 @@ export function buildFatturaPA(input: FatturaInput): string {
   })
 
   const causale: Node[] = input.notes
-    ? (text(input.notes, 2000).match(/[\s\S]{1,200}/g) ?? []).map((chunk) => ['Causale', chunk])
+    ? (text(input.notes, 5000).match(/[\s\S]{1,200}/g) ?? []).map((chunk) => ['Causale', chunk])
     : []
 
   const document: Node[] = [
