@@ -720,6 +720,18 @@ const routes = {
     tokens: [[0,"settings"],[0,"vat-codes"],[1,"id"],[0,"archive"]],
     types: placeholder as Registry['vat_codes.archive']['types'],
   },
+  'vat_rules.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/vat-rules',
+    tokens: [[0,"settings"],[0,"vat-rules"]],
+    types: placeholder as Registry['vat_rules.index']['types'],
+  },
+  'vat_rules.update': {
+    methods: ["PUT"],
+    pattern: '/settings/vat-rules',
+    tokens: [[0,"settings"],[0,"vat-rules"]],
+    types: placeholder as Registry['vat_rules.update']['types'],
+  },
   'invoice_numbering.index': {
     methods: ["GET","HEAD"],
     pattern: '/settings/invoice-numbering',
@@ -767,6 +779,18 @@ const routes = {
     pattern: '/instance',
     tokens: [[0,"instance"]],
     types: placeholder as Registry['instance']['types'],
+  },
+  'instance.update': {
+    methods: ["PUT"],
+    pattern: '/instance',
+    tokens: [[0,"instance"]],
+    types: placeholder as Registry['instance.update']['types'],
+  },
+  'instance.admin_password': {
+    methods: ["PUT"],
+    pattern: '/instance/admins/:id/password',
+    tokens: [[0,"instance"],[0,"admins"],[1,"id"],[0,"password"]],
+    types: placeholder as Registry['instance.admin_password']['types'],
   },
 } as const satisfies Record<string, AdonisEndpoint>
 

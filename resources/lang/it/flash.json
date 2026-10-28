@@ -39,6 +39,10 @@
   "labourRateSaved": "Tariffa salvata.",
   "labourRateArchived": "Tariffa «{name}» archiviata.",
   "vatCodeAdded": "Codice IVA aggiunto.",
+  "vatRulesSaved": "Regole IVA salvate.",
+  "instanceSaved": "Impostazioni dell'istanza salvate.",
+  "invoicetronicNotAvailable": "L'invio automatico tramite Invoicetronic non è ancora disponibile: resta la modalità manuale.",
+  "adminPasswordSet": "Nuova password impostata per {email}.",
   "vatCodeSaved": "Codice IVA salvato.",
   "vatCodeArchived": "Codice IVA «{name}» archiviato.",
   "callOutFeeSaved": "Diritto di chiamata salvato.",
@@ -67,6 +71,7 @@
   "invoiceSaved": "Bozza salvata.",
   "invoiceDeleted": "Bozza eliminata.",
   "invoiceNotEditable": "La fattura non è più modificabile.",
+  "invoiceBelowPaid": "Il totale corretto sarebbe inferiore a quanto già incassato ({paid}): elimina prima gli incassi in eccesso.",
   "invoiceFinalised": "Fattura {number} emessa.",
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",

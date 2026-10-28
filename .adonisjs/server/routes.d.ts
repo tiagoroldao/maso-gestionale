@@ -123,6 +123,8 @@ export type ScannedRoutes = {
     'vat_codes.store': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_codes.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'vat_rules.index': { paramsTuple?: []; params?: {} }
+    'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
@@ -131,6 +133,8 @@ export type ScannedRoutes = {
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'instance': { paramsTuple?: []; params?: {} }
+    'instance.update': { paramsTuple?: []; params?: {} }
+    'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
     'setup.create': { paramsTuple?: []; params?: {} }
@@ -184,6 +188,7 @@ export type ScannedRoutes = {
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
+    'vat_rules.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
@@ -240,6 +245,7 @@ export type ScannedRoutes = {
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
+    'vat_rules.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'instance': { paramsTuple?: []; params?: {} }
@@ -318,9 +324,12 @@ export type ScannedRoutes = {
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update_call_out_fee': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'instance.update': { paramsTuple?: []; params?: {} }
+    'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {
     'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

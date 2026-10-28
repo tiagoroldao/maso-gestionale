@@ -18,6 +18,7 @@ import {
 } from '@shared/invoice_lifecycle'
 import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
+import { lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
 
 type Line = {
   key: number
@@ -28,6 +29,7 @@ type Line = {
   unitPrice: string
   discountPercent: string
   vatCodeId: number
+  significantGood: boolean
 }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
@@ -51,11 +53,15 @@ const props = defineProps<{
       unitPrice: string
       discountPercent: string
       vatCodeId: number
+      significantGood: boolean
     }[]
   }
   editable: boolean
   canSubmit: boolean
   vatCodes: VatCodeOption[]
+  // A Job's lines follow the default VAT rules; other lines the Item's code
+  vatDefaults: Record<LineKind, number> | null
+  standardVatCodeId: number
   submissions: {
     id: number
     fileName: string
@@ -90,6 +96,7 @@ function linesFromProps(): Line[] {
     unitPrice: amountForInput(line.unitPrice),
     discountPercent: Number(line.discountPercent) ? trim(line.discountPercent) : '',
     vatCodeId: line.vatCodeId,
+    significantGood: line.significantGood,
   }))
 }
 
@@ -123,8 +130,16 @@ watch(
 )
 
 const codes = computed(() => new Map(props.vatCodes.map((code) => [code.id, code])))
-// New lines start on the standard rate: the highest rate charging VAT
-const standardCode = computed(() => props.vatCodes.find((code) => !code.natura)?.id)
+// The server decides defaults (VatDefaults); Item search sends only active codes
+function defaultCode(item: { significantGood: boolean; vatCodeId?: number | null } | null) {
+  if (props.vatDefaults) return props.vatDefaults[lineKindOf(item)]
+  return item?.vatCodeId ?? props.standardVatCodeId
+}
+
+function splitWarning(line: Line) {
+  const code = codes.value.get(line.vatCodeId)
+  return code ? needsSignificantGoodSplit(code, line.significantGood) : false
+}
 
 /**
  * A line as the totals module reads it, or null while it is incomplete.
@@ -172,8 +187,8 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     unit: item.unit,
     unitPrice: item.resalePrice ? amountForInput(item.resalePrice) : '',
     discountPercent: '',
-    vatCodeId:
-      item.vatCodeId && codes.value.has(item.vatCodeId) ? item.vatCodeId : standardCode.value!,
+    vatCodeId: defaultCode(item),
+    significantGood: item.significantGood,
   })
 }
 
@@ -186,7 +201,8 @@ function addFreeLine() {
     unit: null,
     unitPrice: '',
     discountPercent: '',
-    vatCodeId: standardCode.value!,
+    vatCodeId: defaultCode(null),
+    significantGood: false,
   })
 }
 
@@ -375,6 +391,9 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                 </select>
                 <span v-if="lineError(index, 'vatCodeId')" class="field__error">
                   {{ lineError(index, 'vatCodeId') }}
+                </span>
+                <span v-if="splitWarning(line)" class="field__hint" data-testid="split-warning">
+                  {{ t('ui.invoices.significantGoodSplit') }}
                 </span>
               </td>
               <td :style="{ textAlign: 'right' }">

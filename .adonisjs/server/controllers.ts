@@ -9,6 +9,7 @@ export const controllers = {
   CustomerSites: () => import('#controllers/customer_sites_controller'),
   Customers: () => import('#controllers/customers_controller'),
   InstalledEquipment: () => import('#controllers/installed_equipment_controller'),
+  Instance: () => import('#controllers/instance_controller'),
   InvoiceNumbering: () => import('#controllers/invoice_numbering_controller'),
   Invoices: () => import('#controllers/invoices_controller'),
   ItemDocuments: () => import('#controllers/item_documents_controller'),
@@ -26,6 +27,7 @@ export const controllers = {
   StockMovements: () => import('#controllers/stock_movements_controller'),
   Users: () => import('#controllers/users_controller'),
   VatCodes: () => import('#controllers/vat_codes_controller'),
+  VatRules: () => import('#controllers/vat_rules_controller'),
   VisitPhotos: () => import('#controllers/visit_photos_controller'),
   Visits: () => import('#controllers/visits_controller'),
 }

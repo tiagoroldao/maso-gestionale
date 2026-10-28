@@ -26,8 +26,8 @@ test.group('Quotes in the browser', () => {
     await page.getByRole('button', { name: it('ui.quotes.addLabourButton') }).click()
     await page.getByLabel(it('ui.quotes.quantityOf', { position: 2 })).fill('2,5')
 
-    // 1200 + 2.5 × 40 = 1300
-    await page.getByRole('cell', { name: '1.300,00 €', exact: true }).waitFor()
+    // 1200 + 2.5 × 40 = 1300, reverse charged (company maintenance): no VAT on top
+    await page.getByRole('cell', { name: '1.300,00 €', exact: true }).first().waitFor()
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
     await page.getByRole('button', { name: it('ui.quotes.accept') }).click()
 
@@ -35,6 +35,11 @@ test.group('Quotes in the browser', () => {
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(quote.status, 'accepted')
     assert.equal(quote.taxable, '1300.00')
+    // Both new lines took the default VAT rule for the Job
+    assert.deepEqual(
+      quote.lines.map((line) => line.natura),
+      ['N6.7', 'N6.7']
+    )
   })
 
   test('Accept waits until the edits are saved', async ({ browserContext, visit, assert }) => {

@@ -14,6 +14,8 @@ import Visit from '#models/visit'
 import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
+import VatDefaults from '#services/vat_defaults'
+import { lineKindOf } from '#shared/vat'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
@@ -30,6 +32,16 @@ import {
  * Invoices are edited, only drafts deleted or finalised.
  */
 export class InvoiceNotEditableError extends Error {}
+
+/**
+ * The correction would bring the Invoice's total below what has already
+ * been paid on it.
+ */
+export class InvoiceBelowPaidError extends Error {
+  constructor(readonly paid: string) {
+    super(paid)
+  }
+}
 
 /**
  * Serialises finalising across years, so the issue date and the year's
@@ -89,11 +101,11 @@ export default class Invoices {
    * A draft Invoice for a Time & Materials Job: one line per hours entry
    * and per Item recorded on its Visits, at the prices recorded with the
    * work (the policy noted on #22), so its total before VAT equals the Job
-   * page's running total. Items take their own default VAT Code, labour
-   * the standard rate, until the default rules (#26). Only work not yet
-   * billed, on closed Visits, goes in, and is marked as billed by this
-   * Invoice; deleting the draft frees it again. While a draft is open it
-   * is returned instead of starting another.
+   * page's running total. Each line gets the VAT Code of the default
+   * rules for its kind (labour, material or significant good). Only work
+   * not yet billed, on closed Visits, goes in, and is marked as billed by
+   * this Invoice; deleting the draft frees it again. While a draft is open
+   * it is returned instead of starting another.
    */
   static async fromTimeAndMaterials(job: Job) {
     return db.transaction(async (trx) => {
@@ -129,19 +141,7 @@ export default class Invoices {
       ])
       if (!work.length) throw new JobNotInvoiceableError()
 
-      const standard = await VatCode.query({ client: trx })
-        .whereNull('archived_at')
-        .whereNull('natura')
-        .orderBy('rate', 'desc')
-        .firstOrFail()
-      const itemCodeIds = [
-        ...new Set(work.flatMap(({ line }) => (line ? [line.item.vatCodeId] : []))),
-      ]
-      // An Item's archived code isn't offered: those lines get the standard rate
-      const itemCodes = await VatCode.query({ client: trx })
-        .whereIn('id', itemCodeIds)
-        .whereNull('archived_at')
-      const codes = new Map(itemCodes.map((code) => [code.id, code]))
+      const defaults = await VatDefaults.forJob(locked, trx)
 
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
@@ -150,7 +150,7 @@ export default class Invoices {
       await InvoiceLine.createMany(
         work.map(({ visit, hour, line }, position) => {
           const day = visit.startsAt.toFormat('dd/MM')
-          const code = line ? (codes.get(line.item.vatCodeId) ?? standard) : standard
+          const code = defaults[lineKindOf(line?.item)]
           const quantity = hour ? hour.hours : line!.quantity
           const unitPrice = hour ? hour.unitPrice : line!.unitPrice
           return {
@@ -310,6 +310,13 @@ export default class Invoices {
       if (locked.status !== 'draft') {
         const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
         locked.total = this.totalOf(lines, locked.discountPercent)
+        // Payments are recorded with this Invoice locked: the sum is current
+        const paid = await trx
+          .from('payments')
+          .where('invoice_id', locked.id)
+          .sum('amount as paid')
+          .first()
+        if (new Big(locked.total).lt(paid?.paid ?? 0)) throw new InvoiceBelowPaidError(paid.paid)
         await locked.save()
       }
 

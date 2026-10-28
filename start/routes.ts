@@ -316,6 +316,8 @@ router
         router
           .post('settings/vat-codes/:id/archive', [controllers.VatCodes, 'archive'])
           .where('id', router.matchers.number())
+        router.get('settings/vat-rules', [controllers.VatRules, 'index'])
+        router.put('settings/vat-rules', [controllers.VatRules, 'update'])
         router.get('settings/invoice-numbering', [controllers.InvoiceNumbering, 'index'])
         router.put('settings/invoice-numbering/sdi-prefix', [
           controllers.InvoiceNumbering,
@@ -333,7 +335,12 @@ router
 
     router
       .group(() => {
-        router.on('/instance').renderInertia('instance', {}).as('instance')
+        router.get('/instance', [controllers.Instance, 'show']).as('instance')
+        router.put('/instance', [controllers.Instance, 'update']).as('instance.update')
+        router
+          .put('/instance/admins/:id/password', [controllers.Instance, 'setAdminPassword'])
+          .where('id', router.matchers.number())
+          .as('instance.admin_password')
       })
       .use(middleware.can('accessInstance'))
   })

@@ -12,6 +12,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
+import { formatMoney } from '#shared/money'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
@@ -150,6 +151,57 @@ test.group('Payments', () => {
 
     await invoice.refresh()
     assert.equal(invoice.total, '244.00')
+  })
+
+  test('a correction can not bring the total below what is already paid', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+    await Payments.record(invoice, { amount: '100', paidOn: DateTime.now() })
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
+    const standard = await vatCode()
+
+    // 50 + 22% = 61.00, below the 100.00 paid
+    const response = await client
+      .put(`/invoices/${invoice.id}`)
+      .json({
+        lines: [
+          { description: 'Intervento', quantity: '1', unitPrice: '50', vatCodeId: standard.id },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    response.assertFlashMessage(
+      'error',
+      it('flash.invoiceBelowPaid', { paid: formatMoney('100.00') })
+    )
+    // The literal amount, so a broken formatter can't pass unnoticed
+    assert.include(it('flash.invoiceBelowPaid', { paid: formatMoney('100.00') }), '100,00')
+    await invoice.refresh()
+    assert.equal(invoice.total, '122.00')
+    await invoice.load('lines')
+    assert.equal(invoice.lines[0].unitPrice, '100.0000')
+
+    // Exactly what was paid is fine: 81.97 + 22% = 100.00
+    const saved = await client
+      .put(`/invoices/${invoice.id}`)
+      .json({
+        lines: [
+          { description: 'Intervento', quantity: '1', unitPrice: '81,97', vatCodeId: standard.id },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    saved.assertFlashMessage('success', it('flash.invoiceSaved'))
+    await invoice.refresh()
+    assert.equal(invoice.total, '100.00')
   })
 
   test('Jobs become Invoiced, then Closed; the lists and archiving follow', async ({

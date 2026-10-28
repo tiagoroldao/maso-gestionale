@@ -4,6 +4,7 @@ import Invoice from '#models/invoice'
 import LabourRate from '#models/labour_rate'
 import StockMovement from '#models/stock_movement'
 import Visit from '#models/visit'
+import VatCode from '#models/vat_code'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
@@ -81,14 +82,15 @@ test.group('Invoices from Time & Materials Jobs', () => {
         l.quantity,
         l.unit,
         l.unitPrice,
-        l.vatRate,
+        l.natura,
         l.itemId,
       ]),
+      // Maintenance for a company: the default rules give reverse charge
       [
-        ['Idraulico – Anna (20/10)', '2.500', 'h', '40.0000', '22.00', null],
-        ['Idraulico – Bruno (20/10)', '1.000', 'h', '40.0000', '22.00', null],
-        ['Valvola (20/10)', '3.000', 'pz', '7.5000', '22.00', valve.id],
-        ['Caldaia (20/10)', '1.000', 'pz', '1200.0000', '10.00', boiler.id],
+        ['Idraulico – Anna (20/10)', '2.500', 'h', '40.0000', 'N6.7', null],
+        ['Idraulico – Bruno (20/10)', '1.000', 'h', '40.0000', 'N6.7', null],
+        ['Valvola (20/10)', '3.000', 'pz', '7.5000', 'N6.7', valve.id],
+        ['Caldaia (20/10)', '1.000', 'pz', '1200.0000', 'N6.7', boiler.id],
       ]
     )
 
@@ -227,11 +229,11 @@ test.group('Invoices from Time & Materials Jobs', () => {
     assert.lengthOf(again.lines, 4)
   })
 
-  test("an Item's archived VAT Code gives way to the standard rate", async ({ assert }) => {
+  test("a rule's archived VAT Code gives way to the standard rate", async ({ assert }) => {
     const { job, boiler } = await workedJob()
-    const reduced = await vatCode('10%')
-    reduced.archivedAt = DateTime.now()
-    await reduced.save()
+    const reverseCharge = await VatCode.findByOrFail('natura', 'N6.7')
+    reverseCharge.archivedAt = DateTime.now()
+    await reverseCharge.save()
 
     const invoice = await Invoices.fromJob(job)
     await invoice.load('lines')

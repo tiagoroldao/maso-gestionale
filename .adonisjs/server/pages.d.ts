@@ -37,6 +37,7 @@ declare module '@adonisjs/inertia/types' {
     'settings/payment_terms': ExtractProps<(typeof import('../../inertia/pages/settings/payment_terms.vue'))['default']>
     'settings/rates': ExtractProps<(typeof import('../../inertia/pages/settings/rates.vue'))['default']>
     'settings/vat_codes': ExtractProps<(typeof import('../../inertia/pages/settings/vat_codes.vue'))['default']>
+    'settings/vat_rules': ExtractProps<(typeof import('../../inertia/pages/settings/vat_rules.vue'))['default']>
     'setup': ExtractProps<(typeof import('../../inertia/pages/setup.vue'))['default']>
     'sites/form': ExtractProps<(typeof import('../../inertia/pages/sites/form.vue'))['default']>
     'sites/index': ExtractProps<(typeof import('../../inertia/pages/sites/index.vue'))['default']>

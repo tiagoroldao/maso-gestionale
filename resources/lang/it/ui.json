@@ -70,8 +70,28 @@
   },
   "instance": {
     "title": "Istanza",
-    "heading": "Impostazioni dell'istanza",
-    "text": "Qui si gestiranno la modalità SDI, i backup, l'indirizzo pubblico e gli aggiornamenti. Come Superuser non hai accesso ai dati di lavoro."
+    "text": "Modalità SDI, indirizzo pubblico e recupero degli account Admin. Come Superuser non hai accesso ai dati di lavoro.",
+    "sdiSection": "Invio a SDI",
+    "sdiMode": "Modalità",
+    "sdiModes": {
+      "manual": "Manuale (caricamento del file sul portale SDI)",
+      "invoicetronic": "Automatica tramite Invoicetronic"
+    },
+    "apiKey": "Chiave API Invoicetronic",
+    "secretStored": "Salvata. Lascia vuoto per mantenerla.",
+    "clearApiKey": "Rimuovi la chiave salvata",
+    "pollingMinutes": "Controllo esiti ogni (minuti)",
+    "webhookEnabled": "Webhook attivo (avvia subito un controllo)",
+    "webhookSecret": "Segreto del webhook",
+    "clearWebhookSecret": "Rimuovi il segreto salvato",
+    "publicUrl": "Indirizzo pubblico (https://…)",
+    "save": "Salva impostazioni",
+    "adminsSection": "Recupero account Admin",
+    "adminsDescription": "Imposta una nuova password per un Admin che ha perso la sua.",
+    "newPasswordFor": "Nuova password per {email}",
+    "confirmPasswordFor": "Conferma la password per {email}",
+    "setPassword": "Imposta password",
+    "inactive": "(disattivato)"
   },
   "errors": {
     "forbiddenTitle": "Accesso negato.",
@@ -116,6 +136,7 @@
     "categories": "Categorie",
     "rates": "Tariffe",
     "vatCodes": "Codici IVA",
+    "vatRules": "Regole IVA",
     "invoiceNumbering": "Numerazione fatture"
   },
   "company": {
@@ -500,6 +521,20 @@
     "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
     "callOutFee": "Diritto di chiamata (€)"
   },
+  "vatRules": {
+    "title": "Regole IVA",
+    "description": "Il codice IVA proposto per le nuove righe di preventivi e fatture di una commessa, per tipo di cliente, tipo di lavoro e immobile. Le righe esistenti non cambiano. Da verificare con il commercialista.",
+    "residential": "Abitativo",
+    "notResidential": "Non abitativo",
+    "save": "Salva regole",
+    "archived": "(archiviato)",
+    "codeFor": "{kind}: {customerType}, {workCategory}, {residential}",
+    "lineKinds": {
+      "labour": "Manodopera",
+      "material": "Materiale",
+      "significant_good": "Bene significativo"
+    }
+  },
   "vatCodes": {
     "title": "Codici IVA",
     "description": "Aliquote e nature usate sulle righe delle fatture. Da verificare con il commercialista.",
@@ -663,6 +698,7 @@
     "outcomeNotes": "Note sull'esito",
     "outcomeNotesHint": "Per uno scarto, i codici e la descrizione della notifica di SDI.",
     "recordOutcome": "Registra esito",
+    "significantGoodSplit": "Bene significativo al 10%: la parte del suo valore che supera il resto della prestazione va fatturata al 22%.",
     "file": "File",
     "uploadedOn": "Caricato il",
     "downloadSent": "Scarica il file inviato",

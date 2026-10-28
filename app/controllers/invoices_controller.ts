@@ -7,7 +7,9 @@ import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
+import VatDefaults from '#services/vat_defaults'
 import Invoices, {
+  InvoiceBelowPaidError,
   InvoiceNotEditableError,
   InvoiceNotFinalisableError,
   JobNotInvoiceableError,
@@ -20,6 +22,7 @@ import Submissions, {
   NoticeBeforeSubmissionError,
   SubmissionRefusedError,
 } from '#services/submissions'
+import { formatMoney } from '#shared/money'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
@@ -55,6 +58,18 @@ async function vatCodeOptions(used: number[]) {
     rate: code.rate,
     natura: code.natura,
   }))
+}
+
+/**
+ * The VAT Codes new lines start with: a Job's from the default rules,
+ * otherwise the Item's code or the standard rate (VatDefaults).
+ */
+async function vatDefaultProps(job: Job | null) {
+  const standard = await VatDefaults.standard()
+  return {
+    vatDefaults: job ? await VatDefaults.idsForJob(job) : null,
+    standardVatCodeId: standard.id,
+  }
 }
 
 /**
@@ -142,7 +157,7 @@ export default class InvoicesController {
       .where('id', params.id)
       .preload('customer')
       .preload('job')
-      .preload('lines', (lines) => lines.orderBy('position'))
+      .preload('lines', (lines) => lines.orderBy('position').preload('item'))
       .preload('submissions', (submissions) => submissions.orderBy('preparedAt'))
       .preload('payments', (payments) => payments.orderBy('paidOn'))
       .firstOrFail()
@@ -176,6 +191,7 @@ export default class InvoicesController {
           unitPrice: line.unitPrice,
           discountPercent: line.discountPercent,
           vatCodeId: line.vatCodeId,
+          significantGood: line.item?.significantGood ?? false,
         })),
       },
       // Not while a prepared Submission's file may already be on SDI
@@ -221,6 +237,7 @@ export default class InvoicesController {
             }
           : null,
       vatCodes: await vatCodeOptions(invoice.lines.map((line) => line.vatCodeId)),
+      ...(await vatDefaultProps(invoice.job)),
     })
   }
 
@@ -245,6 +262,8 @@ export default class InvoicesController {
         session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
       } else if (error instanceof InvoiceNotEditableError) {
         session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      } else if (error instanceof InvoiceBelowPaidError) {
+        session.flash('error', i18n.t('flash.invoiceBelowPaid', { paid: formatMoney(error.paid) }))
       } else {
         throw error
       }

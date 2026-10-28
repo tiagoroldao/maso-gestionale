@@ -1554,6 +1554,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['archive']>>>
     }
   }
+  'vat_rules.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/vat-rules'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['index']>>>
+    }
+  }
+  'vat_rules.update': {
+    methods: ["PUT"]
+    pattern: '/settings/vat-rules'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/vat_rule').vatRulesValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/vat_rule').vatRulesValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'invoice_numbering.index': {
     methods: ["GET","HEAD"]
     pattern: '/settings/invoice-numbering'
@@ -1653,9 +1679,35 @@ export interface Registry {
       paramsTuple: []
       params: {}
       query: {}
-      response: unknown
-      errorResponse: unknown
-      rawResponse: ExtractRawResponse<unknown>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['show']>>>
+    }
+  }
+  'instance.update': {
+    methods: ["PUT"]
+    pattern: '/instance'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/instance_settings').instanceSettingsValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/instance_settings').instanceSettingsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'instance.admin_password': {
+    methods: ["PUT"]
+    pattern: '/instance/admins/:id/password'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/instance_settings').adminPasswordValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/instance_settings').adminPasswordValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['setAdminPassword']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['setAdminPassword']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['setAdminPassword']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
 }

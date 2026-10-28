@@ -224,6 +224,7 @@ export default class ItemsController {
 
     const query = Item.query()
       .withScopes((scopes) => scopes.active())
+      .preload('vatCode')
       .orderBy(['code', 'id'])
       .limit(PICKER_LIMIT)
     if (q) query.withScopes((scopes) => scopes.search(q))
@@ -236,10 +237,12 @@ export default class ItemsController {
         description: item.description,
         unit: item.unit,
         maintenanceIntervalMonths: item.maintenanceIntervalMonths,
+        significantGood: item.significantGood,
         ...(withPrices && {
           purchasePrice: item.purchasePrice,
           resalePrice: item.resalePrice,
-          vatCodeId: item.vatCodeId,
+          // An archived code is no longer a default for new lines
+          vatCodeId: item.vatCode.archivedAt ? null : item.vatCodeId,
         }),
       })),
     }
