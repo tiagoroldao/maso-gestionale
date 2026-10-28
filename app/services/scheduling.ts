@@ -31,6 +31,19 @@ export default class Scheduling {
   }
 
   /**
+   * Whether the Job has any work Visit, past or to come. For a Quoted Job,
+   * Visits that ended before its Quote was accepted were surveys.
+   */
+  private static async hasWorkVisits(trx: TransactionClientContract, job: Job) {
+    const query = trx.from('visits').where('job_id', job.id)
+    if (job.kind === 'quoted') {
+      const quote = await trx.from('quotes').where('job_id', job.id).first()
+      if (quote?.decided_at) query.where('ends_at', '>', quote.decided_at)
+    }
+    return Boolean(await query.first())
+  }
+
+  /**
    * Whether the Job has upcoming or ongoing work: a Visit in progress, or a
    * planned one not yet over. A past survey doesn't count.
    */
@@ -69,8 +82,8 @@ export default class Scheduling {
 
   /**
    * Deletes a Visit planned by mistake. One with recorded work is refused.
-   * If no upcoming or ongoing work is left, an In Progress Job goes back
-   * to ready for work (accepted, or open).
+   * If the Job has no other work Visit (done or to come), an In Progress
+   * Job goes back to ready for work (accepted, or open).
    */
   static async destroy(visit: Visit) {
     await db.transaction(async (trx) => {
@@ -85,9 +98,10 @@ export default class Scheduling {
 
       const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
       job.useTransaction(trx)
-      // Without other upcoming or ongoing work (a finished survey doesn't
-      // count), the Job is back to waiting for its first work Visit
-      if (job.status === 'in_progress' && !(await this.hasPendingWork(trx, job.id))) {
+      // With no other work Visit left (for a Quoted Job, a survey finished
+      // before the Quote was accepted doesn't count), the Job is back to
+      // waiting for its first work Visit
+      if (job.status === 'in_progress' && !(await this.hasWorkVisits(trx, job))) {
         job.status = job.kind === 'quoted' ? 'accepted' : 'open'
         await job.save()
       }

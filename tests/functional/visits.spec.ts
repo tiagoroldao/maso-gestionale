@@ -486,6 +486,11 @@ test.group('Editing and deleting Visits', () => {
     const anna = await createUser('technician')
     const { office, visit, job } = await planned(client, [anna.id], 'quoted')
     // A survey done before the Quote was accepted
+    await Quote.create({
+      jobId: job.id,
+      status: 'accepted',
+      decidedAt: DateTime.now().minus({ days: 5 }),
+    })
     const past = DateTime.now().minus({ days: 10 })
     await Visit.create({
       jobId: job.id,
@@ -498,6 +503,26 @@ test.group('Editing and deleting Visits', () => {
 
     await job.refresh()
     assert.equal(job.status, 'accepted')
+  })
+
+  test('deleting a follow-up keeps a Job with done work in progress', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    const past = DateTime.now().minus({ days: 2 })
+    await Visit.create({
+      jobId: job.id,
+      startsAt: past,
+      endsAt: past.plus({ hours: 2 }),
+      status: 'done',
+    })
+
+    await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
   })
 
   test('a Time & Materials Job goes back to open', async ({ client, assert }) => {
