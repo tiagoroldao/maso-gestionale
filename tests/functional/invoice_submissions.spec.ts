@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import InvoiceSubmission from '#models/invoice_submission'
 import StockMovement from '#models/stock_movement'
 import CompanySettings from '#models/company_settings'
+import Customer from '#models/customer'
 import Invoices from '#services/invoices'
 import Submissions from '#services/submissions'
 import { FakeSdiGateway, ManualSdiGateway } from '#services/sdi_gateway'
@@ -160,6 +161,87 @@ test.group('SDI Submissions', (group) => {
     assert.equal(invoice.status, 'submitted')
   })
 
+  test('correcting a Rejection takes the current Customer data, keeping number and date', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await finalised()
+    const issuedOn = invoice.issuedOn?.toISODate()
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, 'rejected', '00305 IdFiscaleIVA non valido')
+
+    // Office fixes the Customer's VAT number, then saves the Invoice again
+    const customer = await Customer.findOrFail(invoice.customerId)
+    customer.vatNumber = '01987654322'
+    await customer.save()
+    const standard = await vatCode()
+    await client
+      .put(`/invoices/${invoice.id}`)
+      .json({
+        lines: [
+          { description: 'Intervento', quantity: '1', unitPrice: '100', vatCodeId: standard.id },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await invoice.refresh()
+    assert.equal(invoice.customerSnapshot?.vatNumber, '01987654322')
+    assert.equal(invoice.number, 1)
+    assert.equal(invoice.issuedOn?.toISODate(), issuedOn)
+    const submission = await Submissions.prepare(invoice)
+    const xml = await Submissions.xml(invoice, submission, 'Sconto')
+    assert.include(xml, '<IdCodice>01987654322</IdCodice>')
+  })
+
+  test('a prepared Submission freezes the Invoice; an empty one is never sent', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await finalised()
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, 'rejected', null)
+    await Submissions.prepare(invoice)
+
+    const standard = await vatCode()
+    const frozen = await client
+      .put(`/invoices/${invoice.id}`)
+      .json({
+        lines: [{ description: 'Altro', quantity: '1', unitPrice: '1', vatCodeId: standard.id }],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    frozen.assertFlashMessage('error', it('flash.invoiceNotEditable'))
+
+    // A double-clicked confirm is harmless
+    for (let i = 0; i < 2; i++) {
+      const confirm = await client
+        .post(`/invoices/${invoice.id}/submissions/confirm`)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      confirm.assertFlashMessage('success', it('flash.submissionConfirmed'))
+    }
+
+    // Rejected again, emptied: it can't be prepared
+    await Submissions.recordOutcome(invoice, 'rejected', null)
+    await client.put(`/invoices/${invoice.id}`).json({ lines: [] }).withCsrfToken().loginAs(office)
+    const empty = await client
+      .post(`/invoices/${invoice.id}/submissions`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    empty.assertFlashMessage('error', it('flash.submissionRefused'))
+    assert.lengthOf(await InvoiceSubmission.query().where('invoiceId', invoice.id), 2)
+  })
+
   test('each step only applies at its stage', async ({ client, assert }) => {
     const office = await createUser('office')
     await completeCompany()
@@ -214,11 +296,16 @@ test.group('SDI Submissions', (group) => {
     const page = await client.get(`/invoices/${draft.id}/edit`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ unsubmittedCount: 1 })
 
+    // A rejected Invoice also waits to go back to SDI
+    await Submissions.recordOutcome(sent, 'rejected', null)
+    const again = await client.get(`/invoices/${draft.id}/edit`).withInertia().loginAs(office)
+    again.assertInertiaPropsContains({ unsubmittedCount: 2 })
+
     for (const [stage, ids] of [
       ['draft', [draft.id]],
       ['finalised', [waiting.id]],
-      ['submitted', [sent.id]],
-      ['rejected', []],
+      ['submitted', []],
+      ['rejected', [sent.id]],
     ] as const) {
       const list = await client.get('/invoices').qs({ stage }).withInertia().loginAs(office)
       const listed = (list.inertiaProps.invoices as { id: number }[]).map((i) => i.id)

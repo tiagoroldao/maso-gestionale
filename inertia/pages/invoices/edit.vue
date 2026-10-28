@@ -10,6 +10,12 @@ import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { urlFor } from '~/client'
 import { formatMoney, t } from '~/i18n'
 import { formatDate } from '@shared/dates'
+import {
+  SUBMISSION_OUTCOMES,
+  canTransition,
+  isDeletable,
+  type InvoiceStatus,
+} from '@shared/invoice_lifecycle'
 import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
 
@@ -29,7 +35,7 @@ type VatCodeOption = { id: number; name: string; rate: string; natura: string | 
 const props = defineProps<{
   invoice: {
     id: number
-    status: string
+    status: InvoiceStatus
     number: string | null
     issuedOn: string | null
     dueOn: string | null
@@ -218,7 +224,6 @@ const confirmFinalise = () =>
       : t('ui.invoices.finaliseConfirm')
   )
 const confirmUpload = () => window.confirm(t('ui.invoices.confirmUploadConfirm'))
-const OUTCOMES = ['delivered', 'not_deliverable', 'rejected']
 const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '')
 </script>
 
@@ -501,7 +506,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
           <div class="field">
             <label class="field__label" for="outcome">{{ t('ui.invoices.outcome') }}</label>
             <select id="outcome" name="outcome" class="field__input" :style="{ maxWidth: '260px' }">
-              <option v-for="code in OUTCOMES" :key="code" :value="code">
+              <option v-for="code in SUBMISSION_OUTCOMES" :key="code" :value="code">
                 {{ t(`ui.invoices.outcomes.${code}`) }}
               </option>
             </select>
@@ -563,7 +568,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
           </button>
           <span v-if="dirty" class="field__hint">{{ t('ui.invoices.unsaved') }}</span>
           <Form
-            v-if="invoice.status === 'draft'"
+            v-if="canTransition(invoice.status, 'finalise')"
             route="invoices.finalise"
             :params="{ id: invoice.id }"
             :on-before="confirmFinalise"
@@ -573,7 +578,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             </button>
           </Form>
           <Form
-            v-if="invoice.status === 'draft'"
+            v-if="isDeletable(invoice.status)"
             route="invoices.destroy"
             :params="{ id: invoice.id }"
             :on-before="confirmDelete"

@@ -19,7 +19,7 @@ import {
   isEditable,
   transition,
   type InvoiceStatus,
-} from '#services/invoice_lifecycle'
+} from '#shared/invoice_lifecycle'
 
 /**
  * The Invoice's status doesn't allow the change: only drafts and rejected
@@ -58,8 +58,8 @@ export type InvoiceLineInput = {
 }
 
 /**
- * Draft Invoices: creating, editing and deleting them. Every change locks
- * the Invoice and refuses anything but a draft.
+ * Invoices: drafting, correcting after a Rejection, finalising and
+ * deleting. Every change locks the Invoice and checks its lifecycle.
  */
 export default class Invoices {
   static create(customer: Customer) {
@@ -78,7 +78,24 @@ export default class Invoices {
     user: User | null = null
   ) {
     await this.whileIn(isEditable, invoice, async (trx, locked) => {
+      // A prepared Submission's file may already be on SDI: no changes under it
+      const open = await trx
+        .from('invoice_submissions')
+        .where('invoice_id', locked.id)
+        .whereNull('outcome')
+        .first()
+      if (open) throw new InvoiceNotEditableError()
+
       const soldBefore = locked.status === 'rejected' ? await this.itemsSold(trx, locked.id) : null
+      if (locked.status === 'rejected') {
+        // Rejections are often about the parties' data (a VAT number, the
+        // recipient code): the correction takes the current Customer and
+        // company, and keeps the number, dates and payment terms
+        const issuer = this.companySnapshot(await CompanySettings.current())
+        if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
+        const customer = await Customer.findOrFail(locked.customerId, { client: trx })
+        locked.merge({ customerSnapshot: this.customerSnapshot(customer), companySnapshot: issuer })
+      }
       locked.merge({ discountPercent: input.discountPercent ?? '0', notes: input.notes ?? null })
       await locked.save()
 

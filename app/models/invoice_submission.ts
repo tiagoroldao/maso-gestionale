@@ -3,8 +3,9 @@ import type { BelongsTo } from '@adonisjs/lucid/types/relations'
 import { InvoiceSubmissionSchema } from '#database/schema'
 import Invoice from '#models/invoice'
 
-export const SUBMISSION_OUTCOMES = ['delivered', 'not_deliverable', 'rejected'] as const
-export type SubmissionOutcome = (typeof SUBMISSION_OUTCOMES)[number]
+import type { SubmissionOutcome } from '#shared/invoice_lifecycle'
+
+export { SUBMISSION_OUTCOMES, type SubmissionOutcome } from '#shared/invoice_lifecycle'
 
 /**
  * One sending of a finalised Invoice to SDI: prepared (its file name and

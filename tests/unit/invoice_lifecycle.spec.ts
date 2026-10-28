@@ -7,7 +7,7 @@ import {
   isEditable,
   transition,
   type InvoiceEvent,
-} from '#services/invoice_lifecycle'
+} from '#shared/invoice_lifecycle'
 
 test.group('Invoice lifecycle', () => {
   test('allows exactly the valid transitions', ({ assert }) => {

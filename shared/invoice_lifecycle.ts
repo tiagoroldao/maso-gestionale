@@ -55,3 +55,11 @@ export const isDeletable = (status: InvoiceStatus) => status === 'draft'
 
 /** SDI allows five days from a Rejection to submit the corrected Invoice */
 export const RESUBMISSION_DAYS = 5
+
+/** What SDI answers to a Submission */
+export const SUBMISSION_OUTCOMES = ['delivered', 'not_deliverable', 'rejected'] as const
+export type SubmissionOutcome = (typeof SUBMISSION_OUTCOMES)[number]
+
+/** The stages the Invoice list filters by */
+export const INVOICE_STAGES = ['all', 'draft', 'finalised', 'submitted', 'rejected'] as const
+export type InvoiceStage = (typeof INVOICE_STAGES)[number]

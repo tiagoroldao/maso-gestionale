@@ -1,5 +1,5 @@
 import vine from '@vinejs/vine'
-import { SUBMISSION_OUTCOMES } from '#models/invoice_submission'
+import { INVOICE_STAGES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
@@ -66,7 +66,7 @@ export const invoiceNumberingValidator = vine.create({
 })
 
 export const invoiceStageValidator = vine.create({
-  stage: vine.enum(['all', 'draft', 'finalised', 'submitted', 'rejected'] as const).optional(),
+  stage: vine.enum(INVOICE_STAGES).optional(),
 })
 
 export const submissionOutcomeValidator = vine.create({

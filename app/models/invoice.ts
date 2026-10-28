@@ -6,11 +6,11 @@ import InvoiceLine from '#models/invoice_line'
 import { invoiceTotals } from '#shared/invoice_totals'
 import { formatInvoiceNumber } from '#shared/invoice_numbers'
 import type { PaymentMethod } from '#shared/payments'
-import type { InvoiceStatus } from '#services/invoice_lifecycle'
+import type { InvoiceStatus } from '#shared/invoice_lifecycle'
 import InvoiceSubmission from '#models/invoice_submission'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 
-export { INVOICE_STATUSES, type InvoiceStatus } from '#services/invoice_lifecycle'
+export { INVOICE_STATUSES, type InvoiceStatus } from '#shared/invoice_lifecycle'
 
 /**
  * The Customer as invoiced, copied when the Invoice is finalised.

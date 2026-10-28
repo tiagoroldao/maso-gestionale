@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
 import { urlFor } from '~/client'
+import { INVOICE_STAGES } from '@shared/invoice_lifecycle'
 import { Plus } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
@@ -22,7 +23,6 @@ const props = defineProps<{
   }[]
 }>()
 
-const STAGES = ['all', 'draft', 'finalised', 'submitted', 'rejected']
 const stage = ref(props.stage)
 
 function filter() {
@@ -45,7 +45,7 @@ function filter() {
       <div class="field" :style="{ maxWidth: '280px' }">
         <label class="field__label" for="stage">{{ t('ui.invoices.stage') }}</label>
         <select id="stage" v-model="stage" class="field__input" @change="filter">
-          <option v-for="code in STAGES" :key="code" :value="code">
+          <option v-for="code in INVOICE_STAGES" :key="code" :value="code">
             {{ t(`ui.invoices.stages.${code}`) }}
           </option>
         </select>

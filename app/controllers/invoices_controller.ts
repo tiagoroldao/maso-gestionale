@@ -8,7 +8,7 @@ import { PdfConversionError } from '#documents/pdf_converter'
 import { invoiceDocument } from '#documents/invoice_document'
 import InvoiceSubmission from '#models/invoice_submission'
 import Submissions, { SubmissionRefusedError } from '#services/submissions'
-import { canTransition, isEditable, RESUBMISSION_DAYS } from '#services/invoice_lifecycle'
+import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
   invoiceStageValidator,
@@ -45,8 +45,8 @@ async function vatCodeOptions(used: number[]) {
 }
 
 /**
- * Draft Invoices without a Job, such as direct sales. Finalising,
- * numbering and SDI come with #19–#21.
+ * Invoices without a Job (such as direct sales): drafting, finalising,
+ * PDF and XML, and their Submissions to SDI.
  */
 export default class InvoicesController {
   /**
@@ -96,9 +96,9 @@ export default class InvoicesController {
     const lastRejection = invoice.submissions.findLast(
       (submission) => submission.outcome === 'rejected'
     )
-    // Other Finalised Invoices still waiting to go to SDI, to warn before finalising
+    // Other Invoices still waiting to go (or go back) to SDI, to warn before finalising
     const unsubmitted = await Invoice.query()
-      .where('status', 'finalised')
+      .whereIn('status', ['finalised', 'rejected'])
       .whereNot('id', invoice.id)
       .count('* as total')
       .first()
@@ -123,7 +123,8 @@ export default class InvoicesController {
           vatCodeId: line.vatCodeId,
         })),
       },
-      editable: isEditable(invoice.status),
+      // Not while a prepared Submission's file may already be on SDI
+      editable: isEditable(invoice.status) && !open,
       canSubmit: canTransition(invoice.status, 'submit'),
       submissions: invoice.submissions.map((submission) => ({
         id: submission.id,
@@ -164,8 +165,13 @@ export default class InvoicesController {
         auth.getUserOrFail()
       )
     } catch (error) {
-      if (!(error instanceof InvoiceNotEditableError)) throw error
-      session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      if (error instanceof InvoiceNotFinalisableError) {
+        session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
+      } else if (error instanceof InvoiceNotEditableError) {
+        session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      } else {
+        throw error
+      }
       return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     }
 

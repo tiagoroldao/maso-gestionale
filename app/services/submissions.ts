@@ -6,7 +6,7 @@ import Invoice from '#models/invoice'
 import InvoiceSubmission, { type SubmissionOutcome } from '#models/invoice_submission'
 import type User from '#models/user'
 import { buildFatturaPA, fatturaFileName, fatturaInputFor } from '#fiscal/fattura_pa'
-import { canTransition, transition, type InvoiceEvent } from '#services/invoice_lifecycle'
+import { canTransition, transition, type InvoiceEvent } from '#shared/invoice_lifecycle'
 import { ManualSdiGateway, type SdiGateway } from '#services/sdi_gateway'
 
 /**
@@ -40,6 +40,9 @@ export default class Submissions {
       const open = await this.open(trx, locked.id)
       if (open) return open
       if (!canTransition(locked.status, 'submit')) throw new SubmissionRefusedError()
+      // A corrected Invoice may have lost its lines: nothing to send
+      const line = await trx.from('invoice_lines').where('invoice_id', locked.id).first()
+      if (!line) throw new SubmissionRefusedError()
 
       const settings = await CompanySettings.current()
       const progressive = await this.nextProgressive(trx, settings.sdiFilePrefix ?? 'M')
@@ -73,9 +76,9 @@ export default class Submissions {
   static async confirm(invoice: Invoice, discountLabel: string, user: User | null = null) {
     await this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
-      if (!open || open.submittedAt || !canTransition(locked.status, 'submit')) {
-        throw new SubmissionRefusedError()
-      }
+      // Already confirmed (a double click): nothing more to do
+      if (open?.submittedAt) return
+      if (!open || !canTransition(locked.status, 'submit')) throw new SubmissionRefusedError()
       await this.gateway.submit({
         fileName: open.fileName,
         xml: await this.xml(locked, open, discountLabel),
