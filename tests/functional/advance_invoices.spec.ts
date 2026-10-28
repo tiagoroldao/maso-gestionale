@@ -133,6 +133,8 @@ test.group('Advance Invoices', () => {
           quantity: line.quantity,
           unitPrice: line.unitPrice,
           vatCodeId: line.vatCodeId,
+          // As the page sends it back
+          ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
         })),
       })
       .withCsrfToken()
@@ -194,6 +196,168 @@ test.group('Advance Invoices', () => {
     await visitWith('1')
     const second = await Invoices.fromJob(job)
     assert.deepEqual(await pricesOf(second), ['40.0000'])
+  })
+
+  test("the final Invoice's discount is on the work, never on the advance", async ({ assert }) => {
+    await completeCompany()
+    const job = await acceptedJob()
+    await issuedAdvance(job, '300')
+    const final = await Invoices.fromJob(job)
+    await final.load('lines')
+
+    await Invoices.save(final, {
+      discountPercent: '10',
+      lines: final.lines.map((line) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        vatCodeId: line.vatCodeId,
+        ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
+      })),
+    })
+    await final.refresh()
+    await final.load('lines')
+    // 1000 less 10% = 900, less the 300 already billed
+    assert.equal(final.totals.taxable, '600.00')
+  })
+
+  test('the final Invoice must take each advance back in full, and stay positive', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const job = await acceptedJob()
+    await issuedAdvance(job, '300')
+    const final = await Invoices.fromJob(job)
+    await final.load('lines')
+    const [work] = final.lines
+
+    // Office removed the deduction line
+    await Invoices.save(final, {
+      lines: [
+        {
+          description: work.description,
+          quantity: '1',
+          unitPrice: '1000',
+          vatCodeId: work.vatCodeId,
+        },
+      ],
+    })
+    const removed = await client
+      .post(`/invoices/${final.id}/finalise`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    removed.assertFlashMessage('error', it('flash.invoiceNotFinalisable.deductionsChanged'))
+
+    // The work brought below the advance: the total would be negative
+    await Invoices.destroy(final)
+    const again = await Invoices.fromJob(job)
+    await again.load('lines')
+    await Invoices.save(again, {
+      lines: again.lines.map((line, index) => ({
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: index === 0 ? '100' : line.unitPrice,
+        vatCodeId: line.vatCodeId,
+        ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
+      })),
+    })
+    const negative = await client
+      .post(`/invoices/${again.id}/finalise`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    negative.assertFlashMessage('error', it('flash.invoiceNotFinalisable.negativeTotal'))
+    await again.refresh()
+    assert.equal(again.status, 'draft')
+  })
+
+  test("no advance once the Quote's Invoice exists, nor issued past its draft", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const job = await acceptedJob()
+    // Drafted before the Quote's Invoice, issued after it was drafted
+    const late = await Invoices.createAdvance(job)
+    await late.load('lines')
+    await Invoices.save(late, {
+      lines: [
+        {
+          description: 'Acconto',
+          quantity: '1',
+          unitPrice: '100',
+          vatCodeId: late.lines[0].vatCodeId,
+        },
+      ],
+    })
+    await Invoices.fromJob(job)
+
+    const refused = await client
+      .post(`/invoices/${late.id}/finalise`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refused.assertFlashMessage('error', it('flash.invoiceNotFinalisable.jobInvoiced'))
+    await late.refresh()
+    assert.equal(late.status, 'draft')
+
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoiceAdvance: false })
+    const another = await client
+      .post(`/jobs/${job.id}/advance-invoices`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    another.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
+  })
+
+  test('Time & Materials: advances wait for the draft that bills the last of the work', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    const anna = await createUser('technician')
+    const job = await createJob(await createCustomer(), {
+      kind: 'time_and_materials',
+      status: 'in_progress',
+      workCategory: 'sale',
+    })
+    const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' })
+    const start = DateTime.now().minus({ days: 1 })
+    const done = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await done.related('technicians').attach([anna.id])
+    await FieldWork.recordHours(done, { technicianId: anna.id, labourRateId: rate.id, hours: '5' })
+    await FieldWork.setStatus(done, 'done', anna)
+    const followUp = await Visit.create({
+      jobId: job.id,
+      startsAt: start.plus({ days: 3 }),
+      endsAt: start.plus({ days: 3, hours: 2 }),
+      status: 'planned',
+    })
+    await issuedAdvance(job, '50')
+
+    // A follow-up is still planned: this draft isn't the last
+    const partial = await Invoices.fromJob(job)
+    assert.deepEqual(await pricesOf(partial), ['40.0000'])
+    await Invoices.finalise(partial)
+
+    await followUp.related('technicians').attach([anna.id])
+    await FieldWork.recordHours(followUp, {
+      technicianId: anna.id,
+      labourRateId: rate.id,
+      hours: '2',
+    })
+    await FieldWork.setStatus(followUp, 'done', anna)
+    const last = await Invoices.fromJob(job)
+    assert.deepEqual(await pricesOf(last), ['40.0000', '-50.0000'])
   })
 
   test('only deduction lines may be negative; an Item line may not', async ({ client, assert }) => {

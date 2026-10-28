@@ -209,6 +209,7 @@ export default class InvoicesController {
           discountPercent: line.discountPercent,
           vatCodeId: line.vatCodeId,
           significantGood: line.item?.significantGood ?? false,
+          deductsInvoiceId: line.deductsInvoiceId,
         })),
       },
       // Not while a prepared Submission's file may already be on SDI

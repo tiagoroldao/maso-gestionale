@@ -16,6 +16,15 @@ export default class extends BaseSchema {
     })
     this.schema.raw(`ALTER TABLE invoices ADD CONSTRAINT invoices_advance_check
       CHECK ((NOT advance OR job_id IS NOT NULL) AND (deducted_in_id IS NULL OR advance))`)
+    this.schema.alterTable('invoice_lines', (table) => {
+      // The Advance Invoice this line takes back, if it's a deduction
+      table
+        .integer('deducts_invoice_id')
+        .nullable()
+        .references('id')
+        .inTable('invoices')
+        .onDelete('RESTRICT')
+    })
     // A deduction line takes back an advance: a negative price, never an Item
     this.schema.raw('ALTER TABLE invoice_lines DROP CONSTRAINT invoice_lines_unit_price_check')
     this.schema.raw(`ALTER TABLE invoice_lines ADD CONSTRAINT invoice_lines_unit_price_check
@@ -23,6 +32,9 @@ export default class extends BaseSchema {
   }
 
   async down() {
+    this.schema.alterTable('invoice_lines', (table) => {
+      table.dropColumn('deducts_invoice_id')
+    })
     this.schema.raw('ALTER TABLE invoice_lines DROP CONSTRAINT invoice_lines_unit_price_check')
     this.schema.raw(
       'ALTER TABLE invoice_lines ADD CONSTRAINT invoice_lines_unit_price_check CHECK (unit_price >= 0)'

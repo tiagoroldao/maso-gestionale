@@ -168,7 +168,9 @@ export default class JobsController {
                   visit.items.filter((line) => line.invoiceId === null).length,
               }))
             )),
-      canInvoiceAdvance: job.status !== 'cancelled',
+      // On a Quoted Job, only before the Quote's Invoice, which takes them back
+      canInvoiceAdvance:
+        job.status !== 'cancelled' && (job.kind !== 'quoted' || ownInvoices.length === 0),
       // Taxable amounts: what issued Invoices billed (deductions net out the
       // advances) against the accepted Quote or the work recorded
       invoicedSoFar: {

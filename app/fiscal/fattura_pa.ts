@@ -222,7 +222,8 @@ export function buildFatturaPA(input: FatturaInput): string {
   ])
 
   const discounts: Node[] = totals.summary
-    .filter((row) => new Big(row.discount).gt(0))
+    // A negative row (an advance taken back) has a negative share
+    .filter((row) => !new Big(row.discount).eq(0))
     .map((row, index) => [
       'DettaglioLinee',
       [

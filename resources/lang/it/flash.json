@@ -76,6 +76,9 @@
   "invoiceFinalised": "Fattura {number} emessa.",
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",
+    "negativeTotal": "Il totale della fattura sarebbe negativo: gli acconti detratti superano quanto fatturato.",
+    "deductionsChanged": "Le righe di detrazione non corrispondono più agli acconti da detrarre: elimina la bozza e creala di nuovo dalla commessa.",
+    "jobInvoiced": "La commessa ha già la sua fattura (o una bozza in attesa) che non detrarrebbe questo acconto.",
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
   },
   "numberingSaved": "Numerazione {year} salvata.",
