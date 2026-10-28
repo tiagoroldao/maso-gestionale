@@ -47,8 +47,14 @@ export const editVisitValidator = vine.withMetaData<{ technicianIds: number[] }>
         table: 'users',
         column: 'id',
         filter: (db, _, field) => {
-          db.where('role', 'technician').where((q) =>
-            q.where('is_active', true).orWhereIn('id', field.meta.technicianIds)
+          // Anyone already on the Visit may stay (deactivated, or no longer
+          // a Technician); new members must be active Technicians
+          db.where((q) =>
+            q
+              .where((technician) =>
+                technician.where('role', 'technician').where('is_active', true)
+              )
+              .orWhereIn('id', field.meta.technicianIds)
           )
         },
       })
@@ -69,11 +75,13 @@ export const moveVisitValidator = vine.create({
     .exists({
       table: 'users',
       column: 'id',
-      // A new Technician must be active; dragging within a deactivated
-      // Technician's own lane only changes the time
+      // A new Technician must be active; dragging within the own lane of
+      // someone deactivated or no longer a Technician only changes the time
       filter: (db, _, field) => {
-        db.where('role', 'technician').where((q) =>
-          q.where('is_active', true).orWhere('id', field.parent.fromTechnicianId ?? 0)
+        db.where((q) =>
+          q
+            .where((technician) => technician.where('role', 'technician').where('is_active', true))
+            .orWhere('id', field.parent.fromTechnicianId ?? 0)
         )
       },
     })

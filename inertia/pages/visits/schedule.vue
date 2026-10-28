@@ -25,6 +25,12 @@ const props = defineProps<{
   days: string[]
   technicians: { id: number; name: string; active: boolean }[]
   visits: CalendarVisit[]
+  unassigned: {
+    id: number
+    startsAt: string
+    endsAt: string
+    job: { number: string; customer: string }
+  }[]
 }>()
 
 const SLOT_MINUTES = 30
@@ -242,6 +248,20 @@ const weekday = (iso: string) =>
           <ChevronRight :size="16" />
         </button>
       </div>
+
+      <section v-if="unassigned.length" data-testid="unassigned" :style="{ marginBottom: '12px' }">
+        <strong>{{ t('ui.visits.unassigned') }}</strong>
+        <ul>
+          <li v-for="visit in unassigned" :key="visit.id">
+            <Link route="visits.edit" :params="{ id: visit.id }" class="il">
+              {{ formatDate(visit.startsAt.slice(0, 10)) }} {{ time(visit.startsAt) }}–{{
+                time(visit.endsAt)
+              }}
+              · {{ visit.job.number }} · {{ visit.job.customer }}
+            </Link>
+          </li>
+        </ul>
+      </section>
 
       <p v-if="technicians.length === 0" class="field__hint">{{ t('ui.visits.noTechnicians') }}</p>
 

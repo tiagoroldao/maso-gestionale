@@ -721,7 +721,8 @@
     "deleteConfirm": "Eliminare questo intervento?",
     "deleteHint": "Solo per interventi pianificati per errore: non è possibile se ha ore, materiali, foto o note.",
     "closedHint": "L'intervento è chiuso e non si può più modificare.",
-    "inactive": "(disattivato)"
+    "inactive": "(disattivato)",
+    "unassigned": "Senza tecnici"
   },
   "field": {
     "title": "I miei interventi",
