@@ -139,7 +139,9 @@
       "stage": "fase",
       "removedOn": "data di rimozione",
       "replacedById": "apparecchio sostitutivo",
-      "archived": "archiviati"
+      "archived": "archiviati",
+      "equipmentId": "apparecchio",
+      "equipmentIds": "apparecchi"
     }
   }
 }

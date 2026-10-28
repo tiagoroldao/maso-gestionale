@@ -215,6 +215,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addItem']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'my_visits.set_serviced': {
+    methods: ["POST"]
+    pattern: '/my-visits/:id/serviced'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').servicedEquipmentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').servicedEquipmentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'my_visits.remove_item': {
     methods: ["DELETE"]
     pattern: '/visit-items/:itemId'
