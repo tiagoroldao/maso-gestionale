@@ -25,10 +25,13 @@ const props = defineProps<{
     phone: string | null
     notes: string | null
     paymentTerms: string
+    archived: boolean
   }
   sites: { id: number; summary: string }[]
   jobs: JobRow[]
 }>()
+
+const confirm = (message: string) => window.confirm(message)
 
 function linkSite(site: PickedSite) {
   router.post(urlFor('customer_sites.store', { customerId: props.customer.id }), {
@@ -48,7 +51,18 @@ function linkSite(site: PickedSite) {
         >
           <Pencil :size="15" /> {{ t('ui.common.edit') }}
         </Link>
+        <Form
+          :route="customer.archived ? 'customers.restore' : 'customers.archive'"
+          :params="{ id: customer.id }"
+          :on-before="() => customer.archived || confirm(t('ui.archive.confirm'))"
+        >
+          <button type="submit" class="btn btn--ghost btn--sm">
+            {{ customer.archived ? t('ui.archive.restore') : t('ui.archive.archive') }}
+          </button>
+        </Form>
       </template>
+
+      <p v-if="customer.archived" class="tag">{{ t('ui.archive.archivedTag') }}</p>
 
       <Section :title="t('ui.customers.details')">
         <dl class="details">

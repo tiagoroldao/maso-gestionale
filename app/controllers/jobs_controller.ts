@@ -1,6 +1,7 @@
 import Job from '#models/job'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
+import { ArchivedRecordError } from '#services/archiving'
 import Customer from '#models/customer'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
@@ -72,16 +73,23 @@ export default class JobsController {
   }
 
   async store({ request, response, session, i18n }: HttpContext) {
-    const data = await request.validateUsing(jobValidator)
+    const data = await request.validateUsing(jobValidator, { meta: {} })
 
-    const job = await Jobs.create({
-      customerId: data.customerId,
-      siteId: data.siteId,
-      kind: data.kind,
-      workCategory: data.workCategory,
-      title: data.title,
-      description: data.description,
-    })
+    let job
+    try {
+      job = await Jobs.create({
+        customerId: data.customerId,
+        siteId: data.siteId,
+        kind: data.kind,
+        workCategory: data.workCategory,
+        title: data.title,
+        description: data.description,
+      })
+    } catch (error) {
+      if (!(error instanceof ArchivedRecordError)) throw error
+      session.flash('error', i18n.t('flash.archivedRecord'))
+      return response.redirect().back()
+    }
 
     session.flash('success', i18n.t('flash.jobCreated', { number: job.number }))
     response.redirect().toRoute('jobs.show', { id: job.id })
@@ -178,15 +186,19 @@ export default class JobsController {
       session.flash('error', i18n.t('flash.jobNotEditable'))
       return response.redirect().toRoute('jobs.show', { id: current.id })
     }
-    const data = await request.validateUsing(jobValidator)
+    const data = await request.validateUsing(jobValidator, {
+      meta: { customerId: current.customerId, siteId: current.siteId ?? undefined },
+    })
     try {
-      const job = await Jobs.update(params.id, data)
-      session.flash('success', i18n.t('flash.jobSaved', { number: job.number }))
+      const updated = await Jobs.update(params.id, data)
+      session.flash('success', i18n.t('flash.jobSaved', { number: updated.number }))
     } catch (error) {
       if (error instanceof JobNotEditableError) {
         session.flash('error', i18n.t('flash.jobNotEditable'))
       } else if (error instanceof JobInvoicedError) {
         session.flash('error', i18n.t('flash.jobCustomerInvoiced'))
+      } else if (error instanceof ArchivedRecordError) {
+        session.flash('error', i18n.t('flash.archivedRecord'))
       } else {
         throw error
       }

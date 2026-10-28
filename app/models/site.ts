@@ -11,6 +11,12 @@ import { likePattern } from '#services/search'
  * independent of who owns or pays for it.
  */
 export default class Site extends SiteSchema {
+  /**
+   * Not archived: shown in lists and pickers.
+   */
+  static active = scope((query) => {
+    query.whereNull('archived_at')
+  })
   @manyToMany(() => Customer, { pivotTable: 'customer_site' })
   declare customers: ManyToMany<typeof Customer>
 

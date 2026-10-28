@@ -192,6 +192,18 @@ const routes = {
     tokens: [[0,"customers"],[1,"id"],[0,"edit"]],
     types: placeholder as Registry['customers.edit']['types'],
   },
+  'customers.archive': {
+    methods: ["POST"],
+    pattern: '/customers/:id/archive',
+    tokens: [[0,"customers"],[1,"id"],[0,"archive"]],
+    types: placeholder as Registry['customers.archive']['types'],
+  },
+  'customers.restore': {
+    methods: ["POST"],
+    pattern: '/customers/:id/restore',
+    tokens: [[0,"customers"],[1,"id"],[0,"restore"]],
+    types: placeholder as Registry['customers.restore']['types'],
+  },
   'customers.update': {
     methods: ["PUT"],
     pattern: '/customers/:id',
@@ -251,6 +263,24 @@ const routes = {
     pattern: '/sites/:id',
     tokens: [[0,"sites"],[1,"id"]],
     types: placeholder as Registry['sites.update']['types'],
+  },
+  'sites.archive': {
+    methods: ["POST"],
+    pattern: '/sites/:id/archive',
+    tokens: [[0,"sites"],[1,"id"],[0,"archive"]],
+    types: placeholder as Registry['sites.archive']['types'],
+  },
+  'sites.restore': {
+    methods: ["POST"],
+    pattern: '/sites/:id/restore',
+    tokens: [[0,"sites"],[1,"id"],[0,"restore"]],
+    types: placeholder as Registry['sites.restore']['types'],
+  },
+  'installed_equipment.remove': {
+    methods: ["POST"],
+    pattern: '/equipment/:id/remove',
+    tokens: [[0,"equipment"],[1,"id"],[0,"remove"]],
+    types: placeholder as Registry['installed_equipment.remove']['types'],
   },
   'installed_equipment.create': {
     methods: ["GET","HEAD"],

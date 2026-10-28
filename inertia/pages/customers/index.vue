@@ -12,6 +12,7 @@ import { t } from '~/i18n'
 
 const props = defineProps<{
   q: string
+  archived: boolean
   customers: {
     id: number
     displayName: string
@@ -27,10 +28,14 @@ const props = defineProps<{
 const search = ref(props.q)
 
 function submitSearch() {
-  router.get(urlFor('customers.index'), search.value ? { q: search.value } : {}, {
-    preserveState: true,
-    replace: true,
-  })
+  router.get(
+    urlFor('customers.index'),
+    { ...(search.value && { q: search.value }), ...(props.archived && { archived: 'true' }) },
+    {
+      preserveState: true,
+      replace: true,
+    }
+  )
 }
 </script>
 
@@ -38,6 +43,13 @@ function submitSearch() {
   <AppLayout>
     <Page :title="t('ui.customers.title')">
       <template #actions>
+        <Link
+          route="customers.index"
+          :qs="archived ? {} : { archived: 'true' }"
+          class="btn btn--ghost btn--sm"
+        >
+          {{ archived ? t('ui.archive.hideArchived') : t('ui.archive.showArchived') }}
+        </Link>
         <Link route="customers.create" class="btn btn--primary btn--sm">
           <Plus :size="15" /> {{ t('ui.customers.new') }}
         </Link>

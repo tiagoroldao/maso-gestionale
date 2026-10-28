@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Job, { type JobKind } from '#models/job'
 import { nextJobSequence } from '#services/job_numbers'
+import Archiving from '#services/archiving'
 import type { WorkCategory } from '#shared/jobs'
 
 /**
@@ -36,6 +37,7 @@ export default class Jobs {
    */
   static create(input: NewJob) {
     return db.transaction(async (trx) => {
+      await Archiving.lockActive(trx, input)
       const year = DateTime.now().year
       return Job.create(
         {
@@ -65,6 +67,13 @@ export default class Jobs {
       if (locked.status === 'cancelled') throw new JobNotEditableError()
       if (input.customerId !== locked.customerId && (await this.hasInvoices(trx, locked.id))) {
         throw new JobInvoicedError()
+      }
+      // A newly picked Customer or Site must not be archived (locked, as on create)
+      if (input.customerId !== locked.customerId || (input.siteId ?? null) !== locked.siteId) {
+        await Archiving.lockActive(trx, {
+          customerId: input.customerId,
+          siteId: (input.siteId ?? null) !== locked.siteId ? input.siteId : null,
+        })
       }
       locked.merge({
         customerId: input.customerId,

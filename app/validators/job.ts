@@ -2,9 +2,24 @@ import vine from '@vinejs/vine'
 import { JOB_KINDS, JOB_STATUSES } from '#models/job'
 import { WORK_CATEGORIES } from '#shared/jobs'
 
-export const jobValidator = vine.create({
-  customerId: vine.number().exists({ table: 'customers', column: 'id' }),
-  siteId: vine.number().exists({ table: 'sites', column: 'id' }).optional(),
+/**
+ * Archived Customers and Sites can't be picked, but a Job keeps its own.
+ */
+const notArchived = (
+  table: string,
+  current: (meta: { customerId?: number; siteId?: number }) => number | undefined
+) =>
+  vine.number().exists({
+    table,
+    column: 'id',
+    filter: (db, _, field) => {
+      db.where((q) => q.whereNull('archived_at').orWhere('id', current(field.meta) ?? 0))
+    },
+  })
+
+export const jobValidator = vine.withMetaData<{ customerId?: number; siteId?: number }>().create({
+  customerId: notArchived('customers', (meta) => meta.customerId),
+  siteId: notArchived('sites', (meta) => meta.siteId).optional(),
   kind: vine.enum(JOB_KINDS),
   workCategory: vine.enum(WORK_CATEGORIES),
   title: vine.string().trim().minLength(1).maxLength(255),

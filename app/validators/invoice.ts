@@ -9,7 +9,13 @@ const LINE_QUANTITY_MAX = '99999'
 const LINE_PRICE_MAX = '9999999'
 
 export const newInvoiceValidator = vine.create({
-  customerId: vine.number().exists({ table: 'customers', column: 'id' }),
+  customerId: vine.number().exists({
+    table: 'customers',
+    column: 'id',
+    filter: (db) => {
+      db.whereNull('archived_at')
+    },
+  }),
 })
 
 /**
