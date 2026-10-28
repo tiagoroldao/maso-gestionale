@@ -23,10 +23,11 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key             |
 | #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                             |
 | #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                             |
-| #111  | Can done work on a cancelled Time & Materials Job still be invoiced?                      | The business (`needs-human`)                                  |
-| #117  | Add Charges from the accepted Quote                                                       | —                                                             |
+| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                                  |
+| #117  | Import Quote lines as Charges (ADR 0012)                                                  | —                                                             |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
+| #130  | Drop the Job kind (ADR 0012)                                                              | #117                                                          |
 | #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
 
 ## Added to existing issues
@@ -37,7 +38,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#24); billing done work on a cancelled Time & Materials Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#24); billing done work on a cancelled Job (#111, needs the business).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues

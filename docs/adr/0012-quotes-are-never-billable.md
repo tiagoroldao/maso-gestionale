@@ -1,0 +1,15 @@
+# Quotes are never billable, and a Job has no kind
+
+A Quote stays attached to its Job: the Job is the enquiry, the Quote is priced on it and accepted or declined there, and survey Visits sit on the same Job. Nothing on a Quote is ever billable. What a Job bills is only its Charges, the record of what was actually done (ADR 0010), whether or not the Job has a Quote. A Quote's lines can be imported by hand, all of them or a selection, onto the Job or one of its Visits, where they become ordinary Charges: an Item line becomes an Item used (taken off stock with its Visit, like any other), a labour line becomes hours at its Labour Rate for whoever Office names, the call-out becomes a Job Charge, and text lines are skipped. Importing is a convenience that saves re-entering what was agreed, not a separate kind of record, so imported and recorded work are never billed twice. An imported line starts at the Quote's price, since a Charge is priced when recorded; Office can change it like any other. The Quote is not binding: a difference between the quoted and the billed amount is the business's matter (work underestimated, or a bill that grew), and the app shows the Quote total next to what has been invoiced only for comparison. With every Job billed the same way, the Quoted / Time & Materials kind no longer decides anything and is dropped: a Job may or may not have a Quote. Decided by the business on 2026-10-28.
+
+## Considered Options
+
+- **Quote lines as billable Charges next to the Visits' own** (the first shape of #117): the agreed prices are billed directly, but the Technicians' recorded hours and Items describe the same work, so one of the two has to be made not billable on every Quoted Job, by hand or by a default that is easy to get wrong.
+- **A Quote standalone, becoming a Job when accepted:** Job numbers only for real work and no cancelled Jobs for declined Quotes, but survey Visits would need a home of their own, and the enquiry, survey and Quote would no longer sit in one place.
+- **Keep the Job kind:** an up-front choice Office can regret, which now only decides whether the Quote screens show.
+
+## Consequences
+
+- The "Invoice from the Quote" draft is retired (#117); every Job invoices from its Charges, and Advance Invoices work the same on every Job (ADR 0011).
+- Imported labour needs a worker, as any hours do; imported Items on a Visit move stock when it closes, while on the Job itself they don't (as for other Job Charges).
+- Job statuses that only make sense with a Quote (quoted, accepted) apply when the Job has one; without one a Job goes from open to in progress.
