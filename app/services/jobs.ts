@@ -26,7 +26,7 @@ export type NewJob = {
 }
 
 /**
- * Opening and cancelling Jobs. A Quote's decline cancels through
+ * Opening, editing and cancelling Jobs. A Quote's decline cancels through
  * `Quotes`, which holds its own lock on the Job.
  */
 export default class Jobs {

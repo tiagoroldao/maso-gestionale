@@ -202,6 +202,7 @@ function save() {
       lines: lines.map((line) => ({
         ...(line.itemId && { itemId: line.itemId }),
         description: line.description,
+        ...(line.unit && { unit: line.unit }),
         quantity: line.quantity,
         unitPrice: line.unitPrice,
         ...(line.discountPercent && { discountPercent: line.discountPercent }),

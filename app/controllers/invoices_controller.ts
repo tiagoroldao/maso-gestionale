@@ -3,7 +3,11 @@ import Job from '#models/job'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
-import Invoices, { InvoiceNotEditableError, InvoiceNotFinalisableError } from '#services/invoices'
+import Invoices, {
+  InvoiceNotEditableError,
+  InvoiceNotFinalisableError,
+  JobNotInvoiceableError,
+} from '#services/invoices'
 import DocumentRenderer from '#documents/document_renderer'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { invoiceDocument } from '#documents/invoice_document'
@@ -97,8 +101,8 @@ export default class InvoicesController {
       session.flash('success', i18n.t('flash.invoiceCreated'))
       return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     } catch (error) {
-      if (!(error instanceof InvoiceNotFinalisableError)) throw error
-      session.flash('error', i18n.t('flash.invoiceNotFinalisable.noAcceptedQuote'))
+      if (!(error instanceof JobNotInvoiceableError)) throw error
+      session.flash('error', i18n.t('flash.jobNotInvoiceable'))
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
   }

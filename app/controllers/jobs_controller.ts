@@ -119,7 +119,12 @@ export default class JobsController {
         status: invoice.status,
         total: invoice.totals.total,
       })),
-      canInvoiceFromQuote: job.kind === 'quoted' && quote?.status === 'accepted',
+      // Once per Quote, and never for a cancelled Job
+      canInvoiceFromQuote:
+        job.kind === 'quoted' &&
+        quote?.status === 'accepted' &&
+        job.status !== 'cancelled' &&
+        invoices.length === 0,
       timeAndMaterials: { total: sumAmounts(amounts), lines: amounts.length },
       job: {
         ...jobRow(job),

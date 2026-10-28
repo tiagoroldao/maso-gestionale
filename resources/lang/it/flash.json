@@ -68,8 +68,7 @@
   "invoiceFinalised": "Fattura {number} emessa.",
   "invoiceNotFinalisable": {
     "empty": "La fattura non ha righe.",
-    "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture.",
-    "noAcceptedQuote": "La commessa non ha un preventivo accettato da fatturare."
+    "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
   },
   "numberingSaved": "Numerazione {year} salvata.",
   "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura.",
@@ -86,5 +85,6 @@
   "submissionRefused": "Questa operazione non è possibile nello stato attuale della fattura.",
   "sdiPrefixSaved": "Lettera dei file SDI salvata.",
   "jobInvoiced": "La commessa ha fatture: non si può annullare.",
-  "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare."
+  "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
+  "jobNotInvoiceable": "La commessa non ha un preventivo accettato da fatturare, oppure è annullata."
 }

@@ -40,10 +40,16 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * details an invoice must carry are missing from Company settings.
  */
 export class InvoiceNotFinalisableError extends Error {
-  constructor(readonly reason: 'empty' | 'companyIncomplete' | 'noAcceptedQuote') {
+  constructor(readonly reason: 'empty' | 'companyIncomplete') {
     super(reason)
   }
 }
+
+/**
+ * The Job can't be invoiced from its Quote: it isn't a Quoted Job with an
+ * accepted Quote, or it was cancelled.
+ */
+export class JobNotInvoiceableError extends Error {}
 
 /**
  * The year's first Invoice is finalised, so its numbering is fixed.
@@ -52,6 +58,7 @@ export class NumberingLockedError extends Error {}
 
 export type InvoiceLineInput = {
   itemId?: number
+  unit?: string
   description: string
   quantity: string
   unitPrice: string
@@ -72,8 +79,9 @@ export default class Invoices {
    * A draft Invoice for a Quoted Job, mirroring its accepted Quote: the
    * same prices and the VAT treatment the Customer accepted (copied from
    * the Quote's lines, not re-read from today's VAT Codes). Text lines and
-   * the Quote's notes become the Invoice's notes. If the Job already has a
-   * draft, that one is returned instead of a second.
+   * the Quote's notes become the Invoice's notes. The Quote is invoiced
+   * once: if the Job already has an Invoice, whatever its stage, that one
+   * is returned instead of a second.
    */
   static async fromQuote(job: Job) {
     return db.transaction(async (trx) => {
@@ -82,13 +90,14 @@ export default class Invoices {
         .where('jobId', locked.id)
         .preload('lines', (lines) => lines.orderBy('position'))
         .first()
-      if (locked.kind !== 'quoted' || quote?.status !== 'accepted') {
-        throw new InvoiceNotFinalisableError('noAcceptedQuote')
+      if (
+        locked.kind !== 'quoted' ||
+        quote?.status !== 'accepted' ||
+        locked.status === 'cancelled'
+      ) {
+        throw new JobNotInvoiceableError()
       }
-      const existing = await Invoice.query({ client: trx })
-        .where('jobId', locked.id)
-        .where('status', 'draft')
-        .first()
+      const existing = await Invoice.query({ client: trx }).where('jobId', locked.id).first()
       if (existing) return existing
 
       const texts = quote.lines.filter((line) => line.kind === 'text')
@@ -177,7 +186,8 @@ export default class Invoices {
             itemId: line.itemId ?? null,
             description: line.description,
             quantity: line.quantity,
-            unit: line.itemId ? (units.get(line.itemId) ?? null) : null,
+            // An Item's own unit; otherwise what the line carried (e.g. "h")
+            unit: line.itemId ? (units.get(line.itemId) ?? null) : (line.unit ?? null),
             unitPrice: line.unitPrice,
             discountPercent,
             vatCodeId: code.id,
