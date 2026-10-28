@@ -1099,6 +1099,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['importLines']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'quotes.send': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/quote/send'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['send']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['send']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['send']>>>
+    }
+  }
   'quotes.accept': {
     methods: ["POST"]
     pattern: '/jobs/:id/quote/accept'

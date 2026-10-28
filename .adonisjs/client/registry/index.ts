@@ -510,6 +510,12 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"quote"],[0,"import"]],
     types: placeholder as Registry['quotes.import_lines']['types'],
   },
+  'quotes.send': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/quote/send',
+    tokens: [[0,"jobs"],[1,"id"],[0,"quote"],[0,"send"]],
+    types: placeholder as Registry['quotes.send']['types'],
+  },
   'quotes.accept': {
     methods: ["POST"],
     pattern: '/jobs/:id/quote/accept',

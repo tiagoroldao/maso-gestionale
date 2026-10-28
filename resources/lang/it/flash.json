@@ -57,6 +57,7 @@
   },
   "quoteSaved": "Preventivo salvato.",
   "quoteNotEditable": "Il preventivo non è più modificabile.",
+  "quoteSent": "Preventivo segnato come inviato: non è più modificabile.",
   "quoteAccepted": "Preventivo accettato: la commessa è accettata.",
   "quoteDeclined": "Preventivo rifiutato: la commessa è annullata.",
   "visitPlanned": "Intervento pianificato.",

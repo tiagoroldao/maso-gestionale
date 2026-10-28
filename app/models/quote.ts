@@ -5,9 +5,11 @@ import Job from '#models/job'
 import QuoteLine from '#models/quote_line'
 import { sumAmounts } from '#shared/money'
 import { invoiceTotals } from '#shared/invoice_totals'
+import type { CustomerSnapshot } from '#models/invoice'
+import type { CompanyDetails } from '#documents/document_renderer'
+import type { QuoteStatus } from '#shared/quotes'
 
-export const QUOTE_STATUSES = ['draft', 'accepted', 'declined'] as const
-export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
+export { QUOTE_STATUSES, type QuoteStatus } from '#shared/quotes'
 
 /**
  * A priced proposal for a Job that the Customer accepts or declines.
@@ -15,6 +17,9 @@ export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
  */
 export default class Quote extends QuoteSchema {
   declare status: QuoteStatus
+  // What the Customer received, copied when it was sent (null on drafts)
+  declare customerSnapshot: CustomerSnapshot | null
+  declare companySnapshot: CompanyDetails | null
 
   @belongsTo(() => Job)
   declare job: BelongsTo<typeof Job>

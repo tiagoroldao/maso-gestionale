@@ -3,6 +3,8 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Big from 'big.js'
 import Charge from '#models/charge'
+import CompanySettings from '#models/company_settings'
+import Customer from '#models/customer'
 import ChargeEvent from '#models/charge_event'
 import Item from '#models/item'
 import Job from '#models/job'
@@ -12,6 +14,7 @@ import User from '#models/user'
 import VatCode from '#models/vat_code'
 import Visit from '#models/visit'
 import Scheduling from '#services/scheduling'
+import { companyDetailsFrom } from '#documents/document_renderer'
 import { lineTotal } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
@@ -50,19 +53,36 @@ export type QuoteLineInput = {
 }
 
 /**
- * The rules around a Job's Quote: when it can be edited, and how
- * accepting or declining it moves the Job.
+ * The rules around a Job's Quote: when it can be edited, sent and
+ * decided, and how accepting or declining it moves the Job.
  */
 export default class Quotes {
   /**
    * Whether the Job's Quote can still be written: any Job that is open or
-   * quoted, whose Quote (if it has one yet) hasn't been decided. A Quote
-   * is started only on an open Job (ADR 0012).
+   * quoted, whose Quote (if it has one yet) is still a draft. Once sent
+   * it is frozen: a change means a new Quote (ADR 0013). A Quote is
+   * started only on an open Job (ADR 0012).
    */
   static isEditable(job: Job, quote: Quote | null) {
     return (
       (job.status === 'open' || job.status === 'quoted') && (!quote || quote.status === 'draft')
     )
+  }
+
+  /**
+   * Whether the Quote can be marked as sent: a draft with priced lines
+   * (its Job is quoted).
+   */
+  static isSendable(job: Job, quote: Quote | null) {
+    return quote?.status === 'draft' && job.status === 'quoted'
+  }
+
+  /**
+   * Whether the Customer's answer can be recorded: a sent Quote, or a
+   * draft with priced lines, decided on the spot (which sends it).
+   */
+  static isDecidable(job: Job, quote: Quote | null) {
+    return (quote?.status === 'draft' || quote?.status === 'sent') && job.status === 'quoted'
   }
 
   /**
@@ -86,7 +106,8 @@ export default class Quotes {
       saved.useTransaction(trx)
       saved.notes = input.notes ?? null
       saved.validityDays = input.validityDays ?? null
-      // Dated by its last save while a draft; decisions leave the date alone
+      // Dated by its last save while a draft; sending and deciding leave
+      // the date alone
       saved.issuedOn = DateTime.now().startOf('day')
       await saved.save()
 
@@ -109,6 +130,21 @@ export default class Quotes {
     })
   }
 
+  /**
+   * Marks the draft as sent to the Customer: from now on it is frozen,
+   * dated as last saved. The Job stays quoted.
+   */
+  static async send(job: Job) {
+    await db.transaction(async (trx) => {
+      const quote = await this.lockForDecision(trx, job)
+      if (!quote || !this.isSendable(job, quote)) throw new QuoteNotEditableError()
+      quote.useTransaction(trx)
+      quote.status = 'sent'
+      await this.copyAsSent(trx, job, quote, DateTime.now())
+      await quote.save()
+    })
+  }
+
   static async accept(job: Job) {
     await this.decide(job, 'accepted', 'accepted')
   }
@@ -123,21 +159,14 @@ export default class Quotes {
     jobStatus: 'accepted' | 'cancelled'
   ) {
     await db.transaction(async (trx) => {
-      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      job.merge({ status: locked.status })
-      job.useTransaction(trx)
-      const quote = await Quote.query({ client: trx })
-        .where('jobId', job.id)
-        .preload('lines')
-        .forUpdate()
-        .first()
-      if (!quote || job.status !== 'quoted' || quote.status !== 'draft') {
-        throw new QuoteNotEditableError()
-      }
+      const quote = await this.lockForDecision(trx, job)
+      if (!quote || !this.isDecidable(job, quote)) throw new QuoteNotEditableError()
 
       quote.useTransaction(trx)
       quote.status = quoteStatus
       quote.decidedAt = DateTime.now()
+      // A draft decided on the spot was sent there and then
+      if (!quote.sentAt) await this.copyAsSent(trx, job, quote, quote.decidedAt)
       await quote.save()
 
       job.status = jobStatus
@@ -150,6 +179,36 @@ export default class Quotes {
       }
       await job.save()
     })
+  }
+
+  /**
+   * Dates the Quote as sent and copies what the Customer received: their
+   * details, the company's and the subject (the Job's title), so the PDF
+   * stays as it went out. The logo stays live, as on Invoices.
+   */
+  private static async copyAsSent(
+    trx: TransactionClientContract,
+    job: Job,
+    quote: Quote,
+    at: DateTime
+  ) {
+    const customer = await Customer.findOrFail(job.customerId, { client: trx })
+    const settings = await CompanySettings.current()
+    quote.sentAt = at
+    quote.subject = job.title
+    quote.customerSnapshot = customer.toSnapshot()
+    quote.companySnapshot = companyDetailsFrom(settings)
+  }
+
+  /**
+   * Locks the Job, then its Quote, and refreshes the Job's status, so a
+   * save, cancel or other decision can't interleave.
+   */
+  private static async lockForDecision(trx: TransactionClientContract, job: Job) {
+    const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
+    job.merge({ status: locked.status, title: locked.title, customerId: locked.customerId })
+    job.useTransaction(trx)
+    return Quote.query({ client: trx }).where('jobId', job.id).forUpdate().first()
   }
 
   /**

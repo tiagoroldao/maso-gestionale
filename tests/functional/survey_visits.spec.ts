@@ -50,7 +50,12 @@ test.group('Survey Visits: planning', () => {
       const user = await createUser(role)
       const open = await createJob(customer)
       const accepted = await createJob(customer, { status: 'accepted' })
-      await Quote.create({ jobId: accepted.id, status: 'accepted', decidedAt: DateTime.now() })
+      await Quote.create({
+        jobId: accepted.id,
+        status: 'accepted',
+        sentAt: DateTime.now(),
+        decidedAt: DateTime.now(),
+      })
 
       for (const job of [open, accepted]) {
         const response = await client
@@ -139,7 +144,12 @@ test.group('Survey Visits: editing', () => {
     const technician = await createUser('technician')
     const customer = await createCustomer()
     const withQuote = await createJob(customer, { status: 'in_progress' })
-    await Quote.create({ jobId: withQuote.id, status: 'accepted', decidedAt: DateTime.now() })
+    await Quote.create({
+      jobId: withQuote.id,
+      status: 'accepted',
+      sentAt: DateTime.now(),
+      decidedAt: DateTime.now(),
+    })
     const cases = [
       { job: withQuote, ready: 'accepted' },
       { job: await createJob(customer, { status: 'in_progress' }), ready: 'open' },

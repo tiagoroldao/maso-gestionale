@@ -59,7 +59,14 @@ test.group('Planning Visits', () => {
 
     for (const { quote, status, expected } of cases) {
       const job = await createJob(customer, { status })
-      if (quote) await Quote.create({ jobId: job.id, status: quote })
+      if (quote) {
+        // A decided Quote was sent (#137)
+        await Quote.create({
+          jobId: job.id,
+          status: quote,
+          sentAt: quote === 'draft' ? null : DateTime.now(),
+        })
+      }
       await client
         .post(`/jobs/${job.id}/visits`)
         .json(plan([technician.id]))
@@ -361,7 +368,12 @@ test.group('Editing and deleting Visits', () => {
       status: acceptedAt ? 'accepted' : 'open',
     })
     if (acceptedAt) {
-      await Quote.create({ jobId: job.id, status: 'accepted', decidedAt: acceptedAt })
+      await Quote.create({
+        jobId: job.id,
+        status: 'accepted',
+        sentAt: acceptedAt,
+        decidedAt: acceptedAt,
+      })
     }
     await client
       .post(`/jobs/${job.id}/visits`)
