@@ -16,6 +16,7 @@ import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal } from '#shared/invoice_totals'
+import { workReadyToInvoice } from '#shared/visits'
 import {
   canTransition,
   isDeletable,
@@ -47,8 +48,8 @@ export class InvoiceNotFinalisableError extends Error {
 }
 
 /**
- * The Job can't be invoiced from its Quote: it isn't a Quoted Job with an
- * accepted Quote, or it was cancelled.
+ * The Job has nothing to invoice yet (no accepted Quote; no recorded work,
+ * or work on Visits still open), or it was cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 
@@ -113,7 +114,13 @@ export default class Invoices {
         ...visit.hours.map((hour) => ({ visit, hour, line: null })),
         ...visit.items.map((line) => ({ visit, hour: null, line })),
       ])
-      if (!work.length) throw new JobNotInvoiceableError()
+      const ready = workReadyToInvoice(
+        visits.map((visit) => ({
+          status: visit.status,
+          workLines: visit.hours.length + visit.items.length,
+        }))
+      )
+      if (!ready) throw new JobNotInvoiceableError()
 
       const standard = await VatCode.query({ client: trx })
         .whereNull('archived_at')
@@ -123,7 +130,10 @@ export default class Invoices {
       const itemCodeIds = [
         ...new Set(work.flatMap(({ line }) => (line ? [line.item.vatCodeId] : []))),
       ]
-      const itemCodes = await VatCode.query({ client: trx }).whereIn('id', itemCodeIds)
+      // An Item's archived code isn't offered: those lines get the standard rate
+      const itemCodes = await VatCode.query({ client: trx })
+        .whereIn('id', itemCodeIds)
+        .whereNull('archived_at')
       const codes = new Map(itemCodes.map((code) => [code.id, code]))
 
       const invoice = await Invoice.create(

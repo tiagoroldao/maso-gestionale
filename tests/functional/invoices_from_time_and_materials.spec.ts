@@ -49,7 +49,7 @@ async function workedJob() {
   await FieldWork.recordItem(visit, { itemId: valve.id, quantity: '3' })
   await FieldWork.recordItem(visit, { itemId: boiler.id, quantity: '1' })
   await FieldWork.setStatus(visit, 'done', anna)
-  return { job, rate, valve, boiler }
+  return { job, rate, valve, boiler, visit, anna }
 }
 
 test.group('Invoices from Time & Materials Jobs', () => {
@@ -58,7 +58,7 @@ test.group('Invoices from Time & Materials Jobs', () => {
     assert,
   }) => {
     const office = await createUser('office')
-    const { job, rate, valve } = await workedJob()
+    const { job, rate, valve, boiler } = await workedJob()
     // A later price change doesn't touch work already recorded
     rate.hourlyPrice = '45'
     await rate.save()
@@ -87,7 +87,7 @@ test.group('Invoices from Time & Materials Jobs', () => {
         ['Idraulico – Anna (20/10)', '2.500', 'h', '40.0000', '22.00', null],
         ['Idraulico – Bruno (20/10)', '1.000', 'h', '40.0000', '22.00', null],
         ['Valvola (20/10)', '3.000', 'pz', '7.5000', '22.00', valve.id],
-        ['Caldaia (20/10)', '1.000', 'pz', '1200.0000', '10.00', invoice.lines[3].itemId],
+        ['Caldaia (20/10)', '1.000', 'pz', '1200.0000', '10.00', boiler.id],
       ]
     )
 
@@ -124,6 +124,66 @@ test.group('Invoices from Time & Materials Jobs', () => {
   test('a Job with no recorded work has nothing to invoice', async ({ client, assert }) => {
     const office = await createUser('office')
     const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: false })
+    const response = await client
+      .post(`/jobs/${job.id}/invoices`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    response.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
+    assert.lengthOf(await Invoice.all(), 0)
+  })
+
+  test('work on Visits still open is not invoiced yet', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const { job, anna, rate } = await workedJob()
+    const start = DateTime.now().plus({ days: 1 })
+    const followUp = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await followUp.related('technicians').attach([anna.id])
+    await FieldWork.recordHours(followUp, {
+      technicianId: anna.id,
+      labourRateId: rate.id,
+      hours: '1',
+    })
+
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: false })
+    const response = await client
+      .post(`/jobs/${job.id}/invoices`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    response.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
+    assert.lengthOf(await Invoice.all(), 0)
+
+    await FieldWork.setStatus(followUp, 'done', anna)
+    const ready = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    ready.assertInertiaPropsContains({ canInvoice: true })
+  })
+
+  test("an Item's archived VAT Code gives way to the standard rate", async ({ assert }) => {
+    const { job, boiler } = await workedJob()
+    const reduced = await vatCode('10%')
+    reduced.archivedAt = DateTime.now()
+    await reduced.save()
+
+    const invoice = await Invoices.fromJob(job)
+    await invoice.load('lines')
+    const line = invoice.lines.find((l) => l.itemId === boiler.id)!
+    assert.equal(line.vatRate, '22.00')
+  })
+
+  test('a cancelled Time & Materials Job is not invoiced', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const { job } = await workedJob()
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
 
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ canInvoice: false })

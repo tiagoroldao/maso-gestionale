@@ -31,6 +31,7 @@ test.group('Invoices from Time & Materials in the browser', () => {
     await done.related('technicians').attach([anna.id])
     const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' })
     await FieldWork.recordHours(done, { technicianId: anna.id, labourRateId: rate.id, hours: '2' })
+    await FieldWork.setStatus(done, 'done', anna)
 
     const page = await visit(`/jobs/${job.id}`)
     await page.getByRole('button', { name: it('ui.invoices.fromTimeAndMaterials') }).click()
