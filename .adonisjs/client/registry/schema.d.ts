@@ -609,13 +609,13 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/equipment/:id/remove'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').removeEquipmentValidator)>>
+      body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').removeEquipmentValidator)>>
+      query: {}
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>> | { status: 422; response: { errors: SimpleError[] } }
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>> | { status: 422; response: { errors: SimpleError[] } }
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
     }
   }
   'installed_equipment.create': {
@@ -635,13 +635,13 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/sites/:siteId/equipment'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      body: {}
       paramsTuple: [ParamValue]
       params: { siteId: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      query: {}
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['store']>>>
     }
   }
   'installed_equipment.edit': {
@@ -661,13 +661,13 @@ export interface Registry {
     methods: ["PUT"]
     pattern: '/equipment/:id'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      query: {}
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
     }
   }
   'my_visits.index': {
@@ -1071,6 +1071,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
+    }
+  }
+  'invoices.submission_xml': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/submissions/:submissionId/xml'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; submissionId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['submissionXml']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['submissionXml']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['submissionXml']>>>
     }
   }
   'invoices.record_payment': {

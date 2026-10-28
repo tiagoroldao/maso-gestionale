@@ -78,6 +78,17 @@ export const invoiceStageValidator = vine.create({
 
 export const submissionOutcomeValidator = vine.create({
   outcome: vine.enum(SUBMISSION_OUTCOMES),
+  // The notice's date; today when left out
+  noticeOn: vine
+    .date({ formats: ['YYYY-MM-DD'] })
+    .beforeOrEqual('today')
+    .optional(),
+  // SDI's identifier for the file, shown on its notices
+  sdiId: vine
+    .string()
+    .trim()
+    .regex(/^\d{1,20}$/)
+    .optional(),
   // SDI's notice: error codes and description for a Rejection
   notes: vine.string().trim().maxLength(5000).optional(),
 })

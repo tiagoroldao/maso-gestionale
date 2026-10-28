@@ -84,6 +84,7 @@
     "not_deliverable": "Mancata consegna registrata: la fattura è nel cassetto fiscale del cliente.",
     "rejected": "Scarto registrato: correggi e reinvia la fattura entro 5 giorni."
   },
+  "noticeBeforeSubmission": "La notifica di SDI non può essere precedente all'invio.",
   "submissionRefused": "Questa operazione non è possibile nello stato attuale della fattura.",
   "sdiPrefixSaved": "Lettera dei file SDI salvata.",
   "customerArchived": "Cliente archiviato.",
