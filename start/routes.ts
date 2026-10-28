@@ -273,6 +273,9 @@ router
           .post('jobs/:id/invoices', [controllers.Invoices, 'storeFromJob'])
           .where('id', router.matchers.number())
         router
+          .post('invoices/:id/credit-notes', [controllers.Invoices, 'storeCreditNote'])
+          .where('id', router.matchers.number())
+        router
           .get('invoices/:id/edit', [controllers.Invoices, 'edit'])
           .where('id', router.matchers.number())
         router
@@ -424,6 +427,10 @@ router
         router.put('settings/invoice-numbering/sdi-prefix', [
           controllers.InvoiceNumbering,
           'updateSdiPrefix',
+        ])
+        router.put('settings/invoice-numbering/credit-notes', [
+          controllers.InvoiceNumbering,
+          'updateCreditNotes',
         ])
         router
           .put('settings/invoice-numbering/:year', [controllers.InvoiceNumbering, 'update'])

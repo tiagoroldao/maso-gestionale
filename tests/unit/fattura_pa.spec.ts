@@ -68,6 +68,7 @@ function input(lines: Line[], extra: Partial<FatturaInput> = {}, discount = '0')
     issuedOn: '2026-10-28',
     dueOn: '2026-11-30',
     paymentMethod: 'MP05',
+    credits: null,
     company,
     customer: business,
     lines: full,
@@ -128,6 +129,34 @@ test.group('FatturaPA XML', () => {
 
     assert.deepEqual(await fatturaSchemaErrors(xml), [])
     assert.deepEqual(tag(xml, 'TipoDocumento'), ['TD02'])
+  })
+
+  test('a Credit Note is TD04, refers to the Invoice it credits and has no payment', async ({
+    assert,
+  }) => {
+    const xml = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '40', vatRate: '22' }], {
+        documentType: 'TD04',
+        number: 'NC3/2026',
+        dueOn: null,
+        paymentMethod: null,
+        credits: { number: '12/2026', issuedOn: '2026-10-01' },
+      })
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assertSummaryAddsUp(xml, assert)
+    assert.deepEqual(tag(xml, 'TipoDocumento'), ['TD04'])
+    assert.deepEqual(tag(xml, 'Numero'), ['NC3/2026'])
+    // Amounts are positive: TD04 itself says they are credited
+    assert.deepEqual(tag(xml, 'ImportoTotaleDocumento'), ['48.80'])
+    const linked = tag(xml, 'DatiFattureCollegate')
+    assert.lengthOf(linked, 1)
+    assert.deepEqual(tag(linked[0], 'IdDocumento'), ['12/2026'])
+    assert.deepEqual(tag(linked[0], 'Data'), ['2026-10-01'])
+    // After DatiGeneraliDocumento, inside DatiGenerali, as the schema orders them
+    assert.isBelow(xml.indexOf('</DatiGeneraliDocumento>'), xml.indexOf('<DatiFattureCollegate>'))
+    assert.notInclude(xml, '<DatiPagamento>')
   })
 
   test('the final Invoice takes an advance back with a negative line', async ({ assert }) => {

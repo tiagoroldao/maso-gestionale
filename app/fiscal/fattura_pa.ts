@@ -12,12 +12,15 @@ import { BANK_TRANSFER } from '#shared/payments'
 export type FatturaInput = {
   /** Unique per file sent; also the file name's suffix */
   progressive: string
-  /** TD01 an invoice, TD02 an Advance Invoice (acconto) */
-  documentType: 'TD01' | 'TD02'
+  /** TD01 an invoice, TD02 an Advance Invoice (acconto), TD04 a Credit Note */
+  documentType: 'TD01' | 'TD02' | 'TD04'
   number: string
   issuedOn: string
-  dueOn: string
-  paymentMethod: PaymentMethod
+  /** Nothing is paid on a Credit Note: no DatiPagamento */
+  dueOn: string | null
+  paymentMethod: PaymentMethod | null
+  /** The Invoice a Credit Note credits (DatiFattureCollegate) */
+  credits: { number: string; issuedOn: string } | null
   company: CompanySnapshot
   customer: CustomerSnapshot
   lines: {
@@ -305,26 +308,37 @@ export function buildFatturaPA(input: FatturaInput): string {
                 ...causale,
               ],
             ],
+            [
+              'DatiFattureCollegate',
+              input.credits
+                ? [
+                    ['IdDocumento', text(input.credits.number, 20)],
+                    ['Data', input.credits.issuedOn],
+                  ]
+                : null,
+            ],
           ],
         ],
         ['DatiBeniServizi', [...lines, ...discounts, ...summary]],
         [
           'DatiPagamento',
-          [
-            ['CondizioniPagamento', 'TP02'],
-            [
-              'DettaglioPagamento',
-              [
-                ['ModalitaPagamento', input.paymentMethod],
-                ['DataScadenzaPagamento', input.dueOn],
-                ['ImportoPagamento', amount(totals.total)],
+          input.paymentMethod && input.dueOn
+            ? [
+                ['CondizioniPagamento', 'TP02'],
                 [
-                  'IBAN',
-                  input.paymentMethod === BANK_TRANSFER && company.iban ? company.iban : null,
+                  'DettaglioPagamento',
+                  [
+                    ['ModalitaPagamento', input.paymentMethod],
+                    ['DataScadenzaPagamento', input.dueOn],
+                    ['ImportoPagamento', amount(totals.total)],
+                    [
+                      'IBAN',
+                      input.paymentMethod === BANK_TRANSFER && company.iban ? company.iban : null,
+                    ],
+                  ],
                 ],
-              ],
-            ],
-          ],
+              ]
+            : null,
         ],
       ],
     ],
@@ -340,8 +354,9 @@ export function buildFatturaPA(input: FatturaInput): string {
 }
 
 /**
- * A finalised Invoice (lines preloaded) as the builder's input, for the
- * Submission whose progressive it carries.
+ * A finalised Invoice (lines preloaded; a Credit Note's credited Invoice
+ * too) as the builder's input, for the Submission whose progressive it
+ * carries.
  */
 export function fatturaInputFor(
   invoice: Invoice,
@@ -353,13 +368,17 @@ export function fatturaInputFor(
   if (invoice.status === 'draft' || !company || !customer) {
     throw new Error('Only finalised Invoices have FatturaPA XML')
   }
+  const credited = invoice.isCreditNote ? invoice.creditedInvoice : null
   return {
     progressive,
-    documentType: invoice.advance ? 'TD02' : 'TD01',
+    documentType: invoice.isCreditNote ? 'TD04' : invoice.advance ? 'TD02' : 'TD01',
     number: invoice.formattedNumber!,
     issuedOn: invoice.issuedOn!.toISODate()!,
-    dueOn: invoice.dueOn!.toISODate()!,
-    paymentMethod: invoice.paymentMethod!,
+    dueOn: invoice.dueOn?.toISODate() ?? null,
+    paymentMethod: invoice.paymentMethod,
+    credits: credited
+      ? { number: credited.formattedNumber!, issuedOn: credited.issuedOn!.toISODate()! }
+      : null,
     company,
     customer,
     lines: invoice.lines.map((line) => ({

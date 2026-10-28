@@ -8,7 +8,9 @@ import type User from '#models/user'
 import { owed } from '#shared/payment_status'
 
 /**
- * Not a payment at all: the Invoice is still a draft.
+ * Not a payment at all: the Invoice is still a draft, or it is a Credit
+ * Note (nothing is paid on one; a refund it calls for is a negative
+ * Payment on the Invoice it credits).
  */
 export class PaymentRefusedError extends Error {}
 
@@ -39,7 +41,9 @@ export default class Payments {
         .where('id', invoice.id)
         .forUpdate()
         .firstOrFail()
-      if (locked.status === 'draft' || !locked.total) throw new PaymentRefusedError()
+      if (locked.status === 'draft' || !locked.total || locked.isCreditNote) {
+        throw new PaymentRefusedError()
+      }
       const payment = await Payment.create(
         {
           invoiceId: locked.id,
@@ -50,7 +54,11 @@ export default class Payments {
         },
         { client: trx }
       )
-      const left = owed({ total: locked.total, paid: await this.paid(trx, locked.id) })
+      const left = owed({
+        total: locked.total,
+        credited: await this.credited(trx, locked.id),
+        paid: await this.paid(trx, locked.id),
+      })
       const warnings: PaymentWarning[] = []
       const amountWarning = this.amountWarning(input.amount, left)
       if (amountWarning) warnings.push(amountWarning)
@@ -74,6 +82,21 @@ export default class Payments {
       .sum('amount as paid')
       .first()
     return new Big(row?.paid ?? 0).toFixed(2)
+  }
+
+  /**
+   * What the Invoice's Credit Notes credit (credits(): those past draft),
+   * read in `trx`: current when the Invoice is locked there, since a
+   * Credit Note locks the Invoice it credits before it changes.
+   */
+  static async credited(trx: TransactionClientContract, invoiceId: number) {
+    const row = await trx
+      .from('invoices')
+      .where('credits_invoice_id', invoiceId)
+      .whereNot('status', 'draft')
+      .sum('total as credited')
+      .first()
+    return new Big(row?.credited ?? 0).toFixed(2)
   }
 
   /**

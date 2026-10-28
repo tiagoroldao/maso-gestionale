@@ -37,6 +37,12 @@
     "courtesyCopy": "Copia di cortesia: l'originale fiscale è la fattura elettronica trasmessa tramite SDI.",
     "globalDiscountLine": "Sconto {percent}% sul totale"
   },
+  "creditNote": {
+    "title": "Nota di credito {number}",
+    "number": "Nota di credito n.",
+    "creditsLabel": "Rettifica",
+    "credits": "Fattura n. {number} del {date}"
+  },
   "template": {
     "yes": "Sì",
     "no": "No"

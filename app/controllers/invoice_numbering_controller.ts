@@ -1,14 +1,38 @@
 import { DateTime } from 'luxon'
 import Invoices, { NumberingLockedError } from '#services/invoices'
+import CreditNoteNumbering from '#services/credit_note_numbering'
 import CompanySettings from '#models/company_settings'
-import { invoiceNumberingValidator, sdiPrefixValidator } from '#validators/invoice'
+import {
+  creditNoteNumberingValidator,
+  invoiceNumberingValidator,
+  sdiPrefixValidator,
+} from '#validators/invoice'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
  * Where each year's invoice numbering starts (Settings → Numerazione),
- * for the current year and the next.
+ * for the current year and the next, and how Credit Notes are numbered.
  */
 export default class InvoiceNumberingController {
+  /**
+   * Credit Notes in the Invoice sequence or their own series (ADR 0014):
+   * at once while none has been numbered this year, otherwise from the
+   * next 1 January; the warning says which.
+   */
+  async updateCreditNotes({ request, response, session, i18n }: HttpContext) {
+    const { mode } = await request.validateUsing(creditNoteNumberingValidator)
+    const { appliesFrom } = await CreditNoteNumbering.change(mode)
+    const when =
+      appliesFrom === DateTime.now().year
+        ? i18n.t('flash.creditNoteNumbering.now')
+        : i18n.t('flash.creditNoteNumbering.nextYear', { year: appliesFrom })
+    session.flash(
+      'warning',
+      `${i18n.t(`flash.creditNoteNumbering.${mode}`)} ${when} ${i18n.t('flash.creditNoteNumbering.unbroken')}`
+    )
+    response.redirect().toRoute('invoice_numbering.index')
+  }
+
   /**
    * The letter SDI file progressives start with (see Submissions).
    */
@@ -27,6 +51,7 @@ export default class InvoiceNumberingController {
     return inertia.render('settings/invoice_numbering', {
       years: [await Invoices.numbering(year), await Invoices.numbering(year + 1)],
       sdiFilePrefix: settings.sdiFilePrefix ?? 'M',
+      creditNotes: await CreditNoteNumbering.state(),
     })
   }
 

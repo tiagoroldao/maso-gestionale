@@ -160,6 +160,21 @@ export class CompanySettingSchema extends BaseModel {
   declare vatNumber: string | null
 }
 
+export class CreditNoteNumberingSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'mode', 'updatedAt', 'year'] as const
+  $columns = CreditNoteNumberingSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare mode: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare year: number
+}
+
 export class CustomerSiteSchema extends BaseModel {
   static $columns = ['createdAt', 'customerId', 'siteId'] as const
   $columns = CustomerSiteSchema.$columns
@@ -324,8 +339,10 @@ export class InvoiceLineChargeSchema extends BaseModel {
 }
 
 export class InvoiceLineSchema extends BaseModel {
-  static $columns = ['deductsInvoiceId', 'description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
+  static $columns = ['creditsLineId', 'deductsInvoiceId', 'description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
   $columns = InvoiceLineSchema.$columns
+  @column()
+  declare creditsLineId: number | null
   @column()
   declare deductsInvoiceId: number | null
   @column()
@@ -359,7 +376,7 @@ export class InvoiceLineSchema extends BaseModel {
 }
 
 export class InvoiceSequenceSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'nextNumber', 'updatedAt', 'year'] as const
+  static $columns = ['createdAt', 'id', 'nextNumber', 'series', 'updatedAt', 'year'] as const
   $columns = InvoiceSequenceSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -367,6 +384,8 @@ export class InvoiceSequenceSchema extends BaseModel {
   declare id: number
   @column()
   declare nextNumber: number
+  @column()
+  declare series: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -415,7 +434,7 @@ export class InvoiceSubmissionSchema extends BaseModel {
 }
 
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['advance', 'companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'total', 'updatedAt', 'year'] as const
+  static $columns = ['advance', 'companySnapshot', 'createdAt', 'creditsInvoiceId', 'customerId', 'customerSnapshot', 'discountPercent', 'documentType', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'series', 'status', 'total', 'updatedAt', 'year'] as const
   $columns = InvoiceSchema.$columns
   @column()
   declare advance: boolean
@@ -424,11 +443,15 @@ export class InvoiceSchema extends BaseModel {
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
+  declare creditsInvoiceId: number | null
+  @column()
   declare customerId: number
   @column()
   declare customerSnapshot: any | null
   @column()
   declare discountPercent: string
+  @column()
+  declare documentType: string
   @column.date()
   declare dueOn: DateTime | null
   @column.dateTime()
@@ -445,6 +468,8 @@ export class InvoiceSchema extends BaseModel {
   declare number: number | null
   @column()
   declare paymentMethod: string | null
+  @column()
+  declare series: string | null
   @column()
   declare status: string
   @column()

@@ -11,7 +11,8 @@ export function jobRow(job: Job) {
     title: job.title,
     workCategory: job.workCategory,
     // Refined from the Visits and Invoices when loaded (Work Complete,
-    // Invoiced, Closed); Invoices need their Payments preloaded
+    // Invoiced, Closed); Invoices need their Payments and Credit Notes
+    // preloaded
     status:
       'visits' in job.$preloaded
         ? deriveJobStatus(
@@ -25,6 +26,7 @@ export function jobRow(job: Job) {
               ? job.invoices.map((invoice) => ({
                   status: invoice.status,
                   total: invoice.total,
+                  credited: invoice.credited,
                   paid: invoice.paid,
                 }))
               : [],

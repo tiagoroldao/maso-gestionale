@@ -1,6 +1,7 @@
 import vine from '@vinejs/vine'
 import type { FieldContext } from '@vinejs/vine/types'
 import { INVOICE_STAGES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
+import { CREDIT_NOTE_NUMBERING_MODES } from '#shared/credit_notes'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
@@ -71,6 +72,8 @@ export const invoiceValidator = vine
             .use(amountRule({ decimals: 2, max: '100' }))
             .optional(),
           deductsInvoiceId: vine.number().withoutDecimals().optional(),
+          // On a Credit Note, the credited Invoice's line (checked by Invoices.save)
+          creditsLineId: vine.number().withoutDecimals().positive().optional(),
           // The Charges the line bills, among the Invoice's own (ADR 0010)
           chargeIds: vine
             .array(vine.number().withoutDecimals().positive())
@@ -100,6 +103,10 @@ export const invoiceValidator = vine
 
 export const invoiceNumberingValidator = vine.create({
   nextNumber: vine.number().withoutDecimals().min(1).max(999999),
+})
+
+export const creditNoteNumberingValidator = vine.create({
+  mode: vine.enum(CREDIT_NOTE_NUMBERING_MODES),
 })
 
 export const invoiceStageValidator = vine.create({

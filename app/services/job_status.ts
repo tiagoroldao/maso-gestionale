@@ -10,7 +10,7 @@ import { CLOSED_VISIT_STATUSES } from '#shared/visits'
  */
 export type DisplayedJobStatus = JobStatus | 'work_complete' | 'invoiced' | 'closed'
 
-type InvoiceSummary = { status: string; total: string | null; paid: string }
+type InvoiceSummary = { status: string; total: string | null; credited: string; paid: string }
 
 type VisitSummary = { status: VisitStatus; startsAt: DateTime; survey: boolean }
 
@@ -37,11 +37,11 @@ export function deriveJobStatus(
   if (stored === 'cancelled') return stored
   // Invoiced once an Invoice is past draft and nothing is left to bill
   // (BILLING_OPEN_SQL); Closed when every Invoice is settled: nothing
-  // owed, and none overpaid (ADR 0014)
+  // owed after Credit Notes, and none overpaid (ADR 0014)
   const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
   if (issued.length && !billingOpen) {
     const settled = issued.every((invoice) =>
-      isSettled({ total: invoice.total!, paid: invoice.paid })
+      isSettled({ total: invoice.total!, credited: invoice.credited, paid: invoice.paid })
     )
     return settled ? 'closed' : 'invoiced'
   }
@@ -59,10 +59,18 @@ export const PAID_SQL = (alias: string) =>
   `(SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = ${alias}.id)`
 
 /**
+ * The SQL equivalent of the Invoice `alias`'s Credit Notes, as credits()
+ * counts them: every one past draft.
+ */
+export const CREDITED_SQL = (alias: string) => `(SELECT coalesce(sum(cn.total), 0) FROM invoices cn
+  WHERE cn.credits_invoice_id = ${alias}.id AND cn.status <> 'draft')`
+
+/**
  * The SQL equivalent of owed() for the issued Invoice `alias`: below zero
  * when it is overpaid.
  */
-export const OWED_SQL = (alias: string) => `(${alias}.total - ${PAID_SQL(alias)})`
+export const OWED_SQL = (alias: string) =>
+  `(${alias}.total - ${CREDITED_SQL(alias)} - ${PAID_SQL(alias)})`
 
 /**
  * The same rules as SQL, for filtering Job lists: raw conditions on the

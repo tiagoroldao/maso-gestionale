@@ -24,8 +24,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #111  | Finished work on a cancelled Job can still be invoiced (decided)                          | —                                                 |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #145  | Credit Notes (ADR 0014)                                                                   | —                                                 |
-| #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | #145                                              |
+| #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | —                                                 |
 
 ## Added to existing issues
 
@@ -37,7 +36,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, decided: it stays billable).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
-- **#146:** billed amount before the global discount: a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount (#116). Decide when Credit Notes credit Charges.
+- **#146:** billed amount before the global discount: a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount (#116). Decide when Credit Notes credit Charges. From #145: crediting an Advance Invoice is refused (`creditRefusal()` → `advance`) until #146 reduces what is left of it; a final Invoice's deduction lines aren't copied onto its Credit Note, so crediting it in full means lowering the work lines (the cap is on the Invoice's total, deductions included); only the Invoice-wide cap exists, so a Credit Note line can credit more than its own line (#146's "credited in full" needs a per-line rule); the Job page neither lists Credit Notes nor lowers "invoiced so far" by them.
 
 ## Not yet issues
 
@@ -76,6 +75,8 @@ Review findings folded into planned work, so they are picked up with it:
 - **Archiving a VAT Code a rule uses** (#26): the rules quietly fall back to the standard rate (archiving N6.7 makes company building work 22%) and the Admin isn't told; warn on archive, or refuse while rules use it (from the #108 review).
 - **Archived VAT Code on new Invoice lines** (#26): the invoice validator lets any line use an archived code as long as another line of the draft already does (`meta.vatCodeIds` comes from the current lines) (from the #108 review).
 - **Untranslated structural validation messages:** a malformed VAT rules body gets English messages such as "The rules field must be an array"; the UI can't trigger them (from the #108 review).
+- **Credit Notes' own series starts at 1** (#145): the Admin sets where the Invoice sequence starts each year, but not the Credit Notes' own series. Add it next to the Invoice numbers if Credit Notes must continue a series from the old software.
+- **Credit Note Items don't come back on stock** (#145): finalising a Credit Note never moves stock, even for goods the Customer returned. Record a stock adjustment by hand meanwhile.
 - **Admin password reset keeps old sessions** (#32): when the Superuser sets a new password for an Admin, sessions already open with the old one stay valid until they expire. Fine for a lost password; a compromised account would need sessions invalidated.
 - **Instance settings not read yet** (#32): polling interval, webhook and public URL are stored for #92 (Invoicetronic) and later work; nothing uses them yet.
 - **Secrets in flashed input** (#32): on a validation error, Adonis flashes the request input except `password`, `password_confirmation`, `_csrf` and `_method`, so `invoicetronicApiKey`, `webhookSecret` and camelCase `passwordConfirmation` sit (encrypted) in the session cookie for one request. Exclude them in the exception handler or session config (from the #109 review).

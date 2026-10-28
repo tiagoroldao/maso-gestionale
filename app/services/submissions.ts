@@ -82,6 +82,8 @@ export default class Submissions {
    */
   static async xml(invoice: Invoice, submission: InvoiceSubmission, discountLabel: string) {
     await invoice.load('lines', (lines) => lines.orderBy('position'))
+    // A Credit Note refers to the Invoice it credits
+    if (invoice.isCreditNote) await invoice.load('creditedInvoice')
     return buildFatturaPA(fatturaInputFor(invoice, submission.progressive, discountLabel))
   }
 

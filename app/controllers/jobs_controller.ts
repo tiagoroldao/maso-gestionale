@@ -30,7 +30,7 @@ export default class JobsController {
       .preload('customer')
       .preload('site')
       .preload('visits')
-      .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('quotes', (quotes) => quotes.orderBy('sequence'))
     // Work Complete, Invoiced and Closed are derived, so they're conditions,
     // not columns; the active list leaves out cancelled and closed Jobs
@@ -135,7 +135,7 @@ export default class JobsController {
       .where('id', params.id)
       .preload('customer')
       .preload('site')
-      .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('visits', (visits) =>
         visits
           .preload('technicians')

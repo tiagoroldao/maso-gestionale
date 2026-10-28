@@ -588,6 +588,12 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"invoices"]],
     types: placeholder as Registry['invoices.store_from_job']['types'],
   },
+  'invoices.store_credit_note': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/credit-notes',
+    tokens: [[0,"invoices"],[1,"id"],[0,"credit-notes"]],
+    types: placeholder as Registry['invoices.store_credit_note']['types'],
+  },
   'invoices.edit': {
     methods: ["GET","HEAD"],
     pattern: '/invoices/:id/edit',
@@ -935,6 +941,12 @@ const routes = {
     pattern: '/settings/invoice-numbering/sdi-prefix',
     tokens: [[0,"settings"],[0,"invoice-numbering"],[0,"sdi-prefix"]],
     types: placeholder as Registry['invoice_numbering.update_sdi_prefix']['types'],
+  },
+  'invoice_numbering.update_credit_notes': {
+    methods: ["PUT"],
+    pattern: '/settings/invoice-numbering/credit-notes',
+    tokens: [[0,"settings"],[0,"invoice-numbering"],[0,"credit-notes"]],
+    types: placeholder as Registry['invoice_numbering.update_credit_notes']['types'],
   },
   'invoice_numbering.update': {
     methods: ["PUT"],

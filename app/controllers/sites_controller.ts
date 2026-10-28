@@ -113,7 +113,7 @@ export default class SitesController {
           .withScopes((scopes) => scopes.withBillingState())
           .preload('customer')
           .preload('visits')
-          .preload('invoices', (invoices) => invoices.preload('payments'))
+          .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
           .orderBy([
             { column: 'year', order: 'desc' },
             { column: 'sequence', order: 'desc' },

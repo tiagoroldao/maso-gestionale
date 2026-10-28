@@ -101,6 +101,7 @@ export type ScannedRoutes = {
     'invoices.store': { paramsTuple?: []; params?: {} }
     'invoices.store_advance': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.store_credit_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -159,6 +160,7 @@ export type ScannedRoutes = {
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.update_credit_notes': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
@@ -351,6 +353,7 @@ export type ScannedRoutes = {
     'invoices.store': { paramsTuple?: []; params?: {} }
     'invoices.store_advance': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.store_credit_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_payment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -405,6 +408,7 @@ export type ScannedRoutes = {
     'document_templates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.update_credit_notes': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'instance.update': { paramsTuple?: []; params?: {} }

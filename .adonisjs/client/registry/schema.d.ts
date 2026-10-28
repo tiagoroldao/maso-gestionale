@@ -1268,6 +1268,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
     }
   }
+  'invoices.store_credit_note': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/credit-notes'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeCreditNote']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeCreditNote']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeCreditNote']>>>
+    }
+  }
   'invoices.edit': {
     methods: ["GET","HEAD"]
     pattern: '/invoices/:id/edit'
@@ -2020,6 +2033,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'invoice_numbering.update_credit_notes': {
+    methods: ["PUT"]
+    pattern: '/settings/invoice-numbering/credit-notes'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').creditNoteNumberingValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').creditNoteNumberingValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateCreditNotes']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateCreditNotes']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateCreditNotes']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'invoice_numbering.update': {
