@@ -38,10 +38,9 @@ export interface ApiDefinition {
     addNote: typeof routes['my_visits.add_note']
     addPhoto: typeof routes['my_visits.add_photo']
     addHours: typeof routes['my_visits.add_hours']
-    removeHours: typeof routes['my_visits.remove_hours']
+    removeCharge: typeof routes['my_visits.remove_charge']
     addItem: typeof routes['my_visits.add_item']
     setServiced: typeof routes['my_visits.set_serviced']
-    removeItem: typeof routes['my_visits.remove_item']
     index: typeof routes['my_visits.index']
   }
   itemDocuments: {
@@ -109,6 +108,13 @@ export interface ApiDefinition {
     edit: typeof routes['visits.edit']
     update: typeof routes['visits.update']
     destroy: typeof routes['visits.destroy']
+  }
+  charges: {
+    edit: typeof routes['charges.edit']
+    correct: typeof routes['charges.correct']
+    updateBilling: typeof routes['charges.update_billing']
+    markNotBillable: typeof routes['charges.mark_not_billable']
+    markBillable: typeof routes['charges.mark_billable']
   }
   quotes: {
     edit: typeof routes['quotes.edit']

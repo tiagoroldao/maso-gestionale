@@ -2,6 +2,7 @@ import Job from '#models/job'
 import { hasBillableWork } from '#shared/visits'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
+import Charge from '#models/charge'
 import { ArchivedRecordError } from '#services/archiving'
 import Customer from '#models/customer'
 import { likePattern } from '#services/search'
@@ -120,24 +121,26 @@ export default class JobsController {
           .preload('technicians')
           .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
           .preload('photos', (photos) => photos.orderBy('createdAt'))
-          .preload('hours', (hours) => hours.preload('labourRate'))
-          .preload('items', (items) => items.preload('item'))
           .orderBy('startsAt')
       )
       .firstOrFail()
 
-    // Time and materials recorded so far, at the prices when recorded,
-    // and how much of it an Invoice already billed
-    const work = job.visits.flatMap((visit) => [
-      ...visit.hours.map((hour) => ({
-        amount: lineTotal(hour.hours, hour.unitPrice),
-        billed: hour.invoiceId !== null,
-      })),
-      ...visit.items.map((line) => ({
-        amount: lineTotal(line.quantity, line.unitPrice),
-        billed: line.invoiceId !== null,
-      })),
-    ])
+    const charges = await Charge.query()
+      .where('jobId', job.id)
+      .preload('events', (events) => events.orderBy('id'))
+      .preload('invoice')
+      .preload('item')
+      .preload('technician')
+      .orderBy(['createdAt', 'id'])
+    // What is billable so far, as Office set it to bill, and how much of it
+    // an Invoice already holds
+    const work = charges
+      .filter((charge) => charge.state !== 'not_billable')
+      .map((charge) => ({
+        visitId: charge.visitId,
+        amount: lineTotal(charge.billQuantity, charge.unitPrice),
+        billed: charge.invoiceId !== null,
+      }))
     const amounts = work.map((line) => line.amount)
 
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
@@ -163,9 +166,8 @@ export default class JobsController {
             hasBillableWork(
               job.visits.map((visit) => ({
                 status: visit.status,
-                unbilledLines:
-                  visit.hours.filter((hour) => hour.invoiceId === null).length +
-                  visit.items.filter((line) => line.invoiceId === null).length,
+                unbilledLines: work.filter((line) => line.visitId === visit.id && !line.billed)
+                  .length,
               }))
             )),
       // On a Quoted Job, only before the Quote's Invoice, which takes them back
@@ -191,6 +193,16 @@ export default class JobsController {
         billed: sumAmounts(work.filter((line) => line.billed).map((line) => line.amount)),
         lines: amounts.length,
       },
+      charges: charges.map((charge) => ({
+        id: charge.id,
+        visitId: charge.visitId,
+        description: charge.description,
+        unit: charge.unit,
+        quantity: charge.billQuantity,
+        unitPrice: charge.unitPrice,
+        amount: lineTotal(charge.billQuantity, charge.unitPrice),
+        state: charge.state,
+      })),
       job: {
         ...jobRow(job),
         description: job.description,

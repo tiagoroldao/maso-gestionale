@@ -189,17 +189,17 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['addHours']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
-  'my_visits.remove_hours': {
+  'my_visits.remove_charge': {
     methods: ["DELETE"]
-    pattern: '/visit-hours/:hourId'
+    pattern: '/charges/:id'
     types: {
       body: {}
       paramsTuple: [ParamValue]
-      params: { hourId: ParamValue }
+      params: { id: ParamValue }
       query: {}
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeHours']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeHours']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeHours']>>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeCharge']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeCharge']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeCharge']>>>
     }
   }
   'my_visits.add_item': {
@@ -226,19 +226,6 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>> | { status: 422; response: { errors: SimpleError[] } }
-    }
-  }
-  'my_visits.remove_item': {
-    methods: ["DELETE"]
-    pattern: '/visit-items/:itemId'
-    types: {
-      body: {}
-      paramsTuple: [ParamValue]
-      params: { itemId: ParamValue }
-      query: {}
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeItem']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeItem']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['removeItem']>>>
     }
   }
   'item_documents.show': {
@@ -876,6 +863,71 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['destroy']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['destroy']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['destroy']>>>
+    }
+  }
+  'charges.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/charges/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['edit']>>>
+    }
+  }
+  'charges.correct': {
+    methods: ["PUT"]
+    pattern: '/charges/:id/recorded'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/charge').labourCorrectionValidator)>|InferInput<(typeof import('#validators/charge').itemCorrectionValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/charge').labourCorrectionValidator)>|InferInput<(typeof import('#validators/charge').itemCorrectionValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['correct']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['correct']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['correct']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'charges.update_billing': {
+    methods: ["PUT"]
+    pattern: '/charges/:id/billing'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/charge').chargeBillingValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/charge').chargeBillingValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['updateBilling']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['updateBilling']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['updateBilling']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'charges.mark_not_billable': {
+    methods: ["POST"]
+    pattern: '/charges/:id/not-billable'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotBillable']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotBillable']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotBillable']>>>
+    }
+  }
+  'charges.mark_billable': {
+    methods: ["POST"]
+    pattern: '/charges/:id/billable'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markBillable']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markBillable']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markBillable']>>>
     }
   }
   'quotes.edit': {

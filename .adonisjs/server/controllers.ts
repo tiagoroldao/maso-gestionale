@@ -5,6 +5,7 @@
 
 export const controllers = {
   Categories: () => import('#controllers/categories_controller'),
+  Charges: () => import('#controllers/charges_controller'),
   CompanySettings: () => import('#controllers/company_settings_controller'),
   CustomerSites: () => import('#controllers/customer_sites_controller'),
   Customers: () => import('#controllers/customers_controller'),

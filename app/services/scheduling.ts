@@ -102,7 +102,7 @@ export default class Scheduling {
   ) {
     if (!technicianIds.length) return
     const logged = await trx
-      .from('visit_hours')
+      .from('charges')
       .where('visit_id', visitId)
       .whereIn('user_id', technicianIds)
       .first()
@@ -118,7 +118,7 @@ export default class Scheduling {
     await db.transaction(async (trx) => {
       // The Job may change status below: lock it for update from the start
       const locked = await this.lockOpenVisit(trx, visit.id, 'update')
-      for (const table of ['visit_hours', 'visit_items', 'visit_photos', 'visit_notes']) {
+      for (const table of ['charges', 'visit_photos', 'visit_notes']) {
         if (await trx.from(table).where('visit_id', locked.id).first()) {
           throw new VisitHasWorkError()
         }

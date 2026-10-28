@@ -53,6 +53,8 @@ defineProps<{
 }>()
 
 const picked = ref<PickedItem | null>(null)
+// Hours by someone outside the app, named instead of picked
+const someoneElse = ref(false)
 const installed = ref(false)
 // Installing onto equipment already at the Site, or ('') new equipment
 const equipmentId = ref<number | ''>('')
@@ -183,8 +185,8 @@ const page = usePage()
           </span>
           <Form
             v-if="!done"
-            route="my_visits.remove_hours"
-            :params="{ hourId: hour.id }"
+            route="my_visits.remove_charge"
+            :params="{ id: hour.id }"
             :on-before="confirmRemove"
           >
             <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.field.remove') }}</button>
@@ -205,16 +207,23 @@ const page = usePage()
             }}</label>
             <select
               id="hours-technician"
-              name="technicianId"
+              :name="someoneElse ? undefined : 'technicianId'"
               class="field__input"
               :value="
                 team.some((member) => member.id === currentUserId) ? currentUserId : team[0]?.id
               "
+              @change="someoneElse = ($event.target as HTMLSelectElement).value === ''"
             >
               <option v-for="member in team" :key="member.id" :value="member.id">
                 {{ member.name }}
               </option>
+              <option value="">{{ t('ui.field.someoneElse') }}</option>
             </select>
+          </div>
+          <div v-if="someoneElse" class="field">
+            <label class="field__label" for="hours-worker">{{ t('ui.field.workerName') }}</label>
+            <input id="hours-worker" name="workerName" class="field__input" />
+            <span v-if="errors.workerName" class="field__error">{{ errors.workerName }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="hours-rate">{{ t('ui.field.labourRate') }}</label>
@@ -246,8 +255,8 @@ const page = usePage()
           </span>
           <Form
             v-if="!done"
-            route="my_visits.remove_item"
-            :params="{ itemId: line.id }"
+            route="my_visits.remove_charge"
+            :params="{ id: line.id }"
             :on-before="confirmRemove"
           >
             <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.field.remove') }}</button>

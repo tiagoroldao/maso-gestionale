@@ -3,10 +3,10 @@ import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Item from '#models/item'
 import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
-import type User from '#models/user'
+import User from '#models/user'
 import Visit, { type VisitStatus } from '#models/visit'
-import VisitHour from '#models/visit_hour'
-import VisitItem from '#models/visit_item'
+import Charge from '#models/charge'
+import ChargeEvent from '#models/charge_event'
 import InstalledEquipment from '#models/installed_equipment'
 import StockLedger from '#stock/stock_ledger'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
@@ -16,17 +16,19 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 /**
  * The Visit is closed (its hours, Items and stock are final), its Job was
  * cancelled, or the request doesn't fit it (a Technician not on the
- * Visit, an install without a Site).
+ * Visit, an install without a Site, a Charge Office already reviewed).
  */
 export class FieldWorkRefusedError extends Error {
-  constructor(readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite' | 'notAtSite') {
+  constructor(
+    readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite' | 'notAtSite' | 'reviewed'
+  ) {
     super(reason)
   }
 }
 
 /**
- * What Technicians record on a Visit: hours, Items used (some installed at
- * the Site), notes and photos, and closing it, which takes the Items off
+ * What Technicians record on a Visit: hours and Items used (some installed
+ * at the Site), as Charges (ADR 0010), notes and photos, and closing it, which takes the Items off
  * stock. Every change locks the Visit, so a colleague closing it at the
  * same moment can't leave lines off stock or reopen it.
  *
@@ -59,33 +61,83 @@ export default class FieldWork {
     if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
   }
 
+  /**
+   * Records hours worked by a Technician on the Visit, or by someone
+   * outside the app (a contractor hired for the day), as a Charge priced
+   * at the Labour Rate.
+   */
   static async recordHours(
     visit: Visit,
-    input: { technicianId: number; labourRateId: number; hours: string }
+    input: {
+      technicianId?: number | null
+      workerName?: string | null
+      labourRateId: number
+      hours: string
+    },
+    recordedBy: User | null = null
   ) {
-    return this.whileOpen(visit, async (trx) => {
-      if (!(await this.isOnVisit(trx, visit.id, input.technicianId))) {
-        throw new FieldWorkRefusedError('notOnVisit')
+    return this.whileOpen(visit, async (trx, locked) => {
+      let worker = input.workerName?.trim() || null
+      if (input.technicianId) {
+        if (!(await this.isOnVisit(trx, visit.id, input.technicianId))) {
+          throw new FieldWorkRefusedError('notOnVisit')
+        }
+        const technician = await User.findOrFail(input.technicianId, { client: trx })
+        worker = technician.fullName ?? technician.email
       }
+      if (!worker) throw new FieldWorkRefusedError('notOnVisit')
       const rate = await LabourRate.findOrFail(input.labourRateId, { client: trx })
-      return VisitHour.create(
-        {
-          visitId: visit.id,
-          userId: input.technicianId,
-          labourRateId: rate.id,
-          hours: input.hours,
-          // Priced when the work is recorded; later rate changes don't apply
-          unitPrice: rate.hourlyPrice,
-        },
-        { client: trx }
-      )
+      return this.record(trx, recordedBy, {
+        jobId: locked.jobId,
+        visitId: locked.id,
+        kind: 'labour',
+        userId: input.technicianId || null,
+        workerName: input.technicianId ? null : worker,
+        labourRateId: rate.id,
+        quantity: input.hours,
+        billQuantity: input.hours,
+        // Priced when the work is recorded; later rate changes don't apply
+        unitPrice: rate.hourlyPrice,
+        description: labourDescription(rate.name, worker),
+      })
     })
   }
 
-  static async removeHours(hour: VisitHour) {
-    await this.whileOpen(await Visit.findOrFail(hour.visitId), async (trx) => {
-      await VisitHour.query({ client: trx }).where('id', hour.id).delete()
+  /**
+   * Removes a Charge recorded by mistake, while the Visit is open and
+   * before Office has acted on it. An Item's Installed Equipment created
+   * with it goes too.
+   */
+  static async removeCharge(charge: Charge) {
+    await this.whileOpen(await Visit.findOrFail(charge.visitId), async (trx) => {
+      const current = await Charge.query({ client: trx }).where('id', charge.id).forUpdate().first()
+      if (!current) return
+      // Already off stock: the Charge is part of the record
+      if (current.stockMovementId) throw new FieldWorkRefusedError('done')
+      const reviewed = await ChargeEvent.query({ client: trx })
+        .where('chargeId', current.id)
+        .whereNot('kind', 'recorded')
+        .first()
+      if (reviewed) throw new FieldWorkRefusedError('reviewed')
+      await current.useTransaction(trx).delete()
+      if (current.kind === 'item') await this.removeCreatedEquipment(trx, current)
     })
+  }
+
+  /**
+   * Creates a Charge with its "recorded" event.
+   */
+  private static async record(
+    trx: TransactionClientContract,
+    recordedBy: User | null,
+    values: Partial<Charge>
+  ) {
+    const charge = await Charge.create(values, { client: trx })
+    await ChargeEvent.create(
+      { chargeId: charge.id, kind: 'recorded', userId: recordedBy?.id ?? null },
+      { client: trx }
+    )
+    return charge
   }
 
   /**
@@ -103,7 +155,8 @@ export default class FieldWork {
       equipmentType?: string | null
       make?: string | null
       model?: string | null
-    }
+    },
+    recordedBy: User | null = null
   ) {
     return this.whileOpen(visit, async (trx, locked) => {
       await locked.load('job')
@@ -148,48 +201,42 @@ export default class FieldWork {
         created = true
       }
 
-      return VisitItem.create(
-        {
-          visitId: visit.id,
-          itemId: item.id,
-          quantity: input.quantity,
-          unitPrice: item.resalePrice,
-          installed: Boolean(input.installed),
-          installedEquipmentId: equipmentId,
-          createdEquipment: created,
-        },
-        { client: trx }
-      )
+      return this.record(trx, recordedBy, {
+        jobId: locked.jobId,
+        visitId: locked.id,
+        kind: 'item',
+        itemId: item.id,
+        quantity: input.quantity,
+        installed: Boolean(input.installed),
+        installedEquipmentId: equipmentId,
+        createdEquipment: created,
+        billQuantity: input.quantity,
+        // The Item's resale price when recorded
+        unitPrice: item.resalePrice,
+        description: item.description.slice(0, 255),
+      })
     })
   }
 
   /**
-   * Removes an Item line, and the Installed Equipment it created.
+   * Removes the Installed Equipment an Item Charge created, unless another
+   * Charge or Visit has linked to it or serviced it since.
    */
-  static async removeItem(line: VisitItem) {
-    await this.whileOpen(await Visit.findOrFail(line.visitId), async (trx) => {
-      const current = await VisitItem.query({ client: trx }).where('id', line.id).first()
-      if (!current) return
-      // Already off stock: the line is part of the record
-      if (current.stockMovementId) throw new FieldWorkRefusedError('done')
-      await current.useTransaction(trx).delete()
-      // Only equipment this line created goes with it, and only while no
-      // other line or Visit has linked to it or serviced it since
-      const equipmentId = current.createdEquipment ? current.installedEquipmentId : null
-      if (!equipmentId) return
-      // Locked before the check, so a link or service still being recorded
-      // elsewhere is seen once it commits (Visit → Job → equipment)
-      await InstalledEquipment.query({ client: trx }).where('id', equipmentId).forUpdate().first()
-      const sharedSince =
-        (await trx.from('visit_items').where('installed_equipment_id', equipmentId).first()) ||
-        (await trx
-          .from('visit_serviced_equipment')
-          .where('installed_equipment_id', equipmentId)
-          .first())
-      if (!sharedSince) {
-        await InstalledEquipment.query({ client: trx }).where('id', equipmentId).delete()
-      }
-    })
+  private static async removeCreatedEquipment(trx: TransactionClientContract, charge: Charge) {
+    const equipmentId = charge.createdEquipment ? charge.installedEquipmentId : null
+    if (!equipmentId) return
+    // Locked before the check, so a link or service still being recorded
+    // elsewhere is seen once it commits (Visit → Job → equipment)
+    await InstalledEquipment.query({ client: trx }).where('id', equipmentId).forUpdate().first()
+    const sharedSince =
+      (await trx.from('charges').where('installed_equipment_id', equipmentId).first()) ||
+      (await trx
+        .from('visit_serviced_equipment')
+        .where('installed_equipment_id', equipmentId)
+        .first())
+    if (!sharedSince) {
+      await InstalledEquipment.query({ client: trx }).where('id', equipmentId).delete()
+    }
   }
 
   /**
@@ -238,7 +285,7 @@ export default class FieldWork {
             user,
             client: trx,
           })
-          await VisitItem.query({ client: trx })
+          await Charge.query({ client: trx })
             .where('id', line.id)
             .update({ stock_movement_id: movement.id })
         }
@@ -294,4 +341,11 @@ export default class FieldWork {
       .first()
     return Boolean(row)
   }
+}
+
+/**
+ * A labour Charge's description: the Labour Rate and who worked.
+ */
+export function labourDescription(rate: string, worker: string) {
+  return `${rate} – ${worker}`.slice(0, 255)
 }

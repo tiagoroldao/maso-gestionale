@@ -6,8 +6,11 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
+import { amountForInput } from '@shared/money'
+import type { ChargeState } from '@shared/charges'
 
 const confirm = (message: string) => window.confirm(message)
+const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
 defineProps<{
   invoices: { id: number; number: string | null; status: string; total: string; advance: boolean }[]
@@ -15,6 +18,16 @@ defineProps<{
   canInvoiceAdvance: boolean
   invoicedSoFar: { amount: string; of: string | null }
   timeAndMaterials: { total: string; billed: string; lines: number }
+  charges: {
+    id: number
+    visitId: number | null
+    description: string
+    unit: string
+    quantity: string
+    unitPrice: string
+    amount: string
+    state: ChargeState
+  }[]
   job: {
     id: number
     number: string
@@ -156,6 +169,55 @@ defineProps<{
             {{ t('ui.visits.plan') }}
           </Link>
         </div>
+      </Section>
+
+      <Section :title="t('ui.charges.title')">
+        <table v-if="charges.length" class="table" data-testid="charges">
+          <thead>
+            <tr>
+              <th>{{ t('ui.charges.description') }}</th>
+              <th>{{ t('ui.charges.quantity') }}</th>
+              <th>{{ t('ui.charges.unitPrice') }}</th>
+              <th>{{ t('ui.charges.amount') }}</th>
+              <th>{{ t('ui.charges.state') }}</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="charge in charges" :key="charge.id">
+              <td>
+                {{ charge.description }}
+                <div class="field__hint">
+                  {{
+                    charge.visitId
+                      ? t('ui.charges.visit', {
+                          date: formatDate(
+                            visits.find((visit) => visit.id === charge.visitId)?.startsAt ?? ''
+                          ),
+                        })
+                      : t('ui.charges.onJob')
+                  }}
+                </div>
+              </td>
+              <td>{{ quantity(charge.quantity) }} {{ charge.unit }}</td>
+              <td>{{ formatMoney(charge.unitPrice) }}</td>
+              <td>{{ formatMoney(charge.amount) }}</td>
+              <td>
+                <span class="tag">{{ t(`ui.charges.states.${charge.state}`) }}</span>
+              </td>
+              <td class="table__actions">
+                <Link
+                  route="charges.edit"
+                  :params="{ id: charge.id }"
+                  class="btn btn--ghost btn--sm"
+                >
+                  {{ t('ui.charges.open') }}
+                </Link>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.charges.none') }}</p>
       </Section>
 
       <Section v-if="job.kind === 'quoted'" :title="t('ui.quotes.section')">
