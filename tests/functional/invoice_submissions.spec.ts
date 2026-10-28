@@ -313,24 +313,46 @@ test.group('SDI Submissions', (group) => {
     }
   })
 
-  test('Technicians are refused every Submission step', async ({ client, assert }) => {
-    const technician = await createUser('technician')
+  test('Technicians and the Superuser are refused every Submission step', async ({
+    client,
+    assert,
+  }) => {
     await completeCompany()
     const invoice = await finalised()
 
-    for (const request of [
-      client.post(`/invoices/${invoice.id}/submissions`),
-      client.post(`/invoices/${invoice.id}/submissions/confirm`),
-      client.post(`/invoices/${invoice.id}/submissions/outcome`).form({ outcome: 'delivered' }),
-    ]) {
-      const response = await request
+    for (const role of ['technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      for (const request of [
+        client.post(`/invoices/${invoice.id}/submissions`),
+        client.post(`/invoices/${invoice.id}/submissions/confirm`),
+        client.post(`/invoices/${invoice.id}/submissions/outcome`).form({ outcome: 'delivered' }),
+      ]) {
+        const response = await request
+          .header('referer', '/')
+          .withCsrfToken()
+          .loginAs(user)
+          .redirects(0)
+        response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      }
+    }
+    assert.lengthOf(await InvoiceSubmission.all(), 0)
+  })
+
+  test('only the Admin sets the SDI file letter', async ({ client, assert }) => {
+    await completeCompany()
+    for (const role of ['office', 'technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      const response = await client
+        .put('/settings/invoice-numbering/sdi-prefix')
+        .form({ sdiFilePrefix: 'Z' })
         .header('referer', '/')
         .withCsrfToken()
-        .loginAs(technician)
+        .loginAs(user)
         .redirects(0)
       response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
     }
-    assert.lengthOf(await InvoiceSubmission.all(), 0)
+    const settings = await CompanySettings.findOrFail(1)
+    assert.equal(settings.sdiFilePrefix, 'M')
   })
 
   test('the Admin sets the letter SDI files start with', async ({ client, assert }) => {
