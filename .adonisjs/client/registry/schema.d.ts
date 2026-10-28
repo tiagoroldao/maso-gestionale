@@ -1073,6 +1073,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['xml']>>>
     }
   }
+  'invoices.record_payment': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/payments'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').paymentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').paymentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordPayment']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordPayment']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordPayment']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'invoices.remove_payment': {
+    methods: ["DELETE"]
+    pattern: '/payments/:paymentId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { paymentId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['removePayment']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['removePayment']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['removePayment']>>>
+    }
+  }
   'invoices.prepare_submission': {
     methods: ["POST"]
     pattern: '/invoices/:id/submissions'

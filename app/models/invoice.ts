@@ -9,6 +9,8 @@ import { formatInvoiceNumber } from '#shared/invoice_numbers'
 import type { PaymentMethod } from '#shared/payments'
 import type { InvoiceStatus } from '#shared/invoice_lifecycle'
 import InvoiceSubmission from '#models/invoice_submission'
+import Payment from '#models/payment'
+import { sumAmounts } from '#shared/money'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 
 export { INVOICE_STATUSES, type InvoiceStatus } from '#shared/invoice_lifecycle'
@@ -88,6 +90,16 @@ export default class Invoice extends InvoiceSchema {
 
   @hasMany(() => InvoiceSubmission)
   declare submissions: HasMany<typeof InvoiceSubmission>
+
+  @hasMany(() => Payment)
+  declare payments: HasMany<typeof Payment>
+
+  /**
+   * The sum of the preloaded Payments.
+   */
+  get paid() {
+    return sumAmounts(this.payments.map((payment) => payment.amount))
+  }
 
   /**
    * Totals and VAT summary, from the preloaded lines.

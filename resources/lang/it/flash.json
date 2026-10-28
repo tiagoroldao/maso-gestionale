@@ -90,12 +90,18 @@
   "customerRestored": "Cliente ripristinato.",
   "siteArchived": "Immobile archiviato.",
   "siteRestored": "Immobile ripristinato.",
-  "hasOpenJobs": "Ci sono commesse non annullate: non si può archiviare.",
+  "hasOpenJobs": "Ci sono commesse non chiuse né annullate: non si può archiviare.",
   "equipmentRemoved": "Apparecchio segnato come rimosso.",
   "invalidRemoval": "Rimozione non valida: l'apparecchio è già rimosso, la data è precedente all'installazione, oppure il sostitutivo non è installato nello stesso immobile.",
   "archivedRecord": "Il cliente o l'immobile è archiviato: ripristinalo per aprire una nuova commessa.",
   "jobInvoiced": "La commessa ha fatture: non si può annullare.",
   "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
   "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (preventivo accettato o ore e materiali registrati), oppure è annullata.",
+  "paymentRecorded": "Incasso registrato.",
+  "paymentRemoved": "Incasso eliminato.",
+  "paymentRefused": {
+    "draft": "Una bozza non si incassa: emetti prima la fattura.",
+    "tooMuch": "L'importo supera quanto resta da incassare."
+  },
   "servicedSaved": "Apparecchi revisionati salvati."
 }

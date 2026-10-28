@@ -1,12 +1,15 @@
+import Big from 'big.js'
 import type { DateTime } from 'luxon'
 import type { JobStatus } from '#models/job'
 import type { VisitStatus } from '#models/visit'
 
 /**
- * The status shown for a Job: the stored status, refined from its Visits.
- * Invoiced and Closed come with invoicing.
+ * The status shown for a Job: the stored status, refined from its Visits
+ * (Work Complete) and its Invoices (Invoiced, then Closed once paid).
  */
-export type DisplayedJobStatus = JobStatus | 'work_complete'
+export type DisplayedJobStatus = JobStatus | 'work_complete' | 'invoiced' | 'closed'
+
+type InvoiceSummary = { status: string; total: string | null; paid: string }
 
 type VisitSummary = { status: VisitStatus; startsAt: DateTime }
 
@@ -23,7 +26,18 @@ function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
  * Work Complete: the Job is in progress and every Visit is finished, so
  * nothing is left to do or to plan.
  */
-export function deriveJobStatus(stored: JobStatus, visits: VisitSummary[]): DisplayedJobStatus {
+export function deriveJobStatus(
+  stored: JobStatus,
+  visits: VisitSummary[],
+  invoices: InvoiceSummary[] = []
+): DisplayedJobStatus {
+  if (stored === 'cancelled') return stored
+  // Invoiced once an Invoice is past draft; Closed when every one is paid
+  const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
+  if (issued.length) {
+    const paid = issued.every((invoice) => new Big(invoice.paid).gte(invoice.total!))
+    return paid ? 'closed' : 'invoiced'
+  }
   const workComplete =
     stored === 'in_progress' &&
     visits.length > 0 &&
@@ -32,10 +46,21 @@ export function deriveJobStatus(stored: JobStatus, visits: VisitSummary[]): Disp
 }
 
 /**
- * The same rule as SQL, for filtering Job lists: a raw condition on the
+ * The same rules as SQL, for filtering Job lists: raw conditions on the
  * `jobs` table.
  */
-export const WORK_COMPLETE_SQL = `jobs.status = 'in_progress'
+const ISSUED_SQL = `EXISTS (SELECT 1 FROM invoices i
+  WHERE i.job_id = jobs.id AND i.status <> 'draft')`
+const UNPAID_SQL = `EXISTS (SELECT 1 FROM invoices i
+  WHERE i.job_id = jobs.id AND i.status <> 'draft'
+    AND i.total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = i.id))`
+
+export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${ISSUED_SQL} AND NOT ${UNPAID_SQL}`
+export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${ISSUED_SQL} AND ${UNPAID_SQL}`
+/** Not yet invoiced (no Invoice past draft): what Work Complete and stored statuses describe */
+export const NOT_INVOICED_SQL = `NOT ${ISSUED_SQL}`
+
+export const WORK_COMPLETE_SQL = `NOT ${ISSUED_SQL} AND jobs.status = 'in_progress'
   AND EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id)
   AND NOT EXISTS (
     SELECT 1 FROM visits v

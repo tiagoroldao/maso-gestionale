@@ -27,6 +27,8 @@ const statuses = [
   'accepted',
   'in_progress',
   'work_complete',
+  'invoiced',
+  'closed',
   'cancelled',
   'all',
 ]

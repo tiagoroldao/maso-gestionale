@@ -32,7 +32,9 @@ export const jobValidator = vine.withMetaData<{ customerId?: number; siteId?: nu
  */
 export const jobSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
-  status: vine.enum([...JOB_STATUSES, 'work_complete', 'all'] as const).optional(),
+  status: vine
+    .enum([...JOB_STATUSES, 'work_complete', 'invoiced', 'closed', 'all'] as const)
+    .optional(),
   page: vine.number().min(1).optional(),
 })
 

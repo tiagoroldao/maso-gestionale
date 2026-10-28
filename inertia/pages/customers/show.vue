@@ -9,7 +9,7 @@ import SitePicker, { type PickedSite } from '~/components/site_picker.vue'
 import { customerTypeLabel } from '~/components/customer_types'
 import { urlFor } from '~/client'
 import JobList, { type JobRow } from '~/components/job_list.vue'
-import { t } from '~/i18n'
+import { formatMoney, t } from '~/i18n'
 
 const props = defineProps<{
   customer: {
@@ -29,6 +29,7 @@ const props = defineProps<{
   }
   sites: { id: number; summary: string }[]
   jobs: JobRow[]
+  balance: string
 }>()
 
 const confirm = (message: string) => window.confirm(message)
@@ -63,6 +64,9 @@ function linkSite(site: PickedSite) {
       </template>
 
       <p v-if="customer.archived" class="tag">{{ t('ui.archive.archivedTag') }}</p>
+      <p>
+        <strong>{{ t('ui.customers.balance') }}:</strong> {{ formatMoney(balance) }}
+      </p>
 
       <Section :title="t('ui.customers.details')">
         <dl class="details">

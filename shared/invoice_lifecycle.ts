@@ -60,6 +60,13 @@ export const RESUBMISSION_DAYS = 5
 export const SUBMISSION_OUTCOMES = ['delivered', 'not_deliverable', 'rejected'] as const
 export type SubmissionOutcome = (typeof SUBMISSION_OUTCOMES)[number]
 
-/** The stages the Invoice list filters by */
-export const INVOICE_STAGES = ['all', 'draft', 'finalised', 'submitted', 'rejected'] as const
+/** The stages the Invoice list filters by; overdue is about payment, the rest lifecycle */
+export const INVOICE_STAGES = [
+  'all',
+  'draft',
+  'finalised',
+  'submitted',
+  'rejected',
+  'overdue',
+] as const
 export type InvoiceStage = (typeof INVOICE_STAGES)[number]
