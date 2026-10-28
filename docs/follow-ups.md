@@ -43,6 +43,7 @@ Review findings folded into planned work, so they are picked up with it:
 
 ## Not yet issues
 
+- **Quote declines cancel the Job inside `Quotes.decide`** (two lines setting status and date), not through `Jobs.cancel`, which opens its own transaction and would deadlock on the Job row `decide` holds. Harmless today (a draft Quote's Job can't have Invoices); when Job cancellation gains more guards or side effects, let `Jobs.cancel` take the caller's transaction and use it from both (from the #86 and #94 reviews).
 - **Customer's role at a Site** (owner, administrator, tenant): a domain question raised in the #43 review; decide during the UX pass or when a feature needs it.
 - **Archived-reference check outside the lock:** Quote and Invoice saves read which archived Items and VAT Codes the record already uses before locking it, so a concurrent save or archive could let an archived reference onto a draft. Move the check inside the locked transaction for both (from the #77 review); likewise `Invoices.create` checks an archived Customer only in the validator (harmless: Invoices don't block archiving) (from the #95 review).
 - **Billing price policy:** comment on #22, applies to #74 (recorded prices vs. today's prices).

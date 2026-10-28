@@ -45,6 +45,7 @@ export const invoiceValidator = vine
             })
             .optional(),
           description: vine.string().trim().minLength(1).maxLength(1000),
+          unit: vine.string().trim().maxLength(10).optional(),
           quantity: vine
             .string()
             .use(quantityRule({ allowNegative: false, max: LINE_QUANTITY_MAX })),

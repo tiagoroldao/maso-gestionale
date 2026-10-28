@@ -10,6 +10,8 @@ import { urlFor } from '~/client'
 const confirm = (message: string) => window.confirm(message)
 
 defineProps<{
+  invoices: { id: number; number: string | null; status: string; total: string }[]
+  canInvoiceFromQuote: boolean
   timeAndMaterials: { total: string; lines: number }
   job: {
     id: number
@@ -155,6 +157,22 @@ defineProps<{
         <Link route="quotes.edit" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
           {{ job.status === 'open' ? t('ui.quotes.write') : t('ui.quotes.open') }}
         </Link>
+      </Section>
+
+      <Section v-if="invoices.length || canInvoiceFromQuote" :title="t('ui.invoices.title')">
+        <ul v-if="invoices.length" :style="{ margin: 0, paddingLeft: '18px' }">
+          <li v-for="invoice in invoices" :key="invoice.id">
+            <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
+              {{ invoice.number ?? t('ui.invoices.statuses.draft') }}
+            </Link>
+            · {{ t(`ui.invoices.statuses.${invoice.status}`) }} · {{ formatMoney(invoice.total) }}
+          </li>
+        </ul>
+        <Form v-if="canInvoiceFromQuote" route="invoices.store_from_job" :params="{ id: job.id }">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.invoices.fromQuote') }}
+          </button>
+        </Form>
       </Section>
 
       <Section v-if="job.status !== 'cancelled'">

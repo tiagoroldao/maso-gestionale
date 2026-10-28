@@ -1,5 +1,6 @@
 import Job from '#models/job'
-import Jobs from '#services/jobs'
+import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
+import Invoice from '#models/invoice'
 import { ArchivedRecordError } from '#services/archiving'
 import Customer from '#models/customer'
 import { likePattern } from '#services/search'
@@ -116,7 +117,22 @@ export default class JobsController {
       ...visit.items.map((line) => lineTotal(line.quantity, line.unitPrice)),
     ])
 
+    const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
+    const quote = await job.related('quote').query().first()
+
     return inertia.render('jobs/show', {
+      invoices: invoices.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.formattedNumber,
+        status: invoice.status,
+        total: invoice.totals.total,
+      })),
+      // Once per Quote, and never for a cancelled Job
+      canInvoiceFromQuote:
+        job.kind === 'quoted' &&
+        quote?.status === 'accepted' &&
+        job.status !== 'cancelled' &&
+        invoices.length === 0,
       timeAndMaterials: { total: sumAmounts(amounts), lines: amounts.length },
       job: {
         ...jobRow(job),
@@ -165,36 +181,40 @@ export default class JobsController {
   }
 
   async update({ params, request, response, session, i18n }: HttpContext) {
-    const job = await Job.findOrFail(params.id)
-    if (job.status === 'cancelled') {
+    // A cancelled Job is refused before its form is even checked
+    const current = await Job.findOrFail(params.id)
+    if (current.status === 'cancelled') {
       session.flash('error', i18n.t('flash.jobNotEditable'))
-      return response.redirect().toRoute('jobs.show', { id: job.id })
+      return response.redirect().toRoute('jobs.show', { id: current.id })
     }
     const data = await request.validateUsing(jobValidator, {
-      meta: { customerId: job.customerId, siteId: job.siteId ?? undefined },
+      meta: { customerId: current.customerId, siteId: current.siteId ?? undefined },
     })
-
-    job.merge({
-      customerId: data.customerId,
-      siteId: data.siteId ?? null,
-      workCategory: data.workCategory,
-      title: data.title,
-      description: data.description ?? null,
-    })
-    // The kind decides how the Job is invoiced, so it can only change while
-    // the Job is open and has no Quote yet
-    const hasQuote = await job.related('quote').query().first()
-    if (job.status === 'open' && !hasQuote) job.kind = data.kind
-    await job.save()
-
-    session.flash('success', i18n.t('flash.jobSaved', { number: job.number }))
-    response.redirect().toRoute('jobs.show', { id: job.id })
+    try {
+      const updated = await Jobs.update(params.id, data)
+      session.flash('success', i18n.t('flash.jobSaved', { number: updated.number }))
+    } catch (error) {
+      if (error instanceof JobNotEditableError) {
+        session.flash('error', i18n.t('flash.jobNotEditable'))
+      } else if (error instanceof JobInvoicedError) {
+        session.flash('error', i18n.t('flash.jobCustomerInvoiced'))
+      } else if (error instanceof ArchivedRecordError) {
+        session.flash('error', i18n.t('flash.archivedRecord'))
+      } else {
+        throw error
+      }
+    }
+    response.redirect().toRoute('jobs.show', { id: params.id })
   }
 
   async cancel({ params, response, session, i18n }: HttpContext) {
-    const job = await Jobs.cancel(params.id)
-
-    session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
-    response.redirect().toRoute('jobs.show', { id: job.id })
+    try {
+      const job = await Jobs.cancel(params.id)
+      session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
+    } catch (error) {
+      if (!(error instanceof JobInvoicedError)) throw error
+      session.flash('error', i18n.t('flash.jobInvoiced'))
+    }
+    response.redirect().toRoute('jobs.show', { id: params.id })
   }
 }

@@ -250,7 +250,7 @@ export class InvoiceSubmissionSchema extends BaseModel {
 }
 
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'notes', 'number', 'paymentMethod', 'status', 'updatedAt', 'year'] as const
+  static $columns = ['companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'updatedAt', 'year'] as const
   $columns = InvoiceSchema.$columns
   @column()
   declare companySnapshot: any | null
@@ -270,6 +270,8 @@ export class InvoiceSchema extends BaseModel {
   declare id: number
   @column.date()
   declare issuedOn: DateTime | null
+  @column()
+  declare jobId: number | null
   @column()
   declare notes: string | null
   @column()
