@@ -13,7 +13,7 @@ const LINE_PRICE_MAX = '9999999'
  * Priced lines need a quantity and unit price; text lines only words.
  */
 export const quoteValidator = vine
-  .withMetaData<{ itemIds: number[]; labourRateIds: number[] }>()
+  .withMetaData<{ itemIds: number[]; labourRateIds: number[]; vatCodeIds: number[] }>()
   .create({
     notes: vine.string().trim().maxLength(5000).optional(),
     lines: vine
@@ -55,6 +55,18 @@ export const quoteValidator = vine
           unitPrice: vine
             .string()
             .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: LINE_PRICE_MAX }))
+            .optional()
+            .requiredWhen('kind', '!=', 'text'),
+          vatCodeId: vine
+            .number()
+            .exists({
+              table: 'vat_codes',
+              column: 'id',
+              // Archived codes can't be picked, but lines already on the Quote keep theirs
+              filter: (db, _, field) => {
+                db.where((q) => q.whereNull('archived_at').orWhereIn('id', field.meta.vatCodeIds))
+              },
+            })
             .optional()
             .requiredWhen('kind', '!=', 'text'),
         })

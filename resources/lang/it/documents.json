@@ -10,8 +10,10 @@
     "quantity": "Quantità",
     "unitPrice": "Prezzo unitario",
     "amount": "Importo",
-    "total": "Totale",
-    "vatExcluded": "IVA esclusa",
-    "issuedOn": "Data: {date}"
+    "total": "Totale IVA inclusa",
+    "issuedOn": "Data: {date}",
+    "vat": "IVA",
+    "taxable": "Imponibile",
+    "vatAmount": "Imposta"
   }
 }

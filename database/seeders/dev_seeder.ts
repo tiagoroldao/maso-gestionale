@@ -79,6 +79,10 @@ export default class DevSeeder extends BaseSeeder {
     const today = DateTime.now().startOf('day')
     const at = (day: DateTime, hour: number) => day.set({ hour })
 
+    const standard = await VatCode.findByOrFail('name', '22%')
+    const reduced = await VatCode.findByOrFail('name', '10%')
+    const reverseCharge = await VatCode.findByOrFail('natura', 'N6.7')
+
     // Open: just phoned in, nothing planned yet
     await this.job(customers.private, 'quoted', 'maintenance', 'Perdita sotto il lavello')
 
@@ -98,6 +102,7 @@ export default class DevSeeder extends BaseSeeder {
           description: items.tubo.description,
           quantity: '24',
           unitPrice: items.tubo.resalePrice,
+          vatCodeId: reduced.id,
         },
         {
           kind: 'labour',
@@ -105,6 +110,7 @@ export default class DevSeeder extends BaseSeeder {
           description: rates.idraulico.name,
           quantity: '16',
           unitPrice: rates.idraulico.hourlyPrice,
+          vatCodeId: reduced.id,
         },
         { kind: 'text', description: 'Opere murarie escluse.' },
       ],
@@ -125,6 +131,7 @@ export default class DevSeeder extends BaseSeeder {
           description: items.wc.description,
           quantity: '2',
           unitPrice: items.wc.resalePrice,
+          vatCodeId: reverseCharge.id,
         },
         {
           kind: 'labour',
@@ -132,6 +139,7 @@ export default class DevSeeder extends BaseSeeder {
           description: rates.idraulico.name,
           quantity: '12',
           unitPrice: rates.idraulico.hourlyPrice,
+          vatCodeId: reverseCharge.id,
         },
       ],
     })
@@ -226,8 +234,6 @@ export default class DevSeeder extends BaseSeeder {
     // A draft Invoice at two rates with a global discount: gaskets bought
     // at the counter (22%) and maintenance at the Customer's home (10%)
     const invoice = await Invoices.create(customers.private.customer)
-    const standard = await VatCode.findByOrFail('name', '22%')
-    const reduced = await VatCode.findByOrFail('name', '10%')
     await Invoices.save(invoice, {
       discountPercent: '5',
       notes: 'Materiale al banco e manutenzione a domicilio.',

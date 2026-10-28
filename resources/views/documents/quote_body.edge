@@ -8,6 +8,7 @@
   .quote-total strong { font-size: 12pt; }
   .quote-note { margin-top: 6mm; white-space: pre-line; }
   .quote-lines tr { page-break-inside: avoid; }
+  .quote-legal { margin-top: 4mm; font-size: 8.5pt; color: #57606a; }
 </style>
 
 <p>{{ t('documents.quote.issuedOn', { date: issuedOn }) }}<br />{{ t('documents.quote.subject', { title: job.title }) }}</p>
@@ -18,18 +19,20 @@
       <th>{{ t('documents.quote.description') }}</th>
       <th class="num">{{ t('documents.quote.quantity') }}</th>
       <th class="num">{{ t('documents.quote.unitPrice') }}</th>
+      <th class="num">{{ t('documents.quote.vat') }}</th>
       <th class="num">{{ t('documents.quote.amount') }}</th>
     </tr>
   </thead>
   <tbody>
     @each(line in lines)
       @if(line.kind === 'text')
-        <tr class="text-line"><td colspan="4">{{ line.description }}</td></tr>
+        <tr class="text-line"><td colspan="5">{{ line.description }}</td></tr>
       @else
         <tr>
           <td>{{ line.description }}</td>
           <td class="num">{{ line.quantity }} {{ line.unit }}</td>
           <td class="num">{{ line.unitPrice }}</td>
+          <td class="num">{{ line.vat }}</td>
           <td class="num">{{ line.lineTotal }}</td>
         </tr>
       @end
@@ -37,11 +40,35 @@
   </tbody>
 </table>
 
+<table class="quote-lines">
+  <thead>
+    <tr>
+      <th>{{ t('documents.quote.vat') }}</th>
+      <th class="num">{{ t('documents.quote.taxable') }}</th>
+      <th class="num">{{ t('documents.quote.vatAmount') }}</th>
+    </tr>
+  </thead>
+  <tbody>
+    @each(row in summary)
+      <tr>
+        <td>{{ row.vat }}</td>
+        <td class="num">{{ row.taxable }}</td>
+        <td class="num">{{ row.vatAmount }}</td>
+      </tr>
+    @end
+  </tbody>
+</table>
+
 <p class="quote-total">
-  {{ t('documents.quote.total') }} <strong>{{ total }}</strong><br />
-  <small>{{ t('documents.quote.vatExcluded') }}</small>
+  {{ t('documents.quote.taxable') }} {{ taxable }}<br />
+  {{ t('documents.quote.vatAmount') }} {{ vat }}<br />
+  {{ t('documents.quote.total') }} <strong>{{ total }}</strong>
 </p>
 
 @if(notes)
   <p class="quote-note">{{ notes }}</p>
+@end
+
+@each(note in legalNotes)
+  <p class="quote-legal">{{ note }}</p>
 @end

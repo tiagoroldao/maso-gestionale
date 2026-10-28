@@ -322,7 +322,7 @@ export class PaymentTermSchema extends BaseModel {
 }
 
 export class QuoteLineSchema extends BaseModel {
-  static $columns = ['description', 'id', 'itemId', 'kind', 'labourRateId', 'lineTotal', 'position', 'quantity', 'quoteId', 'unit', 'unitPrice'] as const
+  static $columns = ['description', 'id', 'itemId', 'kind', 'labourRateId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'quoteId', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
   $columns = QuoteLineSchema.$columns
   @column()
   declare description: string
@@ -335,7 +335,11 @@ export class QuoteLineSchema extends BaseModel {
   @column()
   declare labourRateId: number | null
   @column()
+  declare legalNote: string | null
+  @column()
   declare lineTotal: string | null
+  @column()
+  declare natura: string | null
   @column()
   declare position: number
   @column()
@@ -346,6 +350,10 @@ export class QuoteLineSchema extends BaseModel {
   declare unit: string | null
   @column()
   declare unitPrice: string | null
+  @column()
+  declare vatCodeId: number | null
+  @column()
+  declare vatRate: string | null
 }
 
 export class QuoteSchema extends BaseModel {
