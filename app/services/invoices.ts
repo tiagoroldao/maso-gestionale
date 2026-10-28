@@ -69,7 +69,7 @@ export type Deduction = { advanceId: number; amount: string }
 
 /**
  * The Job has nothing to invoice yet (no Charge to bill on the Job or its
- * closed Visits), or it was cancelled.
+ * closed Visits), or, for an Advance Invoice, it is closed or cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 
@@ -117,7 +117,8 @@ export default class Invoices {
   static async createAdvance(job: Job) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
+      // An advance is for work to come: none on a closed or cancelled Job
+      if (!locked.isActive) throw new JobNotInvoiceableError()
       const { labour: code } = await VatDefaults.forJob(locked, trx)
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft', advance: true },
@@ -339,8 +340,8 @@ export default class Invoices {
    */
   static async fromJob(job: Job) {
     return db.transaction(async (trx) => {
+      // Recorded work is billed whatever the Job's status (#111)
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
       const draft = await Invoice.query({ client: trx })
         .where('jobId', locked.id)
         .where('status', 'draft')

@@ -475,23 +475,40 @@
     "create": "Apri commessa",
     "cancel": "Annulla commessa",
     "cancelledOn": "annullata il {date}",
+    "close": "Chiudi commessa",
+    "closeSection": "Chiusura",
+    "closedOn": "chiusa il {date}",
+    "reopen": "Riapri commessa",
+    "nothingLeft": "Non resta nulla da fare, fatturare o incassare.",
+    "leftToCloseHint": "Resta ancora qualcosa: si può chiudere comunque.",
+    "leftToClose": {
+      "visits": "{count, plural, one {# intervento da fare} other {# interventi da fare}}",
+      "charges": "{count, plural, one {# addebito da fatturare} other {# addebiti da fatturare}}",
+      "unpaid": "{count, plural, one {# fattura da incassare} other {# fatture da incassare}}",
+      "overpaid": "{count, plural, one {# fattura pagata in eccesso} other {# fatture pagate in eccesso}}",
+      "advances": "{count, plural, one {# acconto non ancora detratto} other {# acconti non ancora detratti}}"
+    },
     "statuses": {
       "open": "Aperta",
       "in_progress": "In corso",
-      "cancelled": "Annullata",
-      "work_complete": "Lavori completati",
+      "closed": "Chiusa",
+      "cancelled": "Annullata"
+    },
+    "indicators": {
+      "workComplete": "Lavori completati",
       "invoiced": "Fatturata",
-      "closed": "Chiusa"
+      "paid": "Pagata"
     },
     "filters": {
       "active": "Attive",
       "open": "Aperte",
       "in_progress": "In corso",
+      "closed": "Chiuse",
       "cancelled": "Annullate",
       "all": "Tutte",
-      "work_complete": "Lavori completati",
-      "invoiced": "Fatturate",
-      "closed": "Chiuse",
+      "work_complete": "Attive con lavori completati",
+      "invoiced": "Attive fatturate",
+      "ready_to_close": "Pronte da chiudere",
       "quote_sent": "Con preventivo in attesa di risposta",
       "quote_accepted": "Con preventivo accettato"
     },

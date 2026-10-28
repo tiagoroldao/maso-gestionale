@@ -16,12 +16,13 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
  * The Visit is closed (its hours, Items and stock are final), its Job was
- * cancelled, or the request doesn't fit it (a Technician not on the
- * Visit, an install without a Site, a Charge Office already reviewed).
+ * closed or cancelled, or the request doesn't fit it (a Technician not on
+ * the Visit, an install without a Site, a Charge Office already reviewed).
  */
 export class FieldWorkRefusedError extends Error {
   constructor(
-    readonly reason: 'done' | 'cancelled' | 'notOnVisit' | 'noSite' | 'notAtSite' | 'reviewed'
+    readonly reason:
+      'done' | 'closed' | 'cancelled' | 'notOnVisit' | 'noSite' | 'notAtSite' | 'reviewed'
   ) {
     super(reason)
   }
@@ -33,15 +34,16 @@ export class FieldWorkRefusedError extends Error {
  * stock. Every change locks the Visit, so a colleague closing it at the
  * same moment can't leave lines off stock or reopen it.
  *
- * A cancelled Job's Visits are frozen as history: they leave the Agenda
- * and the Technicians' lists, and accept no further work.
+ * A closed or cancelled Job's Visits are frozen as history: they leave the
+ * Agenda and the Technicians' lists, and accept no further work (ADR
+ * 0015); a closed Job is reopened first.
  */
 export default class FieldWork {
   /**
    * Runs `work` (adding a note or photo) while the Visit's Job is active.
    * Notes and photos may still go on a closed Visit (a follow-up remark, a
-   * forgotten picture), but not once its Job is cancelled; the Job is
-   * share-locked so a cancellation can't slip in between check and write.
+   * forgotten picture), but not once its Job is closed or cancelled; the
+   * Job is share-locked so neither can slip in between check and write.
    */
   static whileJobActive<T>(visit: Visit, work: (trx: TransactionClientContract) => Promise<T>) {
     return db.transaction(async (trx) => {
@@ -53,13 +55,15 @@ export default class FieldWork {
   }
 
   /**
-   * Share-locks the Job, refusing if it is cancelled. Lock order is always
+   * Share-locks the Job, refusing if it is closed or cancelled. Lock order is always
    * the Visit first, then its Job: code that locks a Job and then its
    * Visits must not run concurrently with field work, or it deadlocks.
    */
   private static async lockActiveJob(trx: TransactionClientContract, jobId: number) {
     const job = await Job.query({ client: trx }).where('id', jobId).forShare().firstOrFail()
-    if (job.status === 'cancelled') throw new FieldWorkRefusedError('cancelled')
+    if (job.status === 'closed' || job.status === 'cancelled') {
+      throw new FieldWorkRefusedError(job.status)
+    }
   }
 
   /**
@@ -319,7 +323,7 @@ export default class FieldWork {
 
   /**
    * Runs `work` with the Visit locked and re-read, refusing if it is
-   * already closed or its Job is cancelled.
+   * already closed or its Job is closed or cancelled.
    */
   private static whileOpen<T>(
     visit: Visit,

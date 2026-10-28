@@ -9,6 +9,7 @@ import Scheduling, {
   VisitNotMovableError,
 } from '#services/scheduling'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
   editVisitValidator,
   moveVisitValidator,
@@ -90,8 +91,8 @@ export default class VisitsController {
     const visits = await Visit.query()
       .where('startsAt', '<', to.toJSDate())
       .where('endsAt', '>', from.toJSDate())
-      // Abandoned work leaves the Agenda; the Visits stay in the Job's history
-      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      // A closed or cancelled Job's Visits leave the Agenda; they stay in its history
+      .whereHas('job', (job) => job.whereIn('status', [...ACTIVE_JOB_STATUSES]))
       .preload('technicians')
       .preload('job', (job) => job.preload('customer').preload('site'))
       .orderBy('startsAt')
@@ -246,7 +247,7 @@ export default class VisitsController {
   async toSchedule({ inertia }: HttpContext) {
     const visits = await Visit.query()
       .where('status', 'needs_return')
-      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      .whereHas('job', (job) => job.whereIn('status', [...ACTIVE_JOB_STATUSES]))
       .whereNotExists((later) =>
         later
           .from('visits as later')

@@ -23,12 +23,14 @@ export class QuoteNotEditableError extends Error {}
 
 /**
  * Quote lines can't be imported: the Quote isn't accepted, the Job was
- * cancelled, the Visit is closed or not of the Job, no line to import was
+ * closed or cancelled, the Visit is closed or not of the Job, no line to import was
  * chosen, or imported hours have no worker (a Technician on the Visit, or
  * on the Job any active Technician, or a name).
  */
 export class QuoteImportRefusedError extends Error {
-  constructor(readonly reason: 'notAccepted' | 'cancelled' | 'done' | 'noLines' | 'worker') {
+  constructor(
+    readonly reason: 'notAccepted' | 'closed' | 'cancelled' | 'done' | 'noLines' | 'worker'
+  ) {
     super(reason)
   }
 }
@@ -66,15 +68,15 @@ export type QuoteInput = {
 export default class Quotes {
   /**
    * Whether the Job can have a new Quote: at any time, before any work or
-   * for extra work, while it isn't cancelled.
+   * for extra work, while it isn't closed or cancelled (ADR 0015).
    */
   static canWrite(job: Job) {
-    return job.status !== 'cancelled'
+    return job.isActive
   }
 
   /**
-   * Whether the Quote can still be written: a draft on a Job not
-   * cancelled. Once sent it is frozen: a change means a new Quote.
+   * Whether the Quote can still be written: a draft on a Job neither
+   * closed nor cancelled. Once sent it is frozen: a change means a new Quote.
    */
   static isEditable(job: Job, quote: Quote) {
     return this.canWrite(job) && quote.status === 'draft'
@@ -91,7 +93,7 @@ export default class Quotes {
   /**
    * Whether the Customer's answer can be recorded: a sent Quote, or a
    * draft with a priced line, decided on the spot (which sends it), on a
-   * Job not cancelled (lines preloaded).
+   * Job neither closed nor cancelled (lines preloaded).
    */
   static isDecidable(job: Job, quote: Quote) {
     return (
@@ -257,7 +259,9 @@ export default class Quotes {
         .where('id', quote.jobId)
         .forShare()
         .firstOrFail()
-      if (locked.status === 'cancelled') throw new QuoteImportRefusedError('cancelled')
+      if (locked.status === 'closed' || locked.status === 'cancelled') {
+        throw new QuoteImportRefusedError(locked.status)
+      }
       // Decisions lock the Job for update, so this status holds
       const current = await Quote.query({ client: trx }).where('id', quote.id).firstOrFail()
       if (current.status !== 'accepted') throw new QuoteImportRefusedError('notAccepted')

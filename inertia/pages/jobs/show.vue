@@ -11,7 +11,9 @@ import { amountForInput } from '@shared/money'
 import type { ChargeState } from '@shared/charges'
 import type { AdvanceState } from '@shared/advances'
 import { LINE_KINDS } from '@shared/vat'
-import { ref } from 'vue'
+import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
+import { computed, ref } from 'vue'
+import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 
 const confirm = (message: string) => window.confirm(message)
 // The new cost's fields, pre-filled with the call-out fee on request
@@ -32,7 +34,7 @@ function fillCallOut(fee: string) {
 }
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
-defineProps<{
+const props = defineProps<{
   quotes: { id: number; number: string; status: QuoteStatus; total: string }[]
   canWriteQuote: boolean
   invoices: {
@@ -45,6 +47,14 @@ defineProps<{
   }[]
   canInvoice: boolean
   canInvoiceAdvance: boolean
+  // What closing would leave behind (ADR 0015); null unless open or in progress
+  leftToClose: {
+    visits: number
+    charges: number
+    unpaid: number
+    overpaid: number
+    advances: number
+  } | null
   invoicedSoFar: { amount: string; of: string; quoted: string | null }
   timeAndMaterials: { total: string; billed: string; inDraft: string; lines: number }
   callOutFee: string | null
@@ -63,12 +73,14 @@ defineProps<{
     number: string
     title: string
     workCategory: string
-    status: string
+    status: JobStatus
+    indicators: JobIndicators | null
     description: string | null
     customer: { id: number; displayName: string } | null
     site: { id: number; summary: string } | null
     createdAt: string
     cancelledAt: string | null
+    closedAt: string | null
   }
   visits: {
     id: number
@@ -82,6 +94,12 @@ defineProps<{
     photoIds: number[]
   }[]
 }>()
+
+// A closed or cancelled Job takes no new Visits, Charges or Quotes
+const active = computed(() => takesNewWork(props.job.status))
+const left = computed(() =>
+  Object.entries(props.leftToClose ?? {}).filter(([, count]) => count > 0)
+)
 </script>
 
 <template>
@@ -103,8 +121,12 @@ defineProps<{
           <dt>{{ t('ui.jobs.status') }}</dt>
           <dd>
             <span class="tag">{{ t(`ui.jobs.statuses.${job.status}`) }}</span>
+            <JobIndicatorTags v-if="job.indicators" :indicators="job.indicators" />
             <span v-if="job.cancelledAt" class="field__hint">
               · {{ t('ui.jobs.cancelledOn', { date: formatDate(job.cancelledAt) }) }}
+            </span>
+            <span v-if="job.closedAt" class="field__hint">
+              · {{ t('ui.jobs.closedOn', { date: formatDate(job.closedAt) }) }}
             </span>
           </dd>
           <dt>{{ t('ui.jobs.workCategory') }}</dt>
@@ -198,7 +220,7 @@ defineProps<{
           </tbody>
         </table>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.visits.none') }}</p>
-        <div v-if="job.status !== 'cancelled'">
+        <div v-if="active">
           <Link route="visits.create" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
             {{ t('ui.visits.plan') }}
           </Link>
@@ -253,7 +275,7 @@ defineProps<{
         </table>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.charges.none') }}</p>
         <Form
-          v-if="job.status !== 'cancelled'"
+          v-if="active"
           v-slot="{ processing, errors }"
           route="charges.store"
           :params="{ id: job.id }"
@@ -402,13 +424,37 @@ defineProps<{
         </Form>
       </Section>
 
-      <Section v-if="job.status !== 'cancelled'">
+      <Section v-if="active" :title="t('ui.jobs.closeSection')">
+        <!-- What is left never stops closing: Office decides (ADR 0015) -->
+        <div v-if="left.length" data-testid="left-to-close">
+          <p class="field__hint" :style="{ margin: 0 }">{{ t('ui.jobs.leftToCloseHint') }}</p>
+          <ul :style="{ margin: '0 0 8px', paddingLeft: '18px' }">
+            <li v-for="[key, count] in left" :key="key">
+              {{ t(`ui.jobs.leftToClose.${key}`, { count }) }}
+            </li>
+          </ul>
+        </div>
+        <p v-else class="field__hint" :style="{ margin: '0 0 8px' }">
+          {{ t('ui.jobs.nothingLeft') }}
+        </p>
+        <Form route="jobs.close" :params="{ id: job.id }" :style="{ marginBottom: '8px' }">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.jobs.close') }}
+          </button>
+        </Form>
         <Form
           route="jobs.cancel"
           :params="{ id: job.id }"
           :on-before="() => confirm(t('ui.jobs.cancelConfirm', { number: job.number }))"
         >
           <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.jobs.cancel') }}</button>
+        </Form>
+      </Section>
+      <Section v-else-if="job.status === 'closed'">
+        <Form route="jobs.reopen" :params="{ id: job.id }">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.jobs.reopen') }}
+          </button>
         </Form>
       </Section>
     </Page>

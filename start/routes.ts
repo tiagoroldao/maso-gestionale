@@ -187,6 +187,12 @@ router
           .post('jobs/:id/cancel', [controllers.Jobs, 'cancel'])
           .where('id', router.matchers.number())
         router
+          .post('jobs/:id/close', [controllers.Jobs, 'close'])
+          .where('id', router.matchers.number())
+        router
+          .post('jobs/:id/reopen', [controllers.Jobs, 'reopen'])
+          .where('id', router.matchers.number())
+        router
           .get('jobs/:id/visits/create', [controllers.Visits, 'create'])
           .where('id', router.matchers.number())
         router

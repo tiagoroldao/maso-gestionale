@@ -9,7 +9,7 @@ export class JobNotSchedulableError extends Error {}
 
 /**
  * The Visit changed since the page was loaded (another user moved it), or
- * can no longer move (closed, or its Job was cancelled).
+ * can no longer move (closed, or its Job was closed or cancelled).
  */
 export class VisitNotMovableError extends Error {}
 
@@ -31,10 +31,10 @@ export class TechnicianHasHoursError extends Error {}
  */
 export default class Scheduling {
   /**
-   * A cancelled Job gets no more Visits.
+   * A closed or cancelled Job gets no more Visits (ADR 0015).
    */
   static canSchedule(job: Job) {
-    return job.status !== 'cancelled'
+    return job.isActive
   }
 
   /**
@@ -48,12 +48,13 @@ export default class Scheduling {
   /**
    * Sets the Job's status from its work (ADR 0013): open until a work
    * Visit is planned (Surveys don't count), then in progress, back to open
-   * if none is left. Its Quotes play no part; a cancelled Job stays so.
+   * if none is left. Its Quotes play no part; a closed or cancelled Job
+   * stays so.
    * Called after any change to the Job's Visits that could matter
    * (planning, editing, deleting); the caller holds the Job's update lock.
    */
   private static async followWork(trx: TransactionClientContract, job: Job) {
-    if (job.status === 'cancelled') return
+    if (!job.isActive) return
     const status = (await this.hasWorkVisits(trx, job.id)) ? 'in_progress' : 'open'
     if (job.status === status) return
     await Job.query({ client: trx }).where('id', job.id).update({ status })
@@ -141,8 +142,8 @@ export default class Scheduling {
   /**
    * Locks the Visit, then its Job (the order field work uses): shared by
    * default, for update when the caller may change the Job's status
-   * (update, destroy). Refuses a closed Visit or one whose Job was
-   * cancelled.
+   * (update, destroy). Refuses a closed Visit or one whose Job was closed
+   * or cancelled.
    */
   private static async lockOpenVisit(
     trx: TransactionClientContract,
@@ -156,7 +157,7 @@ export default class Scheduling {
       .firstOrFail()
     const query = Job.query({ client: trx }).where('id', locked.jobId)
     const job = await (jobLock === 'update' ? query.forUpdate() : query.forShare()).firstOrFail()
-    if (CLOSED_VISIT_STATUSES.includes(locked.status) || job.status === 'cancelled') {
+    if (CLOSED_VISIT_STATUSES.includes(locked.status) || !job.isActive) {
       throw new VisitNotMovableError()
     }
     return locked

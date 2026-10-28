@@ -70,6 +70,8 @@ export type ScannedRoutes = {
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.close': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.reopen': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
@@ -338,6 +340,8 @@ export type ScannedRoutes = {
     'issued_documents.store_replacement': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.store': { paramsTuple?: []; params?: {} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.close': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.reopen': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_not_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
