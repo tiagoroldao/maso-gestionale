@@ -40,6 +40,16 @@ const entityFieldRules = vine.createRule((value: unknown, _, field: FieldContext
   }
 })
 
+/**
+ * "Load from Job" fills a column with what it can hold: a quantity in a
+ * number or text column, a code, description or unit only in a text one.
+ */
+const columnSourceFitsType = vine.createRule((value: unknown, _, field: FieldContext) => {
+  const type = (field.parent as { type?: unknown } | null)?.type
+  const fits = value === 'quantity' ? type === 'number' || type === 'text' : type === 'text'
+  if (!fits) field.report('The source does not fit the column type', 'columnSource', field)
+})
+
 const templateFields = () =>
   vine
     .array(
@@ -60,7 +70,7 @@ const templateFields = () =>
               key: vine.string().regex(FIELD_KEY_PATTERN),
               label: vine.string().trim().minLength(1).maxLength(100),
               type: vine.enum(TABLE_COLUMN_TYPES),
-              from: vine.enum(TABLE_COLUMN_SOURCES).optional(),
+              from: vine.enum(TABLE_COLUMN_SOURCES).use(columnSourceFitsType()).optional(),
             })
           )
           .minLength(1)

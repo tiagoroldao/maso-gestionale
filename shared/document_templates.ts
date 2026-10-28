@@ -167,6 +167,14 @@ export function tableKeys(fields: Pick<TemplateField, 'key' | 'type'>[]) {
   return fields.filter((field) => field.type === 'table').map((field) => field.key)
 }
 
+/**
+ * `record[key]` only when the record itself has it: a field keyed
+ * `constructor` must not read Object.prototype.
+ */
+export function own<T>(record: Record<string, T>, key: string): T | undefined {
+  return Object.hasOwn(record, key) ? record[key] : undefined
+}
+
 const isObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
@@ -274,9 +282,9 @@ export function renderTemplateBody(
         escapeHtml(doc.text ?? '')
       )
     case 'placeholder':
-      return escapeHtml(values[String(doc.attrs?.key)] ?? '')
+      return escapeHtml(own(values, String(doc.attrs?.key)) ?? '')
     case 'fieldTable':
-      return renderTable(tables[String(doc.attrs?.key)])
+      return renderTable(own(tables, String(doc.attrs?.key)))
     case 'heading': {
       const level = [1, 2, 3].includes(Number(doc.attrs?.level)) ? Number(doc.attrs?.level) : 2
       return `<h${level}>${children(doc)}</h${level}>`

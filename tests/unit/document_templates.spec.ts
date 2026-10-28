@@ -155,6 +155,23 @@ test.group('Document Template bodies', () => {
     )
   })
 
+  test('keys named like Object properties render as missing, not from the prototype', ({
+    assert,
+  }) => {
+    const doc: TemplateNode = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'placeholder', attrs: { key: 'constructor' } }] },
+        { type: 'fieldTable', attrs: { key: 'constructor' } },
+      ],
+    }
+    assert.equal(renderTemplateBody(doc, {}, {}), '<p></p>')
+    assert.equal(
+      renderTemplateBody(doc, { constructor: 'x' }, { constructor: { headers: ['A'], rows: [] } }),
+      '<p>x</p><table class="field-table"><thead><tr><th>A</th></tr></thead><tbody></tbody></table>'
+    )
+  })
+
   test('refuses unknown attributes, properties and nesting', ({ assert }) => {
     const keys = placeholderKeys([])
     const p = (node: object) => ({ type: 'doc', content: [node] })

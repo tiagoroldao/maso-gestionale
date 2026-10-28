@@ -19,12 +19,14 @@ type ItemUsed = { id: number; code: string; description: string; unit: string; q
 const props = defineProps<{ fields: TemplateField[]; errors: Record<string, string> }>()
 
 const customer = ref<PickedCustomer | null>(null)
-// One store per kind of value, by field key
-const texts = reactive<Record<string, string>>({})
-const checks = reactive<Record<string, boolean>>({})
-const chosen = reactive<Record<string, Choice | null>>({})
-const lists = reactive<Record<string, Choice[]>>({})
-const rows = reactive<Record<string, string[][]>>({})
+// One store per kind of value, by field key; without a prototype, so a
+// field keyed `constructor` starts empty
+const store = <T,>() => reactive<Record<string, T>>(Object.create(null))
+const texts = store<string>()
+const checks = store<boolean>()
+const chosen = store<Choice | null>()
+const lists = store<Choice[]>()
+const rows = store<string[][]>()
 
 const siteField = computed(() => props.fields.find((field) => field.type === 'site'))
 const jobField = computed(() => props.fields.find((field) => field.type === 'job'))

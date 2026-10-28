@@ -4,6 +4,7 @@ import Charge from '#models/charge'
 import DocumentTemplate from '#models/document_template'
 import InstalledEquipment from '#models/installed_equipment'
 import LabourRate from '#models/labour_rate'
+import Charges from '#services/charges'
 import DocumentTemplates from '#services/document_templates'
 import type { TemplateField, TemplateNode } from '#shared/document_templates'
 import { createCustomer } from '#tests/helpers/customers'
@@ -177,6 +178,32 @@ test.group('Document Templates: entity fields and tables', () => {
       ]
     )
 
+    // What "load from Job" puts in a column must fit its type
+    const sourced = (type: string, from: string) => ({
+      key: `${type}_${from}`,
+      label: 'x',
+      type,
+      from,
+    })
+    assert.deepEqual(
+      await errorsFor([
+        field('t', 'table', {
+          columns: [
+            sourced('date', 'quantity'),
+            sourced('number', 'code'),
+            sourced('number', 'description'),
+            sourced('date', 'unit'),
+          ],
+        }),
+      ]),
+      Object.fromEntries(
+        [0, 1, 2, 3].map((c) => [
+          `fields.0.columns.${c}.from`,
+          [it('validator.shared.messages.columnSource')],
+        ])
+      )
+    )
+
     // Tables only for table fields, never inline; properties only those listed
     const table = field('t', 'table', { columns: [column('a')] })
     const bodyRefused = { body: [it('validator.shared.messages.templateBody')] }
@@ -282,7 +309,7 @@ test.group('Document Templates: entity fields and tables', () => {
     assert,
   }) => {
     const admin = await createUser('admin')
-    const { customer, site, boiler, valve } = await world()
+    const { customer, site, boiler, job, valve } = await world()
     const otherSite = await createSite({ street: 'Via Milano' })
     const elsewhere = await InstalledEquipment.create({
       siteId: otherSite.id,
@@ -343,6 +370,58 @@ test.group('Document Templates: entity fields and tables', () => {
     assert.deepEqual(await errorsFor({}, 999_999), {
       customerId: it('errors.templateData.customer'),
     })
+
+    // Still accepted: a cancelled Job of the Customer, an archived Item
+    await job.merge({ status: 'cancelled', cancelledAt: DateTime.now() }).save()
+    await valve.merge({ archivedAt: DateTime.now() }).save()
+    const accepted = await client
+      .post(`/settings/document-templates/${template.id}/fill`)
+      .json({
+        customerId: customer.id,
+        values: {
+          site: site.id,
+          boiler: boiler.id,
+          job: job.id,
+          part: valve.id,
+          parts: [valve.id],
+        },
+      })
+      .header('accept', 'application/json')
+      .withCsrfToken()
+      .loginAs(admin)
+    accepted.assertStatus(200)
+    assert.include(accepted.body().html, 'field.part.code=VS-1')
+
+    // An archived Customer can't be filled for
+    await customer.merge({ archivedAt: DateTime.now() }).save()
+    assert.deepEqual(await errorsFor({ site: site.id, boiler: boiler.id }), {
+      customerId: it('errors.templateData.customer'),
+    })
+  })
+
+  test('a field keyed like an Object property is an ordinary field', async ({ client, assert }) => {
+    const admin = await createUser('admin')
+    const customer = await createCustomer()
+    const template = await saveTemplate(
+      [{ key: 'constructor', label: 'Nota', type: 'text', required: false }],
+      doc(paragraph({ type: 'text', text: 'Nota: ' }, placeholder('field.constructor')))
+    )
+    const fill = (values: Record<string, unknown>) =>
+      client
+        .post(`/settings/document-templates/${template.id}/fill`)
+        .json({ customerId: customer.id, values })
+        .header('accept', 'application/json')
+        .withCsrfToken()
+        .loginAs(admin)
+
+    // Left out, it is empty, not Object.prototype.constructor
+    const empty = await fill({})
+    empty.assertStatus(200)
+    assert.include(empty.body().html, '<p>Nota: </p>')
+
+    const filled = await fill({ constructor: 'Tutto a posto' })
+    filled.assertStatus(200)
+    assert.include(filled.body().html, '<p>Nota: Tutto a posto</p>')
   })
 
   test('filling checks basic fields by type', async ({ client, assert }) => {
@@ -408,9 +487,11 @@ test.group('Document Templates: entity fields and tables', () => {
     const jobs = await client.get(`/customers/${customer.id}/jobs`).loginAs(office)
     assert.deepEqual(jobs.body(), { jobs: [{ id: job.id, number: job.number, title: job.title }] })
 
-    // The same Item on two Visits sums; labour and other Jobs don't count
+    // The same Item on two Visits sums, billable or not; labour and other
+    // Jobs don't count
     await itemCharge(job.id, tee.id, '1.5')
-    await itemCharge(job.id, valve.id, '2')
+    const notBillable = await itemCharge(job.id, valve.id, '2')
+    await Charges.setBillable(notBillable, false, office)
     await itemCharge(job.id, tee.id, '2')
     await itemCharge(otherJob.id, valve.id, '7')
     const rate = await LabourRate.create({ name: 'Idraulico prova', hourlyPrice: '40' })

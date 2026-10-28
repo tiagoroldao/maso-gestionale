@@ -9,7 +9,7 @@ import Job from '#models/job'
 import Site from '#models/site'
 import { formatDate, todayIso } from '#shared/dates'
 import { parseAmount } from '#shared/money'
-import type { TableData, TemplateField } from '#shared/document_templates'
+import { own, type TableData, type TemplateField } from '#shared/document_templates'
 
 /**
  * Values that don't fit their fields, as messages by field key.
@@ -82,7 +82,7 @@ export default class TemplateData {
     let site: Site | null = null
 
     for (const field of ordered) {
-      const value = input[field.key]
+      const value = own(input, field.key)
       if (isEmpty(value)) {
         if (field.required) fail(field, 'required')
         else if (field.type === 'table') tables[field.key] = this.table(field, [])

@@ -45,7 +45,8 @@
       "templateFields.one.site": "Un modello può avere un solo campo immobile",
       "templateFields.one.job": "Un modello può avere un solo campo commessa",
       "templateFields.equipmentNeedsSite": "Un campo apparecchio richiede un campo immobile",
-      "fields.*.columns.distinct": "Due colonne hanno lo stesso codice"
+      "fields.*.columns.distinct": "Due colonne hanno lo stesso codice",
+      "columnSource": "Questo dato della commessa non si adatta al tipo della colonna"
     },
     "fields": {
       "email": "email",
