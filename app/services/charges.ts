@@ -47,9 +47,9 @@ export default class Charges {
   /**
    * Corrects what was recorded, at any time. An Item already taken off
    * stock moves stock by the difference, with new Stock Movements. While
-   * nothing billed it and Office never edited its billing, what is billed
-   * follows: the quantity, the description and, for a new Labour Rate or
-   * Item, its current price.
+   * nothing billed it, its Job isn't cancelled and Office never edited its
+   * billing, what is billed follows: the quantity, the description and,
+   * for a new Labour Rate or Item, its current price.
    */
   static async correct(
     charge: Charge,
@@ -60,7 +60,9 @@ export default class Charges {
     await this.whileLocked(charge, async (trx, locked, job) => {
       const before = await this.recordedValues(trx, locked)
       const billingFollows =
-        locked.invoiceId === null && !(await this.hasEvent(trx, locked.id, 'billing_edited'))
+        job.status !== 'cancelled' &&
+        locked.invoiceId === null &&
+        !(await this.hasEvent(trx, locked.id, 'billing_edited'))
 
       if (locked.kind === 'labour') {
         const rate = await LabourRate.findOrFail(input.labourRateId, { client: trx })

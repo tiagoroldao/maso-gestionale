@@ -226,6 +226,10 @@ test.group('Charges', () => {
       .loginAs(office)
       .redirects(0)
     corrected.assertFlashMessage('success', it('flash.chargeCorrected'))
+    await hours.refresh()
+    assert.equal(hours.quantity, '1.000')
+    assert.equal(hours.billQuantity, '2.000')
+    assert.equal(hours.description, 'Idraulico – Anna')
   })
 
   test('correcting an Item off stock moves stock by the difference', async ({ client, assert }) => {
