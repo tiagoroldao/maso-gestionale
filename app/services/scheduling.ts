@@ -26,7 +26,8 @@ export class VisitHasWorkError extends Error {}
 export class TechnicianHasHoursError extends Error {}
 
 /**
- * Scheduling Visits and the Job status changes it causes.
+ * Scheduling Visits and the Job status changes it causes: a Job's status
+ * follows its work (ADR 0013).
  */
 export default class Scheduling {
   /**
@@ -34,15 +35,6 @@ export default class Scheduling {
    */
   static canSchedule(job: Job) {
     return job.status !== 'cancelled'
-  }
-
-  /**
-   * Whether the Job has a Quote, which decides how work Visits move it:
-   * with one, work starts once the Quote is accepted (ADR 0012). Quotes are
-   * created under the Job's lock (Quotes.save), which callers hold.
-   */
-  private static async hasQuote(trx: TransactionClientContract, jobId: number) {
-    return Boolean(await trx.from('quotes').where('job_id', jobId).first())
   }
 
   /**
@@ -54,32 +46,27 @@ export default class Scheduling {
   }
 
   /**
-   * Whether the Job has upcoming or ongoing work: a work Visit in progress,
-   * or a planned one not yet over. Surveys don't count.
+   * Sets the Job's status from its work (ADR 0013): open until a work
+   * Visit is planned (Surveys don't count), then in progress, back to open
+   * if none is left. Its Quotes play no part; a cancelled Job stays so.
+   * Called after any change to the Job's Visits that could matter
+   * (planning, editing, deleting); the caller holds the Job's update lock.
    */
-  static async hasPendingWork(trx: TransactionClientContract, jobId: number) {
-    const pending = await trx
-      .from('visits')
-      .where('job_id', jobId)
-      .where('survey', false)
-      .where((visits) =>
-        visits
-          .where('status', 'in_progress')
-          .orWhere((planned) =>
-            planned.where('status', 'planned').where('ends_at', '>', new Date())
-          )
-      )
-      .first()
-    return Boolean(pending)
+  private static async followWork(trx: TransactionClientContract, job: Job) {
+    if (job.status === 'cancelled') return
+    const status = (await this.hasWorkVisits(trx, job.id)) ? 'in_progress' : 'open'
+    if (job.status === status) return
+    await Job.query({ client: trx }).where('id', job.id).update({ status })
+    job.status = status
   }
 
   /**
    * Changes a Visit that isn't closed: when, how long, who, the notes for
    * the team and whether it is a Survey. Anyone already on it may stay,
    * even if since deactivated or no longer a Technician (the validator
-   * checks the rest); anyone who logged hours on it must stay. Turning it
-   * into a Survey or into work moves the Job as deleting or planning it
-   * would.
+   * checks the rest); anyone who logged hours on it must stay. The Job's
+   * status then follows its work again, as after planning or deleting a
+   * Visit (turning the only work Visit into a Survey reopens the Job).
    */
   static async update(
     visit: Visit,
@@ -94,7 +81,6 @@ export default class Scheduling {
     await db.transaction(async (trx) => {
       // The Job may change status below: lock it for update from the start
       const locked = await this.lockOpenVisit(trx, visit.id, 'update')
-      const surveyChanged = locked.survey !== input.survey
       locked.useTransaction(trx)
       locked.merge({
         startsAt: input.startsAt,
@@ -109,10 +95,8 @@ export default class Scheduling {
       await this.refuseIfLoggedHours(trx, locked.id, removed)
       await locked.related('technicians').sync(input.technicianIds)
 
-      if (!surveyChanged) return
       const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
-      if (input.survey) await this.backToReady(trx, job)
-      else await this.startWork(trx, job)
+      await this.followWork(trx, job)
     })
   }
 
@@ -136,8 +120,7 @@ export default class Scheduling {
 
   /**
    * Deletes a Visit planned by mistake. One with recorded work is refused.
-   * If the Job has no other work Visit (done or to come), an In Progress
-   * Job goes back to ready for work (accepted with a Quote, else open).
+   * If the Job has no other work Visit (done or to come), it is open again.
    */
   static async destroy(visit: Visit) {
     await db.transaction(async (trx) => {
@@ -151,33 +134,8 @@ export default class Scheduling {
       await locked.useTransaction(trx).delete()
 
       const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
-      await this.backToReady(trx, job)
+      await this.followWork(trx, job)
     })
-  }
-
-  /**
-   * With no work Visit left (Surveys don't count), an In Progress Job is
-   * back to waiting for its first work Visit. The caller holds the Job's
-   * update lock.
-   */
-  private static async backToReady(trx: TransactionClientContract, job: Job) {
-    if (job.status !== 'in_progress' || (await this.hasWorkVisits(trx, job.id))) return
-    job.useTransaction(trx)
-    job.status = (await this.hasQuote(trx, job.id)) ? 'accepted' : 'open'
-    await job.save()
-  }
-
-  /**
-   * A work Visit starts a Job ready for work (accepted, for a Job with a
-   * Quote; open, for one without). The caller holds the Job's update lock.
-   */
-  private static async startWork(trx: TransactionClientContract, job: Job) {
-    const readyForWork = (await this.hasQuote(trx, job.id))
-      ? job.status === 'accepted'
-      : job.status === 'open'
-    if (!readyForWork) return
-    await Job.query({ client: trx }).where('id', job.id).update({ status: 'in_progress' })
-    job.status = 'in_progress'
   }
 
   /**
@@ -205,8 +163,8 @@ export default class Scheduling {
   }
 
   /**
-   * Plans a Visit. A work Visit moves a Job ready for work to In Progress
-   * (startWork); a Survey never moves the Job (ADR 0013).
+   * Plans a Visit. A work Visit moves an open Job to In Progress
+   * (followWork); a Survey never moves the Job (ADR 0013).
    */
   static async plan(
     job: Job,
@@ -237,7 +195,7 @@ export default class Scheduling {
       )
       await visit.related('technicians').attach(input.technicianIds)
 
-      if (!visit.survey) await this.startWork(trx, job)
+      await this.followWork(trx, job)
       return visit
     })
   }
@@ -245,6 +203,8 @@ export default class Scheduling {
   /**
    * Moves a Visit to a new start (keeping its length) and, when dropped on
    * another Technician's lane, hands it from one Technician to the other.
+   * The Job's status doesn't change: it depends on which work Visits exist,
+   * not on when they are.
    */
   static async move(
     visit: Visit,

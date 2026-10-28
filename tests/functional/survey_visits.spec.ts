@@ -2,11 +2,11 @@ import { test } from '@japa/runner'
 import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
 import Visit from '#models/visit'
-import Quote from '#models/quote'
 import type Job from '#models/job'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
+import { createQuote } from '#tests/helpers/quotes'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
@@ -40,7 +40,7 @@ async function visitOf(job: Job, attributes: Partial<Visit> = {}, days = 1) {
 }
 
 test.group('Survey Visits: planning', () => {
-  test('Office and the Admin plan a Survey; the Job stays as it was', async ({
+  test('Office and the Admin plan a Survey; the Job stays open, Quote or not', async ({
     client,
     assert,
   }) => {
@@ -49,13 +49,8 @@ test.group('Survey Visits: planning', () => {
     for (const role of ['office', 'admin'] as const) {
       const user = await createUser(role)
       const open = await createJob(customer)
-      const accepted = await createJob(customer, { status: 'accepted' })
-      await Quote.create({
-        jobId: accepted.id,
-        status: 'accepted',
-        sentAt: DateTime.now(),
-        decidedAt: DateTime.now(),
-      })
+      const accepted = await createJob(customer)
+      await createQuote(accepted, { status: 'accepted', decidedAt: DateTime.now() })
 
       for (const job of [open, accepted]) {
         const response = await client
@@ -71,7 +66,7 @@ test.group('Survey Visits: planning', () => {
       await open.refresh()
       await accepted.refresh()
       assert.equal(open.status, 'open', role)
-      assert.equal(accepted.status, 'accepted', role)
+      assert.equal(accepted.status, 'open', role)
     }
   })
 
@@ -115,49 +110,41 @@ test.group('Survey Visits: planning', () => {
     assert.isFalse(visit.survey)
   })
 
-  test('accepting a Quote with only a Survey booked leaves the Job accepted', async ({
+  test('accepting a Quote with only a Survey booked leaves the Job open', async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
     const technician = await createUser('technician')
-    const job = await createJob(await createCustomer(), { status: 'quoted' })
-    await Quote.create({ jobId: job.id, status: 'draft' })
+    const job = await createJob(await createCustomer())
+    const quote = await createQuote(job, { status: 'sent' })
     await client
       .post(`/jobs/${job.id}/visits`)
       .json(plan([technician.id], { survey: true }))
       .withCsrfToken()
       .loginAs(office)
 
-    await client.post(`/jobs/${job.id}/quote/accept`).withCsrfToken().loginAs(office)
+    await client.post(`/quotes/${quote.id}/accept`).withCsrfToken().loginAs(office)
 
     await job.refresh()
-    assert.equal(job.status, 'accepted')
+    assert.equal(job.status, 'open')
   })
 })
 
 test.group('Survey Visits: editing', () => {
-  test('marking the only work Visit as a Survey puts the Job back; unmarking starts it', async ({
+  test('marking the only work Visit as a Survey reopens the Job; unmarking starts it', async ({
     client,
     assert,
   }) => {
     const technician = await createUser('technician')
     const customer = await createCustomer()
     const withQuote = await createJob(customer, { status: 'in_progress' })
-    await Quote.create({
-      jobId: withQuote.id,
-      status: 'accepted',
-      sentAt: DateTime.now(),
-      decidedAt: DateTime.now(),
-    })
-    const cases = [
-      { job: withQuote, ready: 'accepted' },
-      { job: await createJob(customer, { status: 'in_progress' }), ready: 'open' },
-    ]
+    await createQuote(withQuote, { status: 'accepted', decidedAt: DateTime.now() })
+    const jobs = [withQuote, await createJob(customer, { status: 'in_progress' })]
 
     for (const role of ['office', 'admin'] as const) {
       const user = await createUser(role)
-      for (const { job, ready } of cases) {
+      for (const job of jobs) {
         const visit = await visitOf(job)
         await visit.related('technicians').attach([technician.id])
 
@@ -171,7 +158,7 @@ test.group('Survey Visits: editing', () => {
         await visit.refresh()
         assert.isTrue(visit.survey)
         await job.refresh()
-        assert.equal(job.status, ready, `${role} marked`)
+        assert.equal(job.status, 'open', `${role} marked`)
 
         // The checkbox left unticked: work again
         await client
@@ -235,6 +222,37 @@ test.group('Survey Visits: editing', () => {
 
     const page = await client.get(`/visits/${done.id}/edit`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ visit: { survey: false, editable: false } })
+  })
+
+  test('any change to a Visit brings the Job in line with its work', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const technician = await createUser('technician')
+    // Out of step with its work, as Jobs migrated from quoted or accepted
+    // could have been: a past work Visit moved into the future
+    const job = await createJob(await createCustomer())
+    const visit = await visitOf(job, {}, -2)
+    await visit.related('technicians').attach([technician.id])
+
+    await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([technician.id], { notes: 'Spostato' }))
+      .withCsrfToken()
+      .loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
+
+    // Likewise a Job left in progress with only a Survey
+    const surveyed = await createJob(await createCustomer(), { status: 'in_progress' })
+    const survey = await visitOf(surveyed, { survey: true })
+    await survey.related('technicians').attach([technician.id])
+    await client
+      .put(`/visits/${survey.id}`)
+      .json(plan([technician.id], { survey: true, notes: 'Citofonare' }))
+      .withCsrfToken()
+      .loginAs(office)
+    await surveyed.refresh()
+    assert.equal(surveyed.status, 'open')
   })
 
   test('deleting the last work Visit ignores Surveys', async ({ client, assert }) => {

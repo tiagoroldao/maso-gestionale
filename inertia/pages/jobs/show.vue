@@ -33,8 +33,8 @@ function fillCallOut(fee: string) {
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
 defineProps<{
-  quote: { status: QuoteStatus } | null
-  canStartQuote: boolean
+  quotes: { id: number; number: string; status: QuoteStatus; total: string }[]
+  canWriteQuote: boolean
   invoices: {
     id: number
     number: string | null
@@ -334,13 +334,23 @@ defineProps<{
         </Form>
       </Section>
 
-      <Section v-if="quote || canStartQuote" :title="t('ui.quotes.section')">
-        <Link route="quotes.edit" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
-          {{ quote ? t('ui.quotes.open') : t('ui.quotes.write') }}
+      <Section v-if="quotes.length || canWriteQuote" :title="t('ui.quotes.section')">
+        <ul v-if="quotes.length" :style="{ margin: '0 0 8px', paddingLeft: '18px' }">
+          <li v-for="quote in quotes" :key="quote.id" data-testid="quote">
+            <Link route="quotes.edit" :params="{ id: quote.id }" class="il mono">
+              {{ quote.number }}
+            </Link>
+            · {{ t(`ui.quotes.statuses.${quote.status}`) }} · {{ formatMoney(quote.total) }}
+          </li>
+        </ul>
+        <Link
+          v-if="canWriteQuote"
+          route="quotes.create"
+          :params="{ id: job.id }"
+          class="btn btn--secondary btn--sm"
+        >
+          {{ t('ui.quotes.new') }}
         </Link>
-        <span v-if="quote" class="field__hint" data-testid="quote-status">
-          · {{ t(`ui.quotes.statuses.${quote.status}`) }}
-        </span>
       </Section>
 
       <Section

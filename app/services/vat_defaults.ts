@@ -30,7 +30,7 @@ export default class VatDefaults {
   }
 
   /**
-   * The code for each kind of line on the Job's Invoices and Quote, from
+   * The code for each kind of line on the Job's Invoices and Quotes, from
    * its Customer's type, its Work Category and its Site. A rule pointing
    * at a code archived since gives the standard rate.
    */

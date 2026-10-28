@@ -134,6 +134,8 @@ export interface ApiDefinition {
     setBackToBill: typeof routes['charges.set_back_to_bill']
   }
   quotes: {
+    create: typeof routes['quotes.create']
+    store: typeof routes['quotes.store']
     edit: typeof routes['quotes.edit']
     update: typeof routes['quotes.update']
     importLines: typeof routes['quotes.import_lines']

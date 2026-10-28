@@ -27,7 +27,7 @@ async function acceptedJob() {
   const job = await createJob(await createCustomer(), { workCategory: 'sale' })
   const standard = await vatCode()
   const rate = await LabourRate.create({ name: 'Lavori', hourlyPrice: '1000' })
-  await Quotes.save(job, {
+  const quote = await Quotes.create(job, {
     lines: [
       {
         kind: 'labour',
@@ -39,11 +39,11 @@ async function acceptedJob() {
       },
     ],
   })
-  await Quotes.accept(job)
+  await Quotes.accept(quote)
   await job.refresh()
-  const quote = await job.related('quote').query().preload('lines').firstOrFail()
+  await quote.load('lines')
   await Quotes.importLines(
-    job,
+    quote,
     { lineIds: quote.lines.map((line) => line.id), workerName: 'Ditta Rossi' },
     await createUser('office')
   )
@@ -169,7 +169,7 @@ test.group('Advance Invoices', () => {
     page.assertInertiaPropsContains({
       canInvoice: true,
       invoicedSoFar: { amount: '300.00', of: '1000.00' },
-      job: { status: 'accepted' },
+      job: { status: 'open' },
     })
 
     const final = await Invoices.fromJob(job)

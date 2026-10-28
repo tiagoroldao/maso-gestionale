@@ -18,7 +18,7 @@ test.group('Invoices from Jobs in the browser', () => {
     await completeCompany()
     const standard = await vatCode()
     const job = await createJob(await createCustomer())
-    await Quotes.save(job, {
+    const quote = await Quotes.create(job, {
       lines: [
         {
           kind: 'call_out',
@@ -29,10 +29,10 @@ test.group('Invoices from Jobs in the browser', () => {
         },
       ],
     })
-    await Quotes.accept(job)
+    await Quotes.accept(quote)
 
     // The Quote isn't billed: its line becomes a Charge on the Job first
-    const page = await visit(`/jobs/${job.id}/quote`)
+    const page = await visit(`/quotes/${quote.id}`)
     page.on('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: it('ui.quotes.import', { count: 1 }) }).click()
     await page.waitForURL(new RegExp(`/jobs/${job.id}$`))

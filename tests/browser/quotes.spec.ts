@@ -18,8 +18,11 @@ test.group('Quotes in the browser', () => {
     await createItem({ code: 'CALD-25', description: 'Caldaia 25 kW', resalePrice: '1200' })
     const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' })
 
-    const page = await visit(`/jobs/${job.id}/quote`)
+    // Started from the Job page, saved as the Job's first Quote
+    const page = await visit(`/jobs/${job.id}`)
     page.on('dialog', (dialog) => dialog.accept())
+    await page.getByRole('link', { name: it('ui.quotes.new') }).click()
+    await page.waitForURL(`**/jobs/${job.id}/quotes/create`)
     await page.getByLabel(it('ui.quotes.addItem')).fill('cald')
     await page.getByRole('option', { name: /CALD-25/ }).click()
     await page.getByLabel(it('ui.quotes.addLabour')).selectOption(String(rate.id))
@@ -29,6 +32,7 @@ test.group('Quotes in the browser', () => {
     // 1200 + 2.5 × 40 = 1300, reverse charged (company maintenance): no VAT on top
     await page.getByRole('cell', { name: '1.300,00 €', exact: true }).first().waitFor()
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
+    await page.waitForURL(/\/quotes\/\d+$/)
     await page.getByRole('button', { name: it('ui.quotes.send') }).click()
 
     // Sent: frozen, still to be decided
@@ -38,6 +42,7 @@ test.group('Quotes in the browser', () => {
     await page.getByRole('button', { name: it('ui.quotes.accept') }).click()
 
     await page.waitForURL(`**/jobs/${job.id}`)
+    await page.getByText(`${job.number}-1`).waitFor()
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(quote.status, 'accepted')
     assert.isNotNull(quote.sentAt)
@@ -54,7 +59,7 @@ test.group('Quotes in the browser', () => {
     const job = await createJob(await createCustomer())
     await createItem({ code: 'VAL-1', description: 'Valvola', resalePrice: '10' })
 
-    const page = await visit(`/jobs/${job.id}/quote`)
+    const page = await visit(`/jobs/${job.id}/quotes/create`)
     page.on('dialog', (dialog) => dialog.accept())
     await page.getByLabel(it('ui.quotes.addItem')).fill('val')
     await page.getByRole('option', { name: /VAL-1/ }).click()

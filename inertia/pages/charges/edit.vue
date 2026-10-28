@@ -66,6 +66,9 @@ const confirmSetBack = () =>
     t('ui.charges.setBackToBillConfirm', { number: props.charge.invoice?.number ?? '' })
   )
 
+// The Quote's number goes with its line, not on a line of its own
+const shownChanges = (changes: { after: Record<string, string | null> } | null) =>
+  Object.fromEntries(Object.entries(changes?.after ?? {}).filter(([key]) => key !== 'quote'))
 const quantity = (value: string) => amountForInput(value)
 const shown = (key: string, value: string | null) => {
   if (value === null) return '—'
@@ -330,11 +333,16 @@ const shown = (key: string, value: string | null) => {
                       : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
                   }}
                 </Link>
-                <div v-for="(after, key) in event.changes?.after ?? {}" :key="key">
-                  <!-- Imported from a Quote line (ADR 0012) -->
+                <div v-for="(after, key) in shownChanges(event.changes)" :key="key">
+                  <!-- Imported from a Quote line (ADR 0012), of a numbered Quote (ADR 0013) -->
                   {{
                     key === 'quoteLine'
-                      ? t('ui.charges.fromQuoteLine', { position: after })
+                      ? event.changes!.after.quote
+                        ? t('ui.charges.fromQuoteLine', {
+                            position: after,
+                            number: event.changes!.after.quote,
+                          })
+                        : t('ui.charges.fromUnnumberedQuoteLine', { position: after })
                       : t('ui.charges.change', {
                           field: t(`ui.charges.fields.${key}`),
                           before: shown(String(key), event.changes!.before[key]),

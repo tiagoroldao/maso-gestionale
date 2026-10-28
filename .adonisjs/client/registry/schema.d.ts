@@ -1060,9 +1060,35 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
     }
   }
+  'quotes.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/jobs/:id/quotes/create'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['create']>>>
+    }
+  }
+  'quotes.store': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/quotes'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/quote').quoteValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/quote').quoteValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/quotes_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'quotes.edit': {
     methods: ["GET","HEAD"]
-    pattern: '/jobs/:id/quote'
+    pattern: '/quotes/:id'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1075,7 +1101,7 @@ export interface Registry {
   }
   'quotes.update': {
     methods: ["PUT"]
-    pattern: '/jobs/:id/quote'
+    pattern: '/quotes/:id'
     types: {
       body: ExtractBody<InferInput<(typeof import('#validators/quote').quoteValidator)>>
       paramsTuple: [ParamValue]
@@ -1088,7 +1114,7 @@ export interface Registry {
   }
   'quotes.import_lines': {
     methods: ["POST"]
-    pattern: '/jobs/:id/quote/import'
+    pattern: '/quotes/:id/import'
     types: {
       body: ExtractBody<InferInput<(typeof import('#validators/quote').quoteImportValidator)>>
       paramsTuple: [ParamValue]
@@ -1101,7 +1127,7 @@ export interface Registry {
   }
   'quotes.send': {
     methods: ["POST"]
-    pattern: '/jobs/:id/quote/send'
+    pattern: '/quotes/:id/send'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1114,7 +1140,7 @@ export interface Registry {
   }
   'quotes.accept': {
     methods: ["POST"]
-    pattern: '/jobs/:id/quote/accept'
+    pattern: '/quotes/:id/accept'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1127,7 +1153,7 @@ export interface Registry {
   }
   'quotes.decline': {
     methods: ["POST"]
-    pattern: '/jobs/:id/quote/decline'
+    pattern: '/quotes/:id/decline'
     types: {
       body: {}
       paramsTuple: [ParamValue]
@@ -1140,7 +1166,7 @@ export interface Registry {
   }
   'quotes.pdf': {
     methods: ["GET","HEAD"]
-    pattern: '/jobs/:id/quote.pdf'
+    pattern: '/quotes/:id/pdf'
     types: {
       body: {}
       paramsTuple: [ParamValue]
