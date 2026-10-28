@@ -13,4 +13,5 @@ Closing warns but never refuses: if Visits are still planned, Charges are left t
 
 - Job statuses: open, in progress, closed, cancelled are stored; work complete, invoiced and paid are derived indicators, in TypeScript and SQL alike.
 - Existing Jobs that were derived as closed migrate to closed.
+- A cancelled Job can't be reopened, so a Visit left open on it would stay frozen, its Items never off stock and its Charges never billable. Cancelling warns, listing its open Visits, and never refuses; Office can then mark such a Visit done, the only change a cancelled Job's Visits accept. A closed Job's open Visits are reached by reopening it. Decided by the business on 2026-10-28 (#153).
 - (Refines ADR 0013, whose derived "closed" this replaces.)

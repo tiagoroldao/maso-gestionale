@@ -1,5 +1,5 @@
 import Job from '#models/job'
-import { hasBillableWork, isClosedVisit } from '#shared/visits'
+import { closableByOffice, hasBillableWork, isClosedVisit } from '#shared/visits'
 import { isVisitBilled, type ChargeState } from '#shared/charges'
 import Jobs, {
   JobClosedError,
@@ -261,6 +261,8 @@ export default class JobsController {
         endsAt: localDateTime(visit.endsAt),
         status: visit.status,
         survey: visit.survey,
+        // Left open when the Job was cancelled: Office marks it done (#153)
+        closableByOffice: closableByOffice(job.status, visit.status),
         billed: isVisitBilled(
           isClosedVisit(visit.status),
           charges.filter((charge) => charge.visitId === visit.id).map((charge) => charge.state)
@@ -324,10 +326,22 @@ export default class JobsController {
     response.redirect().toRoute('jobs.show', { id: params.id })
   }
 
+  /**
+   * Cancels the Job. Visits still open never stop it (#153): the page's
+   * confirmation lists them, and the flash warns that they wait for Office
+   * to mark them done.
+   */
   async cancel({ params, response, session, i18n }: HttpContext) {
     try {
-      const job = await Jobs.cancel(params.id)
-      session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
+      const { job, openVisits } = await Jobs.cancel(params.id)
+      if (openVisits) {
+        session.flash(
+          'warning',
+          i18n.t('flash.jobCancelledWithOpenVisits', { number: job.number, count: openVisits })
+        )
+      } else {
+        session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
+      }
     } catch (error) {
       if (error instanceof JobInvoicedError) session.flash('error', i18n.t('flash.jobInvoiced'))
       else if (error instanceof JobClosedError) session.flash('error', i18n.t('flash.jobClosed'))

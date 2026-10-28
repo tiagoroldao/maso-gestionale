@@ -10,6 +10,15 @@ export function isClosedVisit(status: string) {
 }
 
 /**
+ * Whether Office marks the Visit done from the office pages: only one left
+ * open when its Job was cancelled (#153). An active Job's Visits close in
+ * the field; a closed Job is reopened first.
+ */
+export function closableByOffice(jobStatus: string, visitStatus: string) {
+  return jobStatus === 'cancelled' && !isClosedVisit(visitStatus)
+}
+
+/**
  * Whether a Job has work on its Visits to invoice: hours or Items not
  * yet billed on a closed Visit. Work on open Visits waits for a later
  * Invoice, since those can still gain or lose hours and Items.

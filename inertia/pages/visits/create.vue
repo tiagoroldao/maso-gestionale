@@ -19,6 +19,7 @@ const props = defineProps<{
     notes: string | null
     survey: boolean
     editable: boolean
+    closableByOffice: boolean
   } | null
 }>()
 
@@ -28,6 +29,7 @@ const durations = [...new Set([30, 60, 90, 120, 180, 240, 480, durationMinutes])
   (a, b) => a - b
 )
 const confirmDelete = () => window.confirm(t('ui.visits.deleteConfirm'))
+const confirmDone = () => window.confirm(t('ui.visits.markDoneConfirm'))
 </script>
 
 <template>
@@ -40,7 +42,17 @@ const confirmDelete = () => window.confirm(t('ui.visits.deleteConfirm'))
       "
       :description="`${job.title} · ${job.customer}`"
     >
-      <p v-if="visit && !visit.editable" class="field__hint">{{ t('ui.visits.closedHint') }}</p>
+      <Section v-if="visit?.closableByOffice">
+        <p class="field__hint">{{ t('ui.visits.frozenHint') }}</p>
+        <Form route="visits.mark_done" :params="{ id: visit.id }" :on-before="confirmDone">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.visits.markDone') }}
+          </button>
+        </Form>
+      </Section>
+      <p v-else-if="visit && !visit.editable" class="field__hint">
+        {{ t('ui.visits.closedHint') }}
+      </p>
       <Form
         v-slot="{ processing, errors }"
         :route="visit ? 'visits.update' : 'visits.store'"
