@@ -50,6 +50,32 @@ test.group('Installed Equipment', () => {
     assert.equal(boiler.nextDueOn?.toISODate(), '2028-01-15')
   })
 
+  test('Office can move the service date back, or clear it', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const site = await createSite()
+    const boiler = await site
+      .related('installedEquipment')
+      .create({ equipmentType: 'Boiler', lastServicedOn: DateTime.fromISO('2026-02-10') })
+
+    // A date Office changes on purpose is saved, even an earlier one
+    await client
+      .put(`/equipment/${boiler.id}`)
+      .form({ ...boilerFields, lastServicedOn: '2025-12-01', lastServicedOnWas: '2026-02-10' })
+      .withCsrfToken()
+      .loginAs(office)
+    await boiler.refresh()
+    assert.equal(boiler.lastServicedOn?.toISODate(), '2025-12-01')
+
+    // And clearing it clears it
+    await client
+      .put(`/equipment/${boiler.id}`)
+      .form({ ...boilerFields, lastServicedOnWas: '2025-12-01' })
+      .withCsrfToken()
+      .loginAs(office)
+    await boiler.refresh()
+    assert.isNull(boiler.lastServicedOn)
+  })
+
   test('rejects future dates and a zero interval', async ({ client, assert }) => {
     const office = await createUser('office')
     const site = await createSite()

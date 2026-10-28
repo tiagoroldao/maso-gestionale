@@ -87,6 +87,12 @@ const title = props.equipment ? t('ui.equipment.editTitle') : t('ui.equipment.ad
       >
         <Section :title="t('ui.equipment.itemSection')" :description="t('ui.equipment.itemHint')">
           <input type="hidden" name="itemId" :value="item?.id ?? ''" />
+          <input
+            v-if="equipment"
+            type="hidden"
+            name="lastServicedOnWas"
+            :value="equipment.lastServicedOn ?? ''"
+          />
           <div v-if="item" :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
             <span
               ><span class="mono">{{ item.code }}</span> · {{ item.description }}</span

@@ -22,3 +22,5 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 - **Playwright** `window.confirm()` dialogs need `page.on('dialog', (d) => d.accept())`.
 - **Money** is decimal strings through `shared/money.ts` (ADR 0007); dates and times are Europe/Rome (`shared/dates.ts`).
 - **Imports from `shared/`**: `#shared/*` on the server, `@shared/*` in pages.
+- **Controllers: the controller class comes first in its file.** Codegen reads the first class, so a helper class (e.g. an error) above it silently drops the 422 validation-error types for every action, and the pages' `<Form>` errors become `{}` (typecheck fails). Put helper classes after the controller, or in a service.
+- **Scratch databases:** `docker compose exec -T db psql -U maso -d postgres -c "CREATE DATABASE maso_bNN"`, then `DB_DATABASE=maso_bNN node ace migration:run` and `DB_DATABASE=maso_bNN npm run codegen` (plain `npm run codegen` reads the dev database).

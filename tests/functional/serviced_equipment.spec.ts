@@ -151,6 +151,54 @@ test.group('Servicing equipment', () => {
     assert.equal(boiler.lastServicedOn?.toISODate(), '2026-10-25')
   })
 
+  test('an Office edit open while the Visit closed keeps its service date', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, boiler } = await setup()
+    const office = await createUser('office')
+    // Office opens the edit page (no service date yet); the Visit closes
+    await FieldWork.setServiced(visit, [boiler.id])
+    await FieldWork.setStatus(visit, 'done', anna)
+
+    await client
+      .put(`/equipment/${boiler.id}`)
+      .form({ equipmentType: 'Caldaia', make: 'Vaillant', installedOn: '2020-01-10' })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await boiler.refresh()
+    assert.equal(boiler.make, 'Vaillant')
+    assert.equal(boiler.lastServicedOn?.toISODate(), '2026-10-20')
+  })
+
+  test('Office changing the date as a Visit closes is refused, not overwritten', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, boiler } = await setup()
+    const office = await createUser('office')
+    await FieldWork.setServiced(visit, [boiler.id])
+    await FieldWork.setStatus(visit, 'done', anna)
+
+    const response = await client
+      .put(`/equipment/${boiler.id}`)
+      .form({
+        equipmentType: 'Caldaia',
+        make: 'Vaillant',
+        installedOn: '2020-01-10',
+        lastServicedOn: '2025-01-01',
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('error', it('flash.serviceDateChanged'))
+    await boiler.refresh()
+    assert.isNull(boiler.make)
+    assert.equal(boiler.lastServicedOn?.toISODate(), '2026-10-20')
+  })
+
   test("serviced equipment must be at the Visit's Site", async ({ client }) => {
     const { anna, visit } = await setup()
     const otherSite = await createSite()
