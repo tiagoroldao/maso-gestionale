@@ -9,7 +9,6 @@ export function jobRow(job: Job) {
     id: job.id,
     number: job.number,
     title: job.title,
-    kind: job.kind,
     workCategory: job.workCategory,
     // Refined from the Visits and Invoices when loaded (Work Complete,
     // Invoiced, Closed); Invoices need their Payments preloaded

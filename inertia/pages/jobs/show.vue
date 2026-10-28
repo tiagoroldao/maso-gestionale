@@ -32,6 +32,8 @@ function fillCallOut(fee: string) {
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
 defineProps<{
+  quote: { status: string } | null
+  canStartQuote: boolean
   invoices: {
     id: number
     number: string | null
@@ -59,7 +61,6 @@ defineProps<{
     id: number
     number: string
     title: string
-    kind: string
     workCategory: string
     status: string
     description: string | null
@@ -104,8 +105,6 @@ defineProps<{
               · {{ t('ui.jobs.cancelledOn', { date: formatDate(job.cancelledAt) }) }}
             </span>
           </dd>
-          <dt>{{ t('ui.jobs.kind') }}</dt>
-          <dd>{{ t(`ui.jobs.kinds.${job.kind}`) }}</dd>
           <dt>{{ t('ui.jobs.workCategory') }}</dt>
           <dd>{{ t(`ui.jobs.workCategories.${job.workCategory}`) }}</dd>
           <dt>{{ t('ui.jobs.customer') }}</dt>
@@ -332,10 +331,13 @@ defineProps<{
         </Form>
       </Section>
 
-      <Section v-if="job.kind === 'quoted'" :title="t('ui.quotes.section')">
+      <Section v-if="quote || canStartQuote" :title="t('ui.quotes.section')">
         <Link route="quotes.edit" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
-          {{ job.status === 'open' ? t('ui.quotes.write') : t('ui.quotes.open') }}
+          {{ quote ? t('ui.quotes.open') : t('ui.quotes.write') }}
         </Link>
+        <span v-if="quote" class="field__hint" data-testid="quote-status">
+          · {{ t(`ui.quotes.statuses.${quote.status}`) }}
+        </span>
       </Section>
 
       <Section

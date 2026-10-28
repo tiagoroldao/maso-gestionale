@@ -13,7 +13,6 @@ test.group('Charges in the browser', () => {
     await browserContext.loginAs(await createUser('office'))
     const anna = await createUser('technician', { fullName: 'Anna' })
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
     })
     const start = DateTime.now().minus({ days: 1 })
@@ -53,7 +52,7 @@ test.group('Charges in the browser', () => {
 
   test('Office adds a cost to the Job from its page', async ({ browserContext, visit }) => {
     await browserContext.loginAs(await createUser('office'))
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    const job = await createJob(await createCustomer())
 
     const page = await visit(`/jobs/${job.id}`)
     await page.getByLabel(it('ui.charges.description')).fill('Collaboratore esterno')

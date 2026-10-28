@@ -19,7 +19,7 @@ import { stateOf } from '#tests/helpers/charges'
 import ChargeEvent from '#models/charge_event'
 
 /**
- * A Time & Materials Job with one done Visit: hours by two Technicians
+ * A Job without a Quote, with one done Visit: hours by two Technicians
  * and two Items used (one with a 10% default code).
  */
 async function workedJob() {
@@ -27,7 +27,6 @@ async function workedJob() {
   const bruno = await createUser('technician', { fullName: 'Bruno' })
   const site = await createSite()
   const job = await createJob(await createCustomer(), {
-    kind: 'time_and_materials',
     status: 'in_progress',
     siteId: site.id,
   })
@@ -56,7 +55,7 @@ async function workedJob() {
   return { job, rate, valve, boiler, visit, anna }
 }
 
-test.group('Invoices from Time & Materials Jobs', () => {
+test.group('Invoices from Jobs without a Quote', () => {
   test('one line per hours entry and Item, at the prices recorded with the work', async ({
     client,
     assert,
@@ -132,7 +131,7 @@ test.group('Invoices from Time & Materials Jobs', () => {
 
   test('a Job with no recorded work has nothing to invoice', async ({ client, assert }) => {
     const office = await createUser('office')
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    const job = await createJob(await createCustomer())
 
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ canInvoice: false })
@@ -248,7 +247,7 @@ test.group('Invoices from Time & Materials Jobs', () => {
     assert.equal(line.vatRate, '22.00')
   })
 
-  test('a cancelled Time & Materials Job is not invoiced', async ({ client, assert }) => {
+  test('a cancelled Job is not invoiced', async ({ client, assert }) => {
     const office = await createUser('office')
     const { job } = await workedJob()
     await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)

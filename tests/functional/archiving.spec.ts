@@ -22,7 +22,6 @@ test.group('Archiving Customers and Sites', () => {
       () =>
         Jobs.create({
           customerId: customer.id,
-          kind: 'quoted',
           workCategory: 'repair',
           title: 'X',
         }),
@@ -129,7 +128,6 @@ test.group('Archiving Customers and Sites', () => {
       .form({
         customerId: String(customer.id),
         siteId: String(site.id),
-        kind: 'quoted',
         workCategory: 'repair',
         title: 'X',
       })
@@ -163,7 +161,6 @@ test.group('Archiving Customers and Sites', () => {
       {
         customerId: customer.id,
         siteId: site.id,
-        kind: 'quoted',
         workCategory: 'repair',
         title: 'X',
       },

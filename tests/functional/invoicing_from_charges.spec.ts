@@ -24,7 +24,7 @@ import type Job from '#models/job'
 import type User from '#models/user'
 
 /**
- * A Time & Materials Job with a done Visit (Anna's 2 hours at 40, three
+ * A Job without a Quote, with a done Visit (Anna's 2 hours at 40, three
  * valves at 7.50) and a call-out of 35 on the Job itself: 137.50 to bill.
  */
 async function workedJob() {
@@ -32,7 +32,6 @@ async function workedJob() {
   const office = await createUser('office')
   const anna = await createUser('technician', { fullName: 'Anna' })
   const job = await createJob(await createCustomer(), {
-    kind: 'time_and_materials',
     status: 'in_progress',
     workCategory: 'sale',
   })
@@ -462,7 +461,6 @@ test.group('Invoicing from Charges', () => {
     const office = await createUser('office')
     await completeCompany()
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
     })
     const callOut = await Charges.add(
@@ -484,7 +482,6 @@ test.group('Invoicing from Charges', () => {
       .put(`/jobs/${job.id}`)
       .form({
         customerId: String(other.id),
-        kind: job.kind,
         workCategory: 'maintenance',
         title: job.title,
       })
@@ -518,7 +515,6 @@ test.group('Invoicing from Charges concurrently', () => {
     cleanup(cleanupRows)
     const office = await createUser('office')
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
     })
     for (const price of ['35', '20', '15']) {
@@ -551,7 +547,6 @@ test.group('Invoicing from Charges concurrently', () => {
     await completeCompany()
     const office = await createUser('office')
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
     })
     const charge = await Charges.add(

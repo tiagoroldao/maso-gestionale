@@ -13,9 +13,7 @@ const props = defineProps<{
   job: {
     id: number
     number: string
-    kind: string
     status: string
-    kindLocked: boolean
     workCategory: string
     title: string
     description: string | null
@@ -32,7 +30,6 @@ const site = ref<{ id: number; summary: string } | null>(props.site)
  * re-renders the form) keeps what was typed.
  */
 const values = reactive({
-  kind: props.job?.kind ?? 'quoted',
   workCategory: props.job?.workCategory ?? 'maintenance',
   title: props.job?.title ?? '',
   description: props.job?.description ?? '',
@@ -47,7 +44,6 @@ function pickSite(picked: PickedSite) {
   site.value = picked
 }
 
-const kindLocked = props.job?.kindLocked ?? false
 const title = props.job
   ? t('ui.jobs.editTitle', { number: props.job.number })
   : t('ui.jobs.newTitle')
@@ -91,25 +87,6 @@ const title = props.job
         </Section>
 
         <Section :title="t('ui.jobs.detailsSection')">
-          <div class="field">
-            <label class="field__label" for="kind">{{ t('ui.jobs.kind') }}</label>
-            <select
-              id="kind"
-              v-model="values.kind"
-              name="kind"
-              class="field__input"
-              :disabled="kindLocked"
-            >
-              <option value="quoted">{{ t('ui.jobs.kinds.quoted') }}</option>
-              <option value="time_and_materials">
-                {{ t('ui.jobs.kinds.time_and_materials') }}
-              </option>
-            </select>
-            <input v-if="kindLocked" type="hidden" name="kind" :value="values.kind" />
-            <span class="field__hint">
-              {{ kindLocked ? t('ui.jobs.kindLocked') : t('ui.jobs.kindHint') }}
-            </span>
-          </div>
           <div class="field">
             <label class="field__label" for="workCategory">{{ t('ui.jobs.workCategory') }}</label>
             <select

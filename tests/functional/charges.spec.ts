@@ -12,7 +12,6 @@ import Visit from '#models/visit'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Charges from '#services/charges'
-import Jobs from '#services/jobs'
 import VatDefaults from '#services/vat_defaults'
 import StockLedger from '#stock/stock_ledger'
 import { createUser } from '#tests/helpers/users'
@@ -24,13 +23,12 @@ import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 import { stateOf } from '#tests/helpers/charges'
 
 /**
- * A Time & Materials Job with an open Visit: Anna's hours and a valve.
+ * A Job without a Quote, with an open Visit: Anna's hours and a valve.
  */
 async function setup() {
   const anna = await createUser('technician', { fullName: 'Anna' })
   const office = await createUser('office')
   const job = await createJob(await createCustomer(), {
-    kind: 'time_and_materials',
     status: 'in_progress',
   })
   const start = DateTime.fromISO('2026-10-20T09:00')
@@ -470,7 +468,6 @@ test.group('Charges on the Job itself', () => {
   }) => {
     const office = await createUser('office')
     const job = await createJob(await createCustomer(), {
-      kind: 'time_and_materials',
       status: 'in_progress',
     })
 
@@ -523,7 +520,7 @@ test.group('Charges on the Job itself', () => {
     assert,
   }) => {
     const office = await createUser('office')
-    const job = await createJob(await createCustomer(), { kind: 'quoted', status: 'accepted' })
+    const job = await createJob(await createCustomer(), { status: 'accepted' })
     const charge = await Charges.add(
       job,
       { description: 'Uscita', quantity: '1', unit: null, unitPrice: '35', vatKind: 'labour' },
@@ -577,7 +574,7 @@ test.group('Charges on the Job itself', () => {
 
   test('a cost needs a VAT kind, and a cancelled Job takes none', async ({ client, assert }) => {
     const office = await createUser('office')
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    const job = await createJob(await createCustomer())
     const cost = { description: 'Uscita', quantity: '1', unitPrice: '35' }
 
     const invalid = await client
@@ -598,29 +595,6 @@ test.group('Charges on the Job itself', () => {
       .redirects(0)
     refused.assertFlashMessage('error', it('flash.chargeRefused.cancelled'))
     assert.lengthOf(await Charge.all(), 0)
-  })
-
-  test("a Job's kind is fixed once it has a Charge", async ({ assert }) => {
-    const office = await createUser('office')
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
-    await job.refresh()
-    const details = {
-      customerId: job.customerId,
-      kind: 'quoted' as const,
-      workCategory: job.workCategory,
-      title: job.title,
-    }
-    assert.isFalse(await Jobs.kindLocked(job))
-
-    await Charges.add(
-      job,
-      { description: 'Uscita', quantity: '1', unit: null, unitPrice: '35', vatKind: 'labour' },
-      office
-    )
-    assert.isTrue(await Jobs.kindLocked(job))
-    await Jobs.update(job.id, details)
-    await job.refresh()
-    assert.equal(job.kind, 'time_and_materials')
   })
 
   test('a draft bills Visit Charges by day, then the Job ones; billed or not billable ones stop it', async ({
@@ -652,7 +626,7 @@ test.group('Charges on the Job itself', () => {
   })
 
   test('only Admin and Office add costs to a Job', async ({ client, assert }) => {
-    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+    const job = await createJob(await createCustomer())
     const cost = { description: 'Uscita', quantity: '1', unitPrice: '35', vatKind: 'labour' }
     for (const role of ['technician', 'superuser'] as const) {
       const denied = await client

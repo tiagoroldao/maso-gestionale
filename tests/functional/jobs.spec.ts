@@ -19,7 +19,6 @@ test.group('Jobs', () => {
         .form({
           customerId: String(customer.id),
           siteId: String(site.id),
-          kind: 'quoted',
           workCategory: 'renovation',
           title,
         })
@@ -52,7 +51,6 @@ test.group('Jobs', () => {
           .post('/jobs')
           .form({
             customerId: String(customer.id),
-            kind: 'time_and_materials',
             workCategory: 'repair',
             title: `Job ${i}`,
           })
@@ -66,37 +64,35 @@ test.group('Jobs', () => {
     assert.deepEqual(sequences, [1, 2, 3, 4, 5])
   })
 
-  test('requires a Customer, a kind, a work category and a title', async ({ client, assert }) => {
+  test('requires a Customer, a work category and a title', async ({ client, assert }) => {
     const office = await createUser('office')
 
     const response = await client
       .post('/jobs')
-      .form({ kind: 'other', title: '' })
+      .form({ title: '' })
       .header('referer', '/jobs/create')
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
 
-    assert.properties(response.flashMessage('inputErrorsBag'), [
+    assert.deepEqual(Object.keys(response.flashMessage('inputErrorsBag')).sort(), [
       'customerId',
-      'kind',
-      'workCategory',
       'title',
+      'workCategory',
     ])
   })
 
-  test('the kind can only change while the Job is open', async ({ client, assert }) => {
+  test('Office edits an open or quoted Job', async ({ client, assert }) => {
     const office = await createUser('office')
     const customer = await createCustomer()
-    const open = await createJob(customer, { kind: 'quoted' })
-    const quoted = await createJob(customer, { kind: 'quoted', status: 'quoted' })
+    const open = await createJob(customer)
+    const quoted = await createJob(customer, { status: 'quoted' })
 
     for (const job of [open, quoted]) {
       await client
         .put(`/jobs/${job.id}`)
         .form({
           customerId: String(customer.id),
-          kind: 'time_and_materials',
           workCategory: 'sale',
           title: 'Changed',
         })
@@ -106,8 +102,6 @@ test.group('Jobs', () => {
       assert.equal(job.title, 'Changed')
       assert.equal(job.workCategory, 'sale')
     }
-    assert.equal(open.kind, 'time_and_materials')
-    assert.equal(quoted.kind, 'quoted')
   })
 
   test('a cancelled Job can not be edited', async ({ client, assert }) => {
@@ -117,7 +111,7 @@ test.group('Jobs', () => {
 
     const response = await client
       .put(`/jobs/${job.id}`)
-      .form({ customerId: String(customer.id), kind: 'quoted', title: 'Changed' })
+      .form({ customerId: String(customer.id), title: 'Changed' })
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)

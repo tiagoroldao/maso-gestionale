@@ -3,6 +3,8 @@ title: 'PRD: Maso Gestionale v1'
 labels: [ready-for-agent]
 ---
 
+> **Historical snapshot.** This PRD is kept as written when v1 was planned. Where a later decision changed it, the passage is marked and the ADR in `docs/adr/` is what holds: notably ADR 0012 (#130), under which a Job has no kind (Quoted or Time & Materials), may have a Quote, and always invoices from its Charges.
+
 ## Problem Statement
 
 A small Italian plumbing business (around 10 people) runs its work across disconnected tools. Customer details, scheduling, stock, invoicing and paperwork live in different places, or on paper and in the owner's head. As a result:
@@ -23,7 +25,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 - **Customers, Sites and Installed Equipment.** Who pays, where the work happens, and what is installed there, kept separate so equipment history survives a change of Customer.
 - **Jobs and Visits.** A Job is the unit that gets quoted and invoiced. Visits are the scheduled trips by Technicians that record hours and Items used.
 - **Items and the Warehouse.** Purchase and resale prices, Categories that suggest a markup, Item Documents (manuals and datasheets), and a ledger of Stock Movements.
-- **Invoicing.** Draft invoices built from a Job (from its Quote or from time and materials), percentage discounts, VAT codes per line, Advance Invoices deducted from the final invoice, Credit Notes, and Payments. Invoices are numbered only when finalised. Each Submission to SDI is tracked, whether done by hand (export the XML, confirm the upload, record the outcome) or, later, automatically through Invoicetronic.
+- **Invoicing.** Draft invoices built from a Job (from its Quote or from time and materials; _Superseded by ADR 0012_: every Job invoices from its Charges), percentage discounts, VAT codes per line, Advance Invoices deducted from the final invoice, Credit Notes, and Payments. Invoices are numbered only when finalised. Each Submission to SDI is tracked, whether done by hand (export the XML, confirm the upload, record the outcome) or, later, automatically through Invoicetronic.
 - **Legacy Invoices.** Imported as totals plus the original PDF. They can be linked to Customers and Jobs and paid off within the app.
 - **Document Templates.** Edited in the app by the Admin inside a fixed Base Layout, using placeholder chips and typed fields (including entity choices). They produce numbered, frozen Issued Documents as PDFs.
 - **Roles.** Superuser (Instance settings only), Admin (everything to do with the business, including company settings), Office, and Technician (their own Visits only, never prices).
@@ -63,7 +65,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 ### Jobs, Quotes and Visits
 
 25. As an Office user, I want to create a Job for a Customer, optionally tied to a Site, so that a piece of work can be tracked from start to finish.
-26. As an Office user, I want to choose whether a Job is a Quoted Job or a Time & Materials Job, so that it is invoiced the right way.
+26. As an Office user, I want to choose whether a Job is a Quoted Job or a Time & Materials Job, so that it is invoiced the right way. _Superseded by ADR 0012_: a Job has no kind; it may have a Quote.
 27. As an Office user, I want to write a Quote for a Job, with Items, Labour Rates, Call-out Fee and free-text lines, so that the Customer can approve the price.
 28. As an Office user, I want to mark a Quote as accepted or declined, so that the Job moves on or is closed.
 29. As an Office user, I want a Job's status (Open, Quoted, Accepted, In Progress, Work Complete, Invoiced, Closed, Cancelled) shown everywhere, so that everyone knows where it stands.
@@ -83,12 +85,12 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 43. As a Technician, I want to add notes and photos to a Visit, so that the office and future visits have context.
 44. As a Technician, I never want to see purchase prices, margins or invoice totals, so that commercial information stays in the office.
 45. As an Office user, I want Items used on a Visit taken off stock when the Visit is marked done, so that the Warehouse stays accurate.
-46. As an Office user, I want to see a Job's running total of time and materials recorded so far, so that I can tell whether a Time & Materials Job is getting expensive.
+46. As an Office user, I want to see a Job's running total of time and materials recorded so far, so that I can tell whether a Time & Materials Job is getting expensive. _Superseded by ADR 0012_: shown for every Job.
 
 ### Invoicing
 
-47. As an Office user, I want to create a draft Invoice from a Quoted Job, pre-filled from the accepted Quote, so that I don't re-type it.
-48. As an Office user, I want to create a draft Invoice from a Time & Materials Job, pre-filled from the hours and Items recorded on its Visits, so that nothing gets lost.
+47. As an Office user, I want to create a draft Invoice from a Quoted Job, pre-filled from the accepted Quote, so that I don't re-type it. _Superseded by ADR 0012_: a Quote is never billable; its lines can be imported as Charges.
+48. As an Office user, I want to create a draft Invoice from a Time & Materials Job, pre-filled from the hours and Items recorded on its Visits, so that nothing gets lost. _Superseded by ADR 0012_: this is how every Job invoices.
 49. As an Office user, I want to create an Invoice without a Job (for example selling Items over the counter), so that direct sales are possible.
 50. As an Office user, I want Items invoiced without a Visit taken off stock when the Invoice is finalised, so that direct sales keep stock correct.
 51. As an Office user, I want to edit any line of a draft Invoice (description, quantity, price, line discount, VAT code), so that I can correct before issuing.
@@ -97,7 +99,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 54. As an Office user, I want the global discount applied before VAT and split across VAT rates in proportion, so that the FatturaPA totals stay correct.
 55. As an Office user, I want to issue Advance Invoices for part of a Job, so that I can bill deposits and progress payments.
 56. As an Office user, I want the final Invoice of a Job to include one deduction line per earlier Invoice or Legacy Invoice on that Job, so that the Customer isn't billed twice.
-57. As an Office user, I want each Job to show "invoiced so far" against the Quote total or the recorded time and materials, so that I know what is left to invoice.
+57. As an Office user, I want each Job to show "invoiced so far" against the Quote total or the recorded time and materials, so that I know what is left to invoice. _Superseded by ADR 0012_: invoiced so far is against the recorded work; the Quote total is shown only for comparison.
 58. As an Office user, I want to delete a draft Invoice, so that mistakes don't use up a number.
 59. As an Office user, I want to finalise an Invoice, giving it the next number and the date and locking it, so that it becomes a fiscal document.
 60. As an Office user, I want a warning when I finalise Invoices while other Finalised Invoices haven't been submitted yet, so that I don't forget to send them.
@@ -169,7 +171,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 
 - **Parties**: Customer, Site, Installed Equipment, Maintenance Interval. Installed Equipment refers to a Site and, optionally, an Item.
 - **Catalogue & Stock**: Item, Category, Item Document, Stock Movement. Stock is a ledger: current quantity is the sum of Stock Movements, never a column edited directly. Movement types are receipt, usage on a Visit (when the Visit is marked done), direct sale (when the Invoice is finalised), and adjustment (reason required). Negative balances are allowed. The purchase price is updated from the latest receipt. The resale price is changed only by a person. A "margin below Category markup" flag is calculated.
-- **Work**: Job (kind: Quoted or Time & Materials), Quote, Visit, Visit hours (per Technician, per Labour Rate), Visit Items. Job status is stored only for Open, Quoted, Accepted, In Progress and Cancelled. Work Complete, Invoiced and Closed are worked out by a single Job status function from Visits, Invoices and Payments.
+- **Work**: Job (kind: Quoted or Time & Materials; _Superseded by ADR 0012_: a Job has no kind, and Quoted and Accepted apply only to a Job with a Quote), Quote, Visit, Visit hours (per Technician, per Labour Rate), Visit Items. Job status is stored only for Open, Quoted, Accepted, In Progress and Cancelled. Work Complete, Invoiced and Closed are worked out by a single Job status function from Visits, Invoices and Payments.
 - **Invoicing**: Invoice, Credit Note, Advance Invoice (an Invoice whose role is advance), Invoice lines, Legacy Invoice, Payment, Payment Terms, numbering sequences. Contains:
   - An **Invoice totals** module (a deep, pure function): lines + line discounts + global percentage discount + VAT codes → per-rate taxable amount and VAT summary, plus grand total. The global discount is applied before VAT and split across rates in proportion to each rate's taxable amount, with rounding consistent with the FatturaPA rules. Advance deductions are negative lines produced from earlier Invoices and Legacy Invoices on the Job.
   - An **Invoice lifecycle** module (a state machine): Draft → Finalised → Submitted → Delivered | Not deliverable | Rejected, with Rejected → (edit) → Submitted again. Finalising takes the next number in a sequence and the date in one transaction, and makes the document unchangeable. Rejected allows edits but keeps its number and date. Credit Notes use the same machine and, for now, the invoice sequence.

@@ -455,13 +455,11 @@
     "site": "Immobile",
     "status": "Stato",
     "createdAt": "Aperta il",
-    "kind": "Tipo",
     "description": "Descrizione",
     "detailsSection": "Commessa",
     "siteHint": "Facoltativo. Gli immobili collegati al cliente compaiono per primi.",
     "changeCustomer": "Cambia cliente",
     "removeSite": "Rimuovi immobile",
-    "kindHint": "Con preventivo: si fattura dal preventivo accettato. A consuntivo: si fattura da ore e materiali degli interventi.",
     "workCategory": "Tipo di lavoro",
     "workCategoryHint": "Insieme al tipo di cliente e all'immobile, determina l'IVA proposta in fattura.",
     "workCategories": {
@@ -471,15 +469,10 @@
       "repair": "Riparazione",
       "sale": "Vendita"
     },
-    "kindLocked": "Il tipo si può cambiare solo finché la commessa è aperta, senza preventivo, addebiti o fatture.",
     "save": "Salva commessa",
     "create": "Apri commessa",
     "cancel": "Annulla commessa",
     "cancelledOn": "annullata il {date}",
-    "kinds": {
-      "quoted": "Con preventivo",
-      "time_and_materials": "A consuntivo"
-    },
     "statuses": {
       "open": "Aperta",
       "quoted": "Preventivata",

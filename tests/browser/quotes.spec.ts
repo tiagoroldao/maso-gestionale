@@ -14,7 +14,7 @@ test.group('Quotes in the browser', () => {
     assert,
   }) => {
     await browserContext.loginAs(await createUser('office'))
-    const job = await createJob(await createCustomer(), { kind: 'quoted' })
+    const job = await createJob(await createCustomer())
     await createItem({ code: 'CALD-25', description: 'Caldaia 25 kW', resalePrice: '1200' })
     const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' })
 
@@ -44,7 +44,7 @@ test.group('Quotes in the browser', () => {
 
   test('Accept waits until the edits are saved', async ({ browserContext, visit, assert }) => {
     await browserContext.loginAs(await createUser('office'))
-    const job = await createJob(await createCustomer(), { kind: 'quoted' })
+    const job = await createJob(await createCustomer())
     await createItem({ code: 'VAL-1', description: 'Valvola', resalePrice: '10' })
 
     const page = await visit(`/jobs/${job.id}/quote`)

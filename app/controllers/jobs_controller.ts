@@ -4,6 +4,7 @@ import { isVisitBilled, type ChargeState } from '#shared/charges'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
 import Invoices from '#services/invoices'
+import Quotes from '#services/quotes'
 import { advanceState } from '#shared/advances'
 import Charge from '#models/charge'
 import CompanySettings from '#models/company_settings'
@@ -98,7 +99,6 @@ export default class JobsController {
       job = await Jobs.create({
         customerId: data.customerId,
         siteId: data.siteId,
-        kind: data.kind,
         workCategory: data.workCategory,
         title: data.title,
         description: data.description,
@@ -157,6 +157,10 @@ export default class JobsController {
     const deductions = new Map(advances.map(({ advance, deducted }) => [advance.id, deducted]))
 
     return inertia.render('jobs/show', {
+      // Any Job may have a Quote (ADR 0012): it is listed when there is one,
+      // and can be started while the Job is open
+      quote: quote ? { status: quote.status } : null,
+      canStartQuote: !quote && Quotes.isEditable(job, null),
       invoices: invoices.map((invoice) => ({
         id: invoice.id,
         number: invoice.formattedNumber,
@@ -248,15 +252,11 @@ export default class JobsController {
       .preload('site')
       .firstOrFail()
 
-    const kindLocked = await Jobs.kindLocked(job)
-
     return inertia.render('jobs/form', {
       job: {
         id: job.id,
         number: job.number,
-        kind: job.kind,
         status: job.status,
-        kindLocked,
         workCategory: job.workCategory,
         title: job.title,
         description: job.description,

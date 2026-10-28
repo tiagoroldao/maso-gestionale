@@ -55,14 +55,13 @@ export type QuoteLineInput = {
  */
 export default class Quotes {
   /**
-   * Whether the Job's Quote can still be written: a Quoted Job that is
-   * open or quoted, whose Quote hasn't been decided.
+   * Whether the Job's Quote can still be written: any Job that is open or
+   * quoted, whose Quote (if it has one yet) hasn't been decided. A Quote
+   * is started only on an open Job (ADR 0012).
    */
   static isEditable(job: Job, quote: Quote | null) {
     return (
-      job.kind === 'quoted' &&
-      (job.status === 'open' || job.status === 'quoted') &&
-      (!quote || quote.status === 'draft')
+      (job.status === 'open' || job.status === 'quoted') && (!quote || quote.status === 'draft')
     )
   }
 
@@ -77,7 +76,7 @@ export default class Quotes {
     return db.transaction(async (trx) => {
       // Lock the Job first, so a cancel or another save can't interleave
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      job.merge({ status: locked.status, kind: locked.kind })
+      job.merge({ status: locked.status })
       job.useTransaction(trx)
       const quote = await Quote.query({ client: trx }).where('jobId', job.id).forUpdate().first()
       if (!this.isEditable(job, quote)) throw new QuoteNotEditableError()
@@ -125,7 +124,7 @@ export default class Quotes {
   ) {
     await db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      job.merge({ status: locked.status, kind: locked.kind })
+      job.merge({ status: locked.status })
       job.useTransaction(trx)
       const quote = await Quote.query({ client: trx })
         .where('jobId', job.id)
