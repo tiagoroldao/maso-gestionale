@@ -109,6 +109,7 @@ export default class SitesController {
       .preload('customers')
       .preload('jobs', (jobs) =>
         jobs
+          .withScopes((scopes) => scopes.withBillingState())
           .preload('customer')
           .preload('visits')
           .preload('invoices', (invoices) => invoices.preload('payments'))

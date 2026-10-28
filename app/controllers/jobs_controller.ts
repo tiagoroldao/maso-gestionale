@@ -19,6 +19,7 @@ export default class JobsController {
     const { q, status, page = 1 } = await jobSearchValidator.validate(request.qs())
 
     const query = Job.query()
+      .withScopes((scopes) => scopes.withBillingState())
       .preload('customer')
       .preload('site')
       .preload('visits')
@@ -109,6 +110,7 @@ export default class JobsController {
 
   async show({ params, inertia }: HttpContext) {
     const job = await Job.query()
+      .withScopes((scopes) => scopes.withBillingState())
       .where('id', params.id)
       .preload('customer')
       .preload('site')

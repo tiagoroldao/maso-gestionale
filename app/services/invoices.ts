@@ -48,8 +48,8 @@ export class InvoiceNotFinalisableError extends Error {
 }
 
 /**
- * The Job has nothing to invoice yet (no accepted Quote; no recorded work,
- * or work on Visits still open), or it was cancelled.
+ * The Job has nothing to invoice yet (no accepted Quote; no unbilled work
+ * on closed Visits), or it was cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 

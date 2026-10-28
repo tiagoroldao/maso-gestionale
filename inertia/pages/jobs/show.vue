@@ -98,7 +98,7 @@ defineProps<{
           <strong>{{ formatMoney(timeAndMaterials.total) }}</strong>
           <span class="field__hint"> · {{ t('ui.jobs.timeAndMaterialsHint') }}</span>
         </p>
-        <p :style="{ margin: 0 }" data-testid="billed">
+        <p v-if="job.kind === 'time_and_materials'" :style="{ margin: 0 }" data-testid="billed">
           {{ t('ui.jobs.billed', { amount: formatMoney(timeAndMaterials.billed) }) }}
         </p>
       </Section>

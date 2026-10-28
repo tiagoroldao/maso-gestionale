@@ -29,12 +29,14 @@ function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
 export function deriveJobStatus(
   stored: JobStatus,
   visits: VisitSummary[],
-  invoices: InvoiceSummary[] = []
+  invoices: InvoiceSummary[] = [],
+  billingOpen = false
 ): DisplayedJobStatus {
   if (stored === 'cancelled') return stored
-  // Invoiced once an Invoice is past draft; Closed when every one is paid
+  // Invoiced once an Invoice is past draft and nothing is left to bill
+  // (BILLING_OPEN_SQL); Closed when every Invoice is paid
   const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
-  if (issued.length) {
+  if (issued.length && !billingOpen) {
     const paid = issued.every((invoice) => new Big(invoice.paid).gte(invoice.total!))
     return paid ? 'closed' : 'invoiced'
   }
@@ -55,12 +57,29 @@ const UNPAID_SQL = `EXISTS (SELECT 1 FROM invoices i
   WHERE i.job_id = jobs.id AND i.status <> 'draft'
     AND i.total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = i.id))`
 
-export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${ISSUED_SQL} AND NOT ${UNPAID_SQL}`
-export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${ISSUED_SQL} AND ${UNPAID_SQL}`
-/** Not yet invoiced (no Invoice past draft): what Work Complete and stored statuses describe */
-export const NOT_INVOICED_SQL = `NOT ${ISSUED_SQL}`
+/**
+ * A Time & Materials Job still has work to bill: a Visit not yet closed,
+ * or hours or Items no Invoice billed yet or only a draft holds. Until
+ * then an issued Invoice was a partial one and the Job isn't Invoiced.
+ */
+const unbilled = (table: string) => `EXISTS (SELECT 1 FROM ${table} w
+    JOIN visits v ON v.id = w.visit_id
+    LEFT JOIN invoices bi ON bi.id = w.invoice_id
+    WHERE v.job_id = jobs.id AND (w.invoice_id IS NULL OR bi.status = 'draft'))`
+export const BILLING_OPEN_SQL = `(jobs.kind = 'time_and_materials' AND (
+  EXISTS (SELECT 1 FROM visits v
+    WHERE v.job_id = jobs.id AND v.status IN ('planned', 'in_progress'))
+  OR ${unbilled('visit_hours')}
+  OR ${unbilled('visit_items')}))`
 
-export const WORK_COMPLETE_SQL = `NOT ${ISSUED_SQL} AND jobs.status = 'in_progress'
+const FULLY_INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
+
+export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND NOT ${UNPAID_SQL}`
+export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND ${UNPAID_SQL}`
+/** Not yet invoiced in full: what Work Complete and stored statuses describe */
+export const NOT_INVOICED_SQL = `NOT ${FULLY_INVOICED_SQL}`
+
+export const WORK_COMPLETE_SQL = `${NOT_INVOICED_SQL} AND jobs.status = 'in_progress'
   AND EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id)
   AND NOT EXISTS (
     SELECT 1 FROM visits v

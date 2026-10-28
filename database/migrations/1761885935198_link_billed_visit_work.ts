@@ -9,13 +9,13 @@ export default class extends BaseSchema {
         t.integer('invoice_id').nullable().references('id').inTable('invoices').onDelete('SET NULL')
         t.index(['invoice_id'])
       })
-      // Time & Materials Jobs were invoiced once, for all their work
+      // Time & Materials Jobs were invoiced once, for all the work recorded
+      // by then (no Visit with work could still be open); later work isn't
       this.schema.raw(`
-        UPDATE ${table} w SET invoice_id = (
-          SELECT min(i.id) FROM invoices i JOIN visits v ON v.job_id = i.job_id
-          JOIN jobs j ON j.id = i.job_id
-          WHERE v.id = w.visit_id AND j.kind = 'time_and_materials'
-        )`)
+        UPDATE ${table} w SET invoice_id = i.id
+        FROM visits v, invoices i, jobs j
+        WHERE v.id = w.visit_id AND i.job_id = v.job_id AND j.id = i.job_id
+          AND j.kind = 'time_and_materials' AND w.created_at <= i.created_at`)
     }
   }
 

@@ -24,7 +24,8 @@ export function jobRow(job: Job) {
                   total: invoice.total,
                   paid: invoice.paid,
                 }))
-              : []
+              : [],
+            Boolean(job.$extras.billing_open)
           )
         : job.status,
     customer: job.customer ? { id: job.customer.id, displayName: job.customer.displayName } : null,
