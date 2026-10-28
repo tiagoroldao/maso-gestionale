@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs'
-import { rm, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { rm, mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { test } from '@japa/runner'
 import { DateTime, Settings } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
@@ -652,6 +652,75 @@ test.group('Issued Documents: stored PDF', (group) => {
     pdf.assertHeader('content-length', String('%PDF-stored'.length))
     await document.refresh()
     assert.isTrue(document.pdfPath!.startsWith(`issued-documents/${document.id}/`))
+
+    // The stored file gone: not found, never re-rendered
+    await rm(storagePath(document.pdfPath!))
+    const missing = await client.get(`/issued-documents/${document.id}/pdf`).loginAs(office)
+    missing.assertStatus(404)
+    await document.refresh()
+    assert.isFalse(existsSync(storagePath(document.pdfPath!)))
+  })
+
+  test('a failure storing the PDF after issuing still answers with the issued document', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const { customer, site } = await world()
+    const template = await saveTemplate()
+    // A file where the PDFs' directory goes: storing fails with a plain
+    // file-system error, not a PdfConversionError
+    await mkdir(storagePath(), { recursive: true })
+    await writeFile(storagePath('issued-documents'), 'in the way')
+
+    const response = await client
+      .post('/issued-documents')
+      .json({ templateId: template.id, customerId: customer.id, values: { site: site.id } })
+      .header('accept', 'application/json')
+      .withCsrfToken()
+      .loginAs(office)
+
+    response.assertStatus(200)
+    const document = await IssuedDocument.findOrFail(response.body().id)
+    response.assertBody({ id: document.id, number: document.number })
+    assert.isNull(document.pdfPath)
+
+    // Once storage works again, the first request stores it
+    await rm(storagePath('issued-documents'))
+    const pdf = await client.get(`/issued-documents/${document.id}/pdf`).loginAs(office)
+    pdf.assertStatus(200)
+    await document.refresh()
+    assert.isNotNull(document.pdfPath)
+  })
+
+  test('a first render that loses the race serves the PDF stored first', async ({ assert }) => {
+    const user = await createUser('office')
+    const { customer, site } = await world()
+    const template = await saveTemplate()
+    const document = await IssuedDocuments.issue(
+      template,
+      customer,
+      { site: site.id },
+      i18n(),
+      user
+    )
+    const winner = `issued-documents/${document.id}/winner.pdf`
+    // Another request stores its PDF while this one renders
+    const racing: PdfConverter = {
+      convert: async () => {
+        await mkdir(storagePath(`issued-documents/${document.id}`), { recursive: true })
+        await writeFile(storagePath(winner), 'winner')
+        await db.from('issued_documents').where('id', document.id).update({ pdf_path: winner })
+        return Buffer.from('loser')
+      },
+    }
+
+    const pdf = await IssuedDocuments.pdf(document, i18n(), new DocumentRenderer(racing))
+
+    assert.equal(pdf.toString(), 'winner')
+    assert.equal(document.pdfPath, winner)
+    // Its own file is removed
+    assert.deepEqual(await readdir(storagePath(`issued-documents/${document.id}`)), ['winner.pdf'])
   })
 })
 

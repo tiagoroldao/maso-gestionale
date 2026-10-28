@@ -7,7 +7,10 @@ import Site from '#models/site'
 import Visit from '#models/visit'
 import { PdfConversionError } from '#documents/pdf_converter'
 import DocumentTemplates from '#services/document_templates'
-import IssuedDocuments, { IssuingRefusedError } from '#services/issued_documents'
+import IssuedDocuments, {
+  IssuingRefusedError,
+  StoredPdfMissingError,
+} from '#services/issued_documents'
 import { TemplateDataError } from '#services/template_data'
 import { issuedDocumentValidator, replacementValidator } from '#validators/issued_document'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -197,12 +200,14 @@ export default class IssuedDocumentsController {
         auth.getUserOrFail(),
         original
       )
-      // Stored now, so it prints today's layout and logo; if Gotenberg is
-      // down, the first request for the PDF stores it instead
-      await IssuedDocuments.pdf(document, i18n).catch((error) => {
-        if (!(error instanceof PdfConversionError)) throw error
-        logger.warn({ err: error }, 'PDF conversion failed after issuing')
-      })
+      // Stored now, so it prints today's layout and logo. The document is
+      // already issued and numbered: whatever fails here (Gotenberg down,
+      // storage, the path update), the first request for the PDF stores it
+      try {
+        await IssuedDocuments.pdf(document, i18n)
+      } catch (error) {
+        logger.error({ err: error, issuedDocumentId: document.id }, 'PDF not stored after issuing')
+      }
       return { id: document.id, number: document.number }
     } catch (error) {
       if (error instanceof TemplateDataError) {
@@ -234,6 +239,10 @@ export default class IssuedDocumentsController {
       )
       return pdf
     } catch (error) {
+      if (error instanceof StoredPdfMissingError) {
+        logger.error({ err: error, issuedDocumentId: document.id }, 'Stored PDF missing')
+        return response.notFound()
+      }
       if (!(error instanceof PdfConversionError)) throw error
       logger.warn({ err: error }, 'PDF conversion failed')
       return response.serviceUnavailable(i18n.t('errors.pdfUnavailable'))

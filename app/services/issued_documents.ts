@@ -40,6 +40,15 @@ export class IssuingRefusedError extends Error {
 }
 
 /**
+ * The document's PDF was stored, but its file is no longer in storage.
+ */
+export class StoredPdfMissingError extends Error {
+  constructor(readonly path: string) {
+    super(`Stored PDF missing: ${path}`)
+  }
+}
+
+/**
  * One row of an Issued Document history list.
  */
 export type IssuedDocumentRow = {
@@ -138,7 +147,7 @@ export default class IssuedDocuments {
     i18n: I18n,
     renderer: DocumentRenderer = new DocumentRenderer()
   ): Promise<Buffer> {
-    if (document.pdfPath) return readFile(storagePath(document.pdfPath))
+    if (document.pdfPath) return this.storedPdf(document.pdfPath)
 
     const pdf = await renderer.renderPdf(await issuedDocument(document, i18n))
     // A file of its own: a concurrent first render can't overwrite it
@@ -155,7 +164,7 @@ export default class IssuedDocuments {
       // Another request stored one first: serve that one
       await unlink(storagePath(path)).catch(() => {})
       await document.refresh()
-      return readFile(storagePath(document.pdfPath!))
+      return this.storedPdf(document.pdfPath!)
     }
     document.pdfPath = path
     return pdf
@@ -204,6 +213,15 @@ export default class IssuedDocuments {
       customer: document.customer.displayName,
       replaced: document.replacedById !== null,
     }))
+  }
+
+  private static async storedPdf(path: string) {
+    try {
+      return await readFile(storagePath(path))
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new StoredPdfMissingError(path)
+      throw error
+    }
   }
 
   /**
