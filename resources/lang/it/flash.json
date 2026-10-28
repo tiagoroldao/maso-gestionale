@@ -78,6 +78,7 @@
   "visitSaved": "Intervento salvato.",
   "visitDeleted": "Intervento eliminato.",
   "visitHasWork": "L'intervento ha già ore, materiali, foto o note: non si può eliminare.",
+  "technicianHasHours": "Un tecnico ha già registrato ore su questo intervento: non si può togliere.",
   "visitNotEditable": "L'intervento è chiuso o la commessa è annullata: non si può modificare né eliminare.",
   "submissionConfirmed": "Invio a SDI registrato.",
   "submissionOutcome": {

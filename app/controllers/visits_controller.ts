@@ -4,6 +4,7 @@ import User from '#models/user'
 import Visit from '#models/visit'
 import Scheduling, {
   JobNotSchedulableError,
+  TechnicianHasHoursError,
   VisitHasWorkError,
   VisitNotMovableError,
 } from '#services/scheduling'
@@ -18,13 +19,16 @@ import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
- * Active Technicians, plus `extra` ones (e.g. deactivated since but still
- * on Visits being shown), marked inactive.
+ * Active Technicians, plus the `extra` people already on Visits being
+ * shown, whether since deactivated (marked inactive) or no longer
+ * Technicians.
  */
 async function technicians(extra: number[] = []) {
   const users = await User.query()
-    .where('role', 'technician')
-    .where((q) => q.where('isActive', true).orWhereIn('id', extra))
+    .where((q) => q.where('role', 'technician').where('isActive', true))
+    // Anyone already on a Visit keeps their place, even if since deactivated
+    // or no longer a Technician
+    .orWhereIn('id', extra)
     .orderBy('fullName')
   return users.map((user) => ({
     id: user.id,
@@ -72,9 +76,9 @@ export default class VisitsController {
   }
 
   /**
-   * The calendar: one lane per active Technician (plus deactivated ones
-   * with Visits in view), for a day or a week
-   * (Monday to Sunday).
+   * The calendar: one lane per active Technician (plus anyone else on a
+   * Visit in view), for a day or a week (Monday to Sunday); Visits with
+   * no one on them are listed apart.
    */
   async schedule({ request, inertia }: HttpContext) {
     const { date, view = 'day' } = await scheduleValidator.validate(request.qs())
@@ -98,11 +102,21 @@ export default class VisitsController {
       days: Array.from({ length: view === 'week' ? 7 : 1 }, (_, i) =>
         from.plus({ days: i }).toFormat('yyyy-MM-dd')
       ),
-      // Lanes for every active Technician, and for deactivated ones who
-      // still have Visits in view, so no Visit disappears
+      // Lanes for every active Technician, and for anyone else (deactivated,
+      // or no longer a Technician) still on a Visit in view, so no Visit
+      // disappears
       technicians: await technicians(
         visits.flatMap((visit) => visit.technicians.map((technician) => technician.id))
       ),
+      // No lane to sit in: listed apart, so they can be given a team
+      unassigned: visits
+        .filter((visit) => visit.technicians.length === 0)
+        .map((visit) => ({
+          id: visit.id,
+          startsAt: localDateTime(visit.startsAt),
+          endsAt: localDateTime(visit.endsAt),
+          job: { number: visit.job.number, customer: visit.job.customer.displayName },
+        })),
       visits: visits.map((visit) => ({
         id: visit.id,
         startsAt: localDateTime(visit.startsAt),
@@ -164,6 +178,10 @@ export default class VisitsController {
         notes: data.notes ?? null,
       })
     } catch (error) {
+      if (error instanceof TechnicianHasHoursError) {
+        session.flash('error', i18n.t('flash.technicianHasHours'))
+        return response.redirect().toRoute('visits.edit', { id: visit.id })
+      }
       if (!(error instanceof VisitNotMovableError)) throw error
       session.flash('error', i18n.t('flash.visitNotEditable'))
       return response.redirect().toRoute('jobs.show', { id: visit.jobId })
@@ -203,6 +221,10 @@ export default class VisitsController {
         toTechnicianId: data.toTechnicianId,
       })
     } catch (error) {
+      if (error instanceof TechnicianHasHoursError) {
+        session.flash('error', i18n.t('flash.technicianHasHours'))
+        return response.redirect().back()
+      }
       if (!(error instanceof VisitNotMovableError)) throw error
       session.flash('error', i18n.t('flash.visitNotMovable'))
       return response.redirect().back()
