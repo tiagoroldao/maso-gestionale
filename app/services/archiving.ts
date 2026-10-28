@@ -4,6 +4,7 @@ import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
 import Site from '#models/site'
+import { CLOSED_SQL } from '#services/job_status'
 
 /**
  * The Customer or Site still has Jobs that aren't cancelled.
@@ -44,8 +45,8 @@ export default class Archiving {
   }
 
   /**
-   * Archiving is refused while the record has Jobs that aren't cancelled
-   * (until finished Jobs can be told apart: Closed comes with Payments).
+   * Archiving is refused while the record has Jobs that are neither
+   * cancelled nor Closed.
    */
   private static setArchived(
     model: typeof Customer | typeof Site,
@@ -56,10 +57,12 @@ export default class Archiving {
     return db.transaction(async (trx) => {
       const record = await model.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
       if (archived) {
+        // Jobs still in play: neither cancelled nor Closed (fully invoiced and paid)
         const open = await trx
           .from('jobs')
           .where(jobColumn, id)
           .whereNot('status', 'cancelled')
+          .whereRaw(`NOT (${CLOSED_SQL})`)
           .first()
         if (open) throw new HasOpenJobsError()
       }

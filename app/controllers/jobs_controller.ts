@@ -7,7 +7,7 @@ import Customer from '#models/customer'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
-import { WORK_COMPLETE_SQL } from '#services/job_status'
+import { CLOSED_SQL, INVOICED_SQL, NOT_INVOICED_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
 import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -18,13 +18,24 @@ export default class JobsController {
   async index({ request, inertia }: HttpContext) {
     const { q, status, page = 1 } = await jobSearchValidator.validate(request.qs())
 
-    const query = Job.query().preload('customer').preload('site').preload('visits')
-    // Work Complete is derived from the Visits, so it's a condition, not a column
-    if (!status) query.whereNot('status', 'cancelled')
+    const query = Job.query()
+      .preload('customer')
+      .preload('site')
+      .preload('visits')
+      .preload('invoices', (invoices) => invoices.preload('payments'))
+    // Work Complete, Invoiced and Closed are derived, so they're conditions,
+    // not columns; the active list leaves out cancelled and closed Jobs
+    if (!status) query.whereNot('status', 'cancelled').whereRaw(`NOT (${CLOSED_SQL})`)
     else if (status === 'work_complete') query.whereRaw(WORK_COMPLETE_SQL)
+    else if (status === 'invoiced') query.whereRaw(INVOICED_SQL)
+    else if (status === 'closed') query.whereRaw(CLOSED_SQL)
     else if (status === 'in_progress')
-      query.where('status', status).whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
-    else if (status !== 'all') query.where('status', status)
+      query
+        .where('status', status)
+        .whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
+        .whereRaw(NOT_INVOICED_SQL)
+    else if (status === 'cancelled') query.where('status', status)
+    else if (status !== 'all') query.where('status', status).whereRaw(NOT_INVOICED_SQL)
     if (q) {
       const pattern = likePattern(q)
       query.where((builder) => {
@@ -101,6 +112,7 @@ export default class JobsController {
       .where('id', params.id)
       .preload('customer')
       .preload('site')
+      .preload('invoices', (invoices) => invoices.preload('payments'))
       .preload('visits', (visits) =>
         visits
           .preload('technicians')

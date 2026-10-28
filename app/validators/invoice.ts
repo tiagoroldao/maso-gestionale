@@ -89,3 +89,9 @@ export const sdiPrefixValidator = vine.create({
     .toUpperCase()
     .regex(/^[A-Z]$/),
 })
+
+export const paymentValidator = vine.create({
+  amount: vine.string().use(amountRule({ decimals: 2, max: '9999999999' })),
+  paidOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
+  note: vine.string().trim().maxLength(255).optional(),
+})

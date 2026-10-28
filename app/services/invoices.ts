@@ -15,7 +15,7 @@ import type User from '#models/user'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
-import { invoiceLineTotal } from '#shared/invoice_totals'
+import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { workReadyToInvoice } from '#shared/visits'
 import {
   canTransition,
@@ -295,10 +295,33 @@ export default class Invoices {
         { client: trx }
       )
 
+      // A corrected Invoice's total changes with its lines
+      if (locked.status !== 'draft') {
+        const lines = await InvoiceLine.query({ client: trx }).where('invoiceId', locked.id)
+        locked.total = this.totalOf(lines, locked.discountPercent)
+        await locked.save()
+      }
+
       if (soldBefore) {
         await this.rebookSale(trx, locked, soldBefore, await this.itemsSold(trx, locked.id), user)
       }
     })
+  }
+
+  /**
+   * The grand total of a set of lines, as the Invoice shows it.
+   */
+  private static totalOf(lines: InvoiceLine[], discountPercent: string) {
+    return invoiceTotals(
+      lines.map((line) => ({
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        discountPercent: line.discountPercent,
+        vatRate: line.vatRate,
+        natura: line.natura,
+      })),
+      discountPercent
+    ).total
   }
 
   /**
@@ -375,6 +398,7 @@ export default class Invoices {
       const today = DateTime.now().startOf('day')
       locked.merge({
         status: transition(locked.status, 'finalise'),
+        total: this.totalOf(lines, locked.discountPercent),
         year: today.year,
         number: await this.takeNumber(trx, today.year),
         issuedOn: today,

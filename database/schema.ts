@@ -250,7 +250,7 @@ export class InvoiceSubmissionSchema extends BaseModel {
 }
 
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'updatedAt', 'year'] as const
+  static $columns = ['companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'total', 'updatedAt', 'year'] as const
   $columns = InvoiceSchema.$columns
   @column()
   declare companySnapshot: any | null
@@ -280,6 +280,8 @@ export class InvoiceSchema extends BaseModel {
   declare paymentMethod: string | null
   @column()
   declare status: string
+  @column()
+  declare total: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -407,6 +409,27 @@ export class PaymentTermSchema extends BaseModel {
   declare name: string
   @column()
   declare paymentMethod: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+}
+
+export class PaymentSchema extends BaseModel {
+  static $columns = ['amount', 'createdAt', 'createdBy', 'id', 'invoiceId', 'note', 'paidOn', 'updatedAt'] as const
+  $columns = PaymentSchema.$columns
+  @column()
+  declare amount: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdBy: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceId: number
+  @column()
+  declare note: string | null
+  @column.date()
+  declare paidOn: DateTime
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }
