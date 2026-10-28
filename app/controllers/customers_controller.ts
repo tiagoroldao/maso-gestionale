@@ -117,7 +117,7 @@ export default class CustomersController {
           .withScopes((scopes) => scopes.withBillingState())
           .preload('site')
           .preload('visits')
-          .preload('invoices', (invoices) => invoices.preload('payments'))
+          .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
           .orderBy([
             { column: 'year', order: 'desc' },
             { column: 'sequence', order: 'desc' },
@@ -125,15 +125,21 @@ export default class CustomersController {
       )
       .firstOrFail()
 
-    // What the Customer still owes on issued Invoices; an overpaid one
-    // doesn't offset the others (Payments belong to one Invoice, ADR 0014)
-    // but is flagged, to refund or correct
+    // What the Customer still owes on issued Invoices, after their Credit
+    // Notes; an overpaid one doesn't offset the others (Payments belong to
+    // one Invoice, ADR 0014) but is flagged, to refund or correct
     const issued = await Invoice.query()
       .where('customerId', customer.id)
+      .where('documentType', 'invoice')
       .whereNot('status', 'draft')
       .preload('payments')
+      .preload('creditNotes')
       .orderBy('id')
-    const amounts = issued.map((invoice) => ({ total: invoice.total ?? '0', paid: invoice.paid }))
+    const amounts = issued.map((invoice) => ({
+      total: invoice.total ?? '0',
+      credited: invoice.credited,
+      paid: invoice.paid,
+    }))
     const balance = sumAmounts(
       amounts.filter((amount) => !overpaidBy(amount)).map((amount) => owed(amount))
     )

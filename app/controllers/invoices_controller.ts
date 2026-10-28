@@ -11,10 +11,12 @@ import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
 import VatDefaults from '#services/vat_defaults'
 import Invoices, {
+  CreditNoteRefusedError,
   InvoiceNotEditableError,
   InvoiceNotFinalisableError,
   JobNotInvoiceableError,
 } from '#services/invoices'
+import { creditLeft, creditRefusal, credits } from '#shared/credit_notes'
 import DocumentRenderer from '#documents/document_renderer'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { invoiceDocument } from '#documents/invoice_document'
@@ -23,7 +25,7 @@ import Submissions, {
   NoticeBeforeSubmissionError,
   SubmissionRefusedError,
 } from '#services/submissions'
-import { formatMoney } from '#shared/money'
+import { formatMoney, sumAmounts } from '#shared/money'
 import { formatDate } from '#shared/dates'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
@@ -75,8 +77,8 @@ async function vatDefaultProps(job: Job | null) {
 }
 
 /**
- * Invoices without a Job (such as direct sales): drafting, finalising,
- * PDF and XML, and their Submissions to SDI.
+ * Invoices without a Job (such as direct sales) and Credit Notes:
+ * drafting, finalising, PDF and XML, and their Submissions to SDI.
  */
 export default class InvoicesController {
   /**
@@ -90,16 +92,22 @@ export default class InvoicesController {
       .preload('customer')
       .preload('lines')
       .preload('payments')
+      .preload('creditNotes')
       .orderBy('created_at', 'desc')
     // As paymentStatus(): overdue when past due with something owed,
-    // overpaid when what is owed is below zero
+    // overpaid when what is owed is below zero; nothing is paid on a
+    // Credit Note
     if (stage === 'overdue') {
       query
+        .where('documentType', 'invoice')
         .whereNot('status', 'draft')
         .where('dueOn', '<', DateTime.now().toISODate()!)
         .whereRaw(`${OWED_SQL('invoices')} > 0`)
     } else if (stage === 'overpaid') {
-      query.whereNot('status', 'draft').whereRaw(`${OWED_SQL('invoices')} < 0`)
+      query
+        .where('documentType', 'invoice')
+        .whereNot('status', 'draft')
+        .whereRaw(`${OWED_SQL('invoices')} < 0`)
     } else if (stage !== 'all') query.where('status', stage)
     const today = DateTime.now().toISODate()!
     const invoices = await query
@@ -111,6 +119,7 @@ export default class InvoicesController {
         number: invoice.formattedNumber,
         issuedOn: invoice.issuedOn?.toISODate() ?? null,
         status: invoice.status,
+        documentType: invoice.documentType,
         customer: invoice.customer.displayName,
         createdAt: invoice.createdAt.toISODate()!,
         total: invoice.totals.total,
@@ -118,6 +127,7 @@ export default class InvoicesController {
           invoice.total && invoice.dueOn
             ? paymentStatus({
                 total: invoice.total,
+                credited: invoice.credited,
                 paid: invoice.paid,
                 dueOn: invoice.dueOn.toISODate()!,
                 today,
@@ -157,6 +167,23 @@ export default class InvoicesController {
   }
 
   /**
+   * A draft Credit Note for an Invoice SDI delivered or could not deliver,
+   * or its existing draft one.
+   */
+  async storeCreditNote({ params, response, session, i18n }: HttpContext) {
+    const invoice = await Invoice.findOrFail(params.id)
+    try {
+      const creditNote = await Invoices.createCreditNote(invoice)
+      session.flash('success', i18n.t('flash.creditNoteCreated'))
+      return response.redirect().toRoute('invoices.edit', { id: creditNote.id })
+    } catch (error) {
+      if (!(error instanceof CreditNoteRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.creditNoteRefused.${error.reason}`))
+      return response.redirect().toRoute('invoices.edit', { id: invoice.id })
+    }
+  }
+
+  /**
    * A draft Advance Invoice for part of a Job, for Office to price.
    */
   async storeAdvance({ params, response, session, i18n }: HttpContext) {
@@ -185,7 +212,19 @@ export default class InvoicesController {
       )
       .preload('submissions', (submissions) => submissions.orderBy('preparedAt'))
       .preload('payments', (payments) => payments.orderBy('paidOn'))
+      .preload('creditNotes', (notes) => notes.orderBy('id'))
+      .preload('creditedInvoice', (credited) => credited.preload('creditNotes'))
       .firstOrFail()
+    // A Credit Note's Invoice, and what is left of it to credit besides
+    // this Credit Note
+    const credited = invoice.isCreditNote ? invoice.creditedInvoice : null
+    const creditedByOthers = credited
+      ? sumAmounts(
+          credited.creditNotes
+            .filter((note) => note.id !== invoice.id && credits(note.status))
+            .map((note) => note.total!)
+        )
+      : null
     const open = invoice.submissions.find((submission) => !submission.outcome) ?? null
     const lastRejection = invoice.submissions.findLast(
       (submission) => submission.outcome === 'rejected'
@@ -217,10 +256,23 @@ export default class InvoicesController {
         customer: { id: invoice.customer.id, displayName: invoice.customer.displayName },
         job: invoice.job ? { id: invoice.job.id, number: invoice.job.number } : null,
         advance: invoice.advance,
+        documentType: invoice.documentType,
+        credits: credited
+          ? {
+              id: credited.id,
+              number: credited.formattedNumber!,
+              issuedOn: credited.issuedOn!.toISODate()!,
+              total: credited.total!,
+              left: creditLeft(credited.total!, creditedByOthers!),
+            }
+          : null,
         discountPercent: invoice.discountPercent,
         notes: invoice.notes,
         lines: invoice.lines.map((line) => ({
           id: line.id,
+          creditsLineId: line.creditsLineId,
+          vatRate: line.vatRate,
+          natura: line.natura,
           itemId: line.itemId,
           description: line.description,
           quantity: line.quantity,
@@ -235,6 +287,16 @@ export default class InvoicesController {
       },
       // Not while a prepared Submission's file may already be on SDI
       editable: isEditable(invoice.status) && !open,
+      // An Invoice's Credit Notes, and whether another can be issued
+      creditNotes: invoice.isCreditNote
+        ? null
+        : invoice.creditNotes.map((note) => ({
+            id: note.id,
+            number: note.formattedNumber,
+            status: note.status,
+            total: note.total,
+          })),
+      canCredit: creditRefusal(invoice) === null,
       canSubmit: canTransition(invoice.status, 'submit'),
       submissions: invoice.submissions.map((submission) => ({
         id: submission.id,
@@ -277,14 +339,20 @@ export default class InvoicesController {
           ? {
               status: paymentStatus({
                 total: invoice.total,
+                credited: invoice.credited,
                 paid: invoice.paid,
                 dueOn: invoice.dueOn.toISODate()!,
                 today: DateTime.now().toISODate()!,
               }),
+              credited: invoice.credited,
               paid: invoice.paid,
               // Below zero when overpaid
-              owed: owed({ total: invoice.total, paid: invoice.paid }),
-              overpaidBy: overpaidBy({ total: invoice.total, paid: invoice.paid }),
+              owed: owed({ total: invoice.total, credited: invoice.credited, paid: invoice.paid }),
+              overpaidBy: overpaidBy({
+                total: invoice.total,
+                credited: invoice.credited,
+                paid: invoice.paid,
+              }),
             }
           : null,
       vatCodes: await vatCodeOptions(invoice.lines.map((line) => line.vatCodeId)),
@@ -303,7 +371,7 @@ export default class InvoicesController {
     })
 
     try {
-      const { belowPaid } = await Invoices.save(
+      const { belowPaid, creditedOverpaidBy } = await Invoices.save(
         invoice,
         {
           discountPercent: data.discountPercent,
@@ -316,6 +384,15 @@ export default class InvoicesController {
       // Saved all the same: the Invoice is now overpaid (ADR 0014)
       if (belowPaid) {
         session.flash('warning', i18n.t('flash.invoiceBelowPaid', { paid: formatMoney(belowPaid) }))
+      } else if (creditedOverpaidBy) {
+        const credited = await Invoice.findOrFail(invoice.creditsInvoiceId)
+        session.flash(
+          'warning',
+          `${i18n.t('flash.invoiceSaved')} ${i18n.t('flash.creditNoteOverpaid', {
+            number: credited.formattedNumber,
+            amount: formatMoney(creditedOverpaidBy),
+          })}`
+        )
       } else {
         session.flash('success', i18n.t('flash.invoiceSaved'))
       }
@@ -335,10 +412,14 @@ export default class InvoicesController {
     const invoice = await Invoice.findOrFail(params.id)
     try {
       const finalised = await Invoices.finalise(invoice, auth.getUserOrFail())
-      session.flash(
-        'success',
-        i18n.t('flash.invoiceFinalised', { number: finalised.formattedNumber })
-      )
+      if (finalised.isCreditNote) {
+        await this.flashCreditNoteFinalised(finalised, { session, i18n })
+      } else {
+        session.flash(
+          'success',
+          i18n.t('flash.invoiceFinalised', { number: finalised.formattedNumber })
+        )
+      }
     } catch (error) {
       if (error instanceof InvoiceNotFinalisableError) {
         session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
@@ -349,6 +430,31 @@ export default class InvoicesController {
       }
     }
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
+  }
+
+  /**
+   * A Credit Note issued: its number, and a warning when the Invoice it
+   * credits is now overpaid, so Office refunds the Customer (a negative
+   * Payment on that Invoice, ADR 0014).
+   */
+  private async flashCreditNoteFinalised(
+    creditNote: Invoice,
+    { session, i18n }: Pick<HttpContext, 'session' | 'i18n'>
+  ) {
+    const credited = await Invoice.findOrFail(creditNote.creditsInvoiceId)
+    const by = await db.transaction((trx) => Invoices.overpaidBy(trx, credited.id))
+    const done = i18n.t('flash.creditNoteFinalised', { number: creditNote.formattedNumber })
+    if (by) {
+      session.flash(
+        'warning',
+        `${done} ${i18n.t('flash.creditNoteOverpaid', {
+          number: credited.formattedNumber,
+          amount: formatMoney(by),
+        })}`
+      )
+    } else {
+      session.flash('success', done)
+    }
   }
 
   /**
@@ -367,7 +473,7 @@ export default class InvoicesController {
       response.header('content-type', 'application/pdf')
       response.header(
         'content-disposition',
-        `inline; filename="fattura-${invoice.formattedNumber!.replace('/', '-')}.pdf"`
+        `inline; filename="${invoice.isCreditNote ? 'nota-di-credito' : 'fattura'}-${invoice.formattedNumber!.replace('/', '-')}.pdf"`
       )
       return pdf
     } catch (error) {

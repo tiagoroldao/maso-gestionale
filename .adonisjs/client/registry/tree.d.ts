@@ -152,6 +152,7 @@ export interface ApiDefinition {
     store: typeof routes['invoices.store']
     storeAdvance: typeof routes['invoices.store_advance']
     storeFromJob: typeof routes['invoices.store_from_job']
+    storeCreditNote: typeof routes['invoices.store_credit_note']
     edit: typeof routes['invoices.edit']
     update: typeof routes['invoices.update']
     destroy: typeof routes['invoices.destroy']
@@ -214,6 +215,7 @@ export interface ApiDefinition {
   invoiceNumbering: {
     index: typeof routes['invoice_numbering.index']
     updateSdiPrefix: typeof routes['invoice_numbering.update_sdi_prefix']
+    updateCreditNotes: typeof routes['invoice_numbering.update_credit_notes']
     update: typeof routes['invoice_numbering.update']
   }
   paymentTerms: {

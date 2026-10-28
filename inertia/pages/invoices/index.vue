@@ -17,6 +17,7 @@ const props = defineProps<{
     number: string | null
     issuedOn: string | null
     status: string
+    documentType: string
     customer: string
     createdAt: string
     total: string
@@ -65,7 +66,12 @@ function filter() {
         </thead>
         <tbody>
           <tr v-for="invoice in invoices" :key="invoice.id">
-            <td class="mono">{{ invoice.number ?? '' }}</td>
+            <td class="mono">
+              {{ invoice.number ?? '' }}
+              <span v-if="invoice.documentType === 'credit_note'" class="tag">
+                {{ t('ui.invoices.creditNote') }}
+              </span>
+            </td>
             <td>
               <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
                 {{ invoice.customer }}

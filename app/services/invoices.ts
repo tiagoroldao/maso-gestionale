@@ -19,6 +19,7 @@ import VatDefaults from '#services/vat_defaults'
 import { ADVANCE_DEDUCTED_SQL } from '#services/job_status'
 import Charges from '#services/charges'
 import Payments from '#services/payments'
+import CreditNoteNumbering, { NUMBERING_LOCK_KEY } from '#services/credit_note_numbering'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { lineTotal, splitAmount } from '#shared/money'
@@ -26,6 +27,13 @@ import { advanceLeft, deductionRows } from '#shared/advances'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
+import {
+  creditRefusal,
+  credits,
+  exceedsCredit,
+  type CreditRefusal,
+  type NumberingSeries,
+} from '#shared/credit_notes'
 import {
   canTransition,
   isDeletable,
@@ -41,17 +49,14 @@ import {
 export class InvoiceNotEditableError extends Error {}
 
 /**
- * Serialises finalising across years, so the issue date and the year's
- * number come from one reading of the clock taken after the lock.
- */
-const NUMBERING_LOCK_KEY = 4_190_419
-
-/**
  * The draft can't be finalised (or the deductions saved) yet: it has no
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
  * advance than is left, an advance corrected below what issued
  * Invoices already took back of it, or an advance for a Job since closed.
+ * A Credit Note can't credit more than is left of its Invoice's total
+ * after its other Credit Notes (`creditTooLarge`), and each of its lines
+ * credits a line of that Invoice (`uncreditedLine`).
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
@@ -62,7 +67,18 @@ export class InvoiceNotFinalisableError extends Error {
       | 'deductionTooLarge'
       | 'belowDeducted'
       | 'jobClosed'
+      | 'creditTooLarge'
+      | 'uncreditedLine'
   ) {
+    super(reason)
+  }
+}
+
+/**
+ * The Invoice can't be credited (see creditRefusal()).
+ */
+export class CreditNoteRefusedError extends Error {
+  constructor(readonly reason: CreditRefusal) {
     super(reason)
   }
 }
@@ -98,6 +114,9 @@ export type InvoiceLineInput = {
   // The Charges the line bills, among those this Invoice's lines already
   // bill (to merge lines); a kept line sent without them keeps its own
   chargeIds?: number[]
+  // On a Credit Note, the credited Invoice's line this line credits; a
+  // kept line sent without it keeps its own
+  creditsLineId?: number
 }
 
 /**
@@ -147,6 +166,102 @@ export default class Invoices {
       )
       return invoice
     })
+  }
+
+  /**
+   * A draft Credit Note for an issued Invoice (FatturaPA TD04, ADR 0014),
+   * with a line crediting each of the Invoice's lines in full and its
+   * global discount, for Office to lower to what is credited. Refused for
+   * an Invoice that can't be credited (creditRefusal()). While a draft
+   * Credit Note for the Invoice is open it is returned instead of starting
+   * another.
+   */
+  static async createCreditNote(invoice: Invoice) {
+    return db.transaction(async (trx) => {
+      const original = await this.lockCredited(trx, invoice.id)
+      const refusal = creditRefusal(original)
+      if (refusal) throw new CreditNoteRefusedError(refusal)
+      const draft = await Invoice.query({ client: trx })
+        .where('creditsInvoiceId', original.id)
+        .where('status', 'draft')
+        .first()
+      if (draft) return draft
+
+      const creditNote = await Invoice.create(
+        {
+          customerId: original.customerId,
+          status: 'draft',
+          documentType: 'credit_note',
+          creditsInvoiceId: original.id,
+          discountPercent: original.discountPercent,
+        },
+        { client: trx }
+      )
+      // Lines taking back an advance aren't credited here (#146)
+      const lines = await InvoiceLine.query({ client: trx })
+        .where('invoiceId', original.id)
+        .whereNull('deductsInvoiceId')
+        .orderBy('position')
+      await InvoiceLine.createMany(
+        lines.map((line, position) => ({
+          invoiceId: creditNote.id,
+          creditsLineId: line.id,
+          position,
+          itemId: line.itemId,
+          description: line.description,
+          quantity: line.quantity,
+          unit: line.unit,
+          unitPrice: line.unitPrice,
+          discountPercent: line.discountPercent,
+          vatCodeId: line.vatCodeId,
+          vatRate: line.vatRate,
+          natura: line.natura,
+          legalNote: line.legalNote,
+          lineTotal: line.lineTotal,
+        })),
+        { client: trx }
+      )
+      return creditNote
+    })
+  }
+
+  /**
+   * Locks the Invoice `invoiceId` to credit it, after its Job (the order
+   * whileIn() takes them), and returns it.
+   */
+  private static async lockCredited(trx: TransactionClientContract, invoiceId: number) {
+    const row = await trx.from('invoices').where('id', invoiceId).select('job_id').first()
+    if (row?.job_id) await trx.from('jobs').where('id', row.job_id).forUpdate().first()
+    return Invoice.query({ client: trx }).where('id', invoiceId).forUpdate().firstOrFail()
+  }
+
+  /**
+   * Refuses a Credit Note of `total` that would bring its Invoice's Credit
+   * Notes above the Invoice's total, counting the others that credit
+   * (credits()). Runs with the credited Invoice locked (whileIn()), so two
+   * Credit Notes can't pass the check together.
+   */
+  private static async checkCredit(
+    trx: TransactionClientContract,
+    creditNote: Invoice,
+    total: string
+  ) {
+    const original = await Invoice.query({ client: trx })
+      .where('id', creditNote.creditsInvoiceId!)
+      .firstOrFail()
+    // All that credits the Invoice, less this Credit Note as stored when it
+    // already counts (a rejected one being corrected)
+    const own = await trx
+      .from('invoices')
+      .where('id', creditNote.id)
+      .select('status', 'total')
+      .firstOrFail()
+    const others = new Big(await Payments.credited(trx, original.id)).minus(
+      credits(own.status) ? own.total : 0
+    )
+    if (exceedsCredit(total, original.total!, others.toFixed(2))) {
+      throw new InvoiceNotFinalisableError('creditTooLarge')
+    }
   }
 
   /**
@@ -460,9 +575,10 @@ export default class Invoices {
       deductions?: Deduction[]
     },
     user: User | null = null
-  ): Promise<{ belowPaid: string | null }> {
+  ): Promise<{ belowPaid: string | null; creditedOverpaidBy: string | null }> {
     return this.whileIn(isEditable, invoice, async (trx, locked) => {
       let belowPaid: string | null = null
+      let creditedOverpaidBy: string | null = null
       // A prepared Submission's file may already be on SDI: no changes under it
       const open = await trx
         .from('invoice_submissions')
@@ -473,7 +589,9 @@ export default class Invoices {
 
       // Only Invoices without a Job move stock (see finalise)
       const soldBefore =
-        locked.status === 'rejected' && !locked.jobId ? await this.itemsSold(trx, locked.id) : null
+        locked.status === 'rejected' && this.movesStock(locked)
+          ? await this.itemsSold(trx, locked.id)
+          : null
       if (locked.status === 'rejected') {
         // Rejections are often about the parties' data (a VAT number, the
         // recipient code): the correction takes the current Customer and
@@ -506,11 +624,39 @@ export default class Invoices {
         .where('invoiceId', locked.id)
         .whereNull('deductsInvoiceId')
       const byId = new Map(existing.map((line) => [line.id, line]))
+      // A Credit Note's lines each credit a line of its Invoice, other than
+      // one taking back an advance
+      const creditedLines = locked.isCreditNote
+        ? await InvoiceLine.query({ client: trx })
+            .where('invoiceId', locked.creditsInvoiceId!)
+            .whereNull('deductsInvoiceId')
+        : null
+      const creditable = creditedLines
+        ? new Map(creditedLines.map((line) => [line.id, line]))
+        : null
+      const creditedLineOf = (line: InvoiceLineInput) => {
+        if (!creditable) return null
+        const id = line.creditsLineId ?? (line.id ? byId.get(line.id)?.creditsLineId : null)
+        const credited = id ? creditable.get(id) : undefined
+        if (!credited) throw new InvoiceNotFinalisableError('uncreditedLine')
+        return credited
+      }
       const values = entries.map((line, position) => {
-        const code = vat.get(line.vatCodeId)!
+        const credited = creditedLineOf(line)
+        // A Credit Note reverses VAT as the Invoice charged it, whatever
+        // the request says and whatever the VAT Code says now
+        const code = credited
+          ? {
+              id: credited.vatCodeId,
+              rate: credited.vatRate,
+              natura: credited.natura,
+              legalNote: credited.legalNote,
+            }
+          : vat.get(line.vatCodeId)!
         const discountPercent = line.discountPercent ?? '0'
         return {
           invoiceId: locked.id,
+          creditsLineId: credited?.id ?? null,
           position,
           itemId: line.itemId ?? null,
           description: line.description,
@@ -582,6 +728,8 @@ export default class Invoices {
       const total = new Big(this.totalOf(lines, locked.discountPercent))
       // Taking advances back can't bring the total below zero
       if (deducts && total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
+      // Drafts too, so Office learns early what is left to credit
+      if (locked.isCreditNote) await this.checkCredit(trx, locked, total.toFixed(2))
 
       // A corrected Invoice's total changes with its lines; it must still
       // be one that could be issued
@@ -601,16 +749,40 @@ export default class Invoices {
         }
         // Payments are recorded with this Invoice locked: the sum is current.
         // Below it, the Invoice is overpaid: warned about, not refused
-        const paid = await Payments.paid(trx, locked.id)
-        if (new Big(owed({ total: locked.total, paid })).lt(0)) belowPaid = paid
+        if (!locked.isCreditNote) {
+          const paid = await Payments.paid(trx, locked.id)
+          const credited = await Payments.credited(trx, locked.id)
+          if (new Big(owed({ total: locked.total, credited, paid })).lt(0)) belowPaid = paid
+        }
         await locked.save()
+        // A corrected Credit Note may leave its Invoice overpaid: warned
+        // about, as when finalising one
+        if (locked.isCreditNote) {
+          creditedOverpaidBy = await this.overpaidBy(trx, locked.creditsInvoiceId!)
+        }
       }
 
       if (soldBefore) {
         await this.rebookSale(trx, locked, soldBefore, await this.itemsSold(trx, locked.id), user)
       }
-      return { belowPaid }
+      return { belowPaid, creditedOverpaidBy }
     })
+  }
+
+  /**
+   * How much the Invoice `invoiceId` is overpaid by after its Credit Notes
+   * and Payments, read in `trx`; null when it isn't.
+   */
+  static async overpaidBy(trx: TransactionClientContract, invoiceId: number) {
+    const invoice = await Invoice.query({ client: trx }).where('id', invoiceId).firstOrFail()
+    const left = new Big(
+      owed({
+        total: invoice.total!,
+        credited: await Payments.credited(trx, invoiceId),
+        paid: await Payments.paid(trx, invoiceId),
+      })
+    )
+    return left.lt(0) ? left.abs().toFixed(2) : null
   }
 
   /**
@@ -697,8 +869,13 @@ export default class Invoices {
       if (!lines.length) throw new InvoiceNotFinalisableError('empty')
       const total = new Big(this.totalOf(lines, locked.discountPercent))
       if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
-      // An advance of nothing would only add empty deduction lines
-      if (locked.advance && total.eq(0)) throw new InvoiceNotFinalisableError('empty')
+      // An advance of nothing would only add empty deduction lines; a
+      // Credit Note of nothing credits nothing
+      if ((locked.advance || locked.isCreditNote) && total.eq(0)) {
+        throw new InvoiceNotFinalisableError('empty')
+      }
+      // Other Credit Notes may have been finalised since this one was saved
+      if (locked.isCreditNote) await this.checkCredit(trx, locked, total.toFixed(2))
       const issuer = this.companySnapshot(await CompanySettings.current())
       if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
       const customer = await Customer.query({ client: trx })
@@ -711,14 +888,19 @@ export default class Invoices {
       // matches the date (even at midnight on 31 December)
       await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [NUMBERING_LOCK_KEY])
       const today = DateTime.now().startOf('day')
+      // A Credit Note's series is the year's setting; nothing is paid on it
+      const series = locked.isCreditNote
+        ? await CreditNoteNumbering.seriesFor(trx, today.year)
+        : 'invoice'
       locked.merge({
         status: transition(locked.status, 'finalise'),
         total: this.totalOf(lines, locked.discountPercent),
         year: today.year,
-        number: await this.takeNumber(trx, today.year),
+        series,
+        number: await this.takeNumber(trx, today.year, series),
         issuedOn: today,
-        dueOn: customer.paymentTerms.dueDate(today),
-        paymentMethod: customer.paymentTerms.paymentMethod,
+        dueOn: locked.isCreditNote ? null : customer.paymentTerms.dueDate(today),
+        paymentMethod: locked.isCreditNote ? null : customer.paymentTerms.paymentMethod,
         customerSnapshot: customer.toSnapshot(),
         companySnapshot: issuer,
         finalisedAt: DateTime.now(),
@@ -744,7 +926,7 @@ export default class Invoices {
       // Items sold without a Job leave the Warehouse now (a Job's Items left
       // through its Visits); locked in id order so two Invoices sharing
       // Items can't deadlock
-      const sold = locked.jobId ? [] : lines.filter((line) => line.itemId)
+      const sold = this.movesStock(locked) ? lines.filter((line) => line.itemId) : []
       const ids = [...new Set(sold.map((line) => line.itemId!))].sort((a, b) => a - b)
       const items = ids.length
         ? await Item.query({ client: trx }).whereIn('id', ids).orderBy('id').forUpdate()
@@ -764,45 +946,61 @@ export default class Invoices {
   }
 
   /**
-   * Where the year's numbering stands: the next number, and whether it can
-   * still be changed (no Invoice finalised that year yet).
+   * Where the year's Invoice numbering stands: the next number, and
+   * whether it can still be changed (no number taken from it that year
+   * yet, Credit Notes sharing it included).
    */
   static async numbering(year: number) {
-    const sequence = await InvoiceSequence.findBy('year', year)
-    const issued = await Invoice.query().where('year', year).first()
+    const sequence = await InvoiceSequence.query()
+      .where('series', 'invoice')
+      .where('year', year)
+      .first()
+    const issued = await Invoice.query().where('series', 'invoice').where('year', year).first()
     return { year, nextNumber: sequence?.nextNumber ?? 1, locked: Boolean(issued) }
   }
 
   /**
-   * Sets where the year's numbering starts, e.g. to continue from the old
-   * accounting software. Refused once the year has a finalised Invoice.
+   * Sets where the year's Invoice numbering starts, e.g. to continue from
+   * the old accounting software. Refused once the year has a number taken.
    */
   static async setNextNumber(year: number, nextNumber: number) {
     await db.transaction(async (trx) => {
-      const sequence = await this.lockedSequence(trx, year)
-      const issued = await Invoice.query({ client: trx }).where('year', year).first()
+      const sequence = await this.lockedSequence(trx, year, 'invoice')
+      const issued = await Invoice.query({ client: trx })
+        .where('series', 'invoice')
+        .where('year', year)
+        .first()
       if (issued) throw new NumberingLockedError()
       sequence.nextNumber = nextNumber
       await sequence.save()
     })
   }
 
-  private static async lockedSequence(trx: TransactionClientContract, year: number) {
+  private static async lockedSequence(
+    trx: TransactionClientContract,
+    year: number,
+    series: NumberingSeries
+  ) {
     await trx
       .insertQuery()
       .table('invoice_sequences')
-      .insert({ year, next_number: 1, created_at: new Date() })
-      .onConflict('year')
+      .insert({ series, year, next_number: 1, created_at: new Date() })
+      .onConflict(['series', 'year'])
       .ignore()
     const sequence = await InvoiceSequence.query({ client: trx })
+      .where('series', series)
       .where('year', year)
       .forUpdate()
       .firstOrFail()
     return sequence.useTransaction(trx)
   }
 
-  private static async takeNumber(trx: TransactionClientContract, year: number) {
-    const sequence = await this.lockedSequence(trx, year)
+  private static async takeNumber(
+    trx: TransactionClientContract,
+    year: number,
+    series: NumberingSeries
+  ) {
+    const sequence = await this.lockedSequence(trx, year, series)
     const number = sequence.nextNumber
     sequence.nextNumber = number + 1
     await sequence.save()
@@ -1007,8 +1205,20 @@ export default class Invoices {
   }
 
   /**
+   * Whether finalising the Invoice takes its Items off stock: only an
+   * Invoice without a Job (a Job's Items left through its Visits), never a
+   * Credit Note.
+   */
+  private static movesStock(invoice: Invoice) {
+    return !invoice.jobId && !invoice.isCreditNote
+  }
+
+  /**
    * Runs `work` with the Invoice's Job locked, then the Invoice locked and
-   * re-read, refusing unless its status passes `allowed`.
+   * re-read, refusing unless its status passes `allowed`. A Credit Note
+   * first locks the Invoice it credits, after that Invoice's Job, so
+   * checking what is left to credit sees the other Credit Notes as they
+   * are.
    */
   private static whileIn<T>(
     allowed: (status: InvoiceStatus) => boolean,
@@ -1018,8 +1228,13 @@ export default class Invoices {
     return db.transaction(async (trx) => {
       // The Job first, in the order drafting takes them (Job, then
       // Invoices, then their Charges)
-      const row = await trx.from('invoices').where('id', invoice.id).select('job_id').first()
-      if (row?.job_id) await trx.from('jobs').where('id', row.job_id).forUpdate().first()
+      const row = await trx
+        .from('invoices')
+        .where('id', invoice.id)
+        .select('job_id', 'credits_invoice_id')
+        .first()
+      if (row?.credits_invoice_id) await this.lockCredited(trx, row.credits_invoice_id)
+      else if (row?.job_id) await trx.from('jobs').where('id', row.job_id).forUpdate().first()
       const locked = await Invoice.query({ client: trx })
         .where('id', invoice.id)
         .forUpdate()

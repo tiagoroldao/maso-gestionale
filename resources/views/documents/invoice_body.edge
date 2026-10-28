@@ -14,10 +14,17 @@
 </style>
 
 <table class="invoice-meta">
-  <tr><td>{{ t('documents.invoice.number') }}</td><td><strong>{{ number }}</strong></td></tr>
+  <tr><td>{{ numberLabel }}</td><td><strong>{{ number }}</strong></td></tr>
   <tr><td>{{ t('documents.invoice.issuedOn') }}</td><td>{{ issuedOn }}</td></tr>
-  <tr><td>{{ t('documents.invoice.dueOn') }}</td><td>{{ dueOn }}</td></tr>
-  <tr><td>{{ t('documents.invoice.paymentMethod') }}</td><td>{{ payment }}</td></tr>
+  @if(credits)
+    <tr><td>{{ t('documents.creditNote.creditsLabel') }}</td><td>{{ credits }}</td></tr>
+  @end
+  @if(dueOn)
+    <tr><td>{{ t('documents.invoice.dueOn') }}</td><td>{{ dueOn }}</td></tr>
+  @end
+  @if(payment)
+    <tr><td>{{ t('documents.invoice.paymentMethod') }}</td><td>{{ payment }}</td></tr>
+  @end
 </table>
 
 <table class="invoice-lines">

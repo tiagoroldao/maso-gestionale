@@ -98,7 +98,24 @@
     "deductionTooLarge": "Si detrae più di quanto resta di un acconto: riduci la detrazione.",
     "jobClosed": "La commessa è chiusa o annullata: un acconto non si emette più. Elimina la bozza, o riapri la commessa.",
     "belowDeducted": "L'acconto è già stato detratto da fatture emesse per più di questo importo.",
-    "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
+    "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture.",
+    "creditTooLarge": "La nota di credito supera quanto resta da stornare della fattura (il suo totale meno le altre note di credito emesse): riduci gli importi.",
+    "uncreditedLine": "Ogni riga della nota di credito deve stornare una riga della fattura."
+  },
+  "creditNoteCreated": "Bozza di nota di credito creata: riduci gli importi a quanto va stornato.",
+  "creditNoteRefused": {
+    "creditNote": "Una nota di credito non si storna con un'altra nota di credito.",
+    "notIssued": "Si può stornare solo una fattura consegnata o non recapitabile: una bozza o una fattura non ancora consegnata no, e una scartata si corregge.",
+    "advance": "Lo storno di una fattura di acconto non è ancora disponibile."
+  },
+  "creditNoteFinalised": "Nota di credito {number} emessa.",
+  "creditNoteOverpaid": "La fattura {number} risulta ora pagata in eccesso di {amount}: rimborsa il cliente.",
+  "creditNoteNumbering": {
+    "shared": "Le note di credito useranno la numerazione delle fatture",
+    "own": "Le note di credito avranno una numerazione propria",
+    "now": "da subito.",
+    "nextYear": "dal 1° gennaio {year}: quest'anno è già stata emessa una nota di credito.",
+    "unbroken": "La numerazione deve restare continua nell'anno: verifica la scelta con il commercialista."
   },
   "numberingSaved": "Numerazione {year} salvata.",
   "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura.",
@@ -129,7 +146,7 @@
   "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (addebiti sulla commessa o su interventi chiusi), oppure, per un acconto, è chiusa o annullata.",
   "paymentRecorded": "Incasso registrato.",
   "paymentRemoved": "Incasso eliminato.",
-  "paymentRefused": "Una bozza non si incassa: emetti prima la fattura.",
+  "paymentRefused": "Una bozza non si incassa: emetti prima la fattura. Su una nota di credito non si incassa: un rimborso è un incasso negativo sulla fattura stornata.",
   "paymentWarning": {
     "recorded": "Incasso registrato, da verificare.",
     "overpaid": "Supera quanto restava da incassare: la fattura risulta pagata in eccesso di {amount}.",

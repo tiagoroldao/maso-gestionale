@@ -12,6 +12,7 @@ import InvoiceSubmission from '#models/invoice_submission'
 import Payment from '#models/payment'
 import { sumAmounts } from '#shared/money'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
+import { credits, type DocumentType, type NumberingSeries } from '#shared/credit_notes'
 
 export { INVOICE_STATUSES, type InvoiceStatus } from '#shared/invoice_lifecycle'
 
@@ -61,21 +62,31 @@ export type CompanySnapshot = {
 }
 
 /**
- * A request for payment to a Customer. A draft has no number; finalising
- * numbers and dates it, copies the Customer and company onto it, and makes
- * it a fiscal document that no longer changes.
+ * A request for payment to a Customer, or a Credit Note crediting one
+ * (`documentType`, ADR 0014). A draft has no number; finalising numbers
+ * and dates it, copies the Customer and company onto it, and makes it a
+ * fiscal document that no longer changes.
  */
 export default class Invoice extends InvoiceSchema {
   declare status: InvoiceStatus
+  declare documentType: DocumentType
+  declare series: NumberingSeries | null
   declare customerSnapshot: CustomerSnapshot | null
   declare companySnapshot: CompanySnapshot | null
   declare paymentMethod: PaymentMethod | null
 
   /**
-   * "12/2026" once finalised; drafts have no number.
+   * "12/2026" once finalised ("NC12/2026" in the Credit Notes' own
+   * series); drafts have no number.
    */
   get formattedNumber() {
-    return this.number && this.year ? formatInvoiceNumber(this.number, this.year) : null
+    return this.number && this.year
+      ? formatInvoiceNumber(this.number, this.year, this.series ?? 'invoice')
+      : null
+  }
+
+  get isCreditNote() {
+    return this.documentType === 'credit_note'
   }
 
   @belongsTo(() => Customer)
@@ -93,6 +104,23 @@ export default class Invoice extends InvoiceSchema {
 
   @hasMany(() => Payment)
   declare payments: HasMany<typeof Payment>
+
+  /** A Credit Note's Invoice, the one it credits */
+  @belongsTo(() => Invoice, { foreignKey: 'creditsInvoiceId' })
+  declare creditedInvoice: BelongsTo<typeof Invoice>
+
+  /** An Invoice's Credit Notes, drafts included */
+  @hasMany(() => Invoice, { foreignKey: 'creditsInvoiceId' })
+  declare creditNotes: HasMany<typeof Invoice>
+
+  /**
+   * What the preloaded Credit Notes credit: those past draft (credits()).
+   */
+  get credited() {
+    return sumAmounts(
+      this.creditNotes.filter((note) => credits(note.status)).map((note) => note.total ?? '0')
+    )
+  }
 
   /**
    * The sum of the preloaded Payments.

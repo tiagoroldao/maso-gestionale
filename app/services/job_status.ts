@@ -4,7 +4,7 @@ import type { JobIndicators } from '#shared/jobs'
 import { isSettled } from '#shared/payment_status'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
-type InvoiceSummary = { status: string; total: string | null; paid: string }
+type InvoiceSummary = { status: string; total: string | null; credited: string; paid: string }
 
 type VisitSummary = { status: VisitStatus; startsAt: DateTime; survey: boolean }
 
@@ -41,7 +41,9 @@ export function jobIndicators(
     invoiced: issued.length > 0 && !billingOpen,
     paid:
       issued.length > 0 &&
-      issued.every((invoice) => isSettled({ total: invoice.total!, paid: invoice.paid })),
+      issued.every((invoice) =>
+        isSettled({ total: invoice.total!, credited: invoice.credited, paid: invoice.paid })
+      ),
   }
 }
 
@@ -52,10 +54,18 @@ export const PAID_SQL = (alias: string) =>
   `(SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = ${alias}.id)`
 
 /**
+ * The SQL equivalent of the Invoice `alias`'s Credit Notes, as credits()
+ * counts them: every one past draft.
+ */
+export const CREDITED_SQL = (alias: string) => `(SELECT coalesce(sum(cn.total), 0) FROM invoices cn
+  WHERE cn.credits_invoice_id = ${alias}.id AND cn.status <> 'draft')`
+
+/**
  * The SQL equivalent of owed() for the issued Invoice `alias`: below zero
  * when it is overpaid.
  */
-export const OWED_SQL = (alias: string) => `(${alias}.total - ${PAID_SQL(alias)})`
+export const OWED_SQL = (alias: string) =>
+  `(${alias}.total - ${CREDITED_SQL(alias)} - ${PAID_SQL(alias)})`
 
 /**
  * The same rules as SQL, for filtering Job lists: raw conditions on the

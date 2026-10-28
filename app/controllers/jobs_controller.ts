@@ -36,7 +36,7 @@ export default class JobsController {
       .preload('customer')
       .preload('site')
       .preload('visits')
-      .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('quotes', (quotes) => quotes.orderBy('sequence'))
     // The active list (the default) leaves out closed and cancelled Jobs;
     // the indicators (ADR 0015) are derived, so they're conditions on the
@@ -135,7 +135,7 @@ export default class JobsController {
       .where('id', params.id)
       .preload('customer')
       .preload('site')
-      .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('visits', (visits) =>
         visits
           .preload('technicians')

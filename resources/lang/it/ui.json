@@ -874,7 +874,20 @@
     "amountPaid": "Importo (€)",
     "paidOn": "Data",
     "paymentNote": "Nota",
-    "recordPayment": "Registra incasso"
+    "recordPayment": "Registra incasso",
+    "creditNote": "Nota di credito",
+    "creditNoteTitle": "Nota di credito {number}",
+    "creditNoteDraftTitle": "Bozza di nota di credito",
+    "creditNoteIssued": "Emessa il {date}.",
+    "creditNoteHint": "Nota di credito (TD04): ogni riga storna una riga della fattura. Riduci gli importi a quanto va stornato.",
+    "creditsInvoice": "Storna la fattura {number} del {date}",
+    "creditLeft": "Da stornare al massimo: {left} su {total}",
+    "finaliseCreditNote": "Emetti nota di credito",
+    "finaliseCreditNoteConfirm": "Emettere la nota di credito? Prenderà il prossimo numero e la data di oggi e non sarà più modificabile.",
+    "deleteCreditNoteConfirm": "Eliminare questa bozza di nota di credito?",
+    "creditNotesTitle": "Note di credito",
+    "newCreditNote": "Crea nota di credito",
+    "credited": "Stornato con note di credito: {amount}."
   },
   "visits": {
     "title": "Interventi",
@@ -982,6 +995,15 @@
     "nextNumber": "Prossimo numero {year}",
     "hint": "Modificabile finché non si emette la prima fattura dell'anno.",
     "locked": "Bloccato: nell'anno è già stata emessa una fattura.",
+    "creditNotes": "Numerazione delle note di credito",
+    "creditNotesDescription": "Le note di credito possono prendere il numero dalla stessa sequenza delle fatture o avere una numerazione propria (ad esempio NC1/2026), come decide il commercialista.",
+    "creditNotesModes": {
+      "shared": "Stessa numerazione delle fatture",
+      "own": "Numerazione propria"
+    },
+    "creditNotesCurrent": "Quest'anno ({year}): {mode}.",
+    "creditNotesNext": "Dal 1° gennaio {year}: {mode}.",
+    "creditNotesWarning": "Attenzione: la numerazione deve restare continua nell'anno. Se quest'anno non è stata ancora emessa una nota di credito il cambio vale da subito, altrimenti dal 1° gennaio prossimo.",
     "sdiPrefix": "Lettera iniziale dei file SDI",
     "sdiPrefixHint": "Ogni file inviato a SDI ha un progressivo che inizia con questa lettera, così non si confonde con i file inviati dal vecchio gestionale."
   },

@@ -4,7 +4,7 @@ import { jobIndicators } from '#services/job_status'
 /**
  * A Job as shown in lists (Jobs, Customer and Site pages): its stored
  * status, and the indicators beside it (ADR 0015) when its Visits and its
- * Invoices with their Payments are preloaded, with the `withBillingState`
+ * Invoices with their Payments and Credit Notes are preloaded, with the `withBillingState`
  * scope; null otherwise.
  */
 export function jobRow(job: Job) {
@@ -36,6 +36,7 @@ function indicatorsOf(job: Job) {
     job.invoices.map((invoice) => ({
       status: invoice.status,
       total: invoice.total,
+      credited: invoice.credited,
       paid: invoice.paid,
     })),
     Boolean(job.$extras.billing_open)

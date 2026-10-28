@@ -51,8 +51,13 @@ test.group('Job indicators: work complete', () => {
 })
 
 test.group('Job indicators: invoiced and paid', () => {
-  const issued = (paid: string) => ({ status: 'finalised', total: '100.00', paid })
-  const draft = { status: 'draft', total: null, paid: '0' }
+  const issued = (paid: string, credited = '0') => ({
+    status: 'finalised',
+    total: '100.00',
+    credited,
+    paid,
+  })
+  const draft = { status: 'draft', total: null, credited: '0', paid: '0' }
 
   test('invoiced once an Invoice is past draft and nothing is left to bill', ({ assert }) => {
     assert.isFalse(jobIndicators([], [], false).invoiced)
@@ -72,6 +77,9 @@ test.group('Job indicators: invoiced and paid', () => {
     assert.isFalse(jobIndicators([], [issued('100.01')], false).paid)
     // Paid doesn't wait for billing: the issued Invoices are settled
     assert.isTrue(jobIndicators([], [issued('100'), draft], true).paid)
+    // Credit Notes settle what they credit; crediting a paid Invoice overpays it
+    assert.isTrue(jobIndicators([], [issued('60', '40')], false).paid)
+    assert.isFalse(jobIndicators([], [issued('100', '40')], false).paid)
   })
 
   test('the three are independent of each other', ({ assert }) => {

@@ -19,6 +19,7 @@ import {
 import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
 import { lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
+import type { DocumentType } from '@shared/credit_notes'
 
 type Line = {
   key: number
@@ -36,6 +37,11 @@ type Line = {
   deductsInvoiceId: number | null
   // The Charges the line bills (ADR 0010)
   chargeIds: number[]
+  // On a Credit Note, the credited Invoice's line it credits
+  creditsLineId: number | null
+  // The VAT the line was saved with: a Credit Note line keeps its Invoice's
+  vatRate: string | null
+  natura: string | null
 }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
@@ -50,6 +56,9 @@ const props = defineProps<{
     customer: { id: number; displayName: string }
     job: { id: number; number: string } | null
     advance: boolean
+    documentType: DocumentType
+    // A Credit Note's Invoice, and what is left of it to credit
+    credits: { id: number; number: string; issuedOn: string; total: string; left: string } | null
     discountPercent: string
     notes: string | null
     lines: {
@@ -64,9 +73,16 @@ const props = defineProps<{
       significantGood: boolean
       deductsInvoiceId: number | null
       chargeIds: number[]
+      creditsLineId: number | null
+      vatRate: string
+      natura: string | null
     }[]
   }
   editable: boolean
+  // An Invoice's Credit Notes; null on a Credit Note
+  creditNotes:
+    { id: number; number: string | null; status: InvoiceStatus; total: string | null }[] | null
+  canCredit: boolean
   canSubmit: boolean
   vatCodes: VatCodeOption[]
   // A Job's lines follow the default VAT rules; other lines the Item's code
@@ -90,6 +106,7 @@ const props = defineProps<{
   // owed is below zero when overpaid, by overpaidBy
   paymentSummary: {
     status: string
+    credited: string
     paid: string
     owed: string
     overpaidBy: string | null
@@ -120,8 +137,13 @@ function linesFromProps(): Line[] {
     significantGood: line.significantGood,
     deductsInvoiceId: line.deductsInvoiceId,
     chargeIds: line.chargeIds,
+    creditsLineId: line.creditsLineId,
+    vatRate: line.vatRate,
+    natura: line.natura,
   }))
 }
+
+const creditNote = computed(() => props.invoice.documentType === 'credit_note')
 
 const lines = reactive<Line[]>(linesFromProps())
 const discountPercent = ref(
@@ -182,7 +204,11 @@ function totalsLine(line: Line): TotalsLine | null {
   const quantity = parseQuantity(line.quantity)
   const price = parseAmount(line.unitPrice)
   const discount = line.discountPercent ? parseAmount(line.discountPercent) : null
-  const code = codes.value.get(line.vatCodeId)
+  // A Credit Note line keeps the VAT its Invoice charged
+  const code =
+    creditNote.value && line.vatRate !== null
+      ? { rate: line.vatRate, natura: line.natura }
+      : codes.value.get(line.vatCodeId)
   if (!quantity || !price || !code || (line.discountPercent && !discount)) return null
   return {
     quantity: quantity.toFixed(),
@@ -227,6 +253,9 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     significantGood: item.significantGood,
     deductsInvoiceId: null,
     chargeIds: [],
+    creditsLineId: null,
+    vatRate: null,
+    natura: null,
   })
 }
 
@@ -244,6 +273,9 @@ function addFreeLine() {
     significantGood: false,
     deductsInvoiceId: null,
     chargeIds: [],
+    creditsLineId: null,
+    vatRate: null,
+    natura: null,
   })
 }
 
@@ -305,6 +337,7 @@ function save() {
         vatCodeId: line.vatCodeId,
         ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
         ...(line.chargeIds.length && { chargeIds: line.chargeIds }),
+        ...(line.creditsLineId && { creditsLineId: line.creditsLineId }),
       })),
       // Deduction lines above are rewritten from these by the server
       ...(props.deductions && {
@@ -325,13 +358,30 @@ const lineError = (index: number, field: string) => errors.value[`lines.${index}
 const deductionError = computed(
   () => Object.entries(errors.value).find(([key]) => key.startsWith('deductions'))?.[1]
 )
-const confirmDelete = () => window.confirm(t('ui.invoices.deleteConfirm'))
-const confirmFinalise = () =>
+const confirmDelete = () =>
   window.confirm(
-    props.unsubmittedCount
-      ? `${t('ui.invoices.unsubmittedWarning', { count: props.unsubmittedCount })}\n\n${t('ui.invoices.finaliseConfirm')}`
-      : t('ui.invoices.finaliseConfirm')
+    t(creditNote.value ? 'ui.invoices.deleteCreditNoteConfirm' : 'ui.invoices.deleteConfirm')
   )
+const confirmFinalise = () => {
+  const question = t(
+    creditNote.value ? 'ui.invoices.finaliseCreditNoteConfirm' : 'ui.invoices.finaliseConfirm'
+  )
+  return window.confirm(
+    props.unsubmittedCount
+      ? `${t('ui.invoices.unsubmittedWarning', { count: props.unsubmittedCount })}\n\n${question}`
+      : question
+  )
+}
+const title = computed(() => {
+  if (creditNote.value) {
+    return props.invoice.number
+      ? t('ui.invoices.creditNoteTitle', { number: props.invoice.number })
+      : t('ui.invoices.creditNoteDraftTitle')
+  }
+  return props.invoice.number
+    ? t('ui.invoices.invoiceTitle', { number: props.invoice.number })
+    : t('ui.invoices.draftTitle')
+})
 const confirmRemovePayment = () => window.confirm(t('ui.invoices.removePaymentConfirm'))
 const today = todayIso()
 const confirmUpload = () => window.confirm(t('ui.invoices.confirmUploadConfirm'))
@@ -340,15 +390,13 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
 
 <template>
   <AppLayout>
-    <Page
-      :title="
-        invoice.number
-          ? t('ui.invoices.invoiceTitle', { number: invoice.number })
-          : t('ui.invoices.draftTitle')
-      "
-      :description="invoice.customer.displayName"
-    >
+    <Page :title="title" :description="invoice.customer.displayName">
       <template #actions>
+        <Form v-if="canCredit" route="invoices.store_credit_note" :params="{ id: invoice.id }">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.invoices.newCreditNote') }}
+          </button>
+        </Form>
         <a
           v-if="invoice.number"
           :href="urlFor('invoices.pdf', { id: invoice.id })"
@@ -381,6 +429,27 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
       <p v-if="invoice.advance" class="field__hint" data-testid="advance">
         {{ t('ui.invoices.advanceHint') }}
       </p>
+      <template v-if="invoice.credits">
+        <p data-testid="credits">
+          <Link route="invoices.edit" :params="{ id: invoice.credits.id }" class="il">
+            {{
+              t('ui.invoices.creditsInvoice', {
+                number: invoice.credits.number,
+                date: formatDate(invoice.credits.issuedOn),
+              })
+            }}
+          </Link>
+        </p>
+        <p class="field__hint">
+          {{ t('ui.invoices.creditNoteHint') }}
+          {{
+            t('ui.invoices.creditLeft', {
+              left: formatMoney(invoice.credits.left),
+              total: formatMoney(invoice.credits.total),
+            })
+          }}
+        </p>
+      </template>
 
       <Section>
         <p>
@@ -391,10 +460,12 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
         </p>
         <p v-if="invoice.number" class="field__hint">
           {{
-            t('ui.invoices.issued', {
-              date: formatDate(invoice.issuedOn),
-              due: formatDate(invoice.dueOn),
-            })
+            invoice.dueOn
+              ? t('ui.invoices.issued', {
+                  date: formatDate(invoice.issuedOn),
+                  due: formatDate(invoice.dueOn),
+                })
+              : t('ui.invoices.creditNoteIssued', { date: formatDate(invoice.issuedOn) })
           }}
         </p>
         <p v-else-if="!editable" class="field__hint">{{ t('ui.invoices.notEditable') }}</p>
@@ -473,7 +544,13 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                 </span>
               </td>
               <td>
+                <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
+                <span v-if="creditNote" data-testid="credited-vat">
+                  {{ codes.get(line.vatCodeId)?.name ?? '' }}
+                  ({{ vatLabel({ vatRate: line.vatRate ?? '0', natura: line.natura }) }})
+                </span>
                 <select
+                  v-else
                   v-model="line.vatCodeId"
                   class="field__input"
                   :disabled="!editable || line.deductsInvoiceId !== null"
@@ -574,7 +651,8 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
         <span v-if="deductionError" class="field__error">{{ deductionError }}</span>
       </Section>
 
-      <Section v-if="editable" :title="t('ui.invoices.addTitle')">
+      <!-- A Credit Note's lines are the credited Invoice's, lowered -->
+      <Section v-if="editable && !creditNote" :title="t('ui.invoices.addTitle')">
         <ItemPicker :label="t('ui.invoices.addItem')" @select="addItem" />
         <button type="button" class="btn btn--secondary btn--sm" @click="addFreeLine">
           {{ t('ui.invoices.addFreeLine') }}
@@ -762,7 +840,30 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
         </table>
       </Section>
 
+      <Section v-if="creditNotes?.length" :title="t('ui.invoices.creditNotesTitle')">
+        <table class="table" data-testid="credit-notes">
+          <tbody>
+            <tr v-for="note in creditNotes" :key="note.id">
+              <td class="mono">
+                <Link route="invoices.edit" :params="{ id: note.id }" class="il">
+                  {{ note.number ?? t('ui.invoices.creditNoteDraftTitle') }}
+                </Link>
+              </td>
+              <td>
+                <span class="tag">{{ t(`ui.invoices.statuses.${note.status}`) }}</span>
+              </td>
+              <td :style="{ textAlign: 'right' }">
+                {{ note.total ? formatMoney(note.total) : '' }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </Section>
+
       <Section v-if="paymentSummary" :title="t('ui.invoices.paymentsTitle')">
+        <p v-if="Number(paymentSummary.credited)">
+          {{ t('ui.invoices.credited', { amount: formatMoney(paymentSummary.credited) }) }}
+        </p>
         <p>
           <span class="tag">{{ t(`ui.invoices.paymentStatuses.${paymentSummary.status}`) }}</span>
           <template v-if="paymentSummary.overpaidBy">
@@ -864,7 +965,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             :on-before="confirmFinalise"
           >
             <button type="submit" class="btn btn--secondary" :disabled="dirty || !lines.length">
-              {{ t('ui.invoices.finalise') }}
+              {{ creditNote ? t('ui.invoices.finaliseCreditNote') : t('ui.invoices.finalise') }}
             </button>
           </Form>
           <Form
