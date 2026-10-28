@@ -36,6 +36,7 @@ defineProps<{
   } | null
   notes: { id: number; body: string; author: string | null; createdAt: string }[]
   photos: { id: number }[]
+  issuedDocuments: { id: number; title: string; number: string; issuedOn: string }[]
   done: boolean
   servicedIds: number[]
   currentUserId: number
@@ -141,7 +142,9 @@ const page = usePage()
           <a
             v-for="document in equipment.documents"
             :key="document.id"
-            :href="urlFor('item_documents.show', { id: document.id })"
+            :href="
+              urlFor('item_documents.show_from_visit', { id: visit.id, documentId: document.id })
+            "
             target="_blank"
             rel="noopener"
             class="il"
@@ -173,6 +176,27 @@ const page = usePage()
             {{ t('ui.field.saveServiced') }}
           </button>
         </Form>
+      </Section>
+
+      <Section v-if="issuedDocuments.length" :title="t('ui.issuedDocuments.title')">
+        <ul>
+          <li v-for="document in issuedDocuments" :key="document.id">
+            <a
+              :href="
+                urlFor('issued_documents.pdf_from_visit', {
+                  id: visit.id,
+                  documentId: document.id,
+                })
+              "
+              target="_blank"
+              rel="noopener"
+              class="il"
+            >
+              {{ document.title }} {{ document.number }}
+            </a>
+            <span class="field__hint">{{ formatDate(document.issuedOn) }}</span>
+          </li>
+        </ul>
       </Section>
 
       <p v-if="done" class="field__hint">{{ t('ui.field.doneNotice') }}</p>

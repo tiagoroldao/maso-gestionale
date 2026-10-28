@@ -15,7 +15,10 @@ const manual = app.makePath('tests/fixtures/manual.pdf')
 test.group('Item Documents', (group) => {
   group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
 
-  test('Office uploads, everyone opens, Office deletes', async ({ client, assert }) => {
+  test('Office uploads, opens and deletes; Technicians only from a Visit', async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
     const technician = await createUser('technician')
     const item = await createItem()
@@ -35,10 +38,13 @@ test.group('Item Documents', (group) => {
     assert.match(document.filePath, new RegExp(`^items/${item.id}/[0-9a-f-]+\\.pdf$`))
     assert.isTrue(existsSync(storagePath(document.filePath)))
 
-    const opened = await client.get(`/item-documents/${document.id}`).loginAs(technician)
+    const opened = await client.get(`/item-documents/${document.id}`).loginAs(office)
     opened.assertStatus(200)
     opened.assertHeader('content-type', 'application/pdf')
     opened.assertHeader('x-content-type-options', 'nosniff')
+    // Technicians open them from a Visit (issued_documents.spec.ts)
+    const refused = await client.get(`/item-documents/${document.id}`).loginAs(technician)
+    refused.assertStatus(403)
 
     await client
       .delete(`/item-documents/${document.id}`)

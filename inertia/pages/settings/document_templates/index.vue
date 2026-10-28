@@ -8,6 +8,7 @@ import { formatDate, t } from '~/i18n'
 
 defineProps<{
   templates: { id: number; name: string; version: number; savedAt: string }[]
+  archived: { id: number; name: string }[]
 }>()
 </script>
 
@@ -36,6 +37,19 @@ defineProps<{
               </td>
               <td>{{ t('ui.documentTemplates.version', { version: template.version }) }}</td>
               <td>{{ formatDate(template.savedAt) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </Section>
+      <Section v-if="archived.length" :title="t('ui.documentTemplates.archivedTitle')">
+        <table class="table">
+          <tbody>
+            <tr v-for="template in archived" :key="template.id">
+              <td>
+                <Link route="document_templates.edit" :params="{ id: template.id }" class="il">
+                  {{ template.name }}
+                </Link>
+              </td>
             </tr>
           </tbody>
         </table>

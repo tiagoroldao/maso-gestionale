@@ -60,8 +60,19 @@ router
           .post('my-visits/:id/serviced', [controllers.MyVisits, 'setServiced'])
           .where('id', router.matchers.number())
         router
-          .get('item-documents/:id', [controllers.ItemDocuments, 'show'])
+          .get('my-visits/:id/item-documents/:documentId', [
+            controllers.ItemDocuments,
+            'showFromVisit',
+          ])
           .where('id', router.matchers.number())
+          .where('documentId', router.matchers.number())
+        router
+          .get('my-visits/:id/issued-documents/:documentId', [
+            controllers.IssuedDocuments,
+            'pdfFromVisit',
+          ])
+          .where('id', router.matchers.number())
+          .where('documentId', router.matchers.number())
       })
       .use(middleware.can('accessBusiness'))
 
@@ -138,6 +149,20 @@ router
           .where('id', router.matchers.number())
         router
           .get('sites/:id/installed-equipment', [controllers.TemplateChoices, 'equipment'])
+          .where('id', router.matchers.number())
+        router.get('issued-documents/create', [controllers.IssuedDocuments, 'create'])
+        router.post('issued-documents', [controllers.IssuedDocuments, 'store'])
+        router
+          .get('issued-documents/:id', [controllers.IssuedDocuments, 'show'])
+          .where('id', router.matchers.number())
+        router
+          .get('issued-documents/:id/pdf', [controllers.IssuedDocuments, 'pdf'])
+          .where('id', router.matchers.number())
+        router
+          .get('issued-documents/:id/replace', [controllers.IssuedDocuments, 'replace'])
+          .where('id', router.matchers.number())
+        router
+          .post('issued-documents/:id/replace', [controllers.IssuedDocuments, 'storeReplacement'])
           .where('id', router.matchers.number())
       })
       .use(middleware.can('manageCustomers'))
@@ -307,6 +332,9 @@ router
           .post('items/:id/documents', [controllers.ItemDocuments, 'store'])
           .where('id', router.matchers.number())
         router
+          .get('item-documents/:id', [controllers.ItemDocuments, 'show'])
+          .where('id', router.matchers.number())
+        router
           .delete('item-documents/:id', [controllers.ItemDocuments, 'destroy'])
           .where('id', router.matchers.number())
       })
@@ -355,6 +383,18 @@ router
           .where('id', router.matchers.number())
         router
           .put('settings/document-templates/:id', [controllers.DocumentTemplates, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .post('settings/document-templates/:id/archive', [
+            controllers.DocumentTemplates,
+            'archive',
+          ])
+          .where('id', router.matchers.number())
+        router
+          .post('settings/document-templates/:id/restore', [
+            controllers.DocumentTemplates,
+            'restore',
+          ])
           .where('id', router.matchers.number())
         router
           .get('settings/document-templates/:id/fill', [controllers.DocumentTemplates, 'fill'])

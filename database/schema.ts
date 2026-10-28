@@ -421,6 +421,49 @@ export class InvoiceSchema extends BaseModel {
   declare year: number | null
 }
 
+export class IssuedDocumentSchema extends BaseModel {
+  static $columns = ['company', 'createdAt', 'createdBy', 'customerId', 'documentTemplateId', 'documentTemplateVersionId', 'id', 'input', 'installedEquipmentId', 'issuedOn', 'jobId', 'pdfPath', 'recipient', 'replacedById', 'sequence', 'siteId', 'tables', 'values', 'year'] as const
+  $columns = IssuedDocumentSchema.$columns
+  @column()
+  declare company: any
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare createdBy: number | null
+  @column()
+  declare customerId: number
+  @column()
+  declare documentTemplateId: number
+  @column()
+  declare documentTemplateVersionId: number
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare input: any
+  @column()
+  declare installedEquipmentId: number | null
+  @column.date()
+  declare issuedOn: DateTime
+  @column()
+  declare jobId: number | null
+  @column()
+  declare pdfPath: string | null
+  @column()
+  declare recipient: any
+  @column()
+  declare replacedById: number | null
+  @column()
+  declare sequence: number
+  @column()
+  declare siteId: number | null
+  @column()
+  declare tables: any
+  @column()
+  declare values: any
+  @column()
+  declare year: number
+}
+
 export class ItemDocumentSchema extends BaseModel {
   static $columns = ['createdAt', 'filePath', 'id', 'itemId', 'mimeType', 'originalName', 'sizeBytes', 'title'] as const
   $columns = ItemDocumentSchema.$columns

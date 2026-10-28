@@ -16,6 +16,12 @@
     "job": "La commessa non è di questo cliente",
     "item": "Articolo non trovato",
     "tableNumber": "Riga {row}: inserisci un numero, ad esempio 12,5",
-    "tableDate": "Riga {row}: inserisci una data valida"
+    "tableDate": "Riga {row}: inserisci una data valida",
+    "jobSite": "La commessa è di un altro immobile",
+    "archivedItem": "L'articolo è archiviato e non è stato usato nella commessa scelta"
+  },
+  "issuedDocuments": {
+    "templateArchived": "Il modello è archiviato: non si possono emettere documenti.",
+    "alreadyReplaced": "Il documento è già stato sostituito."
   }
 }

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
-import { Link } from '@adonisjs/inertia/vue'
+import { Form, Link } from '@adonisjs/inertia/vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import SettingsLayout from '~/layouts/settings.vue'
@@ -28,10 +28,12 @@ const props = defineProps<{
     version: number
     body: TemplateNode
     fields: TemplateField[]
+    archived: boolean
   } | null
 }>()
 
 const page = usePage()
+const confirmArchive = () => window.confirm(t('ui.documentTemplates.archiveConfirm'))
 const errors = computed(() => (page.props.errors ?? {}) as Record<string, string>)
 
 type ColumnRow = { key: string; label: string; type: TableColumn['type']; from: string }
@@ -164,6 +166,18 @@ async function refreshPreview() {
           template ? t('ui.documentTemplates.version', { version: template.version }) : undefined
         "
       >
+        <template v-if="template">
+          <p v-if="template.archived" class="tag">{{ t('ui.archive.archivedTag') }}</p>
+          <Form
+            :route="template.archived ? 'document_templates.restore' : 'document_templates.archive'"
+            :params="{ id: template.id }"
+            :on-before="() => template!.archived || confirmArchive()"
+          >
+            <button type="submit" class="btn btn--ghost btn--sm">
+              {{ template.archived ? t('ui.archive.restore') : t('ui.archive.archive') }}
+            </button>
+          </Form>
+        </template>
         <div class="field">
           <label class="field__label" for="template-name">{{
             t('ui.documentTemplates.name')

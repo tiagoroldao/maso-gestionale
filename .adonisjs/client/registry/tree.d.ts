@@ -44,9 +44,19 @@ export interface ApiDefinition {
     index: typeof routes['my_visits.index']
   }
   itemDocuments: {
-    show: typeof routes['item_documents.show']
+    showFromVisit: typeof routes['item_documents.show_from_visit']
     store: typeof routes['item_documents.store']
+    show: typeof routes['item_documents.show']
     destroy: typeof routes['item_documents.destroy']
+  }
+  issuedDocuments: {
+    pdfFromVisit: typeof routes['issued_documents.pdf_from_visit']
+    create: typeof routes['issued_documents.create']
+    store: typeof routes['issued_documents.store']
+    show: typeof routes['issued_documents.show']
+    pdf: typeof routes['issued_documents.pdf']
+    replace: typeof routes['issued_documents.replace']
+    storeReplacement: typeof routes['issued_documents.store_replacement']
   }
   users: {
     index: typeof routes['users.index']
@@ -185,6 +195,8 @@ export interface ApiDefinition {
     preview: typeof routes['document_templates.preview']
     edit: typeof routes['document_templates.edit']
     update: typeof routes['document_templates.update']
+    archive: typeof routes['document_templates.archive']
+    restore: typeof routes['document_templates.restore']
     fill: typeof routes['document_templates.fill']
     fillPreview: typeof routes['document_templates.fill_preview']
   }

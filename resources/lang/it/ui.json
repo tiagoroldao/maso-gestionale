@@ -625,7 +625,9 @@
       "render": "Mostra il documento",
       "failed": "Documento non disponibile: controlla i campi.",
       "back": "Torna al modello"
-    }
+    },
+    "archivedTitle": "Modelli archiviati",
+    "archiveConfirm": "Archiviare il modello? Non si potranno più emettere documenti da questo modello; quelli già emessi restano."
   },
   "vatRules": {
     "title": "Regole IVA",
@@ -1013,5 +1015,30 @@
       "material": "Materiale",
       "significant_good": "Bene significativo"
     }
+  },
+  "issuedDocuments": {
+    "title": "Documenti emessi",
+    "empty": "Nessun documento emesso.",
+    "number": "Numero",
+    "document": "Documento",
+    "customer": "Cliente",
+    "site": "Immobile",
+    "equipment": "Apparecchio",
+    "job": "Commessa",
+    "issuedOn": "Data",
+    "replaced": "Sostituito",
+    "replacedBy": "Sostituito dal documento",
+    "replaces": "Sostituisce",
+    "newForCustomer": "Nuovo documento",
+    "newTitle": "Nuovo documento",
+    "replaceTitle": "Sostituzione del documento {number}",
+    "chooseTemplate": "Scegli il modello",
+    "noTemplates": "Nessun modello di documento: creane uno in Impostazioni.",
+    "issue": "Emetti documento",
+    "failed": "Documento non emesso: controlla i campi.",
+    "showTitle": "{name} {number}",
+    "details": "Dati",
+    "pdf": "PDF",
+    "replace": "Emetti sostituzione"
   }
 }

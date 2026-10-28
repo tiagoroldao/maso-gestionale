@@ -7,6 +7,7 @@ import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { urlFor } from '~/client'
 import { t, todayIso } from '~/i18n'
+import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
 
 type TextField = 'equipmentType' | 'make' | 'model' | 'serialNumber'
 
@@ -27,6 +28,7 @@ const props = defineProps<{
         item: LinkedItem | null
       })
     | null
+  issuedDocuments: IssuedDocumentRow[]
 }>()
 
 /**
@@ -204,6 +206,9 @@ const title = props.equipment ? t('ui.equipment.editTitle') : t('ui.equipment.ad
           </button>
         </Section>
       </Form>
+      <Section v-if="equipment" :title="t('ui.issuedDocuments.title')">
+        <IssuedDocumentList :documents="issuedDocuments" />
+      </Section>
     </Page>
   </AppLayout>
 </template>

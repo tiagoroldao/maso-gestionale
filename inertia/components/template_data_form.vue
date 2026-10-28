@@ -3,7 +3,8 @@
  * Fills a Document Template's fields for a Customer: a value per field,
  * with Sites, Installed Equipment and Jobs offered as the server scopes
  * them, and "load from Job" for Item and table fields. `input()` gives
- * what the server checks and prints (services/template_data.ts).
+ * what the server checks and prints (services/template_data.ts). It can
+ * start with a Customer and values (a replacement's original).
  */
 import { computed, reactive, ref, watch } from 'vue'
 import CustomerPicker, { type PickedCustomer } from '~/components/customer_picker.vue'
@@ -11,12 +12,17 @@ import ItemPicker from '~/components/item_picker.vue'
 import SitePicker from '~/components/site_picker.vue'
 import { urlFor } from '~/client'
 import { t } from '~/i18n'
-import type { TemplateField } from '@shared/document_templates'
+import type { TemplateField, TemplatePrefill } from '@shared/document_templates'
 
 type Choice = { id: number; label: string }
 type ItemUsed = { id: number; code: string; description: string; unit: string; quantity: string }
 
-const props = defineProps<{ fields: TemplateField[]; errors: Record<string, string> }>()
+const props = defineProps<{
+  fields: TemplateField[]
+  errors: Record<string, string>
+  initialCustomer?: PickedCustomer | null
+  prefill?: Record<string, TemplatePrefill>
+}>()
 
 const customer = ref<PickedCustomer | null>(null)
 // One store per kind of value, by field key; without a prototype, so a
@@ -56,10 +62,17 @@ watch(site, async (chosenSite) => {
       urlFor('template_choices.equipment', { id: chosenSite.id })
     )
     options.equipment = answer.equipment.map((unit) => ({ id: unit.id, label: unit.description }))
+    for (const [key, choice] of Object.entries(pendingEquipment)) {
+      chosen[key] = choice
+      delete pendingEquipment[key]
+    }
   } catch {
     failed.equipment = true
   }
 })
+
+// Prefilled equipment, chosen once the Site's equipment has loaded
+const pendingEquipment: Record<string, Choice> = {}
 
 async function chooseCustomer(picked: PickedCustomer) {
   customer.value = picked
@@ -67,9 +80,13 @@ async function chooseCustomer(picked: PickedCustomer) {
   for (const field of props.fields) {
     if (['site', 'equipment', 'job'].includes(field.type)) chosen[field.key] = null
   }
+  loaded.value = null
+  await loadJobs(picked)
+}
+
+async function loadJobs(picked: PickedCustomer) {
   options.job = []
   failed.job = false
-  loaded.value = null
   if (!jobField.value) return
   try {
     const answer = await getJson<{ jobs: { id: number; number: string; title: string }[] }>(
@@ -144,6 +161,27 @@ function input() {
     values: Object.fromEntries(props.fields.map((field) => [field.key, value(field)])),
   }
 }
+
+/**
+ * Starts from the initial Customer and values: each value goes in the
+ * store its field's kind reads.
+ */
+function start() {
+  if (!props.initialCustomer) return
+  customer.value = props.initialCustomer
+  void loadJobs(props.initialCustomer)
+  for (const field of props.fields) {
+    if (!props.prefill || !Object.hasOwn(props.prefill, field.key)) continue
+    const initial = props.prefill[field.key]
+    if (field.type === 'equipment') pendingEquipment[field.key] = initial as Choice
+    else if (['site', 'job', 'item'].includes(field.type)) chosen[field.key] = initial as Choice
+    else if (field.type === 'items') lists[field.key] = initial as Choice[]
+    else if (field.type === 'table') rows[field.key] = initial as string[][]
+    else if (field.type === 'boolean') checks[field.key] = initial as boolean
+    else texts[field.key] = initial as string
+  }
+}
+start()
 
 defineExpose({ input })
 </script>
