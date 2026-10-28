@@ -6,6 +6,7 @@ import Job from '#models/job'
 import Quote from '#models/quote'
 import QuoteLine, { type QuoteLineKind } from '#models/quote_line'
 import VatCode from '#models/vat_code'
+import Scheduling from '#services/scheduling'
 import { lineTotal } from '#shared/money'
 
 export class QuoteNotEditableError extends Error {}
@@ -118,18 +119,7 @@ export default class Quotes {
       // Work booked while waiting for the signature starts the Job at once
       if (jobStatus === 'accepted') {
         // Upcoming or ongoing work only: a past survey doesn't count
-        const pending = await trx
-          .from('visits')
-          .where('job_id', job.id)
-          .where((visits) =>
-            visits
-              .where('status', 'in_progress')
-              .orWhere((planned) =>
-                planned.where('status', 'planned').where('ends_at', '>', new Date())
-              )
-          )
-          .first()
-        if (pending) job.status = 'in_progress'
+        if (await Scheduling.hasPendingWork(trx, job.id)) job.status = 'in_progress'
       }
       await job.save()
     })

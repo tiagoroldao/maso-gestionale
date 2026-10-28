@@ -72,7 +72,8 @@ export default class VisitsController {
   }
 
   /**
-   * The calendar: one lane per active Technician, for a day or a week
+   * The calendar: one lane per active Technician (plus deactivated ones
+   * with Visits in view), for a day or a week
    * (Monday to Sunday).
    */
   async schedule({ request, inertia }: HttpContext) {
@@ -142,7 +143,8 @@ export default class VisitsController {
         durationMinutes: Math.round(visit.endsAt.diff(visit.startsAt, 'minutes').minutes),
         technicianIds: ids,
         notes: visit.notes,
-        editable: !CLOSED_VISIT_STATUSES.includes(visit.status),
+        editable:
+          !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
       },
     })
   }
@@ -163,7 +165,7 @@ export default class VisitsController {
       })
     } catch (error) {
       if (!(error instanceof VisitNotMovableError)) throw error
-      session.flash('error', i18n.t('flash.visitNotMovable'))
+      session.flash('error', i18n.t('flash.visitNotEditable'))
       return response.redirect().toRoute('jobs.show', { id: visit.jobId })
     }
 
@@ -179,7 +181,7 @@ export default class VisitsController {
       if (error instanceof VisitHasWorkError) {
         session.flash('error', i18n.t('flash.visitHasWork'))
       } else if (error instanceof VisitNotMovableError) {
-        session.flash('error', i18n.t('flash.visitNotMovable'))
+        session.flash('error', i18n.t('flash.visitNotEditable'))
       } else {
         throw error
       }

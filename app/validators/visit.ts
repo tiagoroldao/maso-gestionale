@@ -69,8 +69,12 @@ export const moveVisitValidator = vine.create({
     .exists({
       table: 'users',
       column: 'id',
-      filter: (db) => {
-        db.where('role', 'technician').where('is_active', true)
+      // A new Technician must be active; dragging within a deactivated
+      // Technician's own lane only changes the time
+      filter: (db, _, field) => {
+        db.where('role', 'technician').where((q) =>
+          q.where('is_active', true).orWhere('id', field.parent.fromTechnicianId ?? 0)
+        )
       },
     })
     .optional(),

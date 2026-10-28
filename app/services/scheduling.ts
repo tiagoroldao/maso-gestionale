@@ -31,6 +31,25 @@ export default class Scheduling {
   }
 
   /**
+   * Whether the Job has upcoming or ongoing work: a Visit in progress, or a
+   * planned one not yet over. A past survey doesn't count.
+   */
+  static async hasPendingWork(trx: TransactionClientContract, jobId: number) {
+    const pending = await trx
+      .from('visits')
+      .where('job_id', jobId)
+      .where((visits) =>
+        visits
+          .where('status', 'in_progress')
+          .orWhere((planned) =>
+            planned.where('status', 'planned').where('ends_at', '>', new Date())
+          )
+      )
+      .first()
+    return Boolean(pending)
+  }
+
+  /**
    * Changes a Visit that isn't closed: when, how long, who and the notes
    * for the team. Technicians already on it stay allowed even if since
    * deactivated (the validator checks the rest).
@@ -50,8 +69,8 @@ export default class Scheduling {
 
   /**
    * Deletes a Visit planned by mistake. One with recorded work is refused.
-   * If it was the Job's last Visit and planning it had started the Job,
-   * the Job goes back to ready for work (accepted, or open).
+   * If no upcoming or ongoing work is left, an In Progress Job goes back
+   * to ready for work (accepted, or open).
    */
   static async destroy(visit: Visit) {
     await db.transaction(async (trx) => {
@@ -64,10 +83,11 @@ export default class Scheduling {
       }
       await locked.useTransaction(trx).delete()
 
-      const others = await trx.from('visits').where('job_id', locked.jobId).first()
       const job = await Job.query({ client: trx }).where('id', locked.jobId).firstOrFail()
       job.useTransaction(trx)
-      if (!others && job.status === 'in_progress') {
+      // Without other upcoming or ongoing work (a finished survey doesn't
+      // count), the Job is back to waiting for its first work Visit
+      if (job.status === 'in_progress' && !(await this.hasPendingWork(trx, job.id))) {
         job.status = job.kind === 'quoted' ? 'accepted' : 'open'
         await job.save()
       }

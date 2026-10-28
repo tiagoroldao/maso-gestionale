@@ -443,7 +443,7 @@ test.group('Editing and deleting Visits', () => {
       client.delete(`/visits/${visit.id}`),
     ]) {
       const response = await request.withCsrfToken().loginAs(office).redirects(0)
-      response.assertFlashMessage('error', it('flash.visitNotMovable'))
+      response.assertFlashMessage('error', it('flash.visitNotEditable'))
     }
 
     visit.status = 'planned'
@@ -454,7 +454,7 @@ test.group('Editing and deleting Visits', () => {
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    cancelled.assertFlashMessage('error', it('flash.visitNotMovable'))
+    cancelled.assertFlashMessage('error', it('flash.visitNotEditable'))
     assert.isNotNull(await Visit.find(visit.id))
   })
 
@@ -477,6 +477,87 @@ test.group('Editing and deleting Visits', () => {
     assert.isNull(await Visit.find(visit.id))
     await job.refresh()
     assert.equal(job.status, 'accepted')
+  })
+
+  test('deleting the work Visit next to a finished survey puts the Job back', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id], 'quoted')
+    // A survey done before the Quote was accepted
+    const past = DateTime.now().minus({ days: 10 })
+    await Visit.create({
+      jobId: job.id,
+      startsAt: past,
+      endsAt: past.plus({ hours: 1 }),
+      status: 'done',
+    })
+
+    await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'accepted')
+  })
+
+  test('a Time & Materials Job goes back to open', async ({ client, assert }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
+
+    await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'open')
+  })
+
+  test("a cancelled Job's Visit edit page is read-only, and saving changes nothing", async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+
+    const page = await client.get(`/visits/${visit.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ visit: { editable: false } })
+    const before = visit.startsAt.toISO()
+    const refused = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id], { date: '2026-12-01' }))
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refused.assertFlashMessage('error', it('flash.visitNotEditable'))
+    await visit.refresh()
+    assert.equal(visit.startsAt.toISO(), before)
+  })
+
+  test("a deactivated Technician's Visit can still be moved in their own lane", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const old = await createUser('technician', { isActive: false })
+    const job = await createJob(await createCustomer())
+    const start = DateTime.fromISO('2026-11-03T09:00')
+    const visit = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await visit.related('technicians').attach([old.id])
+
+    await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T11:00', fromTechnicianId: old.id, toTechnicianId: old.id })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await visit.refresh()
+    assert.equal(visit.startsAt.toFormat('HH:mm'), '11:00')
   })
 
   test('a Visit with recorded work is kept', async ({ client, assert }) => {
@@ -515,8 +596,10 @@ test.group('Editing and deleting Visits', () => {
     })
   })
 
-  test('Technicians can not edit or delete Visits', async ({ client }) => {
-    const technician = await createUser('technician')
+  test('Technicians and the Superuser can not edit or delete Visits', async ({
+    client,
+    assert,
+  }) => {
     const job = await createJob(await createCustomer())
     const start = DateTime.fromISO('2026-11-03T09:00')
     const visit = await Visit.create({
@@ -526,18 +609,22 @@ test.group('Editing and deleting Visits', () => {
       status: 'planned',
     })
 
-    for (const request of [
-      client.put(`/visits/${visit.id}`).json(plan([technician.id])),
-      client.delete(`/visits/${visit.id}`),
-    ]) {
-      const response = await request
-        .header('referer', '/')
-        .withCsrfToken()
-        .loginAs(technician)
-        .redirects(0)
-      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    for (const role of ['technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      for (const request of [
+        client.put(`/visits/${visit.id}`).json(plan([user.id])),
+        client.delete(`/visits/${visit.id}`),
+      ]) {
+        const response = await request
+          .header('referer', '/')
+          .withCsrfToken()
+          .loginAs(user)
+          .redirects(0)
+        response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      }
+      const page = await client.get(`/visits/${visit.id}/edit`).withInertia().loginAs(user)
+      page.assertStatus(403)
     }
-    const page = await client.get(`/visits/${visit.id}/edit`).withInertia().loginAs(technician)
-    page.assertStatus(403)
+    assert.isNotNull(await Visit.find(visit.id))
   })
 })
