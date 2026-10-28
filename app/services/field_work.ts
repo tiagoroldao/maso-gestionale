@@ -42,6 +42,8 @@ export default class FieldWork {
    */
   static whileJobActive<T>(visit: Visit, work: (trx: TransactionClientContract) => Promise<T>) {
     return db.transaction(async (trx) => {
+      // Visit first, then its Job: the order every other path uses
+      await Visit.query({ client: trx }).where('id', visit.id).forShare().firstOrFail()
       await this.lockActiveJob(trx, visit.jobId)
       return work(trx)
     })

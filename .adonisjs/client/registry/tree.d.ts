@@ -100,6 +100,9 @@ export interface ApiDefinition {
     schedule: typeof routes['visits.schedule']
     toSchedule: typeof routes['visits.to_schedule']
     move: typeof routes['visits.move']
+    edit: typeof routes['visits.edit']
+    update: typeof routes['visits.update']
+    destroy: typeof routes['visits.destroy']
   }
   quotes: {
     edit: typeof routes['quotes.edit']

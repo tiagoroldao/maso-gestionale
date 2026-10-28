@@ -72,6 +72,10 @@
   },
   "numberingSaved": "Numerazione {year} salvata.",
   "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura.",
+  "visitSaved": "Intervento salvato.",
+  "visitDeleted": "Intervento eliminato.",
+  "visitHasWork": "L'intervento ha già ore, materiali, foto o note: non si può eliminare.",
+  "visitNotEditable": "L'intervento è chiuso o la commessa è annullata: non si può modificare né eliminare.",
   "submissionConfirmed": "Invio a SDI registrato.",
   "submissionOutcome": {
     "delivered": "Fattura consegnata.",

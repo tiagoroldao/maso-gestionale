@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
 import Visit from '#models/visit'
 import Quote from '#models/quote'
@@ -342,5 +343,313 @@ test.group('Agenda', () => {
       .loginAs(technician)
       .redirects(0)
     move.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+  })
+})
+
+test.group('Editing and deleting Visits', () => {
+  /**
+   * A Visit planned through the app, so the Job moves as it really would.
+   */
+  async function planned(
+    client: ApiClient,
+    technicianIds: number[],
+    kind: 'quoted' | 'time_and_materials' = 'time_and_materials'
+  ) {
+    const office = await createUser('office')
+    const job = await createJob(await createCustomer(), {
+      kind,
+      status: kind === 'quoted' ? 'accepted' : 'open',
+    })
+    await client
+      .post(`/jobs/${job.id}/visits`)
+      .json(plan(technicianIds))
+      .withCsrfToken()
+      .loginAs(office)
+    const visit = await Visit.query().where('jobId', job.id).preload('technicians').firstOrFail()
+    return { office, job, visit }
+  }
+
+  test('Office changes the time, length, team and notes', async ({ client, assert }) => {
+    const anna = await createUser('technician')
+    const bruno = await createUser('technician')
+    const { office, visit } = await planned(client, [anna.id])
+
+    await client
+      .put(`/visits/${visit.id}`)
+      .json(
+        plan([bruno.id], {
+          date: '2026-11-04',
+          startTime: '14:30',
+          durationMinutes: 90,
+          notes: 'Citofonare',
+        })
+      )
+      .withCsrfToken()
+      .loginAs(office)
+
+    await visit.refresh()
+    await visit.load('technicians')
+    assert.equal(
+      visit.startsAt.toISO({ includeOffset: false, suppressMilliseconds: true }),
+      '2026-11-04T14:30:00'
+    )
+    assert.equal(visit.endsAt.diff(visit.startsAt, 'minutes').minutes, 90)
+    assert.deepEqual(
+      visit.technicians.map((t) => t.id),
+      [bruno.id]
+    )
+    assert.equal(visit.notes, 'Citofonare')
+  })
+
+  test('a deactivated Technician already on the Visit may stay; a new one may not', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const gone = await createUser('technician', { isActive: false })
+    const { office, visit } = await planned(client, [anna.id])
+    anna.isActive = false
+    await anna.save()
+
+    const kept = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id]))
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    kept.assertFlashMessage('success', it('flash.visitSaved'))
+
+    const refused = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id, gone.id]))
+      .header('referer', `/visits/${visit.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(refused.flashMessage('inputErrorsBag'), ['technicianIds.1'])
+  })
+
+  test('closed Visits and cancelled Jobs can not be edited or deleted', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    visit.status = 'done'
+    await visit.save()
+
+    for (const request of [
+      client.put(`/visits/${visit.id}`).json(plan([anna.id])),
+      client.delete(`/visits/${visit.id}`),
+    ]) {
+      const response = await request.withCsrfToken().loginAs(office).redirects(0)
+      response.assertFlashMessage('error', it('flash.visitNotEditable'))
+    }
+
+    visit.status = 'planned'
+    await visit.save()
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+    const cancelled = await client
+      .delete(`/visits/${visit.id}`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    cancelled.assertFlashMessage('error', it('flash.visitNotEditable'))
+    assert.isNotNull(await Visit.find(visit.id))
+  })
+
+  test('a Visit planned by mistake is deleted; the Job goes back to ready for work', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id], 'quoted')
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
+
+    const response = await client
+      .delete(`/visits/${visit.id}`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('success', it('flash.visitDeleted'))
+    assert.isNull(await Visit.find(visit.id))
+    await job.refresh()
+    assert.equal(job.status, 'accepted')
+  })
+
+  test('deleting the work Visit next to a finished survey puts the Job back', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id], 'quoted')
+    // A survey done before the Quote was accepted
+    await Quote.create({
+      jobId: job.id,
+      status: 'accepted',
+      decidedAt: DateTime.now().minus({ days: 5 }),
+    })
+    const past = DateTime.now().minus({ days: 10 })
+    await Visit.create({
+      jobId: job.id,
+      startsAt: past,
+      endsAt: past.plus({ hours: 1 }),
+      status: 'done',
+    })
+
+    await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'accepted')
+  })
+
+  test('deleting a follow-up keeps a Job with done work in progress', async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    const past = DateTime.now().minus({ days: 2 })
+    await Visit.create({
+      jobId: job.id,
+      startsAt: past,
+      endsAt: past.plus({ hours: 2 }),
+      status: 'done',
+    })
+
+    await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
+  })
+
+  test('a Time & Materials Job goes back to open', async ({ client, assert }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    await job.refresh()
+    assert.equal(job.status, 'in_progress')
+
+    await client.delete(`/visits/${visit.id}`).withCsrfToken().loginAs(office)
+
+    await job.refresh()
+    assert.equal(job.status, 'open')
+  })
+
+  test("a cancelled Job's Visit edit page is read-only, and saving changes nothing", async ({
+    client,
+    assert,
+  }) => {
+    const anna = await createUser('technician')
+    const { office, visit, job } = await planned(client, [anna.id])
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+
+    const page = await client.get(`/visits/${visit.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ visit: { editable: false } })
+    const before = visit.startsAt.toISO()
+    const refused = await client
+      .put(`/visits/${visit.id}`)
+      .json(plan([anna.id], { date: '2026-12-01' }))
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refused.assertFlashMessage('error', it('flash.visitNotEditable'))
+    await visit.refresh()
+    assert.equal(visit.startsAt.toISO(), before)
+  })
+
+  test("a deactivated Technician's Visit can still be moved in their own lane", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const old = await createUser('technician', { isActive: false })
+    const job = await createJob(await createCustomer())
+    const start = DateTime.fromISO('2026-11-03T09:00')
+    const visit = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await visit.related('technicians').attach([old.id])
+
+    await client
+      .patch(`/visits/${visit.id}/move`)
+      .json({ startsAt: '2026-11-03T11:00', fromTechnicianId: old.id, toTechnicianId: old.id })
+      .withCsrfToken()
+      .loginAs(office)
+
+    await visit.refresh()
+    assert.equal(visit.startsAt.toFormat('HH:mm'), '11:00')
+  })
+
+  test('a Visit with recorded work is kept', async ({ client, assert }) => {
+    const anna = await createUser('technician')
+    const { office, visit } = await planned(client, [anna.id])
+    await visit.related('fieldNotes').create({ body: 'Cliente assente', userId: anna.id })
+
+    const response = await client
+      .delete(`/visits/${visit.id}`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('error', it('flash.visitHasWork'))
+    assert.isNotNull(await Visit.find(visit.id))
+  })
+
+  test('Visits of a deactivated Technician stay on the Agenda', async ({ client }) => {
+    const office = await createUser('office')
+    const old = await createUser('technician', { fullName: 'Old', isActive: false })
+    const job = await createJob(await createCustomer())
+    const start = DateTime.fromISO('2026-11-03T09:00')
+    const visit = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await visit.related('technicians').attach([old.id])
+
+    const day = await client.get('/agenda').qs({ date: '2026-11-03' }).withInertia().loginAs(office)
+
+    day.assertInertiaPropsContains({
+      technicians: [{ id: old.id, active: false }],
+      visits: [{ id: visit.id, technicianIds: [old.id] }],
+    })
+  })
+
+  test('Technicians and the Superuser can not edit or delete Visits', async ({
+    client,
+    assert,
+  }) => {
+    const job = await createJob(await createCustomer())
+    const start = DateTime.fromISO('2026-11-03T09:00')
+    const visit = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+
+    for (const role of ['technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      for (const request of [
+        client.put(`/visits/${visit.id}`).json(plan([user.id])),
+        client.delete(`/visits/${visit.id}`),
+      ]) {
+        const response = await request
+          .header('referer', '/')
+          .withCsrfToken()
+          .loginAs(user)
+          .redirects(0)
+        response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      }
+      const page = await client.get(`/visits/${visit.id}/edit`).withInertia().loginAs(user)
+      page.assertStatus(403)
+    }
+    assert.isNotNull(await Visit.find(visit.id))
   })
 })
