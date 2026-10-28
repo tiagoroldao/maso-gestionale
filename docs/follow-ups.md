@@ -20,8 +20,8 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
-| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
-| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                      |
+| #103  | Closing a Job is manual (ADR 0015)                                                        | —                                                 |
+| #111  | Finished work on a cancelled Job can still be invoiced (decided)                          | —                                                 |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #144  | Payments are records: overpaid Invoices, refunds, warnings (ADR 0014)                     | —                                                 |
