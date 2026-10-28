@@ -347,7 +347,7 @@ test.group('Charges', () => {
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ timeAndMaterials: { total: '80.00', lines: 1 } })
 
-    const invoice = await Invoices.fromTimeAndMaterials(job)
+    const invoice = await Invoices.fromJob(job)
     await invoice.load('lines')
     assert.deepEqual(
       invoice.lines.map((l) => l.description),
@@ -373,7 +373,7 @@ test.group('Charges', () => {
     await Invoice.query().where('id', invoice.id).delete()
     await client.post(`/charges/${line.id}/billable`).withCsrfToken().loginAs(office)
     assert.deepEqual(await history(line), ['recorded', 'not_billable', 'billable'])
-    const next = await Invoices.fromTimeAndMaterials(job)
+    const next = await Invoices.fromJob(job)
     await next.load('lines')
     assert.lengthOf(next.lines, 2)
   })
@@ -506,7 +506,7 @@ test.group('Charges on the Job itself', () => {
       charges: [{ id: charge.id, visitId: null, unit: 'h', state: 'to_bill' }],
     })
 
-    const invoice = await Invoices.fromTimeAndMaterials(job)
+    const invoice = await Invoices.fromJob(job)
     await invoice.load('lines')
     const [line] = invoice.lines
     assert.equal(line.description, 'Collaboratore esterno')
@@ -635,7 +635,7 @@ test.group('Charges on the Job itself', () => {
       office
     )
 
-    const invoice = await Invoices.fromTimeAndMaterials(job)
+    const invoice = await Invoices.fromJob(job)
     await invoice.load('lines', (lines) => lines.orderBy('position'))
     assert.deepEqual(
       invoice.lines.map((l) => l.description),

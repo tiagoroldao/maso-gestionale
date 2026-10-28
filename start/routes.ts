@@ -234,6 +234,9 @@ router
           .put('jobs/:id/quote', [controllers.Quotes, 'update'])
           .where('id', router.matchers.number())
         router
+          .post('jobs/:id/quote/import', [controllers.Quotes, 'importLines'])
+          .where('id', router.matchers.number())
+        router
           .post('jobs/:id/quote/accept', [controllers.Quotes, 'accept'])
           .where('id', router.matchers.number())
         router

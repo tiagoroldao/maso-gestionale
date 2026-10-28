@@ -136,6 +136,7 @@ export interface ApiDefinition {
   quotes: {
     edit: typeof routes['quotes.edit']
     update: typeof routes['quotes.update']
+    importLines: typeof routes['quotes.import_lines']
     accept: typeof routes['quotes.accept']
     decline: typeof routes['quotes.decline']
     pdf: typeof routes['quotes.pdf']

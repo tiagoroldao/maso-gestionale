@@ -246,13 +246,21 @@ export default class Charges {
   /**
    * Sets what is billed from what was recorded: the quantity, the
    * description and, when `repriced` (a new Labour Rate or Item), its
-   * current price. Another cost keeps its own description and price.
+   * current price. Another cost keeps its own description and price, and
+   * so does a Charge imported from a Quote line (ADR 0012) until its
+   * Labour Rate or Item changes.
    */
   private static async followRecorded(
     trx: TransactionClientContract,
     charge: Charge,
     repriced: boolean
   ) {
+    // Imported from a Quote line: its own words and price stand
+    const asQuoted = charge.quoteLineId !== null && !repriced
+    if (asQuoted) {
+      charge.billQuantity = charge.quantity
+      return
+    }
     if (charge.kind === 'labour') {
       const rate = await LabourRate.findOrFail(charge.labourRateId, { client: trx })
       const technician = charge.userId ? await User.find(charge.userId, { client: trx }) : null

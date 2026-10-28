@@ -61,7 +61,7 @@ export class ChargeEventSchema extends BaseModel {
 }
 
 export class ChargeSchema extends BaseModel {
-  static $columns = ['billQuantity', 'createdAt', 'createdEquipment', 'description', 'id', 'installed', 'installedEquipmentId', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'stockMovementId', 'unit', 'unitPrice', 'updatedAt', 'userId', 'vatKind', 'visitId', 'workerName'] as const
+  static $columns = ['billQuantity', 'createdAt', 'createdEquipment', 'description', 'id', 'installed', 'installedEquipmentId', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'quoteLineId', 'stockMovementId', 'unit', 'unitPrice', 'updatedAt', 'userId', 'vatKind', 'visitId', 'workerName'] as const
   $columns = ChargeSchema.$columns
   @column()
   declare billQuantity: string
@@ -87,6 +87,8 @@ export class ChargeSchema extends BaseModel {
   declare labourRateId: number | null
   @column()
   declare quantity: string
+  @column()
+  declare quoteLineId: number | null
   @column()
   declare stockMovementId: number | null
   @column()

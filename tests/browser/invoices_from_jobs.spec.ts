@@ -9,7 +9,7 @@ import { completeCompany } from '#tests/helpers/company'
 import { it } from '#tests/helpers/i18n'
 
 test.group('Invoices from Jobs in the browser', () => {
-  test('from an accepted Quote to a finalised Invoice and its XML', async ({
+  test('from an accepted Quote, through its imported lines, to an Invoice and its XML', async ({
     browserContext,
     visit,
     assert,
@@ -17,7 +17,7 @@ test.group('Invoices from Jobs in the browser', () => {
     await browserContext.loginAs(await createUser('office'))
     await completeCompany()
     const standard = await vatCode()
-    const job = await createJob(await createCustomer(), { kind: 'quoted' })
+    const job = await createJob(await createCustomer())
     await Quotes.save(job, {
       lines: [
         {
@@ -31,9 +31,12 @@ test.group('Invoices from Jobs in the browser', () => {
     })
     await Quotes.accept(job)
 
-    const page = await visit(`/jobs/${job.id}`)
+    // The Quote isn't billed: its line becomes a Charge on the Job first
+    const page = await visit(`/jobs/${job.id}/quote`)
     page.on('dialog', (dialog) => dialog.accept())
-    await page.getByRole('button', { name: it('ui.invoices.fromQuote') }).click()
+    await page.getByRole('button', { name: it('ui.quotes.import', { count: 1 }) }).click()
+    await page.waitForURL(new RegExp(`/jobs/${job.id}$`))
+    await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
     await page.getByRole('button', { name: it('ui.invoices.finalise') }).click()
     await page.getByRole('button', { name: it('ui.invoices.prepareSubmission') }).click()
@@ -44,6 +47,6 @@ test.group('Invoices from Jobs in the browser', () => {
     assert.match(file.suggestedFilename(), /^IT\d+_M[0-9A-Z]{4}\.xml$/)
     const invoice = await Invoice.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(invoice.status, 'finalised')
-    assert.equal(invoice.totals.total, '61.00')
+    assert.equal(invoice.totals.taxable, '50.00')
   })
 })

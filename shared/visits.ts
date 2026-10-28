@@ -10,7 +10,7 @@ export function isClosedVisit(status: string) {
 }
 
 /**
- * Whether a Time & Materials Job has work to invoice: hours or Items not
+ * Whether a Job has work on its Visits to invoice: hours or Items not
  * yet billed on a closed Visit. Work on open Visits waits for a later
  * Invoice, since those can still gain or lose hours and Items.
  */

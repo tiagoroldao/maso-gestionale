@@ -11,7 +11,6 @@ import InvoiceSequence from '#models/invoice_sequence'
 import InvoiceLine from '#models/invoice_line'
 import Item from '#models/item'
 import Job from '#models/job'
-import Quote from '#models/quote'
 import Visit from '#models/visit'
 import type User from '#models/user'
 import VatCode from '#models/vat_code'
@@ -58,19 +57,13 @@ const NUMBERING_LOCK_KEY = 4_190_419
  * The draft can't be finalised (or the deductions saved) yet: it has no
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
- * advance than is left, it is an advance nothing could take back any
- * more (the Quote's Invoice is issued), or an advance corrected below what
- * issued Invoices already took back of it.
+ * advance than is left, or an advance corrected below what issued
+ * Invoices already took back of it.
  */
 export class InvoiceNotFinalisableError extends Error {
   constructor(
     readonly reason:
-      | 'empty'
-      | 'companyIncomplete'
-      | 'negativeTotal'
-      | 'deductionTooLarge'
-      | 'jobInvoiced'
-      | 'belowDeducted'
+      'empty' | 'companyIncomplete' | 'negativeTotal' | 'deductionTooLarge' | 'belowDeducted'
   ) {
     super(reason)
   }
@@ -82,8 +75,8 @@ export class InvoiceNotFinalisableError extends Error {
 export type Deduction = { advanceId: number; amount: string }
 
 /**
- * The Job has nothing to invoice yet (no accepted Quote; no unbilled work
- * on closed Visits), or it was cancelled.
+ * The Job has nothing to invoice yet (no Charge to bill on the Job or its
+ * closed Visits), or it was cancelled.
  */
 export class JobNotInvoiceableError extends Error {}
 
@@ -125,14 +118,6 @@ export default class Invoices {
   }
 
   /**
-   * A draft Invoice for a Job: from its accepted Quote, or from the time
-   * and materials recorded on its Visits.
-   */
-  static fromJob(job: Job) {
-    return job.kind === 'quoted' ? this.fromQuote(job) : this.fromTimeAndMaterials(job)
-  }
-
-  /**
    * A draft Advance Invoice for part of a Job (FatturaPA TD02): one line
    * for Office to price, on the Job's default VAT for labour.
    */
@@ -140,10 +125,6 @@ export default class Invoices {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
       if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
-      // Once the Quote's Invoice is issued, nothing could take an advance back
-      if (locked.kind === 'quoted' && (await this.quoteInvoiceIssued(trx, locked.id))) {
-        throw new JobNotInvoiceableError()
-      }
       const { labour: code } = await VatDefaults.forJob(locked, trx)
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft', advance: true },
@@ -353,8 +334,9 @@ export default class Invoices {
   }
 
   /**
-   * A draft Invoice for a Time & Materials Job: one line per Charge to
-   * bill on its closed Visits and on the Job itself, with what Office set
+   * A draft Invoice for a Job, from its Charges, whether or not it has a
+   * Quote (ADR 0012): one line per Charge to bill on its closed Visits and
+   * on the Job itself, with what Office set
    * to bill (quantity, price, description; ADR 0010), so its total before
    * VAT equals the Job page's running total. Each line gets the VAT Code
    * of the default rules for its kind (labour, material or significant
@@ -362,12 +344,10 @@ export default class Invoices {
    * deleting the draft releases it. While a draft is open it is returned
    * instead of starting another.
    */
-  static async fromTimeAndMaterials(job: Job) {
+  static async fromJob(job: Job) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      if (locked.kind !== 'time_and_materials' || locked.status === 'cancelled') {
-        throw new JobNotInvoiceableError()
-      }
+      if (locked.status === 'cancelled') throw new JobNotInvoiceableError()
       const draft = await Invoice.query({ client: trx })
         .where('jobId', locked.id)
         .where('status', 'draft')
@@ -442,69 +422,6 @@ export default class Invoices {
       if (!moreWork) {
         await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), work.length)
       }
-      return invoice
-    })
-  }
-
-  /**
-   * A draft Invoice for a Quoted Job, mirroring its accepted Quote: the
-   * same prices and the VAT treatment the Customer accepted (copied from
-   * the Quote's lines, not re-read from today's VAT Codes). Text lines and
-   * the Quote's notes become the Invoice's notes. The Quote is invoiced
-   * once: if the Job already has its Invoice (Advance Invoices don't
-   * count), whatever its stage, that one is returned instead of a second.
-   * It bills everything, so it starts by taking back what is left of each
-   * issued Advance Invoice.
-   */
-  static async fromQuote(job: Job) {
-    return db.transaction(async (trx) => {
-      const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
-      const quote = await Quote.query({ client: trx })
-        .where('jobId', locked.id)
-        .preload('lines', (lines) => lines.orderBy('position'))
-        .first()
-      if (
-        locked.kind !== 'quoted' ||
-        quote?.status !== 'accepted' ||
-        locked.status === 'cancelled'
-      ) {
-        throw new JobNotInvoiceableError()
-      }
-      // The Quote is invoiced once; Advance Invoices are taken back on it
-      const existing = await Invoice.query({ client: trx })
-        .where('jobId', locked.id)
-        .where('advance', false)
-        .first()
-      if (existing) return existing
-
-      const texts = quote.lines.filter((line) => line.kind === 'text')
-      const notes = [quote.notes, ...texts.map((line) => line.description)]
-        .filter(Boolean)
-        .join('\n')
-      const invoice = await Invoice.create(
-        { customerId: locked.customerId, jobId: locked.id, status: 'draft', notes: notes || null },
-        { client: trx }
-      )
-      const priced = quote.lines.filter((line) => line.kind !== 'text')
-      await InvoiceLine.createMany(
-        priced.map((line, position) => ({
-          invoiceId: invoice.id,
-          position,
-          itemId: line.itemId,
-          description: line.description,
-          quantity: line.quantity!,
-          unit: line.unit,
-          unitPrice: line.unitPrice!,
-          discountPercent: '0',
-          vatCodeId: line.vatCodeId!,
-          vatRate: line.vatRate!,
-          natura: line.natura,
-          legalNote: line.legalNote,
-          lineTotal: invoiceLineTotal(line.quantity!, line.unitPrice!),
-        })),
-        { client: trx }
-      )
-      await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), priced.length)
       return invoice
     })
   }
@@ -763,13 +680,6 @@ export default class Invoices {
       if (total.lt(0)) throw new InvoiceNotFinalisableError('negativeTotal')
       // An advance of nothing would only add empty deduction lines
       if (locked.advance && total.eq(0)) throw new InvoiceNotFinalisableError('empty')
-      // An advance of a Quoted Job is taken back by the Quote's Invoice
-      if (locked.advance) {
-        const job = await Job.findOrFail(locked.jobId, { client: trx })
-        if (job.kind === 'quoted' && (await this.quoteInvoiceIssued(trx, job.id))) {
-          throw new InvoiceNotFinalisableError('jobInvoiced')
-        }
-      }
       const issuer = this.companySnapshot(await CompanySettings.current())
       if (!issuer) throw new InvoiceNotFinalisableError('companyIncomplete')
       const customer = await Customer.query({ client: trx })
@@ -832,19 +742,6 @@ export default class Invoices {
       }
       return locked
     })
-  }
-
-  /**
-   * Whether the Quote's Invoice (the Job's own, not an advance) is issued:
-   * no later Invoice of a Quoted Job could take an advance back.
-   */
-  private static async quoteInvoiceIssued(trx: TransactionClientContract, jobId: number) {
-    const issued = await Invoice.query({ client: trx })
-      .where('jobId', jobId)
-      .where('advance', false)
-      .whereNot('status', 'draft')
-      .first()
-    return Boolean(issued)
   }
 
   /**

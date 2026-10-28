@@ -42,7 +42,7 @@ defineProps<{
   }[]
   canInvoice: boolean
   canInvoiceAdvance: boolean
-  invoicedSoFar: { amount: string; of: string | null }
+  invoicedSoFar: { amount: string; of: string; quoted: string | null }
   timeAndMaterials: { total: string; billed: string; inDraft: string; lines: number }
   callOutFee: string | null
   charges: {
@@ -141,7 +141,7 @@ defineProps<{
           <strong>{{ formatMoney(timeAndMaterials.total) }}</strong>
           <span class="field__hint"> · {{ t('ui.jobs.timeAndMaterialsHint') }}</span>
         </p>
-        <p v-if="job.kind === 'time_and_materials'" :style="{ margin: 0 }" data-testid="billed">
+        <p :style="{ margin: 0 }" data-testid="billed">
           {{ t('ui.jobs.billed', { amount: formatMoney(timeAndMaterials.billed) }) }}
           <template v-if="Number(timeAndMaterials.inDraft)">
             · {{ t('ui.jobs.inDraft', { amount: formatMoney(timeAndMaterials.inDraft) }) }}
@@ -344,13 +344,14 @@ defineProps<{
       >
         <p v-if="invoices.length" :style="{ margin: '0 0 8px' }" data-testid="invoiced-so-far">
           {{
-            invoicedSoFar.of
-              ? t('ui.invoices.invoicedSoFarOf', {
-                  amount: formatMoney(invoicedSoFar.amount),
-                  of: formatMoney(invoicedSoFar.of),
-                })
-              : t('ui.invoices.invoicedSoFar', { amount: formatMoney(invoicedSoFar.amount) })
+            t('ui.invoices.invoicedSoFarOf', {
+              amount: formatMoney(invoicedSoFar.amount),
+              of: formatMoney(invoicedSoFar.of),
+            })
           }}
+          <span v-if="invoicedSoFar.quoted" class="field__hint" data-testid="quoted-total">
+            · {{ t('ui.invoices.quotedTotal', { amount: formatMoney(invoicedSoFar.quoted) }) }}
+          </span>
         </p>
         <ul v-if="invoices.length" :style="{ margin: 0, paddingLeft: '18px' }">
           <li v-for="invoice in invoices" :key="invoice.id">
@@ -381,11 +382,7 @@ defineProps<{
         </Form>
         <Form v-if="canInvoice" route="invoices.store_from_job" :params="{ id: job.id }">
           <button type="submit" class="btn btn--secondary btn--sm">
-            {{
-              job.kind === 'quoted'
-                ? t('ui.invoices.fromQuote')
-                : t('ui.invoices.fromTimeAndMaterials')
-            }}
+            {{ t('ui.invoices.fromCharges') }}
           </button>
         </Form>
       </Section>

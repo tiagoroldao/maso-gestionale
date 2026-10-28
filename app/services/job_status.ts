@@ -109,17 +109,17 @@ export const ADVANCE_DEDUCTED_SQL = (alias: string) => `(SELECT coalesce(sum(ad.
 
 /**
  * A Job still has something to bill, so an issued Invoice was a partial
- * one and the Job isn't Invoiced yet:
- * - a Time & Materials Job with a Visit not billed (still open, or with
- *   outstanding Charges) or an outstanding Charge on the Job itself
- *   (Quoted Jobs are invoiced from their Quote until #117);
- * - any Job with an issued Advance Invoice not yet fully deducted by
- *   issued Invoices (advanceState()).
+ * one and the Job isn't Invoiced yet, whether or not it has a Quote (ADR
+ * 0012):
+ * - a Visit not billed (still open, or with outstanding Charges) or an
+ *   outstanding Charge on the Job itself;
+ * - an issued Advance Invoice not yet fully deducted by issued Invoices
+ *   (advanceState()).
  */
-export const BILLING_OPEN_SQL = `((jobs.kind = 'time_and_materials' AND (
+export const BILLING_OPEN_SQL = `(
   EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT ${VISIT_BILLED_SQL('v')})
   OR EXISTS (SELECT 1 FROM charges c
-    WHERE c.job_id = jobs.id AND c.visit_id IS NULL AND ${OUTSTANDING_SQL('c')})))
+    WHERE c.job_id = jobs.id AND c.visit_id IS NULL AND ${OUTSTANDING_SQL('c')})
   OR EXISTS (SELECT 1 FROM invoices a
     WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
       AND a.total > ${ADVANCE_DEDUCTED_SQL('a')}))`

@@ -38,6 +38,9 @@ const props = defineProps<{
     issuedOn: string | null
     totals: { total: string }
     lines: {
+      id: number
+      // Charges imported from this line so far
+      imported: number
       vatCodeId: number | null
       kind: Kind
       itemId: number | null
@@ -51,6 +54,10 @@ const props = defineProps<{
     }[]
   } | null
   editable: boolean
+  // An accepted Quote on a Job not cancelled: its lines can become Charges
+  importable: boolean
+  openVisits: { id: number; startsAt: string; technicianIds: number[] }[]
+  technicians: { id: number; name: string }[]
   labourRates: { id: number; name: string; hourlyPrice: string }[]
   callOutFee: string | null
   vatCodes: { id: number; name: string; rate: string; natura: string | null }[]
@@ -246,6 +253,41 @@ function save() {
 const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
 
 const confirmDecision = (message: string) => () => window.confirm(message)
+
+// Importing lines as Charges (ADR 0012): every priced line chosen at first
+const priced = computed(() => (props.quote?.lines ?? []).filter((line) => line.kind !== 'text'))
+const chosen = ref<number[]>(priced.value.map((line) => line.id))
+const target = ref<number | ''>('')
+const technicianId = ref<number | ''>('')
+const workerName = ref('')
+const importing = ref(false)
+const needsWorker = computed(() =>
+  priced.value.some((line) => line.kind === 'labour' && chosen.value.includes(line.id))
+)
+// On a Visit, its Technicians; on the Job itself, any active Technician
+const workers = computed(() => {
+  const visit = props.openVisits.find((open) => open.id === target.value)
+  return visit
+    ? props.technicians.filter((user) => visit.technicianIds.includes(user.id))
+    : props.technicians
+})
+
+function importLines() {
+  router.post(
+    urlFor('quotes.import_lines', { id: props.job.id }),
+    {
+      lineIds: chosen.value,
+      ...(target.value !== '' && { visitId: target.value }),
+      ...(needsWorker.value && technicianId.value !== '' && { technicianId: technicianId.value }),
+      ...(needsWorker.value && technicianId.value === '' && { workerName: workerName.value }),
+    },
+    {
+      preserveScroll: true,
+      onStart: () => (importing.value = true),
+      onFinish: () => (importing.value = false),
+    }
+  )
+}
 </script>
 
 <template>
@@ -278,6 +320,7 @@ const confirmDecision = (message: string) => () => window.confirm(message)
         <table class="table">
           <thead>
             <tr>
+              <th v-if="importable" :style="{ width: '40px' }" />
               <th>{{ t('ui.quotes.description') }}</th>
               <th :style="{ width: '110px' }">{{ t('ui.quotes.quantity') }}</th>
               <th :style="{ width: '140px' }">{{ t('ui.quotes.unitPrice') }}</th>
@@ -288,8 +331,25 @@ const confirmDecision = (message: string) => () => window.confirm(message)
           </thead>
           <tbody>
             <tr v-for="(line, index) in lines" :key="line.key">
+              <td v-if="importable">
+                <input
+                  v-if="line.kind !== 'text'"
+                  v-model="chosen"
+                  type="checkbox"
+                  :value="quote!.lines[index].id"
+                  :aria-label="t('ui.quotes.importLineOf', { position: index + 1 })"
+                />
+              </td>
               <td>
                 <span class="field__hint">{{ t(`ui.quotes.kinds.${line.kind}`) }}</span>
+                <span
+                  v-if="quote?.lines[index]?.imported"
+                  class="tag"
+                  data-testid="imported"
+                  :style="{ marginLeft: '6px' }"
+                >
+                  {{ t('ui.quotes.imported', { count: quote.lines[index].imported }) }}
+                </span>
                 <input
                   v-model="line.description"
                   class="field__input"
@@ -388,11 +448,14 @@ const confirmDecision = (message: string) => () => window.confirm(message)
               </td>
             </tr>
             <tr v-if="lines.length === 0">
-              <td colspan="6" :style="{ color: 'var(--subtle)' }">{{ t('ui.quotes.noLines') }}</td>
+              <td :colspan="importable ? 7 : 6" :style="{ color: 'var(--subtle)' }">
+                {{ t('ui.quotes.noLines') }}
+              </td>
             </tr>
           </tbody>
           <tfoot>
             <tr v-for="row in totals.summary" :key="`${row.vatRate}-${row.natura}`">
+              <td v-if="importable" />
               <td colspan="4" :style="{ textAlign: 'right' }">
                 {{
                   t('ui.quotes.vatRow', { vat: vatLabel(row), taxable: formatMoney(row.taxable) })
@@ -402,11 +465,13 @@ const confirmDecision = (message: string) => () => window.confirm(message)
               <td v-if="editable" />
             </tr>
             <tr>
+              <td v-if="importable" />
               <td colspan="4" :style="{ textAlign: 'right' }">{{ t('ui.quotes.taxable') }}</td>
               <td :style="{ textAlign: 'right' }">{{ formatMoney(totals.taxable) }}</td>
               <td v-if="editable" />
             </tr>
             <tr>
+              <td v-if="importable" />
               <td colspan="4" :style="{ textAlign: 'right' }">
                 <strong>{{ t('ui.quotes.total') }}</strong>
               </td>
@@ -417,6 +482,55 @@ const confirmDecision = (message: string) => () => window.confirm(message)
             </tr>
           </tfoot>
         </table>
+      </Section>
+
+      <Section
+        v-if="importable"
+        :title="t('ui.quotes.importTitle')"
+        :description="t('ui.quotes.importHint')"
+      >
+        <div class="field">
+          <label class="field__label" for="import-target">{{ t('ui.quotes.importOnto') }}</label>
+          <select id="import-target" v-model="target" class="field__input">
+            <option value="">{{ t('ui.quotes.importOntoJob') }}</option>
+            <option v-for="visit in openVisits" :key="visit.id" :value="visit.id">
+              {{ t('ui.charges.visit', { date: formatDate(visit.startsAt) }) }}
+              {{ visit.startsAt.slice(11, 16) }}
+            </option>
+          </select>
+          <span class="field__hint">{{ t('ui.quotes.importOntoHint') }}</span>
+          <span v-if="errors.visitId" class="field__error">{{ errors.visitId }}</span>
+        </div>
+        <template v-if="needsWorker">
+          <div class="field">
+            <label class="field__label" for="import-worker">{{ t('ui.charges.worker') }}</label>
+            <select id="import-worker" v-model="technicianId" class="field__input">
+              <option value="">{{ t('ui.charges.someoneElse') }}</option>
+              <option v-for="user in workers" :key="user.id" :value="user.id">
+                {{ user.name }}
+              </option>
+            </select>
+            <span class="field__hint">{{ t('ui.quotes.importWorkerHint') }}</span>
+          </div>
+          <div v-if="technicianId === ''" class="field">
+            <label class="field__label" for="import-worker-name">{{
+              t('ui.charges.workerName')
+            }}</label>
+            <input id="import-worker-name" v-model="workerName" class="field__input" />
+            <span v-if="errors.workerName" class="field__error">{{ errors.workerName }}</span>
+          </div>
+        </template>
+        <span v-if="errors.lineIds" class="field__error">{{ errors.lineIds }}</span>
+        <div>
+          <button
+            type="button"
+            class="btn btn--primary btn--sm"
+            :disabled="importing || !chosen.length"
+            @click="importLines"
+          >
+            {{ t('ui.quotes.import', { count: chosen.length }) }}
+          </button>
+        </div>
       </Section>
 
       <Section v-if="editable" :title="t('ui.quotes.addTitle')">

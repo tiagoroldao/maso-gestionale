@@ -113,6 +113,8 @@
       "kind": "tipo",
       "status": "stato",
       "lines": "righe",
+      "lineIds": "righe da importare",
+      "visitId": "intervento",
       "labourRateId": "tariffa",
       "unitPrice": "prezzo unitario",
       "hourlyPrice": "prezzo orario",

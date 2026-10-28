@@ -99,3 +99,16 @@ export const callOutFeeValidator = vine.create({
     .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: MAX }))
     .optional(),
 })
+
+/**
+ * Importing Quote lines as Charges (ADR 0012): which lines, onto the Job
+ * or one of its Visits, and who worked imported hours (a Technician, or a
+ * name for someone outside the app). Whether the worker is needed and
+ * fits the Visit is checked by the Quotes service.
+ */
+export const quoteImportValidator = vine.create({
+  lineIds: vine.array(vine.number().withoutDecimals()).minLength(1).maxLength(200),
+  visitId: vine.number().withoutDecimals().optional(),
+  technicianId: vine.number().withoutDecimals().optional(),
+  workerName: vine.string().trim().maxLength(100).optional(),
+})
