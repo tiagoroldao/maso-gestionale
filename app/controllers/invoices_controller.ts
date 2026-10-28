@@ -2,7 +2,10 @@ import Customer from '#models/customer'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
-import Invoices, { InvoiceNotEditableError } from '#services/invoices'
+import Invoices, { InvoiceNotEditableError, InvoiceNotFinalisableError } from '#services/invoices'
+import DocumentRenderer from '#documents/document_renderer'
+import { PdfConversionError } from '#documents/pdf_converter'
+import { invoiceDocument } from '#documents/invoice_document'
 import { invoiceValidator, newInvoiceValidator } from '#validators/invoice'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -38,6 +41,8 @@ export default class InvoicesController {
     return inertia.render('invoices/index', {
       invoices: invoices.map((invoice) => ({
         id: invoice.id,
+        number: invoice.formattedNumber,
+        issuedOn: invoice.issuedOn?.toISODate() ?? null,
         status: invoice.status,
         customer: invoice.customer.displayName,
         createdAt: invoice.createdAt.toISODate()!,
@@ -69,6 +74,9 @@ export default class InvoicesController {
       invoice: {
         id: invoice.id,
         status: invoice.status,
+        number: invoice.formattedNumber,
+        issuedOn: invoice.issuedOn?.toISODate() ?? null,
+        dueOn: invoice.dueOn?.toISODate() ?? null,
         customer: { id: invoice.customer.id, displayName: invoice.customer.displayName },
         discountPercent: invoice.discountPercent,
         notes: invoice.notes,
@@ -111,6 +119,52 @@ export default class InvoicesController {
 
     session.flash('success', i18n.t('flash.invoiceSaved'))
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
+  }
+
+  async finalise({ params, response, session, i18n, auth }: HttpContext) {
+    const invoice = await Invoice.findOrFail(params.id)
+    try {
+      const finalised = await Invoices.finalise(invoice, auth.getUserOrFail())
+      session.flash(
+        'success',
+        i18n.t('flash.invoiceFinalised', { number: finalised.formattedNumber })
+      )
+    } catch (error) {
+      if (error instanceof InvoiceNotFinalisableError) {
+        session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
+      } else if (error instanceof InvoiceNotEditableError) {
+        session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      } else {
+        throw error
+      }
+    }
+    response.redirect().toRoute('invoices.edit', { id: invoice.id })
+  }
+
+  /**
+   * The finalised Invoice on the Base Layout, with the Customer and
+   * company as they were when it was finalised.
+   */
+  async pdf({ params, response, logger, i18n }: HttpContext) {
+    const invoice = await Invoice.query()
+      .where('id', params.id)
+      .preload('lines', (lines) => lines.orderBy('position'))
+      .firstOrFail()
+    if (invoice.status === 'draft') return response.notFound()
+
+    try {
+      const pdf = await new DocumentRenderer().renderPdf(await invoiceDocument(invoice, i18n))
+      response.header('content-type', 'application/pdf')
+      response.header(
+        'content-disposition',
+        `inline; filename="fattura-${invoice.formattedNumber!.replace('/', '-')}.pdf"`
+      )
+      return pdf
+    } catch (error) {
+      if (!(error instanceof PdfConversionError)) throw error
+      logger.warn({ err: error }, 'PDF conversion failed')
+      return response.serviceUnavailable(i18n.t('errors.pdfUnavailable'))
+    }
   }
 
   async destroy({ params, response, session, i18n }: HttpContext) {

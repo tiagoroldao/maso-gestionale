@@ -15,5 +15,24 @@
     "vat": "IVA",
     "taxable": "Imponibile",
     "vatAmount": "Imposta"
+  },
+  "invoice": {
+    "title": "Fattura {number}",
+    "number": "Fattura n.",
+    "issuedOn": "Data",
+    "dueOn": "Scadenza",
+    "paymentMethod": "Pagamento",
+    "iban": "IBAN {iban}",
+    "description": "Descrizione",
+    "quantity": "Quantità",
+    "unitPrice": "Prezzo",
+    "discount": "Sconto",
+    "vat": "IVA",
+    "amount": "Importo",
+    "taxable": "Imponibile",
+    "vatAmount": "Imposta",
+    "globalDiscount": "Sconto",
+    "total": "Totale documento",
+    "courtesyCopy": "Copia di cortesia: l'originale fiscale è la fattura elettronica trasmessa tramite SDI."
   }
 }

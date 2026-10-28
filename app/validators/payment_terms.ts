@@ -1,4 +1,5 @@
 import vine from '@vinejs/vine'
+import { PAYMENT_METHODS } from '#shared/payments'
 
 /**
  * Validator for the Admin's Payment Terms.
@@ -19,4 +20,5 @@ export const paymentTermsValidator = vine.withMetaData<{ id?: number }>().create
     }),
   days: vine.number().withoutDecimals().min(0).max(365),
   endOfMonth: vine.boolean().optional(),
+  paymentMethod: vine.enum(PAYMENT_METHODS),
 })

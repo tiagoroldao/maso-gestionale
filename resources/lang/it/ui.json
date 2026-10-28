@@ -115,7 +115,8 @@
     "paymentTerms": "Condizioni di pagamento",
     "categories": "Categorie",
     "rates": "Tariffe",
-    "vatCodes": "Codici IVA"
+    "vatCodes": "Codici IVA",
+    "invoiceNumbering": "Numerazione fatture"
   },
   "company": {
     "companySection": "Azienda",
@@ -151,7 +152,9 @@
     "daysFor": "Giorni per {name}",
     "addTitle": "Aggiungi condizioni di pagamento",
     "addDescription": "Ad esempio “30 gg fine mese”.",
-    "add": "Aggiungi"
+    "add": "Aggiungi",
+    "paymentMethod": "Modalità di pagamento",
+    "paymentMethodOf": "Modalità di pagamento di {name}"
   },
   "customers": {
     "title": "Clienti",
@@ -544,10 +547,11 @@
     "empty": "Nessuna fattura.",
     "customer": "Cliente",
     "status": "Stato",
-    "createdOn": "Creata il",
+    "createdOn": "Data",
     "total": "Totale",
     "statuses": {
-      "draft": "Bozza"
+      "draft": "Bozza",
+      "finalised": "Emessa"
     },
     "newTitle": "Nuova fattura",
     "newDescription": "Fattura senza commessa, ad esempio una vendita al banco.",
@@ -588,7 +592,13 @@
     "save": "Salva bozza",
     "unsaved": "Modifiche non salvate",
     "delete": "Elimina bozza",
-    "deleteConfirm": "Eliminare questa bozza di fattura?"
+    "deleteConfirm": "Eliminare questa bozza di fattura?",
+    "number": "Numero",
+    "invoiceTitle": "Fattura {number}",
+    "pdf": "PDF",
+    "issued": "Emessa il {date}, scadenza {due}.",
+    "finalise": "Emetti fattura",
+    "finaliseConfirm": "Emettere la fattura? Prenderà il prossimo numero e la data di oggi e non sarà più modificabile."
   },
   "visits": {
     "title": "Interventi",
@@ -660,5 +670,20 @@
     "none": "Niente da ripianificare.",
     "lastVisit": "Ultimo intervento",
     "lastNote": "Ultima nota"
+  },
+  "paymentMethods": {
+    "MP01": "Contanti",
+    "MP02": "Assegno",
+    "MP05": "Bonifico",
+    "MP08": "Carta di pagamento",
+    "MP12": "RIBA",
+    "MP19": "Addebito diretto SEPA"
+  },
+  "invoiceNumbering": {
+    "title": "Numerazione fatture",
+    "description": "Il numero che prenderà la prossima fattura emessa. Si può cambiare finché nell'anno non è stata emessa nessuna fattura, ad esempio per proseguire la numerazione del vecchio gestionale.",
+    "nextNumber": "Prossimo numero {year}",
+    "hint": "Modificabile finché non si emette la prima fattura dell'anno.",
+    "locked": "Bloccato: nell'anno è già stata emessa una fattura."
   }
 }

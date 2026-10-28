@@ -4,7 +4,7 @@ import { CustomerSchema } from '#database/schema'
 import PaymentTerms from '#models/payment_terms'
 import Site from '#models/site'
 import Job from '#models/job'
-import type { Recipient } from '#documents/document_renderer'
+import { recipientFrom, type Recipient } from '#documents/document_renderer'
 
 export const CUSTOMER_TYPES = ['private', 'company', 'condominium', 'organisation'] as const
 export type CustomerType = (typeof CUSTOMER_TYPES)[number]
@@ -34,14 +34,15 @@ export default class Customer extends CustomerSchema {
    * The Customer as printed in a document's recipient block.
    */
   toRecipient(): Recipient {
-    return {
+    return recipientFrom({
       name: this.displayName,
-      addressLines: [
-        [this.street, this.streetNumber].filter(Boolean).join(', '),
-        `${this.postalCode} ${this.city} (${this.province})`,
-      ],
+      street: this.street,
+      streetNumber: this.streetNumber,
+      postalCode: this.postalCode,
+      city: this.city,
+      province: this.province,
       vatNumber: this.vatNumber,
       taxCode: this.taxCode,
-    }
+    })
   }
 }

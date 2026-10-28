@@ -1,5 +1,6 @@
 import type { DateTime } from 'luxon'
 import { PaymentTermSchema } from '#database/schema'
+import type { PaymentMethod } from '#shared/payments'
 
 /**
  * The rule, set per Customer, that determines an invoice's due date:
@@ -10,6 +11,8 @@ import { PaymentTermSchema } from '#database/schema'
  */
 export default class PaymentTerms extends PaymentTermSchema {
   static table = 'payment_terms'
+
+  declare paymentMethod: PaymentMethod
 
   dueDate(invoiceDate: DateTime) {
     if (!this.endOfMonth) return invoiceDate.plus({ days: this.days })

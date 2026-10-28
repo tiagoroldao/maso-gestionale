@@ -115,6 +115,8 @@ export interface ApiDefinition {
     edit: typeof routes['invoices.edit']
     update: typeof routes['invoices.update']
     destroy: typeof routes['invoices.destroy']
+    finalise: typeof routes['invoices.finalise']
+    pdf: typeof routes['invoices.pdf']
   }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']
@@ -145,6 +147,10 @@ export interface ApiDefinition {
     store: typeof routes['vat_codes.store']
     update: typeof routes['vat_codes.update']
     archive: typeof routes['vat_codes.archive']
+  }
+  invoiceNumbering: {
+    index: typeof routes['invoice_numbering.index']
+    update: typeof routes['invoice_numbering.update']
   }
   paymentTerms: {
     index: typeof routes['payment_terms.index']
