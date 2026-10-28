@@ -4,29 +4,29 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Tracked as issues
 
-| Issue | What                                                                                      | Waiting on                                                    |
-| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                                  |
-| #24   | Credit Notes (credit Charges, ADR 0010)                                                   | The business (`needs-human`): effect on payments and balances |
-| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                                  |
-| #34   | How updates are applied                                                                   | The business (`needs-human`)                                  |
-| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                                  |
-| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                                            |
-| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                                       |
-| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17              |
-| #59   | Proposal: payment in instalments                                                          | Review of proposal                                            |
-| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                                            |
-| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                            |
-| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                                   |
-| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                             |
-| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                                   |
-| #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key             |
-| #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                             |
-| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                             |
-| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                                  |
-| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
-| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
-| #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
+| Issue | What                                                                                      | Waiting on                                        |
+| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                      |
+| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                      |
+| #34   | How updates are applied                                                                   | The business (`needs-human`)                      |
+| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                      |
+| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                                |
+| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                           |
+| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17  |
+| #59   | Proposal: payment in instalments                                                          | Review of proposal                                |
+| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                                |
+| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                |
+| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                       |
+| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
+| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
+| #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
+| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
+| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                      |
+| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
+| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
+| #144  | Payments are records: overpaid Invoices, refunds, warnings (ADR 0014)                     | —                                                 |
+| #145  | Credit Notes (ADR 0014)                                                                   | #144                                              |
+| #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | #145                                              |
 
 ## Added to existing issues
 
@@ -36,7 +36,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#24); billing done work on a cancelled Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, needs the business).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues
@@ -69,11 +69,11 @@ Review findings folded into planned work, so they are picked up with it:
 - **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).
 - **`DisplayedJobStatus` lives in `app/services`** (#25), not `shared/`, while the stored statuses and the Job list's filters are in `shared/jobs.ts` (#138). Move it there when a page needs it (from the #97 review).
 - **Payment dated before the Invoice** (#25): `paidOn` can be earlier than the Invoice's `issuedOn` (an advance paid before issuing is plausible, so decide before refusing it) (from the #97 review).
-- **Correction below paid, stock side untested** (#102): no test refuses a correction on a Job-less Invoice with Item lines to show stock isn't rebooked and the snapshots stay (the throw precedes `rebookSale` in the transaction) (from the #106 review).
+- **Correction below paid, stock side untested** (#102; dropped by #144: remove when it merges): no test refuses a correction on a Job-less Invoice with Item lines to show stock isn't rebooked and the snapshots stay (the throw precedes `rebookSale` in the transaction) (from the #106 review).
 - **"Paid" computed two ways:** `Invoices.save` sums Payments in SQL, `Payments.record` uses the preloaded `invoice.paid`. One shared helper would keep them from drifting (from the #106 review).
 - **PDF documents format euro themselves:** `invoice_document.ts` and `quote_document.ts` each build an `Intl.NumberFormat` instead of `formatMoney` from `shared/money.ts`, which itself hard-codes the `'it'` locale (the `LOCALE` constant lives in `inertia/i18n.ts`); fine while there is one language (from the #106 review).
 - **Visit team read before the lock** (#93): the edit validator reads "already on the Visit" before `Scheduling.update` locks it, so a stale form submitted just after someone was removed can put them back even if no longer a Technician. Same pattern as for deactivated Technicians; low risk (from the #105 review).
-- **Billed amount before the global discount** (#116): a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount. Decide with Credit Notes (#24), which credit Charges.
+- **Billed amount before the global discount** (#116): a "billed" event records the Charge's part of its line's amount; an Invoice-wide discount isn't spread over the Charges, so their billed amounts can add up to more than the Invoice's taxable amount. Decide with #146, where Credit Notes credit Charges.
 - **One draft holds a Charge at a time, by the Job lock** (#116): nothing in the schema stops two drafts' lines linking the same Charge; drafting, saving, finalising and deleting all lock the Job first, and only Charges the Invoice already holds can move between its lines.
 - **Backfilled links are matched by description** (#116): the migration links each Charge to the line drafted from it by description, quantity and price. A line Office had edited can't be matched: in a draft its Charge is released, on an issued Invoice it is billed without a line (`invoice_line_id` null) and at the Charge's own value, not the line's (a repriced line). Links are dated `now()`, so a correction made before the migration while a draft held the Charge isn't re-derived when that draft releases it.
 - **Deploying #116's migration** (`1761885935209_invoice_line_charges`): finalise or delete open drafts with edited lines first. Their Charges are released by the backfill while the draft still has the lines, so the work could be billed twice.
@@ -98,7 +98,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **No body-format version on templates** (#30): the #112 review suggested one before new node types. #30 only adds to the allow-list (`fieldTable`, property placeholders), so every stored body still validates and renders as before; add a version when a change would alter or drop an existing node.
 - **Advance Invoice tests to add** (#23): several advances on one Job, a discount on the advance itself, and the Job list filters with only an advance or with a draft final (from the #113 review).
 - **Document texts written in services** (#23): `Acconto – …`, `Detrazione acconto fattura …` (and the earlier rejection note) are Italian strings in services rather than in `resources/lang/it` (from the #113 review).
-- **Advances with no Invoice left to take them back** (#23, ADR 0011): a Job with an advance left once nothing is left to bill stays open for billing (no draft can be made). It needs a Credit Note (#24) or another Invoice to take it back.
+- **Advances with no Invoice left to take them back** (#23, ADR 0011): a Job with an advance left once nothing is left to bill stays open for billing (no draft can be made). (Resolved by #146: remove when it merges.) It needs a Credit Note (#146) or another Invoice to take it back.
 - **Imported hours over 24** (#117): a Quote's labour line imports as one Charge of all its hours, but correcting recorded hours accepts at most 24 per Charge (one day's work, as in the field), so a larger imported quantity can't be corrected as recorded; Office edits what is billed instead, or the limit could follow the Charge's origin.
 - **Jobs invoiced from their Quote before #117 look billable again** (ADR 0012): a Job whose Invoice came from its Quote (no Charges held) and that has Charges recorded on its closed Visits now counts those Charges as to bill, so it shows a draft to make and is no longer Invoiced. Only dev and seed data has such Jobs, since invoicing isn't live yet; mark those Charges not billable, or reseed.
 - **Importing onto a Visit while it closes is untested under concurrency** (#117): `Quotes.importLines` locks the Visit before checking it is open, as field work does, so a Visit closing at the same moment either takes the imported Items off stock or refuses the import. Tests share one connection, where locks are re-entrant, so none proves it; test it on separate connections with the other locking tests (#19).
