@@ -36,7 +36,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, decided: it stays billable).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues
