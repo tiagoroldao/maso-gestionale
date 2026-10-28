@@ -1,12 +1,20 @@
 import { DateTime } from 'luxon'
 import CompanySettings from '#models/company_settings'
+import Customer from '#models/customer'
 import DocumentTemplate from '#models/document_template'
 import DocumentRenderer from '#documents/document_renderer'
 import DocumentTemplates from '#services/document_templates'
+import TemplateData, { TemplateDataError } from '#services/template_data'
 import { isUniqueViolation } from '#services/database_errors'
 import { formatDate, todayIso } from '#shared/dates'
-import { renderTemplateBody, sampleValues, type TemplateNode } from '#shared/document_templates'
 import {
+  renderTemplateBody,
+  sampleTables,
+  sampleValues,
+  type TemplateNode,
+} from '#shared/document_templates'
+import {
+  documentTemplateFillValidator,
   documentTemplatePreviewValidator,
   documentTemplateValidator,
 } from '#validators/document_template'
@@ -93,18 +101,73 @@ export default class DocumentTemplatesController {
   async preview({ request }: HttpContext) {
     const data = await request.validateUsing(documentTemplatePreviewValidator)
     const settings = await CompanySettings.current()
-    const values = sampleValues(data.fields, {
-      companyName: settings.name ?? '',
-      today: formatDate(todayIso()),
-    })
+    const today = formatDate(todayIso())
+    const values = sampleValues(data.fields, { companyName: settings.name ?? '', today })
     const html = await new DocumentRenderer().renderHtml({
       title: data.name ?? '',
       recipient: {
         name: values['recipient.name'],
         addressLines: ['Via Roma 1', '20121 Milano (MI)'],
       },
-      bodyHtml: renderTemplateBody(data.body as TemplateNode, values),
+      bodyHtml: renderTemplateBody(
+        data.body as TemplateNode,
+        values,
+        sampleTables(data.fields, { today })
+      ),
     })
     return { html }
+  }
+
+  /**
+   * "Try with real data": the saved template's fields to fill for a
+   * Customer, as Issued Documents will (#31).
+   */
+  async fill({ params, inertia }: HttpContext) {
+    const template = await DocumentTemplate.findOrFail(params.id)
+    const current = await DocumentTemplates.current(template)
+
+    return inertia.render('settings/document_templates/fill', {
+      template: { id: template.id, name: current.name, fields: current.fields },
+    })
+  }
+
+  /**
+   * The saved template filled with real data, as the Base Layout prints
+   * it; or, by field key, what doesn't fit (`customerId` for the
+   * Customer). Nothing is stored.
+   */
+  async fillPreview({ params, request, response, i18n }: HttpContext) {
+    const template = await DocumentTemplate.findOrFail(params.id)
+    const current = await DocumentTemplates.current(template)
+    const data = await request.validateUsing(documentTemplateFillValidator)
+    const customer = data.customerId
+      ? await Customer.query()
+          .withScopes((scopes) => scopes.active())
+          .where('id', data.customerId)
+          .first()
+      : null
+    if (!customer) {
+      return response.unprocessableEntity({
+        errors: { customerId: i18n.t('errors.templateData.customer') } as Record<string, string>,
+      })
+    }
+
+    try {
+      const { values, tables } = await TemplateData.resolve(
+        current.fields,
+        customer,
+        data.values ?? {},
+        i18n
+      )
+      const html = await new DocumentRenderer().renderHtml({
+        title: current.name,
+        recipient: customer.toRecipient(),
+        bodyHtml: renderTemplateBody(current.body, values, tables),
+      })
+      return { html }
+    } catch (error) {
+      if (!(error instanceof TemplateDataError)) throw error
+      return response.unprocessableEntity({ errors: error.errors })
+    }
   }
 }

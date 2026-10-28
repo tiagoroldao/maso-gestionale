@@ -1,5 +1,21 @@
 {
   "E_AUTHORIZATION_FAILURE": "Non hai i permessi per questa operazione",
   "E_INVALID_CREDENTIALS": "Email o password non corretti",
-  "pdfUnavailable": "Il servizio PDF non è disponibile. Riprova tra poco."
+  "pdfUnavailable": "Il servizio PDF non è disponibile. Riprova tra poco.",
+  "templateData": {
+    "customer": "Scegli un cliente",
+    "required": "Campo obbligatorio",
+    "invalid": "Valore non valido",
+    "tooLong": "Testo troppo lungo",
+    "number": "Inserisci un numero, ad esempio 12,5",
+    "date": "Inserisci una data valida",
+    "choice": "Scegli una delle opzioni",
+    "site": "L'immobile non esiste o è archiviato",
+    "equipmentNeedsSite": "Scegli prima l'immobile",
+    "equipment": "L'apparecchio non è installato nell'immobile scelto",
+    "job": "La commessa non è di questo cliente",
+    "item": "Articolo non trovato",
+    "tableNumber": "Riga {row}: inserisci un numero, ad esempio 12,5",
+    "tableDate": "Riga {row}: inserisci una data valida"
+  }
 }

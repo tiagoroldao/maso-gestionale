@@ -41,10 +41,16 @@ export default class Site extends SiteSchema {
    * "Casa al mare — Via Roma 5, int. 3, 20121 Milano (MI)".
    */
   get summary() {
+    return this.label ? `${this.label} — ${this.address}` : this.address
+  }
+
+  /**
+   * The address on one line: "Via Roma 5, int. 3, 20121 Milano (MI)".
+   */
+  get address() {
     const street = [this.street, this.streetNumber].filter(Boolean).join(' ')
-    const address = [street, this.unit, `${this.postalCode} ${this.city} (${this.province})`]
+    return [street, this.unit, `${this.postalCode} ${this.city} (${this.province})`]
       .filter(Boolean)
       .join(', ')
-    return this.label ? `${this.label} — ${address}` : address
   }
 }

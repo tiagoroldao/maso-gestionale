@@ -7,6 +7,7 @@ import { onBeforeUnmount } from 'vue'
 import { EditorContent, useEditor } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import { Placeholder } from '~/editor/placeholder'
+import { FieldTable, TemplateDocument } from '~/editor/field_table'
 import { t } from '~/i18n'
 import type { TemplateNode } from '@shared/document_templates'
 
@@ -17,6 +18,7 @@ const editor = useEditor({
   content: props.initial ?? { type: 'doc', content: [{ type: 'paragraph' }] },
   extensions: [
     StarterKit.configure({
+      document: false,
       blockquote: false,
       code: false,
       codeBlock: false,
@@ -24,7 +26,11 @@ const editor = useEditor({
       strike: false,
       heading: { levels: [1, 2, 3] },
     }),
+    TemplateDocument,
     Placeholder,
+    FieldTable.configure({
+      chipLabel: (label) => t('ui.documentTemplates.tableChip', { label }),
+    }),
   ],
   editorProps: { attributes: { class: 'template-editor' } },
 })
@@ -34,11 +40,16 @@ function insertPlaceholder(key: string, label: string) {
   editor.value?.chain().focus().insertContent({ type: 'placeholder', attrs: { key, label } }).run()
 }
 
+// A table field's rows, as a block of its own after the cursor's block
+function insertTable(key: string, label: string) {
+  editor.value?.chain().focus().insertContent({ type: 'fieldTable', attrs: { key, label } }).run()
+}
+
 function body() {
   return editor.value?.getJSON() as TemplateNode | undefined
 }
 
-defineExpose({ insertPlaceholder, body })
+defineExpose({ insertPlaceholder, insertTable, body })
 </script>
 
 <template>

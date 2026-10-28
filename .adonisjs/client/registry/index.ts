@@ -306,6 +306,12 @@ const routes = {
     tokens: [[0,"equipment"],[1,"id"]],
     types: placeholder as Registry['installed_equipment.update']['types'],
   },
+  'template_choices.equipment': {
+    methods: ["GET","HEAD"],
+    pattern: '/sites/:id/installed-equipment',
+    tokens: [[0,"sites"],[1,"id"],[0,"installed-equipment"]],
+    types: placeholder as Registry['template_choices.equipment']['types'],
+  },
   'my_visits.index': {
     methods: ["GET","HEAD"],
     pattern: '/my-visits',
@@ -467,6 +473,18 @@ const routes = {
     pattern: '/jobs/:id/quote.pdf',
     tokens: [[0,"jobs"],[1,"id"],[0,"quote.pdf"]],
     types: placeholder as Registry['quotes.pdf']['types'],
+  },
+  'template_choices.jobs': {
+    methods: ["GET","HEAD"],
+    pattern: '/customers/:id/jobs',
+    tokens: [[0,"customers"],[1,"id"],[0,"jobs"]],
+    types: placeholder as Registry['template_choices.jobs']['types'],
+  },
+  'template_choices.items_used': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id/items-used',
+    tokens: [[0,"jobs"],[1,"id"],[0,"items-used"]],
+    types: placeholder as Registry['template_choices.items_used']['types'],
   },
   'invoices.index': {
     methods: ["GET","HEAD"],
@@ -791,6 +809,18 @@ const routes = {
     pattern: '/settings/document-templates/:id',
     tokens: [[0,"settings"],[0,"document-templates"],[1,"id"]],
     types: placeholder as Registry['document_templates.update']['types'],
+  },
+  'document_templates.fill': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/document-templates/:id/fill',
+    tokens: [[0,"settings"],[0,"document-templates"],[1,"id"],[0,"fill"]],
+    types: placeholder as Registry['document_templates.fill']['types'],
+  },
+  'document_templates.fill_preview': {
+    methods: ["POST"],
+    pattern: '/settings/document-templates/:id/fill',
+    tokens: [[0,"settings"],[0,"document-templates"],[1,"id"],[0,"fill"]],
+    types: placeholder as Registry['document_templates.fill_preview']['types'],
   },
   'vat_rules.index': {
     methods: ["GET","HEAD"],

@@ -41,7 +41,12 @@
       "quantity": "Il campo {field} deve essere una quantità valida",
       "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)",
       "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}} per {field}",
-      "photo.file.extname": "La foto deve essere un'immagine JPEG, PNG o WebP"
+      "photo.file.extname": "La foto deve essere un'immagine JPEG, PNG o WebP",
+      "templateFields.one.site": "Un modello può avere un solo campo immobile",
+      "templateFields.one.job": "Un modello può avere un solo campo commessa",
+      "templateFields.equipmentNeedsSite": "Un campo apparecchio richiede un campo immobile",
+      "fields.*.columns.distinct": "Due colonne hanno lo stesso codice",
+      "columnSource": "Questo dato della commessa non si adatta al tipo della colonna"
     },
     "fields": {
       "email": "email",
@@ -153,7 +158,9 @@
       "options": "scelte",
       "required": "obbligatorio",
       "vatKind": "tipo per l'IVA",
-      "workerName": "nome"
+      "workerName": "nome",
+      "columns": "colonne",
+      "from": "origine"
     }
   }
 }

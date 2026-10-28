@@ -54,6 +54,7 @@ export type ScannedRoutes = {
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.equipment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.index': { paramsTuple?: []; params?: {} }
     'jobs.index': { paramsTuple?: []; params?: {} }
     'jobs.create': { paramsTuple?: []; params?: {} }
@@ -81,6 +82,8 @@ export type ScannedRoutes = {
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.decline': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.jobs': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.items_used': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.index': { paramsTuple?: []; params?: {} }
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.store': { paramsTuple?: []; params?: {} }
@@ -135,6 +138,8 @@ export type ScannedRoutes = {
     'document_templates.preview': { paramsTuple?: []; params?: {} }
     'document_templates.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'document_templates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.fill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.fill_preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.index': { paramsTuple?: []; params?: {} }
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
@@ -172,6 +177,7 @@ export type ScannedRoutes = {
     'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.create': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.equipment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.index': { paramsTuple?: []; params?: {} }
     'jobs.index': { paramsTuple?: []; params?: {} }
     'jobs.create': { paramsTuple?: []; params?: {} }
@@ -184,6 +190,8 @@ export type ScannedRoutes = {
     'charges.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.jobs': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.items_used': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.index': { paramsTuple?: []; params?: {} }
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -204,6 +212,7 @@ export type ScannedRoutes = {
     'document_templates.index': { paramsTuple?: []; params?: {} }
     'document_templates.create': { paramsTuple?: []; params?: {} }
     'document_templates.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.fill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
@@ -233,6 +242,7 @@ export type ScannedRoutes = {
     'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.create': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.equipment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.index': { paramsTuple?: []; params?: {} }
     'jobs.index': { paramsTuple?: []; params?: {} }
     'jobs.create': { paramsTuple?: []; params?: {} }
@@ -245,6 +255,8 @@ export type ScannedRoutes = {
     'charges.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.jobs': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'template_choices.items_used': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.index': { paramsTuple?: []; params?: {} }
     'invoices.create': { paramsTuple?: []; params?: {} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -265,6 +277,7 @@ export type ScannedRoutes = {
     'document_templates.index': { paramsTuple?: []; params?: {} }
     'document_templates.create': { paramsTuple?: []; params?: {} }
     'document_templates.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.fill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
@@ -322,6 +335,7 @@ export type ScannedRoutes = {
     'vat_codes.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'document_templates.store': { paramsTuple?: []; params?: {} }
     'document_templates.preview': { paramsTuple?: []; params?: {} }
+    'document_templates.fill_preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
