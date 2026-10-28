@@ -40,6 +40,7 @@ export interface ApiDefinition {
     addHours: typeof routes['my_visits.add_hours']
     removeHours: typeof routes['my_visits.remove_hours']
     addItem: typeof routes['my_visits.add_item']
+    setServiced: typeof routes['my_visits.set_serviced']
     removeItem: typeof routes['my_visits.remove_item']
     index: typeof routes['my_visits.index']
   }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { unlink } from 'node:fs/promises'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import Visit from '#models/visit'
 import VisitPhoto from '#models/visit_photo'
 import VisitNote from '#models/visit_note'
@@ -12,6 +13,7 @@ import { localDateTime } from '#services/dates'
 import { storagePath } from '#services/storage'
 import {
   visitHoursValidator,
+  servicedEquipmentValidator,
   visitItemValidator,
   visitNoteValidator,
   visitPhotoValidator,
@@ -65,6 +67,10 @@ export default class MyVisitsController {
 
     const { job } = visit
     const rates = await LabourRate.query().whereNull('archived_at').orderBy('name')
+    const serviced = await db
+      .from('visit_serviced_equipment')
+      .where('visit_id', visit.id)
+      .select('installed_equipment_id')
     return inertia.render('field/show', {
       visit: {
         id: visit.id,
@@ -97,6 +103,7 @@ export default class MyVisitsController {
         : null,
       // Closed, or frozen because the Job was cancelled: read-only either way
       done: CLOSED_VISIT_STATUSES.includes(visit.status) || job.status === 'cancelled',
+      servicedIds: serviced.map((row) => row.installed_equipment_id as number),
       currentUserId: auth.getUserOrFail().id,
       team: visit.technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
       // Rate names only: Technicians never see prices
@@ -198,6 +205,20 @@ export default class MyVisitsController {
     await bouncer.authorize('viewVisit', visit)
 
     return this.refusable(visit, { response, session, i18n }, () => FieldWork.removeHours(hour))
+  }
+
+  /**
+   * Which of the Site's equipment the Visit serviced.
+   */
+  async setServiced({ params, request, response, session, bouncer, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    await bouncer.authorize('viewVisit', visit)
+    const { equipmentIds = [] } = await request.validateUsing(servicedEquipmentValidator)
+
+    return this.refusable(visit, { response, session, i18n }, async () => {
+      await FieldWork.setServiced(visit, equipmentIds)
+      session.flash('success', i18n.t('flash.servicedSaved'))
+    })
   }
 
   async addItem({ params, request, response, session, bouncer, i18n }: HttpContext) {

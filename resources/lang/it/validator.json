@@ -142,7 +142,9 @@
       "archived": "archiviati",
       "amount": "importo",
       "paidOn": "data",
-      "note": "nota"
+      "note": "nota",
+      "equipmentId": "apparecchio",
+      "equipmentIds": "apparecchi"
     }
   }
 }

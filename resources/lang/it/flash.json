@@ -59,7 +59,8 @@
     "done": "L'intervento è chiuso e non si può più modificare.",
     "cancelled": "La commessa è stata annullata: l'intervento non si può più modificare.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
-    "noSite": "La commessa non ha un immobile: non si può registrare un'installazione."
+    "noSite": "La commessa non ha un immobile: non si può registrare un'installazione.",
+    "notAtSite": "L'apparecchio scelto non è installato in questo immobile."
   },
   "invoiceCreated": "Bozza di fattura creata.",
   "invoiceSaved": "Bozza salvata.",
@@ -100,5 +101,6 @@
   "paymentRefused": {
     "draft": "Una bozza non si incassa: emetti prima la fattura.",
     "tooMuch": "L'importo supera quanto resta da incassare."
-  }
+  },
+  "servicedSaved": "Apparecchi revisionati salvati."
 }

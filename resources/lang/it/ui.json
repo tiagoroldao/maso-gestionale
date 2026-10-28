@@ -752,7 +752,15 @@
     "doneNotice": "Intervento chiuso: ore e materiali non sono più modificabili.",
     "completeConfirm": "Chiudere l'intervento? I materiali verranno scaricati dal magazzino e ore e materiali non si potranno più modificare.",
     "installedTag": "installato",
-    "removeConfirm": "Rimuovere questa riga?"
+    "removeConfirm": "Rimuovere questa riga?",
+    "installedOnto": "Installato su",
+    "newEquipment": "Nuovo apparecchio",
+    "equipmentType": "Tipo di apparecchio",
+    "equipmentTypeHint": "Ad esempio «Caldaia murale». Se vuoto, la descrizione dell'articolo.",
+    "make": "Marca",
+    "model": "Modello",
+    "servicedHint": "Apparecchi revisionati in questo intervento: alla chiusura diventa la data dell'ultima manutenzione.",
+    "saveServiced": "Salva apparecchi revisionati"
   },
   "toSchedule": {
     "title": "Da ripianificare",

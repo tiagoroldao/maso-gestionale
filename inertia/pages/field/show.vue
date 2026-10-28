@@ -37,6 +37,7 @@ defineProps<{
   notes: { id: number; body: string; author: string | null; createdAt: string }[]
   photos: { id: number }[]
   done: boolean
+  servicedIds: number[]
   currentUserId: number
   team: { id: number; name: string }[]
   labourRates: { id: number; name: string }[]
@@ -53,6 +54,8 @@ defineProps<{
 
 const picked = ref<PickedItem | null>(null)
 const installed = ref(false)
+// Installing onto equipment already at the Site, or ('') new equipment
+const equipmentId = ref<number | ''>('')
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 const confirmDone = (status: string) => () =>
   !isClosedVisit(status) || window.confirm(t('ui.field.completeConfirm'))
@@ -144,6 +147,30 @@ const page = usePage()
             {{ document.title }}
           </a>
         </div>
+        <Form
+          v-if="!done"
+          route="my_visits.set_serviced"
+          :params="{ id: visit.id }"
+          :style="{ marginTop: '12px' }"
+        >
+          <p class="field__hint">{{ t('ui.field.servicedHint') }}</p>
+          <label
+            v-for="equipment in site.equipment"
+            :key="equipment.id"
+            :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
+          >
+            <input
+              type="checkbox"
+              name="equipmentIds[]"
+              :value="equipment.id"
+              :checked="servicedIds.includes(equipment.id)"
+            />
+            {{ equipment.description }}
+          </label>
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.field.saveServiced') }}
+          </button>
+        </Form>
       </Section>
 
       <p v-if="done" class="field__hint">{{ t('ui.field.doneNotice') }}</p>
@@ -235,7 +262,7 @@ const page = usePage()
             route="my_visits.add_item"
             :params="{ id: visit.id }"
             class="field-form"
-            @success="((picked = null), (installed = false))"
+            @success="((picked = null), (installed = false), (equipmentId = ''))"
           >
             <input type="hidden" name="itemId" :value="picked.id" />
             <p :style="{ margin: 0 }">
@@ -258,6 +285,43 @@ const page = usePage()
               <input v-model="installed" type="checkbox" name="installed" value="true" />
               {{ t('ui.field.installed') }}
             </label>
+            <div v-if="installed && site?.equipment.length" class="field">
+              <label class="field__label" for="item-equipment">{{
+                t('ui.field.installedOnto')
+              }}</label>
+              <select
+                id="item-equipment"
+                v-model="equipmentId"
+                name="equipmentId"
+                class="field__input"
+              >
+                <option value="">{{ t('ui.field.newEquipment') }}</option>
+                <option
+                  v-for="equipment in site.equipment"
+                  :key="equipment.id"
+                  :value="equipment.id"
+                >
+                  {{ equipment.description }}
+                </option>
+              </select>
+            </div>
+            <template v-if="installed && equipmentId === ''">
+              <div class="field">
+                <label class="field__label" for="item-type">{{
+                  t('ui.field.equipmentType')
+                }}</label>
+                <input id="item-type" name="equipmentType" class="field__input" />
+                <span class="field__hint">{{ t('ui.field.equipmentTypeHint') }}</span>
+              </div>
+              <div class="field">
+                <label class="field__label" for="item-make">{{ t('ui.field.make') }}</label>
+                <input id="item-make" name="make" class="field__input" />
+              </div>
+              <div class="field">
+                <label class="field__label" for="item-model">{{ t('ui.field.model') }}</label>
+                <input id="item-model" name="model" class="field__input" />
+              </div>
+            </template>
             <div v-if="installed" class="field">
               <label class="field__label" for="item-serial">{{ t('ui.field.serialNumber') }}</label>
               <input id="item-serial" name="serialNumber" class="field__input" />

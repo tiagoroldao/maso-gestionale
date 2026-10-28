@@ -27,11 +27,11 @@ On a fresh database every page redirects to `/setup`, which creates the Superuse
 
 To try the app with realistic data instead, run `npm run dev:reset`. It **wipes the dev database**, migrates it and seeds a small business: Customers of every type, a stocked catalogue, Jobs in every status, Visits around today and a draft Invoice. Every account's password is `password123`:
 
-| Role | Email |
-|---|---|
-| Superuser | `superuser@maso.test` |
-| Admin | `titolare@maso.test` |
-| Office | `ufficio@maso.test` |
+| Role       | Email                                 |
+| ---------- | ------------------------------------- |
+| Superuser  | `superuser@maso.test`                 |
+| Admin      | `titolare@maso.test`                  |
+| Office     | `ufficio@maso.test`                   |
 | Technician | `luca@maso.test`, `giorgio@maso.test` |
 
 The dev database is published on host port 5433, Gotenberg on 3010, both on localhost only. Override with `DB_HOST_PORT` / `GOTENBERG_PORT`. When pulling changes, compare your `.env` with `.env.example`: new required variables (such as `GOTENBERG_URL`) stop the app from booting until they are set.
@@ -67,3 +67,19 @@ docker compose up -d --build
 ```
 
 The `app` container runs pending migrations on start-up and then serves on port 3333. Uploaded files (such as the company logo) live in the `app-storage` volume; in development they go to `storage/` in the repo (git-ignored), or wherever `STORAGE_PATH` points.
+
+## Releases
+
+Pushing a version tag publishes the app image to GitHub Container Registry and creates a GitHub release listing the changes since the previous tag:
+
+```sh
+git tag v1.0.0 && git push origin v1.0.0
+```
+
+The image is `ghcr.io/tiagoroldao/maso-gestionale`, tagged with the version (`1.0.0`), the minor line (`1.0`) and, except for pre-releases like `v1.1.0-rc.1`, `latest`. On the server, pin the version in `.env` (`APP_VERSION=1.0.0`) and pull it instead of building:
+
+```sh
+docker compose pull app && docker compose up -d
+```
+
+GHCR keeps a new package private. After the first release, either make it public in the package's settings on GitHub, or run `docker login ghcr.io` on the server with a token that has `read:packages`.

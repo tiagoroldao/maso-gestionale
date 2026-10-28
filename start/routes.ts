@@ -57,6 +57,9 @@ router
           .post('my-visits/:id/items', [controllers.MyVisits, 'addItem'])
           .where('id', router.matchers.number())
         router
+          .post('my-visits/:id/serviced', [controllers.MyVisits, 'setServiced'])
+          .where('id', router.matchers.number())
+        router
           .delete('visit-items/:itemId', [controllers.MyVisits, 'removeItem'])
           .where('itemId', router.matchers.number())
         router

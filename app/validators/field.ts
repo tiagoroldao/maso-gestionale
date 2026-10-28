@@ -41,4 +41,17 @@ export const visitItemValidator = vine.create({
   quantity: vine.string().use(quantityRule({ allowNegative: false, max: '99999' })),
   installed: vine.boolean().optional(),
   serialNumber: vine.string().trim().maxLength(100).optional(),
+  // Installing onto equipment already registered at the Site, or new
+  // equipment described by type, make and model
+  equipmentId: vine.number().optional(),
+  equipmentType: vine.string().trim().maxLength(100).optional(),
+  make: vine.string().trim().maxLength(100).optional(),
+  model: vine.string().trim().maxLength(100).optional(),
+})
+
+/**
+ * Which of the Site's equipment the Visit serviced.
+ */
+export const servicedEquipmentValidator = vine.create({
+  equipmentIds: vine.array(vine.number()).distinct().optional(),
 })

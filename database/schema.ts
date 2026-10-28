@@ -610,10 +610,12 @@ export class VisitHourSchema extends BaseModel {
 }
 
 export class VisitItemSchema extends BaseModel {
-  static $columns = ['createdAt', 'id', 'installed', 'installedEquipmentId', 'itemId', 'quantity', 'stockMovementId', 'unitPrice', 'visitId'] as const
+  static $columns = ['createdAt', 'createdEquipment', 'id', 'installed', 'installedEquipmentId', 'itemId', 'quantity', 'stockMovementId', 'unitPrice', 'visitId'] as const
   $columns = VisitItemSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
+  @column()
+  declare createdEquipment: boolean
   @column({ isPrimary: true })
   declare id: number
   @column()
@@ -663,6 +665,15 @@ export class VisitPhotoSchema extends BaseModel {
   @column()
   declare userId: number | null
   @column()
+  declare visitId: number
+}
+
+export class VisitServicedEquipmentSchema extends BaseModel {
+  static $columns = ['installedEquipmentId', 'visitId'] as const
+  $columns = VisitServicedEquipmentSchema.$columns
+  @column()
+  declare installedEquipmentId: number
+  @column({ isPrimary: true })
   declare visitId: number
 }
 

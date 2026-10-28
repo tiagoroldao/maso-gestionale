@@ -102,6 +102,12 @@ const routes = {
     tokens: [[0,"my-visits"],[1,"id"],[0,"items"]],
     types: placeholder as Registry['my_visits.add_item']['types'],
   },
+  'my_visits.set_serviced': {
+    methods: ["POST"],
+    pattern: '/my-visits/:id/serviced',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"serviced"]],
+    types: placeholder as Registry['my_visits.set_serviced']['types'],
+  },
   'my_visits.remove_item': {
     methods: ["DELETE"],
     pattern: '/visit-items/:itemId',
