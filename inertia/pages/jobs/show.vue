@@ -11,7 +11,7 @@ const confirm = (message: string) => window.confirm(message)
 
 defineProps<{
   invoices: { id: number; number: string | null; status: string; total: string }[]
-  canInvoiceFromQuote: boolean
+  canInvoice: boolean
   timeAndMaterials: { total: string; lines: number }
   job: {
     id: number
@@ -159,7 +159,7 @@ defineProps<{
         </Link>
       </Section>
 
-      <Section v-if="invoices.length || canInvoiceFromQuote" :title="t('ui.invoices.title')">
+      <Section v-if="invoices.length || canInvoice" :title="t('ui.invoices.title')">
         <ul v-if="invoices.length" :style="{ margin: 0, paddingLeft: '18px' }">
           <li v-for="invoice in invoices" :key="invoice.id">
             <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
@@ -168,9 +168,13 @@ defineProps<{
             · {{ t(`ui.invoices.statuses.${invoice.status}`) }} · {{ formatMoney(invoice.total) }}
           </li>
         </ul>
-        <Form v-if="canInvoiceFromQuote" route="invoices.store_from_job" :params="{ id: job.id }">
+        <Form v-if="canInvoice" route="invoices.store_from_job" :params="{ id: job.id }">
           <button type="submit" class="btn btn--secondary btn--sm">
-            {{ t('ui.invoices.fromQuote') }}
+            {{
+              job.kind === 'quoted'
+                ? t('ui.invoices.fromQuote')
+                : t('ui.invoices.fromTimeAndMaterials')
+            }}
           </button>
         </Form>
       </Section>

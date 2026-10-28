@@ -137,7 +137,7 @@ test.group('Invoices from Quoted Jobs', () => {
     again.assertHeader('location', `/invoices/${invoice.id}/edit`)
     assert.lengthOf(await Invoice.query().where('jobId', job.id), 1)
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoiceFromQuote: false })
+    page.assertInertiaPropsContains({ canInvoice: false })
 
     const other = await acceptedJob()
     await client.post(`/jobs/${other.job.id}/cancel`).withCsrfToken().loginAs(office)
@@ -149,7 +149,7 @@ test.group('Invoices from Quoted Jobs', () => {
     cancelled.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
     assert.lengthOf(await Invoice.query().where('jobId', other.job.id), 0)
     const cancelledPage = await client.get(`/jobs/${other.job.id}`).withInertia().loginAs(office)
-    cancelledPage.assertInertiaPropsContains({ canInvoiceFromQuote: false })
+    cancelledPage.assertInertiaPropsContains({ canInvoice: false })
   })
 
   test('correcting a rejected Job Invoice moves no stock; labour keeps its unit', async ({
@@ -256,7 +256,7 @@ test.group('Invoices from Quoted Jobs', () => {
     const { job } = await acceptedJob()
 
     const before = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    before.assertInertiaPropsContains({ canInvoiceFromQuote: true, invoices: [] })
+    before.assertInertiaPropsContains({ canInvoice: true, invoices: [] })
 
     const invoice = await Invoices.fromQuote(job)
     const after = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
