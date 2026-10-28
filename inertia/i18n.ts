@@ -7,6 +7,7 @@ import { IntlMessageFormat } from 'intl-messageformat'
 
 export const LOCALE = 'it'
 export { TIME_ZONE, formatDate, todayIso } from '@shared/dates'
+export { formatMoney } from '@shared/money'
 
 const files = import.meta.glob<Record<string, unknown>>('../resources/lang/it/*.json', {
   eager: true,
@@ -54,20 +55,6 @@ export function t(key: string, values?: Record<string, string | number | null | 
     formatters.set(key, formatter)
   }
   return String(formatter.format(values as Record<string, string | number>))
-}
-
-const money = new Intl.NumberFormat(LOCALE, {
-  style: 'currency',
-  currency: 'EUR',
-  useGrouping: 'always',
-})
-
-/**
- * An amount in euro, Italian style ("1.234,56 €"). Accepts the decimal
- * strings the server sends (ADR 0007) so no float rounding sneaks in.
- */
-export function formatMoney(amount: string | number) {
-  return money.format(amount as Parameters<typeof money.format>[0])
 }
 
 const unitPrice = new Intl.NumberFormat(LOCALE, {

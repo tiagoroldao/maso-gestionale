@@ -88,3 +88,17 @@ export function lineTotal(quantity: string, unitPrice: string) {
 export function sumAmounts(amounts: string[]) {
   return amounts.reduce((sum, amount) => sum.plus(amount), new Big(0)).toFixed(2)
 }
+
+const money = new Intl.NumberFormat('it', {
+  style: 'currency',
+  currency: 'EUR',
+  useGrouping: 'always',
+})
+
+/**
+ * An amount in euro, Italian style ("1.234,56 €"). Accepts decimal strings
+ * so no float rounding sneaks in.
+ */
+export function formatMoney(amount: string | number) {
+  return money.format(amount as Parameters<typeof money.format>[0])
+}
