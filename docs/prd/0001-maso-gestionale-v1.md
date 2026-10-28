@@ -210,7 +210,6 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 ## Further Notes
 
 - Until the app is feature-complete the UI is functional scaffolding for exercising and testing the backend; styles, navigation, listing conventions, filters and reports are designed in a dedicated UX pass before day-to-day use (ADR 0009). UX work found meanwhile is labelled `ui-later`.
-
 - **Deadline**: invoicing and the Legacy Invoice import must be in production before the 1 January cutover, so that invoice numbering starts cleanly.
 - **Build order**:
   1. Parties + Catalogue & Stock.
@@ -218,4 +217,4 @@ A single web app per business ("Instance"), self-hosted on the business's own se
   3. Invoicing, Payments and Legacy import.
   4. Document Templates.
 - VAT Codes and the default VAT rules are Admin-editable settings, seeded with our reading of the law and reviewed by the business's _commercialista_ (#17) without blocking invoicing (ADR 0008). Mechanisms not yet needed are proposals (#56–#61).
-- Glossary: `GLOSSARY.md`. Decisions: `docs/adr/0001`–`0005`. Use glossary terms in code, UI and tests.
+- Glossary: `GLOSSARY.md`. Decisions: `docs/adr/`. Use glossary terms in code, UI and tests.

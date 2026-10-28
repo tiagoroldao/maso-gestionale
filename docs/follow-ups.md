@@ -42,9 +42,7 @@ Review findings folded into planned work, so they are picked up with it:
 
 ## Not yet issues
 
-- **UX pass (ADR 0009):** UI stays functional scaffolding until a dedicated UX pass; UX work found along the way is labelled `ui-later` (#64, #73) rather than built.
 - **Customer's role at a Site** (owner, administrator, tenant): a domain question raised in the #43 review; decide during the UX pass or when a feature needs it.
-
 - **Archived-reference check outside the lock:** Quote and Invoice saves read which archived Items and VAT Codes the record already uses before locking it, so a concurrent save or archive could let an archived reference onto a draft. Move the check inside the locked transaction for both (from the #77 review).
 - **Billing price policy:** comment on #22, applies to #74 (recorded prices vs. today's prices).
 - **Closing a Visit by mistake (#16):** "Done" and "needs another visit" are final; neither the Technician nor Office can reopen a Visit. Accepted trade-off for now; revisit if it happens in practice (an Office "reopen" that reverses the stock usage).
