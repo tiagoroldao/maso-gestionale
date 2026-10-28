@@ -410,6 +410,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['edit']>>>
     }
   }
+  'customers.archive': {
+    methods: ["POST"]
+    pattern: '/customers/:id/archive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['archive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['archive']>>>
+    }
+  }
+  'customers.restore': {
+    methods: ["POST"]
+    pattern: '/customers/:id/restore'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['restore']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['restore']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/customers_controller').default['restore']>>>
+    }
+  }
   'customers.update': {
     methods: ["PUT"]
     pattern: '/customers/:id'
@@ -538,6 +564,45 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'sites.archive': {
+    methods: ["POST"]
+    pattern: '/sites/:id/archive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['archive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['archive']>>>
+    }
+  }
+  'sites.restore': {
+    methods: ["POST"]
+    pattern: '/sites/:id/restore'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['restore']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['restore']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sites_controller').default['restore']>>>
+    }
+  }
+  'installed_equipment.remove': {
+    methods: ["POST"]
+    pattern: '/equipment/:id/remove'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').removeEquipmentValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').removeEquipmentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['remove']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'installed_equipment.create': {

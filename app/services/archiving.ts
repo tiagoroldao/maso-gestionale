@@ -1,0 +1,90 @@
+import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
+import Customer from '#models/customer'
+import InstalledEquipment from '#models/installed_equipment'
+import Site from '#models/site'
+
+/**
+ * The Customer or Site still has Jobs that aren't cancelled.
+ */
+export class HasOpenJobsError extends Error {}
+
+/**
+ * The replacement isn't current equipment at the same Site.
+ */
+export class InvalidReplacementError extends Error {}
+
+/**
+ * Archiving Customers and Sites (out of lists and pickers, history kept)
+ * and recording that Installed Equipment was removed or replaced.
+ */
+export default class Archiving {
+  static archiveCustomer(id: number) {
+    return this.setArchived(Customer, 'customer_id', id, true)
+  }
+
+  static restoreCustomer(id: number) {
+    return this.setArchived(Customer, 'customer_id', id, false)
+  }
+
+  static archiveSite(id: number) {
+    return this.setArchived(Site, 'site_id', id, true)
+  }
+
+  static restoreSite(id: number) {
+    return this.setArchived(Site, 'site_id', id, false)
+  }
+
+  /**
+   * Archiving is refused while the record has Jobs that aren't cancelled
+   * (until finished Jobs can be told apart: Closed comes with Payments).
+   */
+  private static setArchived(
+    model: typeof Customer | typeof Site,
+    jobColumn: 'customer_id' | 'site_id',
+    id: number,
+    archived: boolean
+  ) {
+    return db.transaction(async (trx) => {
+      const record = await model.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
+      if (archived) {
+        const open = await trx
+          .from('jobs')
+          .where(jobColumn, id)
+          .whereNot('status', 'cancelled')
+          .first()
+        if (open) throw new HasOpenJobsError()
+      }
+      record.archivedAt = archived ? (record.archivedAt ?? DateTime.now()) : null
+      await record.useTransaction(trx).save()
+      return record
+    })
+  }
+
+  /**
+   * Marks equipment as removed on a date, optionally replaced by other
+   * current equipment at the same Site.
+   */
+  static async removeEquipment(
+    equipment: InstalledEquipment,
+    input: { removedOn: DateTime; replacedById?: number | null }
+  ) {
+    await db.transaction(async (trx) => {
+      const locked = await InstalledEquipment.query({ client: trx })
+        .where('id', equipment.id)
+        .forUpdate()
+        .firstOrFail()
+      if (input.replacedById) {
+        const replacement = await InstalledEquipment.query({ client: trx })
+          .where('id', input.replacedById)
+          .where('siteId', locked.siteId)
+          .whereNull('removedOn')
+          .whereNot('id', locked.id)
+          .first()
+        if (!replacement) throw new InvalidReplacementError()
+      }
+      locked.merge({ removedOn: input.removedOn, replacedById: input.replacedById ?? null })
+      await locked.useTransaction(trx).save()
+    })
+  }
+}

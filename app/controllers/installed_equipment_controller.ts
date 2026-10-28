@@ -1,6 +1,10 @@
 import Site from '#models/site'
 import InstalledEquipment from '#models/installed_equipment'
-import { installedEquipmentValidator } from '#validators/installed_equipment'
+import Archiving, { InvalidReplacementError } from '#services/archiving'
+import {
+  installedEquipmentValidator,
+  removeEquipmentValidator,
+} from '#validators/installed_equipment'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -80,6 +84,26 @@ export default class InstalledEquipmentController {
     await equipment.merge(toAttributes(data)).save()
 
     session.flash('success', i18n.t('flash.equipmentSaved'))
+    response.redirect().toRoute('sites.show', { id: equipment.siteId })
+  }
+
+  /**
+   * Records that the equipment was taken out, optionally replaced by other
+   * equipment at the Site; it leaves the Site's current list.
+   */
+  async remove({ params, request, response, session, i18n }: HttpContext) {
+    const equipment = await InstalledEquipment.findOrFail(params.id)
+    const data = await request.validateUsing(removeEquipmentValidator)
+    try {
+      await Archiving.removeEquipment(equipment, {
+        removedOn: data.removedOn,
+        replacedById: data.replacedById ?? null,
+      })
+      session.flash('success', i18n.t('flash.equipmentRemoved'))
+    } catch (error) {
+      if (!(error instanceof InvalidReplacementError)) throw error
+      session.flash('error', i18n.t('flash.invalidReplacement'))
+    }
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
   }
 }

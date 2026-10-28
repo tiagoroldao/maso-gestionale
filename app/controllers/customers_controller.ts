@@ -1,4 +1,5 @@
 import Customer from '#models/customer'
+import Archiving, { HasOpenJobsError } from '#services/archiving'
 import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
 import { customerPickerValidator } from '#validators/job'
@@ -42,10 +43,29 @@ async function paymentTermsOptions() {
 }
 
 export default class CustomersController {
+  async archive({ params, response, session, i18n }: HttpContext) {
+    try {
+      await Archiving.archiveCustomer(params.id)
+      session.flash('success', i18n.t('flash.customerArchived'))
+    } catch (error) {
+      if (!(error instanceof HasOpenJobsError)) throw error
+      session.flash('error', i18n.t('flash.hasOpenJobs'))
+    }
+    response.redirect().toRoute('customers.show', { id: params.id })
+  }
+
+  async restore({ params, response, session, i18n }: HttpContext) {
+    await Archiving.restoreCustomer(params.id)
+    session.flash('success', i18n.t('flash.customerRestored'))
+    response.redirect().toRoute('customers.show', { id: params.id })
+  }
+
   async index({ request, inertia }: HttpContext) {
-    const { q, page = 1 } = await customerSearchValidator.validate(request.qs())
+    const { q, page = 1, archived = false } = await customerSearchValidator.validate(request.qs())
 
     const query = Customer.query()
+    if (archived) query.whereNotNull('archived_at')
+    else query.withScopes((scopes) => scopes.active())
     if (q) {
       const pattern = likePattern(q)
       // Tax IDs are stored without spaces or the IT country prefix
@@ -65,6 +85,7 @@ export default class CustomersController {
 
     return inertia.render('customers/index', {
       q: q ?? '',
+      archived,
       customers: results.all().map((customer) => ({
         id: customer.id,
         displayName: customer.displayName,
@@ -112,6 +133,7 @@ export default class CustomersController {
         phone: customer.phone,
         notes: customer.notes,
         paymentTerms: customer.paymentTerms.name,
+        archived: customer.archivedAt !== null,
       },
       sites: customer.sites.map((site) => ({ id: site.id, summary: site.summary })),
       jobs: customer.jobs.map((job) => jobRow(job)),
@@ -180,6 +202,7 @@ export default class CustomersController {
 
     const pattern = likePattern(q)
     const customers = await Customer.query()
+      .withScopes((scopes) => scopes.active())
       .where((builder) => {
         builder
           .whereILike('name', pattern)

@@ -64,6 +64,8 @@ export interface ApiDefinition {
     store: typeof routes['customers.store']
     show: typeof routes['customers.show']
     edit: typeof routes['customers.edit']
+    archive: typeof routes['customers.archive']
+    restore: typeof routes['customers.restore']
     update: typeof routes['customers.update']
   }
   customerSites: {
@@ -78,8 +80,11 @@ export interface ApiDefinition {
     show: typeof routes['sites.show']
     edit: typeof routes['sites.edit']
     update: typeof routes['sites.update']
+    archive: typeof routes['sites.archive']
+    restore: typeof routes['sites.restore']
   }
   installedEquipment: {
+    remove: typeof routes['installed_equipment.remove']
     create: typeof routes['installed_equipment.create']
     store: typeof routes['installed_equipment.store']
     edit: typeof routes['installed_equipment.edit']

@@ -31,8 +31,15 @@ export const siteSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
   page: vine.number().min(1).optional(),
   customerId: vine.number().optional(),
+  archived: vine.boolean().optional(),
 })
 
 export const linkSiteValidator = vine.create({
-  siteId: vine.number().exists({ table: 'sites', column: 'id' }),
+  siteId: vine.number().exists({
+    table: 'sites',
+    column: 'id',
+    filter: (db) => {
+      db.whereNull('archived_at')
+    },
+  }),
 })

@@ -1,4 +1,4 @@
-import { belongsTo, hasMany, manyToMany } from '@adonisjs/lucid/orm'
+import { belongsTo, hasMany, manyToMany, scope } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany, ManyToMany } from '@adonisjs/lucid/types/relations'
 import { CustomerSchema } from '#database/schema'
 import PaymentTerms from '#models/payment_terms'
@@ -13,6 +13,12 @@ export type CustomerType = (typeof CUSTOMER_TYPES)[number]
  * The person or organization that is billed for work.
  */
 export default class Customer extends CustomerSchema {
+  /**
+   * Not archived: shown in lists and pickers.
+   */
+  static active = scope((query) => {
+    query.whereNull('archived_at')
+  })
   declare type: CustomerType
 
   @belongsTo(() => PaymentTerms)

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Link } from '@adonisjs/inertia/vue'
+import { computed } from 'vue'
+import { Form, Link } from '@adonisjs/inertia/vue'
 import { Pencil, Plus } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
@@ -7,8 +8,8 @@ import AppLayout from '~/layouts/app.vue'
 import { formatDate, t, todayIso } from '~/i18n'
 import JobList, { type JobRow } from '~/components/job_list.vue'
 
-defineProps<{
-  site: { id: number; summary: string; accessNotes: string | null }
+const props = defineProps<{
+  site: { id: number; summary: string; accessNotes: string | null; archived: boolean }
   customers: { id: number; displayName: string }[]
   jobs: JobRow[]
   installedEquipment: {
@@ -20,10 +21,15 @@ defineProps<{
     nextDueOn: string | null
     itemCode: string | null
     documentCount: number
+    removedOn: string | null
+    replacedBy: string | null
   }[]
 }>()
 
 const today = todayIso()
+const current = computed(() => props.installedEquipment.filter((e) => !e.removedOn))
+const removed = computed(() => props.installedEquipment.filter((e) => e.removedOn))
+const confirm = (message: string) => window.confirm(message)
 </script>
 
 <template>
@@ -33,7 +39,18 @@ const today = todayIso()
         <Link route="sites.edit" :params="{ id: site.id }" class="btn btn--secondary btn--sm">
           <Pencil :size="15" /> {{ t('ui.sites.editSite') }}
         </Link>
+        <Form
+          :route="site.archived ? 'sites.restore' : 'sites.archive'"
+          :params="{ id: site.id }"
+          :on-before="() => site.archived || confirm(t('ui.archive.confirm'))"
+        >
+          <button type="submit" class="btn btn--ghost btn--sm">
+            {{ site.archived ? t('ui.archive.restore') : t('ui.archive.archive') }}
+          </button>
+        </Form>
       </template>
+
+      <p v-if="site.archived" class="tag">{{ t('ui.archive.archivedTag') }}</p>
 
       <Section v-if="site.accessNotes" :title="t('ui.sites.accessNotes')">
         <p :style="{ whiteSpace: 'pre-line', margin: 0 }">{{ site.accessNotes }}</p>
@@ -56,7 +73,7 @@ const today = todayIso()
       </Section>
 
       <Section :title="t('ui.equipment.sectionTitle')">
-        <table v-if="installedEquipment.length" class="table">
+        <table v-if="current.length" class="table">
           <thead>
             <tr>
               <th>{{ t('ui.equipment.equipment') }}</th>
@@ -67,7 +84,7 @@ const today = todayIso()
             </tr>
           </thead>
           <tbody>
-            <tr v-for="equipment in installedEquipment" :key="equipment.id">
+            <tr v-for="equipment in current" :key="equipment.id">
               <td>
                 {{ equipment.description }}
                 <span v-if="equipment.itemCode" class="mono tag">{{ equipment.itemCode }}</span>
@@ -96,11 +113,54 @@ const today = todayIso()
                 >
                   {{ t('ui.common.edit') }}
                 </Link>
+                <Form
+                  route="installed_equipment.remove"
+                  :params="{ id: equipment.id }"
+                  :on-before="() => confirm(t('ui.equipment.removeConfirm'))"
+                  :style="{ display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }"
+                >
+                  <input
+                    name="removedOn"
+                    type="date"
+                    class="field__input"
+                    :value="today"
+                    :aria-label="t('ui.equipment.removedOnOf', { name: equipment.description })"
+                  />
+                  <select
+                    name="replacedById"
+                    class="field__input"
+                    :aria-label="t('ui.equipment.replacedByOf', { name: equipment.description })"
+                  >
+                    <option value="">{{ t('ui.equipment.noReplacement') }}</option>
+                    <option
+                      v-for="other in current.filter((e) => e.id !== equipment.id)"
+                      :key="other.id"
+                      :value="other.id"
+                    >
+                      {{ other.description }}
+                    </option>
+                  </select>
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    {{ t('ui.equipment.remove') }}
+                  </button>
+                </Form>
               </td>
             </tr>
           </tbody>
         </table>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.equipment.empty') }}</p>
+        <template v-if="removed.length">
+          <h3>{{ t('ui.equipment.removedTitle') }}</h3>
+          <ul :style="{ margin: 0, paddingLeft: '18px' }">
+            <li v-for="equipment in removed" :key="equipment.id">
+              {{ equipment.description }} ·
+              {{ t('ui.equipment.removedOn', { date: formatDate(equipment.removedOn) }) }}
+              <span v-if="equipment.replacedBy">
+                · {{ t('ui.equipment.replacedBy', { name: equipment.replacedBy }) }}
+              </span>
+            </li>
+          </ul>
+        </template>
         <div>
           <Link
             route="installed_equipment.create"

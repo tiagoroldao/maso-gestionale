@@ -25,3 +25,11 @@ export const installedEquipmentValidator = vine.create({
   notes: optionalText(5000),
   itemId: vine.number().exists({ table: 'items', column: 'id' }).optional(),
 })
+
+/**
+ * Equipment taken out: when, and optionally what replaced it.
+ */
+export const removeEquipmentValidator = vine.create({
+  removedOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
+  replacedById: vine.number().optional(),
+})

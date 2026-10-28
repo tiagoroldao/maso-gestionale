@@ -83,5 +83,12 @@
     "rejected": "Scarto registrato: correggi e reinvia la fattura entro 5 giorni."
   },
   "submissionRefused": "Questa operazione non è possibile nello stato attuale della fattura.",
-  "sdiPrefixSaved": "Lettera dei file SDI salvata."
+  "sdiPrefixSaved": "Lettera dei file SDI salvata.",
+  "customerArchived": "Cliente archiviato.",
+  "customerRestored": "Cliente ripristinato.",
+  "siteArchived": "Immobile archiviato.",
+  "siteRestored": "Immobile ripristinato.",
+  "hasOpenJobs": "Ci sono commesse non annullate: non si può archiviare.",
+  "equipmentRemoved": "Apparecchio segnato come rimosso.",
+  "invalidReplacement": "L'apparecchio sostitutivo deve essere uno di quelli installati nello stesso immobile."
 }

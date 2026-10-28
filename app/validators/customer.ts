@@ -86,4 +86,5 @@ export const customerValidator = vine.create({
 export const customerSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
   page: vine.number().min(1).optional(),
+  archived: vine.boolean().optional(),
 })

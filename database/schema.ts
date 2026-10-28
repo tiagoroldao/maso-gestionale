@@ -85,8 +85,10 @@ export class CustomerSiteSchema extends BaseModel {
 }
 
 export class CustomerSchema extends BaseModel {
-  static $columns = ['city', 'createdAt', 'email', 'firstName', 'id', 'lastName', 'name', 'notes', 'paymentTermsId', 'pec', 'phone', 'postalCode', 'province', 'sdiCode', 'street', 'streetNumber', 'taxCode', 'type', 'updatedAt', 'vatNumber'] as const
+  static $columns = ['archivedAt', 'city', 'createdAt', 'email', 'firstName', 'id', 'lastName', 'name', 'notes', 'paymentTermsId', 'pec', 'phone', 'postalCode', 'province', 'sdiCode', 'street', 'streetNumber', 'taxCode', 'type', 'updatedAt', 'vatNumber'] as const
   $columns = CustomerSchema.$columns
+  @column.dateTime()
+  declare archivedAt: DateTime | null
   @column()
   declare city: string
   @column.dateTime({ autoCreate: true })
@@ -130,7 +132,7 @@ export class CustomerSchema extends BaseModel {
 }
 
 export class InstalledEquipmentSchema extends BaseModel {
-  static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'itemId', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'serialNumber', 'siteId', 'updatedAt'] as const
+  static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'itemId', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'removedOn', 'replacedById', 'serialNumber', 'siteId', 'updatedAt'] as const
   $columns = InstalledEquipmentSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -152,6 +154,10 @@ export class InstalledEquipmentSchema extends BaseModel {
   declare model: string | null
   @column()
   declare notes: string | null
+  @column.date()
+  declare removedOn: DateTime | null
+  @column()
+  declare replacedById: number | null
   @column()
   declare serialNumber: string | null
   @column()
@@ -462,10 +468,12 @@ export class QuoteSchema extends BaseModel {
 }
 
 export class SiteSchema extends BaseModel {
-  static $columns = ['accessNotes', 'city', 'createdAt', 'id', 'label', 'postalCode', 'province', 'residential', 'street', 'streetNumber', 'unit', 'updatedAt'] as const
+  static $columns = ['accessNotes', 'archivedAt', 'city', 'createdAt', 'id', 'label', 'postalCode', 'province', 'residential', 'street', 'streetNumber', 'unit', 'updatedAt'] as const
   $columns = SiteSchema.$columns
   @column()
   declare accessNotes: string | null
+  @column.dateTime()
+  declare archivedAt: DateTime | null
   @column()
   declare city: string
   @column.dateTime({ autoCreate: true })

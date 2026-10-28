@@ -71,7 +71,7 @@ export default class JobsController {
   }
 
   async store({ request, response, session, i18n }: HttpContext) {
-    const data = await request.validateUsing(jobValidator)
+    const data = await request.validateUsing(jobValidator, { meta: {} })
 
     const job = await Jobs.create({
       customerId: data.customerId,
@@ -162,7 +162,9 @@ export default class JobsController {
       session.flash('error', i18n.t('flash.jobNotEditable'))
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
-    const data = await request.validateUsing(jobValidator)
+    const data = await request.validateUsing(jobValidator, {
+      meta: { customerId: job.customerId, siteId: job.siteId ?? undefined },
+    })
 
     job.merge({
       customerId: data.customerId,
