@@ -34,6 +34,7 @@
     "vatAmount": "Imposta",
     "globalDiscount": "Sconto",
     "total": "Totale documento",
-    "courtesyCopy": "Copia di cortesia: l'originale fiscale è la fattura elettronica trasmessa tramite SDI."
+    "courtesyCopy": "Copia di cortesia: l'originale fiscale è la fattura elettronica trasmessa tramite SDI.",
+    "globalDiscountLine": "Sconto {percent}% sul totale"
   }
 }

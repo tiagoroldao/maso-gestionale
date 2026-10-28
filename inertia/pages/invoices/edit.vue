@@ -221,6 +221,13 @@ const confirmFinalise = () => window.confirm(t('ui.invoices.finaliseConfirm'))
         >
           <FileText :size="15" /> {{ t('ui.invoices.pdf') }}
         </a>
+        <a
+          v-if="invoice.number"
+          :href="urlFor('invoices.xml', { id: invoice.id })"
+          class="btn btn--secondary btn--sm"
+        >
+          {{ t('ui.invoices.xml') }}
+        </a>
         <Link route="invoices.index" class="btn btn--ghost btn--sm">
           {{ t('ui.invoices.backToList') }}
         </Link>

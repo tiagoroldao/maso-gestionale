@@ -138,7 +138,23 @@
     "replaceLogo": "Sostituisci logo",
     "removeLogo": "Rimuovi il logo",
     "save": "Salva dati aziendali",
-    "previewLetterhead": "Anteprima carta intestata (PDF)"
+    "previewLetterhead": "Anteprima carta intestata (PDF)",
+    "reaSection": "Iscrizione REA",
+    "reaDescription": "Solo per le imprese iscritte al Registro Imprese: compare nelle fatture elettroniche.",
+    "reaOffice": "Ufficio REA (provincia)",
+    "reaNumber": "Numero REA",
+    "shareCapital": "Capitale sociale (€)",
+    "soleShareholder": "Socio unico",
+    "notApplicable": "Non indicato",
+    "soleShareholders": {
+      "SU": "Socio unico",
+      "SM": "Più soci"
+    },
+    "liquidationStatus": "Stato di liquidazione",
+    "liquidationStatuses": {
+      "LN": "Non in liquidazione",
+      "LS": "In liquidazione"
+    }
   },
   "paymentTerms": {
     "title": "Condizioni di pagamento",
@@ -601,7 +617,8 @@
     "pdf": "PDF",
     "issued": "Emessa il {date}, scadenza {due}.",
     "finalise": "Emetti fattura",
-    "finaliseConfirm": "Emettere la fattura? Prenderà il prossimo numero e la data di oggi e non sarà più modificabile."
+    "finaliseConfirm": "Emettere la fattura? Prenderà il prossimo numero e la data di oggi e non sarà più modificabile.",
+    "xml": "XML"
   },
   "visits": {
     "title": "Interventi",
