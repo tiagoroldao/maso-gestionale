@@ -34,6 +34,7 @@
       "natura.withRate": "La natura si indica solo con aliquota 0%",
       "logo.file.extname": "Il logo deve essere un'immagine PNG, JPEG o WebP",
       "amount": "Il campo {field} deve essere un importo valido",
+      "amount.positive": "Il campo {field} deve essere maggiore di zero",
       "quantity": "Il campo {field} deve essere una quantità valida",
       "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)",
       "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}} per {field}",

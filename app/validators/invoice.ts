@@ -91,7 +91,7 @@ export const sdiPrefixValidator = vine.create({
 })
 
 export const paymentValidator = vine.create({
-  amount: vine.string().use(amountRule({ decimals: 2, max: '9999999999' })),
+  amount: vine.string().use(amountRule({ decimals: 2, max: '9999999999', positive: true })),
   paidOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
   note: vine.string().trim().maxLength(255).optional(),
 })

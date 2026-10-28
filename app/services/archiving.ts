@@ -7,7 +7,7 @@ import Site from '#models/site'
 import { CLOSED_SQL } from '#services/job_status'
 
 /**
- * The Customer or Site still has Jobs that aren't cancelled.
+ * The Customer or Site still has Jobs that are neither Closed nor cancelled.
  */
 export class HasOpenJobsError extends Error {}
 

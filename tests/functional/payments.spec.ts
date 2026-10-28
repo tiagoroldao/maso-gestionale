@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import type Customer from '#models/customer'
 import Invoice from '#models/invoice'
 import Payment from '#models/payment'
+import Visit from '#models/visit'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
 import Submissions from '#services/submissions'
@@ -83,6 +84,15 @@ test.group('Payments', () => {
       .loginAs(office)
       .redirects(0)
     tooMuch.assertFlashMessage('error', it('flash.paymentRefused.tooMuch'))
+    const zero = await client
+      .post(`/invoices/${invoice.id}/payments`)
+      .form({ amount: '0', paidOn: today })
+      .header('referer', `/invoices/${invoice.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(zero.flashMessage('inputErrorsBag'), ['amount'])
+    assert.lengthOf(await Payment.all(), 0)
 
     const payment = await Payments.record(invoice, { amount: '22.00', paidOn: DateTime.now() })
     await client.delete(`/payments/${payment.id}`).withCsrfToken().loginAs(office)
@@ -182,6 +192,44 @@ test.group('Payments', () => {
       .loginAs(office)
       .redirects(0)
     archived.assertFlashMessage('success', it('flash.customerArchived'))
+  })
+
+  test('finished work counts as Invoiced only once an Invoice is issued', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const customer = await createCustomer()
+    const finishedWork = async () => {
+      const job = await createJob(customer, { kind: 'time_and_materials', status: 'in_progress' })
+      const startsAt = DateTime.now().minus({ days: 1 })
+      await Visit.create({
+        jobId: job.id,
+        startsAt,
+        endsAt: startsAt.plus({ hours: 2 }),
+        status: 'done',
+      })
+      return job
+    }
+    // An issued Invoice, partly paid; and one still a draft
+    const billed = await finishedWork()
+    const partly = await issued(customer, billed.id)
+    await Payments.record(partly, { amount: '22', paidOn: DateTime.now() })
+    const drafted = await finishedWork()
+    const draft = await Invoices.create(customer)
+    await draft.merge({ jobId: drafted.id }).save()
+
+    const ids = async (status: string) => {
+      const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
+      return (list.inertiaProps.jobs as { id: number; status: string }[])
+        .map((j) => [j.id, j.status])
+        .sort()
+    }
+    assert.deepEqual(await ids('invoiced'), [[billed.id, 'invoiced']])
+    assert.deepEqual(await ids('work_complete'), [[drafted.id, 'work_complete']])
+    assert.deepEqual(await ids('in_progress'), [])
+    assert.deepEqual(await ids('closed'), [])
   })
 
   test('Technicians and the Superuser can not record or remove Payments', async ({

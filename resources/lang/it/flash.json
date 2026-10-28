@@ -89,7 +89,7 @@
   "customerRestored": "Cliente ripristinato.",
   "siteArchived": "Immobile archiviato.",
   "siteRestored": "Immobile ripristinato.",
-  "hasOpenJobs": "Ci sono commesse non annullate: non si può archiviare.",
+  "hasOpenJobs": "Ci sono commesse non chiuse né annullate: non si può archiviare.",
   "equipmentRemoved": "Apparecchio segnato come rimosso.",
   "invalidRemoval": "Rimozione non valida: l'apparecchio è già rimosso, la data è precedente all'installazione, oppure il sostitutivo non è installato nello stesso immobile.",
   "archivedRecord": "Il cliente o l'immobile è archiviato: ripristinalo per aprire una nuova commessa.",

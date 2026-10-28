@@ -57,7 +57,7 @@ const UNPAID_SQL = `EXISTS (SELECT 1 FROM invoices i
 
 export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${ISSUED_SQL} AND NOT ${UNPAID_SQL}`
 export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${ISSUED_SQL} AND ${UNPAID_SQL}`
-/** Not cancelled and not yet invoiced: what Work Complete and stored statuses describe */
+/** Not yet invoiced (no Invoice past draft): what Work Complete and stored statuses describe */
 export const NOT_INVOICED_SQL = `NOT ${ISSUED_SQL}`
 
 export const WORK_COMPLETE_SQL = `NOT ${ISSUED_SQL} AND jobs.status = 'in_progress'

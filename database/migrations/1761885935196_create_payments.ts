@@ -8,9 +8,6 @@ export default class extends BaseSchema {
       // Rejection), so lists can filter by payment in SQL
       table.decimal('total', 14, 2).nullable()
     })
-    this.schema.raw(
-      "ALTER TABLE invoices ADD CONSTRAINT invoices_total_check CHECK ((status = 'draft') = (total IS NULL))"
-    )
 
     this.schema.createTable('payments', (table) => {
       table.increments('id').notNullable()
@@ -48,6 +45,10 @@ export default class extends BaseSchema {
         await db.from('invoices').where('id', invoice.id).update({ total: totals.total })
       }
     })
+    // Only once the backfill gave issued Invoices their total
+    this.schema.raw(
+      "ALTER TABLE invoices ADD CONSTRAINT invoices_total_check CHECK ((status = 'draft') = (total IS NULL))"
+    )
   }
 
   async down() {
