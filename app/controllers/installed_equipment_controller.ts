@@ -2,6 +2,7 @@ import db from '@adonisjs/lucid/services/db'
 import Site from '#models/site'
 import InstalledEquipment from '#models/installed_equipment'
 import Archiving, { InvalidRemovalError } from '#services/archiving'
+import IssuedDocuments from '#services/issued_documents'
 import {
   installedEquipmentValidator,
   removeEquipmentValidator,
@@ -31,7 +32,11 @@ function siteProps(site: Site) {
 export default class InstalledEquipmentController {
   async create({ params, inertia }: HttpContext) {
     const site = await Site.findOrFail(params.siteId)
-    return inertia.render('installed_equipment/form', { site: siteProps(site), equipment: null })
+    return inertia.render('installed_equipment/form', {
+      site: siteProps(site),
+      equipment: null,
+      issuedDocuments: [],
+    })
   }
 
   async store({ params, request, response, session, i18n }: HttpContext) {
@@ -76,6 +81,7 @@ export default class InstalledEquipmentController {
             }
           : null,
       },
+      issuedDocuments: await IssuedDocuments.history({ installedEquipmentId: equipment.id }),
     })
   }
 

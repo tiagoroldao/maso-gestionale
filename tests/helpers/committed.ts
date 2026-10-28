@@ -7,16 +7,31 @@ import db from '@adonisjs/lucid/services/db'
 const TABLES = [
   'invoice_line_charges',
   'charge_events',
+  'issued_documents',
+  'document_template_versions',
+  'document_templates',
   'stock_movements',
   'invoice_lines',
   'invoices',
   'charges',
   'jobs',
+  'sites',
   'invoice_sequences',
   'items',
   'customers',
   'users',
 ]
+
+/**
+ * Tables whose rows a trigger keeps from being deleted (frozen records):
+ * the trigger is turned off while cleaning up, inside the cleanup's
+ * transaction, so a failure rolls it back on. Rows are deleted, never
+ * truncated, which a separate trigger refuses.
+ */
+const FROZEN: Record<string, string> = {
+  issued_documents: 'issued_documents_frozen',
+  document_template_versions: 'document_template_versions_frozen',
+}
 
 /**
  * For tests tagged `@committed`, which run outside the global test
@@ -34,9 +49,14 @@ export async function committedData() {
     before.set(table, Number(row?.max ?? 0))
   }
   return async () => {
-    for (const table of TABLES) {
-      await db.from(table).where('id', '>', before.get(table)!).delete()
-    }
+    await db.transaction(async (trx) => {
+      for (const table of TABLES) {
+        const trigger = Object.hasOwn(FROZEN, table) ? FROZEN[table] : null
+        if (trigger) await trx.rawQuery(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`)
+        await trx.from(table).where('id', '>', before.get(table)!).delete()
+        if (trigger) await trx.rawQuery(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`)
+      }
+    })
     await db.from('company_settings').where('id', 1).delete()
     if (settings) await db.table('company_settings').insert(settings)
   }

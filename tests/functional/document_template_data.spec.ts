@@ -371,8 +371,9 @@ test.group('Document Templates: entity fields and tables', () => {
       customerId: it('errors.templateData.customer'),
     })
 
-    // Still accepted: a cancelled Job of the Customer, an archived Item
+    // Still accepted: a cancelled Job of the Customer, an archived Item used on it
     await job.merge({ status: 'cancelled', cancelledAt: DateTime.now() }).save()
+    await itemCharge(job.id, valve.id, '1')
     await valve.merge({ archivedAt: DateTime.now() }).save()
     const accepted = await client
       .post(`/settings/document-templates/${template.id}/fill`)

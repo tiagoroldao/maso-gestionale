@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import type { I18n } from '@adonisjs/i18n'
 import CompanySettings from '#models/company_settings'
 import type Customer from '#models/customer'
+import type { Recipient } from '#documents/document_renderer'
 import InstalledEquipment from '#models/installed_equipment'
 import Item from '#models/item'
 import Job from '#models/job'
@@ -31,6 +32,32 @@ export type ItemUsed = {
   quantity: string
 }
 
+/**
+ * The records chosen in the entity fields, for the history lists of the
+ * Site and Installed Equipment (#31).
+ */
+export type ChosenRecords = {
+  siteId: number | null
+  equipmentId: number | null
+  jobId: number | null
+}
+
+export type ResolveOptions = {
+  /**
+   * Archived Items that may still be chosen: those already on the
+   * document a replacement replaces.
+   */
+  archivedItemIds?: number[]
+}
+
+/**
+ * The order fields are checked in: the Site first (Installed Equipment is
+ * chosen from it and a Job must be at it), then the Job (archived Items are
+ * allowed only when used on it), Installed Equipment last.
+ */
+const CHECK_ORDER: Partial<Record<string, number>> = { site: 0, job: 1, equipment: 3 }
+const checkOrder = (field: TemplateField) => CHECK_ORDER[field.type] ?? 2
+
 const MAX_TEXT = { text: 500, long_text: 5000, cell: 500 }
 const MAX_ROWS = 200
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -52,16 +79,23 @@ const isValidDate = (value: string) => ISO_DATE.test(value) && DateTime.fromISO(
  * Filling a Document Template's fields for one Customer: checks each
  * value against its field (type, required, and which records may be
  * chosen) and turns them, with the built-in placeholders, into the plain
- * strings the body prints. The result is what an Issued Document freezes
- * (#31), so later edits to a Site or an Item never change it.
+ * strings the body prints. The result, with the chosen records and the
+ * Recipient, is what an Issued Document freezes (#31), so later edits to
+ * a Site or an Item never change it.
  */
 export default class TemplateData {
   static async resolve(
     fields: TemplateField[],
     customer: Customer,
     input: Record<string, unknown>,
-    i18n: I18n
-  ) {
+    i18n: I18n,
+    options: ResolveOptions = {}
+  ): Promise<{
+    values: Record<string, string>
+    tables: Record<string, TableData>
+    records: ChosenRecords
+    recipient: Recipient
+  }> {
     const errors: Record<string, string> = {}
     const values: Record<string, string> = {}
     const tables: Record<string, TableData> = {}
@@ -75,11 +109,13 @@ export default class TemplateData {
       }
     }
 
-    // The Site first: Installed Equipment is chosen from it
-    const ordered = [...fields].sort(
-      (a, b) => Number(a.type === 'equipment') - Number(b.type === 'equipment')
-    )
+    const ordered = [...fields].sort((a, b) => checkOrder(a) - checkOrder(b))
+    const records: ChosenRecords = { siteId: null, equipmentId: null, jobId: null }
     let site: Site | null = null
+    // Archived Items are chosen only when the Job used them, or the original
+    // of a replacement already had them
+    const archivedAllowed = new Set(options.archivedItemIds ?? [])
+    const choosable = (item: Item) => !item.archivedAt || archivedAllowed.has(item.id)
 
     for (const field of ordered) {
       const value = own(input, field.key)
@@ -121,6 +157,7 @@ export default class TemplateData {
             break
           }
           site = found
+          records.siteId = found.id
           set(field, found.summary, { address: found.address, city: found.city })
           break
         }
@@ -140,6 +177,7 @@ export default class TemplateData {
             fail(field, 'equipment')
             break
           }
+          records.equipmentId = equipment.id
           set(field, equipment.description, {
             make: equipment.make ?? '',
             model: equipment.model ?? '',
@@ -154,12 +192,20 @@ export default class TemplateData {
             fail(field, 'job')
             break
           }
+          // A Job at another Site would pair its work with the wrong place
+          if (site && job.siteId !== null && job.siteId !== site.id) {
+            fail(field, 'jobSite')
+            break
+          }
+          records.jobId = job.id
+          for (const used of await this.itemsUsed(job)) archivedAllowed.add(used.id)
           set(field, `${job.number} – ${job.title}`, { number: job.number, title: job.title })
           break
         }
         case 'item': {
           const item = isId(value) ? await Item.find(value) : null
           if (!item) fail(field, 'item')
+          else if (!choosable(item)) fail(field, 'archivedItem')
           else set(field, item.description, { code: item.code, description: item.description })
           break
         }
@@ -168,6 +214,10 @@ export default class TemplateData {
           const items = ids ? await Item.findMany(ids) : []
           if (!ids || ids.length > MAX_ROWS || new Set(ids).size !== items.length) {
             fail(field, 'item')
+            break
+          }
+          if (!items.every(choosable)) {
+            fail(field, 'archivedItem')
             break
           }
           const byId = new Map(items.map((item) => [item.id, item]))
@@ -189,7 +239,7 @@ export default class TemplateData {
     values['company.name'] = settings.name ?? ''
     values['recipient.name'] = customer.displayName
     values['today'] = formatDate(todayIso())
-    return { values, tables }
+    return { values, tables, records, recipient: customer.toRecipient() }
   }
 
   /**

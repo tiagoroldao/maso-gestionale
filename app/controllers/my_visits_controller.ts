@@ -6,6 +6,7 @@ import Visit from '#models/visit'
 import VisitPhoto from '#models/visit_photo'
 import VisitNote from '#models/visit_note'
 import Charge from '#models/charge'
+import IssuedDocument from '#models/issued_document'
 import LabourRate from '#models/labour_rate'
 import FieldWork, { CLOSED_VISIT_STATUSES, FieldWorkRefusedError } from '#services/field_work'
 import { localDateTime } from '#services/dates'
@@ -70,6 +71,17 @@ export default class MyVisitsController {
       .from('visit_serviced_equipment')
       .where('visit_id', visit.id)
       .select('installed_equipment_id')
+    // The Site's Issued Documents still in force (replaced ones are not)
+    const issued = job.site
+      ? await IssuedDocument.query()
+          .where('siteId', job.site.id)
+          .whereNull('replacedById')
+          .preload('version')
+          .orderBy([
+            { column: 'issuedOn', order: 'desc' },
+            { column: 'id', order: 'desc' },
+          ])
+      : []
     return inertia.render('field/show', {
       visit: {
         id: visit.id,
@@ -128,6 +140,12 @@ export default class MyVisitsController {
         createdAt: localDateTime(note.createdAt),
       })),
       photos: visit.photos.map((photo) => ({ id: photo.id })),
+      issuedDocuments: issued.map((document) => ({
+        id: document.id,
+        title: document.version.name,
+        number: document.number,
+        issuedOn: document.issuedOn.toISODate()!,
+      })),
     })
   }
 
