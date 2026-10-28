@@ -12,6 +12,9 @@
 </style>
 
 <p>{{ t('documents.quote.issuedOn', { date: issuedOn }) }}<br />{{ t('documents.quote.subject', { title: job.title }) }}</p>
+@if(validUntil)
+  <p>{{ t('documents.quote.validUntil', { date: validUntil }) }}</p>
+@end
 
 <table class="quote-lines">
   <thead>

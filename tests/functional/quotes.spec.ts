@@ -8,6 +8,14 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import i18nManager from '@adonisjs/i18n/services/main'
+import DocumentRenderer from '#documents/document_renderer'
+import { quoteDocument } from '#documents/quote_document'
+import type { PdfConverter } from '#documents/pdf_converter'
+
+const noConverter: PdfConverter = {
+  convert: () => Promise.reject(new Error('renderHtml must not convert')),
+}
 
 // The standard 22% code, looked up by setup() for quoteLines()
 let standardVat = 0
@@ -487,5 +495,106 @@ test.group('Rates', () => {
     const office = await createUser('office')
     const response = await client.get('/settings/rates').withInertia().loginAs(office)
     response.assertStatus(403)
+  })
+})
+
+test.group('Quote dates and validity', () => {
+  test('saving dates the draft; deciding leaves the date alone', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ validityDays: 30, lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.equal(quote.issuedOn?.toISODate(), DateTime.now().toISODate())
+    assert.equal(quote.validityDays, 30)
+
+    // Issued some days ago, decided today: the date doesn't move
+    const issued = DateTime.now().minus({ days: 5 }).startOf('day')
+    quote.issuedOn = issued
+    await quote.save()
+    await client.post(`/jobs/${job.id}/quote/accept`).withCsrfToken().loginAs(office)
+    await quote.refresh()
+    assert.equal(quote.status, 'accepted')
+    assert.equal(quote.issuedOn?.toISODate(), issued.toISODate())
+  })
+
+  test('declining leaves the date alone too', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    const issued = DateTime.now().minus({ days: 3 }).startOf('day')
+    await Quote.query().where('jobId', job.id).update({ issued_on: issued.toISODate() })
+
+    await client.post(`/jobs/${job.id}/quote/decline`).withCsrfToken().loginAs(office)
+
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.equal(quote.status, 'declined')
+    assert.equal(quote.issuedOn?.toISODate(), issued.toISODate())
+  })
+
+  test('the validity is optional and between 1 and 365 days', async ({ client, assert }) => {
+    const { office, job, item, rate } = await setup()
+
+    const refused = await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ validityDays: 0, lines: quoteLines(item.id, rate.id) })
+      .header('referer', `/jobs/${job.id}/quote`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(refused.flashMessage('inputErrorsBag'), ['validityDays'])
+    assert.isNull(await Quote.findBy('jobId', job.id))
+
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.isNull(quote.validityDays)
+  })
+
+  test('the document shows the issue date, the validity, the VAT summary and legal notes', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, item, rate } = await setup()
+    const reverse = await vatCode('Inversione contabile – impianti su edifici')
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({
+        validityDays: 30,
+        lines: [
+          ...quoteLines(item.id, rate.id).slice(0, 1),
+          {
+            kind: 'labour',
+            labourRateId: rate.id,
+            description: 'Posa',
+            quantity: '1',
+            unitPrice: '100',
+            vatCodeId: reverse.id,
+          },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+    const issued = DateTime.fromISO('2026-03-02')
+    await Quote.query().where('jobId', job.id).update({ issued_on: issued.toISODate() })
+
+    await job.load('customer')
+    await job.load('quote', (q) => q.preload('lines', (l) => l.orderBy('position')))
+    const input = await quoteDocument(job, job.quote, i18nManager.locale('it'))
+    const html = await new DocumentRenderer(noConverter).renderHtml(input)
+
+    assert.include(html, it('documents.quote.issuedOn', { date: '02/03/2026' }))
+    assert.include(html, '01/04/2026')
+    assert.include(html, 'N6.7')
+    assert.include(html, 'inversione contabile')
+    assert.include(html, it('documents.quote.total'))
   })
 })

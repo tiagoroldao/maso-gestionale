@@ -1,4 +1,3 @@
-import edge from 'edge.js'
 import Job from '#models/job'
 import Quote from '#models/quote'
 import QuoteLine from '#models/quote_line'
@@ -7,6 +6,7 @@ import VatCode from '#models/vat_code'
 import CompanySettings from '#models/company_settings'
 import Quotes, { QuoteNotEditableError } from '#services/quotes'
 import DocumentRenderer from '#documents/document_renderer'
+import { quoteDocument } from '#documents/quote_document'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { quoteValidator } from '#validators/quote'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -18,14 +18,6 @@ async function loadJob(id: number) {
     .preload('quote', (quote) => quote.preload('lines', (lines) => lines.orderBy('position')))
     .firstOrFail()
 }
-
-const euro = new Intl.NumberFormat('it-IT', {
-  style: 'currency',
-  currency: 'EUR',
-  useGrouping: 'always',
-  maximumFractionDigits: 4,
-})
-const quantityFormat = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 })
 
 /**
  * Active VAT Codes, plus any the Quote's lines already use.
@@ -44,9 +36,6 @@ async function vatCodeOptions(used: number[]) {
     natura: code.natura,
   }))
 }
-
-const vatLabel = (rate: string, natura: string | null) =>
-  natura ?? `${Number(rate).toLocaleString('it-IT')}%`
 
 /**
  * A Job's Quote: written by Office, then accepted or declined.
@@ -71,6 +60,8 @@ export default class QuotesController {
         ? {
             status: quote.status,
             notes: quote.notes,
+            validityDays: quote.validityDays,
+            issuedOn: quote.issuedOn?.toISODate() ?? null,
             totals: quote.totals,
             lines: quote.lines.map((line) => ({
               vatCodeId: line.vatCodeId,
@@ -114,7 +105,11 @@ export default class QuotesController {
     })
 
     try {
-      await Quotes.save(job, { notes: data.notes ?? null, lines: data.lines })
+      await Quotes.save(job, {
+        notes: data.notes ?? null,
+        validityDays: data.validityDays ?? null,
+        lines: data.lines,
+      })
     } catch (error) {
       if (!(error instanceof QuoteNotEditableError)) throw error
       session.flash('error', i18n.t('flash.quoteNotEditable'))
@@ -138,37 +133,8 @@ export default class QuotesController {
     const quote = job.quote
     if (!quote) return response.notFound()
 
-    const bodyHtml = await edge.render('documents/quote_body', {
-      job: { number: job.number, title: job.title },
-      issuedOn: (quote.updatedAt ?? quote.createdAt).toFormat('dd/MM/yyyy'),
-      notes: quote.notes,
-      taxable: euro.format(quote.totals.taxable as unknown as number),
-      vat: euro.format(quote.totals.vat as unknown as number),
-      total: euro.format(quote.totals.total as unknown as number),
-      summary: quote.totals.summary.map((row) => ({
-        vat: vatLabel(row.vatRate, row.natura),
-        taxable: euro.format(row.taxable as unknown as number),
-        vatAmount: euro.format(row.vat as unknown as number),
-      })),
-      legalNotes: [...new Set(quote.lines.flatMap((line) => line.legalNote ?? []))],
-      lines: quote.lines.map((line) => ({
-        kind: line.kind,
-        description: line.description,
-        quantity: line.quantity ? quantityFormat.format(line.quantity as unknown as number) : '',
-        unit: line.unit ?? '',
-        unitPrice: line.unitPrice ? euro.format(line.unitPrice as unknown as number) : '',
-        lineTotal: line.lineTotal ? euro.format(line.lineTotal as unknown as number) : '',
-        vat: line.vatRate !== null ? vatLabel(line.vatRate, line.natura) : '',
-      })),
-      t: (key: string, data?: Record<string, unknown>) => i18n.t(key, data),
-    })
-
     try {
-      const pdf = await new DocumentRenderer().renderPdf({
-        title: i18n.t('documents.quote.title', { number: job.number }),
-        recipient: job.customer.toRecipient(),
-        bodyHtml,
-      })
+      const pdf = await new DocumentRenderer().renderPdf(await quoteDocument(job, quote, i18n))
       response.header('content-type', 'application/pdf')
       response.header(
         'content-disposition',

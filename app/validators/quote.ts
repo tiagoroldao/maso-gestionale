@@ -16,6 +16,7 @@ export const quoteValidator = vine
   .withMetaData<{ itemIds: number[]; labourRateIds: number[]; vatCodeIds: number[] }>()
   .create({
     notes: vine.string().trim().maxLength(5000).optional(),
+    validityDays: vine.number().withoutDecimals().min(1).max(365).optional(),
     lines: vine
       .array(
         vine.object({

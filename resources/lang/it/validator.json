@@ -128,6 +128,7 @@
       "discountPercent": "sconto",
       "nextNumber": "prossimo numero",
       "paymentMethod": "modalità di pagamento",
+      "validityDays": "validità",
       "reaOffice": "ufficio REA",
       "reaNumber": "numero REA",
       "shareCapital": "capitale sociale",
