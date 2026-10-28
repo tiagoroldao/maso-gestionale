@@ -869,6 +869,9 @@ input {
 [data-sonner-toaster] [data-sonner-toast][data-type='error'] [data-icon] {
   color: #c0392b;
 }
+[data-sonner-toaster] [data-sonner-toast][data-type='warning'] [data-icon] {
+  color: #b7791f;
+}
 :root[data-theme='dark'] [data-sonner-toaster] [data-sonner-toast][data-type='error'] [data-icon] {
   color: #e0685c;
 }

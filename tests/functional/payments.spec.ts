@@ -1,18 +1,22 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import type { ApiClient } from '@japa/api-client'
 import type Customer from '#models/customer'
+import type User from '#models/user'
 import Invoice from '#models/invoice'
 import Payment from '#models/payment'
 import Visit from '#models/visit'
+import StockMovement from '#models/stock_movement'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
 import Submissions from '#services/submissions'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
-import { vatCode } from '#tests/helpers/items'
+import { createItem, vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { formatMoney } from '#shared/money'
+import { formatDate } from '#shared/dates'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
@@ -28,6 +32,40 @@ async function issued(customer?: Customer, jobId?: number) {
   await Invoices.finalise(invoice)
   await invoice.refresh()
   return invoice
+}
+
+/**
+ * Posts a Payment (a refund when negative) as `user`.
+ */
+function pay(
+  client: ApiClient,
+  invoice: Invoice,
+  user: User,
+  amount: string,
+  paidOn = DateTime.now().toISODate()!
+) {
+  return client
+    .post(`/invoices/${invoice.id}/payments`)
+    .form({ amount, paidOn })
+    .header('referer', `/invoices/${invoice.id}/edit`)
+    .withCsrfToken()
+    .loginAs(user)
+    .redirects(0)
+}
+
+/**
+ * The amounts of the Invoice's Payments, in the order recorded.
+ */
+async function amountsOf(invoice: Invoice) {
+  const payments = await Payment.query().where('invoiceId', invoice.id).orderBy('id')
+  return payments.map((payment) => payment.amount)
+}
+
+/**
+ * The warning shown for a Payment recorded with these `parts`.
+ */
+function warned(...parts: string[]) {
+  return [it('flash.paymentWarning.recorded'), ...parts].join(' ')
 }
 
 test.group('Payments', () => {
@@ -51,17 +89,22 @@ test.group('Payments', () => {
       if (amount === '50') {
         const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
         page.assertInertiaPropsContains({
-          paymentSummary: { status: 'partly_paid', paid: '50.00', outstanding: '72.00' },
+          paymentSummary: {
+            status: 'partly_paid',
+            paid: '50.00',
+            owed: '72.00',
+            overpaidBy: null,
+          },
         })
       }
     }
 
     const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ paymentSummary: { status: 'paid', outstanding: '0.00' } })
+    page.assertInertiaPropsContains({ paymentSummary: { status: 'paid', owed: '0.00' } })
     assert.lengthOf(await Payment.query().where('invoiceId', invoice.id), 2)
   })
 
-  test('drafts and amounts above what is owed are refused; a Payment can be removed', async ({
+  test('a Payment on a draft and an amount of zero are refused; a Payment can be removed', async ({
     client,
     assert,
   }) => {
@@ -69,35 +112,125 @@ test.group('Payments', () => {
     await completeCompany()
     const draft = await Invoices.create(await createCustomer())
     const invoice = await issued()
-    const today = DateTime.now().toISODate()!
 
-    const onDraft = await client
-      .post(`/invoices/${draft.id}/payments`)
-      .form({ amount: '10', paidOn: today })
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    onDraft.assertFlashMessage('error', it('flash.paymentRefused.draft'))
-    const tooMuch = await client
-      .post(`/invoices/${invoice.id}/payments`)
-      .form({ amount: '122,01', paidOn: today })
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    tooMuch.assertFlashMessage('error', it('flash.paymentRefused.tooMuch'))
-    const zero = await client
-      .post(`/invoices/${invoice.id}/payments`)
-      .form({ amount: '0', paidOn: today })
-      .header('referer', `/invoices/${invoice.id}/edit`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    assert.properties(zero.flashMessage('inputErrorsBag'), ['amount'])
+    const onDraft = await pay(client, draft, office, '10')
+    onDraft.assertFlashMessage('error', it('flash.paymentRefused'))
+    const refundOnDraft = await pay(client, draft, office, '-10')
+    refundOnDraft.assertFlashMessage('error', it('flash.paymentRefused'))
+    for (const amount of ['0', '-0,00']) {
+      const zero = await pay(client, invoice, office, amount)
+      assert.deepEqual(zero.flashMessage('inputErrorsBag'), {
+        amount: [it('validator.shared.messages.amount.nonZero', { field: 'importo' })],
+      })
+    }
     assert.lengthOf(await Payment.all(), 0)
 
-    const payment = await Payments.record(invoice, { amount: '22.00', paidOn: DateTime.now() })
+    const { payment } = await Payments.record(invoice, { amount: '22.00', paidOn: DateTime.now() })
     await client.delete(`/payments/${payment.id}`).withCsrfToken().loginAs(office)
     assert.lengthOf(await Payment.all(), 0)
+  })
+
+  test('a Payment above what is owed is recorded with a warning; the Invoice is overpaid', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+
+    const exact = await pay(client, invoice, office, '100')
+    exact.assertFlashMessage('success', it('flash.paymentRecorded'))
+    // 22.00 were left: 32,50 overpays by 10.50
+    const over = await pay(client, invoice, office, '32,50')
+    over.assertFlashMessage(
+      'warning',
+      warned(it('flash.paymentWarning.overpaid', { amount: formatMoney('10.50') }))
+    )
+    assert.include(it('flash.paymentWarning.overpaid', { amount: formatMoney('10.50') }), '10,50')
+    assert.deepEqual(await amountsOf(invoice), ['100.00', '32.50'])
+
+    const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      paymentSummary: { status: 'overpaid', paid: '132.50', owed: '-10.50', overpaidBy: '10.50' },
+    })
+    // Another Payment on an overpaid Invoice is warned about too
+    const again = await pay(client, invoice, office, '1')
+    again.assertFlashMessage(
+      'warning',
+      warned(it('flash.paymentWarning.overpaid', { amount: formatMoney('11.50') }))
+    )
+  })
+
+  test('a refund is a negative Payment, warned about beyond what was overpaid', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+    await Payments.record(invoice, { amount: '142', paidOn: DateTime.now() })
+
+    // 20.00 overpaid: refunding 15 is within it, and the Invoice stays overpaid
+    const within = await pay(client, invoice, office, '-15')
+    within.assertFlashMessage('success', it('flash.paymentRecorded'))
+    // 5.00 left overpaid: refunding 8 gives back 3.00 too many
+    const beyond = await pay(client, invoice, office, '-8,00')
+    beyond.assertFlashMessage(
+      'warning',
+      warned(it('flash.paymentWarning.refundBeyondOverpaid', { amount: formatMoney('3.00') }))
+    )
+    assert.deepEqual(await amountsOf(invoice), ['142.00', '-15.00', '-8.00'])
+    const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      paymentSummary: { status: 'partly_paid', paid: '119.00', owed: '3.00', overpaidBy: null },
+    })
+
+    // Settled again; a refund on a settled Invoice is beyond what was overpaid
+    const back = await pay(client, invoice, office, '3')
+    back.assertFlashMessage('success', it('flash.paymentRecorded'))
+    const settled = await pay(client, invoice, office, '-1')
+    settled.assertFlashMessage(
+      'warning',
+      warned(it('flash.paymentWarning.refundBeyondOverpaid', { amount: formatMoney('1.00') }))
+    )
+  })
+
+  test('a Payment dated before the Invoice is recorded with a warning', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+    const issuedOn = invoice.issuedOn!.toISODate()!
+    const before = invoice.issuedOn!.minus({ days: 3 }).toISODate()!
+
+    const early = await pay(client, invoice, office, '50', before)
+    early.assertFlashMessage(
+      'warning',
+      warned(it('flash.paymentWarning.beforeIssued', { date: formatDate(issuedOn) }))
+    )
+    // Both warnings when it also overpays
+    const both = await pay(client, invoice, office, '80', before)
+    both.assertFlashMessage(
+      'warning',
+      warned(
+        it('flash.paymentWarning.overpaid', { amount: formatMoney('8.00') }),
+        it('flash.paymentWarning.beforeIssued', { date: formatDate(issuedOn) })
+      )
+    )
+    // On the day it was issued, no warning
+    const sameDay = await pay(client, invoice, office, '-8', issuedOn)
+    sameDay.assertFlashMessage('success', it('flash.paymentRecorded'))
+    const payments = await Payment.query().where('invoiceId', invoice.id).orderBy('id')
+    assert.deepEqual(
+      payments.map((p) => [p.amount, p.paidOn.toISODate()]),
+      [
+        ['50.00', before],
+        ['80.00', before],
+        ['-8.00', issuedOn],
+      ]
+    )
   })
 
   test('the overdue list and the Customer balance', async ({ client, assert }) => {
@@ -107,10 +240,12 @@ test.group('Payments', () => {
     const late = await issued(customer)
     const current = await issued(customer)
     const settled = await issued(customer)
+    const overpaid = await issued(customer)
     await Payments.record(settled, { amount: '122', paidOn: DateTime.now() })
     await Payments.record(current, { amount: '22', paidOn: DateTime.now() })
-    // Due dates in the past for two of them
-    for (const invoice of [late, settled]) {
+    await Payments.record(overpaid, { amount: '130', paidOn: DateTime.now() })
+    // Due dates in the past for three of them: an overpaid one isn't overdue
+    for (const invoice of [late, settled, overpaid]) {
       await Invoice.query()
         .where('id', invoice.id)
         .update({ due_on: DateTime.now().minus({ days: 3 }).toISODate() })
@@ -128,9 +263,37 @@ test.group('Payments', () => {
       ]),
       [[late.id, 'overdue']]
     )
+    // The filter (SQL) and the status shown (TypeScript) agree
+    const overpaidList = await client
+      .get('/invoices')
+      .qs({ stage: 'overpaid' })
+      .withInertia()
+      .loginAs(office)
+    assert.deepEqual(
+      (overpaidList.inertiaProps.invoices as { id: number; payment: string }[]).map((i) => [
+        i.id,
+        i.payment,
+      ]),
+      [[overpaid.id, 'overpaid']]
+    )
+    const all = await client.get('/invoices').withInertia().loginAs(office)
+    assert.sameDeepMembers(
+      (all.inertiaProps.invoices as { id: number; payment: string }[])
+        .filter((i) => ['overdue', 'overpaid'].includes(i.payment))
+        .map((i) => [i.id, i.payment]),
+      [
+        [late.id, 'overdue'],
+        [overpaid.id, 'overpaid'],
+      ]
+    )
+
     const page = await client.get(`/customers/${customer.id}`).withInertia().loginAs(office)
-    // 122 (late) + 100 (current, 22 paid)
-    page.assertInertiaPropsContains({ balance: '222.00' })
+    // 122 (late) + 100 (current, 22 paid); the overpaid one is flagged,
+    // not set against them
+    page.assertInertiaPropsContains({
+      balance: '222.00',
+      overpaid: [{ id: overpaid.id, number: overpaid.formattedNumber, overpaidBy: '8.00' }],
+    })
   })
 
   test('a corrected rejected Invoice keeps its total in step with its lines', async ({
@@ -153,7 +316,7 @@ test.group('Payments', () => {
     assert.equal(invoice.total, '244.00')
   })
 
-  test('a correction can not bring the total below what is already paid', async ({
+  test('a correction below what is already paid is saved with a warning; the Invoice is overpaid', async ({
     client,
     assert,
   }) => {
@@ -165,6 +328,19 @@ test.group('Payments', () => {
     await Submissions.confirm(invoice, 'Sconto')
     await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
     const standard = await vatCode()
+
+    // Exactly what was paid: 81.97 + 22% = 100.00
+    const exact = await client
+      .put(`/invoices/${invoice.id}`)
+      .json({
+        lines: [
+          { description: 'Intervento', quantity: '1', unitPrice: '81,97', vatCodeId: standard.id },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    exact.assertFlashMessage('success', it('flash.invoiceSaved'))
 
     // 50 + 22% = 61.00, below the 100.00 paid
     const response = await client
@@ -178,30 +354,63 @@ test.group('Payments', () => {
       .loginAs(office)
       .redirects(0)
     response.assertFlashMessage(
-      'error',
+      'warning',
       it('flash.invoiceBelowPaid', { paid: formatMoney('100.00') })
     )
     // The literal amount, so a broken formatter can't pass unnoticed
     assert.include(it('flash.invoiceBelowPaid', { paid: formatMoney('100.00') }), '100,00')
     await invoice.refresh()
-    assert.equal(invoice.total, '122.00')
+    assert.equal(invoice.total, '61.00')
     await invoice.load('lines')
-    assert.equal(invoice.lines[0].unitPrice, '100.0000')
+    assert.equal(invoice.lines[0].unitPrice, '50.0000')
+    const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({
+      paymentSummary: { status: 'overpaid', owed: '-39.00', overpaidBy: '39.00' },
+    })
+  })
 
-    // Exactly what was paid is fine: 81.97 + 22% = 100.00
-    const saved = await client
+  test('a correction below what is paid still rebooks its Items in stock', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const item = await createItem({ code: 'RUB-1' })
+    const standard = await vatCode()
+    const invoice = await Invoices.create(await createCustomer())
+    const line = {
+      itemId: item.id,
+      description: 'Rubinetto',
+      unitPrice: '50',
+      vatCodeId: standard.id,
+    }
+    await Invoices.save(invoice, { lines: [{ ...line, quantity: '2' }] })
+    await Invoices.finalise(invoice)
+    await invoice.refresh()
+    // 122.00 paid in full
+    await Payments.record(invoice, { amount: invoice.total!, paidOn: DateTime.now() })
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
+
+    const response = await client
       .put(`/invoices/${invoice.id}`)
-      .json({
-        lines: [
-          { description: 'Intervento', quantity: '1', unitPrice: '81,97', vatCodeId: standard.id },
-        ],
-      })
+      .json({ lines: [{ ...line, quantity: '1' }] })
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    saved.assertFlashMessage('success', it('flash.invoiceSaved'))
-    await invoice.refresh()
-    assert.equal(invoice.total, '100.00')
+    response.assertFlashMessage(
+      'warning',
+      it('flash.invoiceBelowPaid', { paid: formatMoney('122.00') })
+    )
+    const movements = await StockMovement.query().where('itemId', item.id).orderBy('id')
+    assert.deepEqual(
+      movements.map((m) => [m.kind, m.quantity]),
+      [
+        ['sale', '-2.000'],
+        ['adjustment', '1.000'],
+      ]
+    )
   })
 
   test('Jobs become Invoiced, then Closed; the lists and archiving follow', async ({
@@ -234,7 +443,19 @@ test.group('Payments', () => {
       .redirects(0)
     archive.assertFlashMessage('error', it('flash.hasOpenJobs'))
 
-    await Payments.record(invoice, { amount: '122', paidOn: DateTime.now() })
+    // Overpaid isn't settled: still Invoiced, as the status shown says
+    await Payments.record(invoice, { amount: '130', paidOn: DateTime.now() })
+    assert.deepEqual(await ids('invoiced'), [[job.id, 'invoiced']])
+    assert.deepEqual(await ids('closed'), [])
+    const notYet = await client
+      .post(`/customers/${customer.id}/archive`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    notYet.assertFlashMessage('error', it('flash.hasOpenJobs'))
+
+    // Refunding what was overpaid settles it
+    await Payments.record(invoice, { amount: '-8', paidOn: DateTime.now() })
     assert.deepEqual(await ids('closed'), [[job.id, 'closed']])
     // The active list leaves Closed Jobs out
     assert.deepEqual(await ids(), [])
@@ -290,13 +511,16 @@ test.group('Payments', () => {
   }) => {
     await completeCompany()
     const invoice = await issued()
-    const payment = await Payments.record(invoice, { amount: '10', paidOn: DateTime.now() })
+    const { payment } = await Payments.record(invoice, { amount: '10', paidOn: DateTime.now() })
     for (const role of ['technician', 'superuser'] as const) {
       const user = await createUser(role)
+      // A Payment, one that overpays, and a refund
       for (const request of [
-        client
-          .post(`/invoices/${invoice.id}/payments`)
-          .form({ amount: '5', paidOn: DateTime.now().toISODate()! }),
+        ...['5', '500', '-5'].map((amount) =>
+          client
+            .post(`/invoices/${invoice.id}/payments`)
+            .form({ amount, paidOn: DateTime.now().toISODate()! })
+        ),
         client.delete(`/payments/${payment.id}`),
       ]) {
         const response = await request
@@ -306,7 +530,36 @@ test.group('Payments', () => {
           .redirects(0)
         response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
       }
+      // Nor see the overpaid list
+      const list = await client
+        .get('/invoices')
+        .qs({ stage: 'overpaid' })
+        .withInertia()
+        .loginAs(user)
+      list.assertStatus(403)
     }
     assert.lengthOf(await Payment.all(), 1)
+  })
+
+  test('Admins record Payments, overpayments and refunds too', async ({ client, assert }) => {
+    const admin = await createUser('admin')
+    await completeCompany()
+    const invoice = await issued()
+    const paid = await pay(client, invoice, admin, '100')
+    paid.assertFlashMessage('success', it('flash.paymentRecorded'))
+    const over = await pay(client, invoice, admin, '30')
+    over.assertFlashMessage(
+      'warning',
+      warned(it('flash.paymentWarning.overpaid', { amount: formatMoney('8.00') }))
+    )
+    const overpaid = await client
+      .get('/invoices')
+      .qs({ stage: 'overpaid' })
+      .withInertia()
+      .loginAs(admin)
+    overpaid.assertInertiaPropsContains({ invoices: [{ id: invoice.id, payment: 'overpaid' }] })
+    const refund = await pay(client, invoice, admin, '-8')
+    refund.assertFlashMessage('success', it('flash.paymentRecorded'))
+    assert.lengthOf(await Payment.query().where('invoiceId', invoice.id), 3)
   })
 })

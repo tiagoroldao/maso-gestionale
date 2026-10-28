@@ -18,12 +18,14 @@ import StockLedger from '#stock/stock_ledger'
 import VatDefaults from '#services/vat_defaults'
 import { ADVANCE_DEDUCTED_SQL } from '#services/job_status'
 import Charges from '#services/charges'
+import Payments from '#services/payments'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { lineTotal, splitAmount } from '#shared/money'
 import { advanceLeft, deductionRows } from '#shared/advances'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
+import { owed } from '#shared/payment_status'
 import {
   canTransition,
   isDeletable,
@@ -37,16 +39,6 @@ import {
  * Invoices are edited, only drafts deleted or finalised.
  */
 export class InvoiceNotEditableError extends Error {}
-
-/**
- * The correction would bring the Invoice's total below what has already
- * been paid on it.
- */
-export class InvoiceBelowPaidError extends Error {
-  constructor(readonly paid: string) {
-    super(paid)
-  }
-}
 
 /**
  * Serialises finalising across years, so the issue date and the year's
@@ -448,7 +440,9 @@ export default class Invoices {
    * the Charges they bill (see relink); deduction lines follow what the
    * Invoice takes back of each advance (see deduct). A rejected Invoice
    * already took its Items off stock, so the difference is booked in the
-   * stock.
+   * stock. A correction below what has been paid is saved and the Invoice
+   * becomes overpaid (ADR 0014): `belowPaid` then holds what was paid, to
+   * warn about it.
    */
   static async save(
     invoice: Invoice,
@@ -460,8 +454,9 @@ export default class Invoices {
       deductions?: Deduction[]
     },
     user: User | null = null
-  ) {
-    await this.whileIn(isEditable, invoice, async (trx, locked) => {
+  ): Promise<{ belowPaid: string | null }> {
+    return this.whileIn(isEditable, invoice, async (trx, locked) => {
+      let belowPaid: string | null = null
       // A prepared Submission's file may already be on SDI: no changes under it
       const open = await trx
         .from('invoice_submissions')
@@ -598,19 +593,17 @@ export default class Invoices {
             throw new InvoiceNotFinalisableError('belowDeducted')
           }
         }
-        // Payments are recorded with this Invoice locked: the sum is current
-        const paid = await trx
-          .from('payments')
-          .where('invoice_id', locked.id)
-          .sum('amount as paid')
-          .first()
-        if (new Big(locked.total).lt(paid?.paid ?? 0)) throw new InvoiceBelowPaidError(paid.paid)
+        // Payments are recorded with this Invoice locked: the sum is current.
+        // Below it, the Invoice is overpaid: warned about, not refused
+        const paid = await Payments.paid(trx, locked.id)
+        if (new Big(owed({ total: locked.total, paid })).lt(0)) belowPaid = paid
         await locked.save()
       }
 
       if (soldBefore) {
         await this.rebookSale(trx, locked, soldBefore, await this.itemsSold(trx, locked.id), user)
       }
+      return { belowPaid }
     })
   }
 

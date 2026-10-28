@@ -38,6 +38,7 @@
       "fields.distinct": "Due campi hanno lo stesso codice",
       "templateBody": "Il testo contiene elementi non ammessi o dati che il modello non prevede",
       "amount.positive": "Il campo {field} deve essere maggiore di zero",
+      "amount.nonZero": "Il campo {field} non può essere zero",
       "quantity": "Il campo {field} deve essere una quantità valida",
       "attachment.file.extname": "Il documento deve essere un PDF o un'immagine (JPEG, PNG o WebP)",
       "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}} per {field}",

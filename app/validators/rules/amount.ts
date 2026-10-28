@@ -2,12 +2,19 @@ import vine from '@vinejs/vine'
 import type { FieldContext } from '@vinejs/vine/types'
 import { parseAmount } from '#shared/money'
 
-type Options = { decimals: number; max: string; positive?: boolean; signed?: boolean }
+type Options = {
+  decimals: number
+  max: string
+  positive?: boolean
+  signed?: boolean
+  nonZero?: boolean
+}
 
 /**
  * A decimal amount typed with a comma or a dot ("12,50"), stored as a
  * fixed-decimal string ("12.5000") (ADR 0007): non-negative, above zero
- * with `positive`, or of either sign within ±max with `signed`.
+ * with `positive`, or of either sign within ±max with `signed` (and not
+ * zero with `nonZero`).
  */
 export const amountRule = vine.createRule(
   (value: unknown, options: Options, field: FieldContext) => {
@@ -25,6 +32,10 @@ export const amountRule = vine.createRule(
     }
     if (options.positive && amount.eq(0)) {
       field.report('The {{ field }} field must be above zero', 'amount.positive', field)
+      return
+    }
+    if (options.nonZero && amount.eq(0)) {
+      field.report('The {{ field }} field must not be zero', 'amount.nonZero', field)
       return
     }
     field.mutate(amount.toFixed(options.decimals), field)

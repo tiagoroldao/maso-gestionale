@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
-import { outstanding, paymentStatus } from '#shared/payment_status'
+import { isSettled, overpaidBy, owed, paymentStatus } from '#shared/payment_status'
 import { deriveJobStatus } from '#services/job_status'
 
 const due = '2026-11-30'
@@ -17,8 +17,23 @@ test.group('Payment status', () => {
     assert.equal(status('0', '2026-12-01'), 'overdue')
     assert.equal(status('40', '2026-12-01'), 'overdue')
     assert.equal(status('100', '2026-12-01'), 'paid')
-    assert.equal(outstanding('100.00', '40'), '60.00')
-    assert.equal(outstanding('100.00', '120'), '0.00')
+    assert.equal(owed({ total: '100.00', paid: '40' }), '60.00')
+  })
+
+  test('paid beyond the total is overpaid, whatever the due date', ({ assert }) => {
+    assert.equal(status('100.01', '2026-11-01'), 'overpaid')
+    assert.equal(status('120', '2026-12-01'), 'overpaid')
+    // What is owed goes below zero; refunds bring it back
+    assert.equal(owed({ total: '100.00', paid: '120' }), '-20.00')
+    assert.equal(overpaidBy({ total: '100.00', paid: '120' }), '20.00')
+    assert.isNull(overpaidBy({ total: '100.00', paid: '100' }))
+    assert.equal(status('-10', '2026-11-01'), 'unpaid')
+  })
+
+  test('only exactly what is owed settles an Invoice', ({ assert }) => {
+    assert.isTrue(isSettled({ total: '100.00', paid: '100' }))
+    assert.isFalse(isSettled({ total: '100.00', paid: '99.99' }))
+    assert.isFalse(isSettled({ total: '100.00', paid: '100.01' }))
   })
 })
 
@@ -27,7 +42,7 @@ test.group('Job status from Invoices', () => {
     { status: 'done' as const, startsAt: DateTime.fromISO('2026-10-01'), survey: false },
   ]
 
-  test('Invoiced once an Invoice is past draft; Closed when all are paid', ({ assert }) => {
+  test('Invoiced once an Invoice is past draft; Closed when all are settled', ({ assert }) => {
     const issued = (paid: string) => ({ status: 'finalised', total: '100.00', paid })
     assert.equal(
       deriveJobStatus('in_progress', done, [{ status: 'draft', total: null, paid: '0' }]),
@@ -37,5 +52,7 @@ test.group('Job status from Invoices', () => {
     assert.equal(deriveJobStatus('in_progress', done, [issued('100')]), 'closed')
     assert.equal(deriveJobStatus('accepted', [], [issued('100'), issued('40')]), 'invoiced')
     assert.equal(deriveJobStatus('cancelled', done, [issued('100')]), 'cancelled')
+    // An overpaid Invoice isn't settled
+    assert.equal(deriveJobStatus('in_progress', done, [issued('100.01')]), 'invoiced')
   })
 })

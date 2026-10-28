@@ -1,12 +1,12 @@
-import Big from 'big.js'
 import type { DateTime } from 'luxon'
 import type { JobStatus } from '#models/job'
 import type { VisitStatus } from '#models/visit'
+import { isSettled } from '#shared/payment_status'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
  * The status shown for a Job: the stored status, refined from its Visits
- * (Work Complete) and its Invoices (Invoiced, then Closed once paid).
+ * (Work Complete) and its Invoices (Invoiced, then Closed once settled).
  */
 export type DisplayedJobStatus = JobStatus | 'work_complete' | 'invoiced' | 'closed'
 
@@ -36,11 +36,14 @@ export function deriveJobStatus(
 ): DisplayedJobStatus {
   if (stored === 'cancelled') return stored
   // Invoiced once an Invoice is past draft and nothing is left to bill
-  // (BILLING_OPEN_SQL); Closed when every Invoice is paid
+  // (BILLING_OPEN_SQL); Closed when every Invoice is settled: nothing
+  // owed, and none overpaid (ADR 0014)
   const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
   if (issued.length && !billingOpen) {
-    const paid = issued.every((invoice) => new Big(invoice.paid).gte(invoice.total!))
-    return paid ? 'closed' : 'invoiced'
+    const settled = issued.every((invoice) =>
+      isSettled({ total: invoice.total!, paid: invoice.paid })
+    )
+    return settled ? 'closed' : 'invoiced'
   }
   const workComplete =
     stored === 'in_progress' &&
@@ -50,14 +53,26 @@ export function deriveJobStatus(
 }
 
 /**
+ * The SQL equivalent of the Invoice `alias`'s Payments, refunds included.
+ */
+export const PAID_SQL = (alias: string) =>
+  `(SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = ${alias}.id)`
+
+/**
+ * The SQL equivalent of owed() for the issued Invoice `alias`: below zero
+ * when it is overpaid.
+ */
+export const OWED_SQL = (alias: string) => `(${alias}.total - ${PAID_SQL(alias)})`
+
+/**
  * The same rules as SQL, for filtering Job lists: raw conditions on the
  * `jobs` table.
  */
 const ISSUED_SQL = `EXISTS (SELECT 1 FROM invoices i
   WHERE i.job_id = jobs.id AND i.status <> 'draft')`
-const UNPAID_SQL = `EXISTS (SELECT 1 FROM invoices i
-  WHERE i.job_id = jobs.id AND i.status <> 'draft'
-    AND i.total > (SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = i.id))`
+/** An issued Invoice not settled (isSettled()): something owed, or overpaid */
+const UNSETTLED_SQL = `EXISTS (SELECT 1 FROM invoices i
+  WHERE i.job_id = jobs.id AND i.status <> 'draft' AND ${OWED_SQL('i')} <> 0)`
 
 /**
  * The SQL equivalents of chargeState() for the Charge `alias`: the latest
@@ -127,8 +142,8 @@ export const BILLING_OPEN_SQL = `(
 
 const FULLY_INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
 
-export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND NOT ${UNPAID_SQL}`
-export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND ${UNPAID_SQL}`
+export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND NOT ${UNSETTLED_SQL}`
+export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND ${UNSETTLED_SQL}`
 /** Not yet invoiced in full: what Work Complete and stored statuses describe */
 export const NOT_INVOICED_SQL = `NOT ${FULLY_INVOICED_SQL}`
 
