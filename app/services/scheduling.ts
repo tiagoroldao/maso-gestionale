@@ -20,6 +20,12 @@ export class VisitNotMovableError extends Error {}
 export class VisitHasWorkError extends Error {}
 
 /**
+ * A Technician who logged hours on the Visit can't be taken off it: the
+ * hours would belong to someone no longer on the Visit.
+ */
+export class TechnicianHasHoursError extends Error {}
+
+/**
  * Scheduling Visits and the Job status changes it causes.
  */
 export default class Scheduling {
@@ -64,8 +70,9 @@ export default class Scheduling {
 
   /**
    * Changes a Visit that isn't closed: when, how long, who and the notes
-   * for the team. Technicians already on it stay allowed even if since
-   * deactivated (the validator checks the rest).
+   * for the team. Anyone already on it may stay, even if since deactivated
+   * or no longer a Technician (the validator checks the rest); anyone who
+   * logged hours on it must stay.
    */
   static async update(
     visit: Visit,
@@ -76,8 +83,30 @@ export default class Scheduling {
       locked.useTransaction(trx)
       locked.merge({ startsAt: input.startsAt, endsAt: input.endsAt, notes: input.notes })
       await locked.save()
+      const removed = locked.technicians
+        .map((technician) => technician.id)
+        .filter((id) => !input.technicianIds.includes(id))
+      await this.refuseIfLoggedHours(trx, locked.id, removed)
       await locked.related('technicians').sync(input.technicianIds)
     })
+  }
+
+  /**
+   * Hours are logged while the Visit is locked (FieldWork), so with the
+   * Visit locked here this check can't miss any.
+   */
+  private static async refuseIfLoggedHours(
+    trx: TransactionClientContract,
+    visitId: number,
+    technicianIds: number[]
+  ) {
+    if (!technicianIds.length) return
+    const logged = await trx
+      .from('visit_hours')
+      .where('visit_id', visitId)
+      .whereIn('user_id', technicianIds)
+      .first()
+    if (logged) throw new TechnicianHasHoursError()
   }
 
   /**
@@ -184,6 +213,7 @@ export default class Scheduling {
       const handOver = from && to && from !== to
       // A stale page (someone already moved it) must not add a Technician
       if (handOver && !current.includes(from)) throw new VisitNotMovableError()
+      if (handOver) await this.refuseIfLoggedHours(trx, locked.id, [from])
 
       const length = locked.endsAt.diff(locked.startsAt)
       locked.useTransaction(trx)
