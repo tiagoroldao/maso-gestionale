@@ -174,21 +174,20 @@ export default class FieldWork {
       if (current.stockMovementId) throw new FieldWorkRefusedError('done')
       await current.useTransaction(trx).delete()
       // Only equipment this line created goes with it, and only while no
-      // other Visit has linked to it or serviced it since
+      // other line or Visit has linked to it or serviced it since
+      const equipmentId = current.createdEquipment ? current.installedEquipmentId : null
+      if (!equipmentId) return
+      // Locked before the check, so a link or service still being recorded
+      // elsewhere is seen once it commits (Visit → Job → equipment)
+      await InstalledEquipment.query({ client: trx }).where('id', equipmentId).forUpdate().first()
       const sharedSince =
-        current.installedEquipmentId &&
-        ((await trx
-          .from('visit_items')
-          .where('installed_equipment_id', current.installedEquipmentId)
-          .first()) ||
-          (await trx
-            .from('visit_serviced_equipment')
-            .where('installed_equipment_id', current.installedEquipmentId)
-            .first()))
-      if (current.installedEquipmentId && current.createdEquipment && !sharedSince) {
-        await InstalledEquipment.query({ client: trx })
-          .where('id', current.installedEquipmentId)
-          .delete()
+        (await trx.from('visit_items').where('installed_equipment_id', equipmentId).first()) ||
+        (await trx
+          .from('visit_serviced_equipment')
+          .where('installed_equipment_id', equipmentId)
+          .first())
+      if (!sharedSince) {
+        await InstalledEquipment.query({ client: trx }).where('id', equipmentId).delete()
       }
     })
   }
