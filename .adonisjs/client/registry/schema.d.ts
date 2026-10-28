@@ -661,10 +661,10 @@ export interface Registry {
     methods: ["PUT"]
     pattern: '/equipment/:id'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      body: ExtractBody<InferInput<(typeof import('#validators/installed_equipment').updateInstalledEquipmentValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').installedEquipmentValidator)>>
+      query: ExtractQuery<InferInput<(typeof import('#validators/installed_equipment').updateInstalledEquipmentValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/installed_equipment_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }

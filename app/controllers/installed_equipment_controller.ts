@@ -1,9 +1,11 @@
+import db from '@adonisjs/lucid/services/db'
 import Site from '#models/site'
 import InstalledEquipment from '#models/installed_equipment'
 import Archiving, { InvalidRemovalError } from '#services/archiving'
 import {
   installedEquipmentValidator,
   removeEquipmentValidator,
+  updateInstalledEquipmentValidator,
 } from '#validators/installed_equipment'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
@@ -78,10 +80,39 @@ export default class InstalledEquipmentController {
   }
 
   async update({ params, request, response, session, i18n }: HttpContext) {
-    const equipment = await InstalledEquipment.findOrFail(params.id)
-    const data = await request.validateUsing(installedEquipmentValidator)
+    const { lastServicedOnWas, ...data } = await request.validateUsing(
+      updateInstalledEquipmentValidator
+    )
 
-    await equipment.merge(toAttributes(data)).save()
+    let equipment: InstalledEquipment
+    try {
+      equipment = await db.transaction(async (trx) => {
+        // Closing a Visit sets the service date on this row too: one at a time
+        const locked = await InstalledEquipment.query({ client: trx })
+          .where('id', params.id)
+          .forUpdate()
+          .firstOrFail()
+        const { lastServicedOn, ...attributes } = toAttributes(data)
+        locked.useTransaction(trx).merge(attributes)
+        const loaded = lastServicedOnWas?.toISODate()
+        const submitted = lastServicedOn?.toISODate()
+        // Left as the page loaded it: keep any date a Visit set since
+        if (submitted !== loaded) {
+          if (
+            locked.lastServicedOn?.toISODate() !== loaded &&
+            submitted !== locked.lastServicedOn?.toISODate()
+          ) {
+            throw new ServiceDateChangedError()
+          }
+          locked.lastServicedOn = lastServicedOn
+        }
+        return locked.save()
+      })
+    } catch (error) {
+      if (!(error instanceof ServiceDateChangedError)) throw error
+      session.flash('error', i18n.t('flash.serviceDateChanged'))
+      return response.redirect().toRoute('installed_equipment.edit', { id: params.id })
+    }
 
     session.flash('success', i18n.t('flash.equipmentSaved'))
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
@@ -107,3 +138,9 @@ export default class InstalledEquipmentController {
     response.redirect().toRoute('sites.show', { id: equipment.siteId })
   }
 }
+
+/**
+ * A Visit set the service date while Office was changing it on the edit
+ * page: neither silently wins.
+ */
+class ServiceDateChangedError extends Error {}
