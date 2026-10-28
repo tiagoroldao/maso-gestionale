@@ -14,7 +14,7 @@ import Submissions from '#services/submissions'
 import { VISIT_BILLED_SQL } from '#services/job_status'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
-import { createItem } from '#tests/helpers/items'
+import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
 import { committedData } from '#tests/helpers/committed'
@@ -224,6 +224,55 @@ test.group('Invoicing from Charges', () => {
     assert.deepEqual(await billedEvents(valves), [['billed', draft.id, line.id, '21.95']])
     const page = await jobPage(client, job, office)
     page.assertInertiaPropsContains({ timeAndMaterials: { billed: '135.00' } })
+  })
+
+  test('each line keeps the VAT sent; a deduction line bills no Charge', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, hours, valves, callOut } = await workedJob()
+    const draft = await Invoices.fromJob(job)
+    const [labour, valveLine, callOutLine] = await asSent(draft)
+    const reduced = await vatCode('10%')
+    const standard = await vatCode()
+
+    // The hours at 22%, the valves at 10%; a line sent as a deduction
+    // can't take a Charge, so the call-out is released
+    await client
+      .put(`/invoices/${draft.id}`)
+      .json({
+        lines: [
+          { ...labour, vatCodeId: standard.id, chargeIds: [hours.id] },
+          { ...valveLine, vatCodeId: reduced.id },
+          { ...callOutLine, deductsInvoiceId: draft.id, chargeIds: [callOut.id] },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+    const lines = await InvoiceLine.query().where('invoiceId', draft.id).orderBy('position')
+    assert.deepEqual(
+      lines.map((line) => [line.vatCodeId, line.vatRate]),
+      [
+        [standard.id, '22.00'],
+        [reduced.id, '10.00'],
+        [callOutLine.vatCodeId, '22.00'],
+      ]
+    )
+    assert.deepEqual(await chargesByLine(draft), [[hours.id], [valves.id], []])
+    assert.equal(await stateOf(callOut), 'to_bill')
+  })
+
+  test('the Admin sets a billed Charge back to bill too', async ({ client, assert }) => {
+    const { job, callOut } = await workedJob()
+    await Invoices.finalise(await Invoices.fromJob(job))
+
+    const response = await client
+      .post(`/charges/${callOut.id}/to-bill`)
+      .withCsrfToken()
+      .loginAs(await createUser('admin'))
+      .redirects(0)
+    response.assertFlashMessage('success', it('flash.chargeSetBackToBill'))
+    assert.equal(await stateOf(callOut), 'to_bill')
   })
 
   test('a billed Charge is set back to bill, edited and billed again', async ({

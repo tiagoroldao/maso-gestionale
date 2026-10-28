@@ -11,7 +11,7 @@ import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
 import StockLedger from '#stock/stock_ledger'
-import type { ChargeState } from '#shared/charges'
+import { isHeld, type ChargeState } from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { CHARGE_STATE_SQL } from '#services/job_status'
@@ -31,11 +31,6 @@ export class ChargeRefusedError extends Error {
     super(reason)
   }
 }
-
-/**
- * A draft holds the Charge, or an issued Invoice bills it.
- */
-const isHeld = (state: ChargeState) => state === 'in_draft' || state === 'billed'
 
 type Recorded = {
   quantity: string

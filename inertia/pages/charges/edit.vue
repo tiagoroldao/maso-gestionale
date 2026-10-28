@@ -6,7 +6,7 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput } from '@shared/money'
-import type { ChargeEventKind, ChargeKind, ChargeState } from '@shared/charges'
+import { isHeld, type ChargeEventKind, type ChargeKind, type ChargeState } from '@shared/charges'
 import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
 
@@ -60,9 +60,7 @@ function pickItem(picked: PickedItem) {
 }
 
 // What is billed is frozen while an Invoice holds or bills the Charge
-const frozen = computed(
-  () => props.charge.state === 'in_draft' || props.charge.state === 'billed' || props.job.cancelled
-)
+const frozen = computed(() => isHeld(props.charge.state) || props.job.cancelled)
 const confirmSetBack = () =>
   window.confirm(
     t('ui.charges.setBackToBillConfirm', { number: props.charge.invoice?.number ?? '' })

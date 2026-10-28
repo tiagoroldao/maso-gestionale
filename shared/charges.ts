@@ -45,6 +45,14 @@ export function chargeState(events: { kind: string }[], heldByDraft: boolean): C
 }
 
 /**
+ * A draft holds the Charge, or an issued Invoice bills it: what is billed
+ * changes only through billing (ADR 0010).
+ */
+export function isHeld(state: ChargeState) {
+  return state === 'in_draft' || state === 'billed'
+}
+
+/**
  * Still waiting for an issued Invoice: to bill, or only held by a draft.
  */
 export function isOutstanding(state: ChargeState) {
