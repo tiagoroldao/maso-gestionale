@@ -620,7 +620,9 @@ export default class Invoices {
         entries.map((line, index) => {
           const entry = saved[index]
           const lineId = typeof entry === 'number' ? added[entry].id : entry.id
-          // Kept lines keep their Charges unless sent with others
+          // A deduction line bills no Charge; kept lines keep their Charges
+          // unless sent with others
+          if (line.deductsInvoiceId) return { lineId, chargeIds: [] }
           const chargeIds =
             line.chargeIds ??
             (typeof entry === 'number'

@@ -40,5 +40,9 @@
   "template": {
     "yes": "Sì",
     "no": "No"
+  },
+  "issued": {
+    "title": "{name} n. {number} del {date}",
+    "replaces": "Sostituisce il documento n. {number} del {date}."
   }
 }

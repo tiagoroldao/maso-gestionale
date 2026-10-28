@@ -2,6 +2,7 @@ import Big from 'big.js'
 import type { DateTime } from 'luxon'
 import type { JobStatus } from '#models/job'
 import type { VisitStatus } from '#models/visit'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
  * The status shown for a Job: the stored status, refined from its Visits
@@ -92,7 +93,9 @@ export const OUTSTANDING_SQL = (alias: string) =>
 /**
  * The SQL equivalent of isVisitBilled() for the Visit `alias`.
  */
-export const VISIT_BILLED_SQL = (alias: string) => `(${alias}.status IN ('done', 'needs_return')
+export const VISIT_BILLED_SQL = (
+  alias: string
+) => `(${alias}.status IN (${CLOSED_VISIT_STATUSES.map((status) => `'${status}'`).join(', ')})
   AND NOT EXISTS (SELECT 1 FROM charges vc
     WHERE vc.visit_id = ${alias}.id AND ${OUTSTANDING_SQL('vc')}))`
 

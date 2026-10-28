@@ -4,6 +4,7 @@ import Archiving, { HasOpenJobsError } from '#services/archiving'
 import Customer from '#models/customer'
 import { siteSearchValidator, siteValidator } from '#validators/site'
 import { jobRow } from '#services/job_rows'
+import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -158,6 +159,7 @@ export default class SitesController {
       removedEquipment: site.installedEquipment
         .filter((equipment) => equipment.removedOn)
         .map((equipment) => equipmentRow(equipment)),
+      issuedDocuments: await IssuedDocuments.history({ siteId: site.id }),
     })
   }
 

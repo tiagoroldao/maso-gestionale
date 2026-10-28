@@ -228,17 +228,30 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/my_visits_controller').default['setServiced']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
-  'item_documents.show': {
+  'item_documents.show_from_visit': {
     methods: ["GET","HEAD"]
-    pattern: '/item-documents/:id'
+    pattern: '/my-visits/:id/item-documents/:documentId'
     types: {
       body: {}
-      paramsTuple: [ParamValue]
-      params: { id: ParamValue }
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; documentId: ParamValue }
       query: {}
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['showFromVisit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['showFromVisit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['showFromVisit']>>>
+    }
+  }
+  'issued_documents.pdf_from_visit': {
+    methods: ["GET","HEAD"]
+    pattern: '/my-visits/:id/issued-documents/:documentId'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue, ParamValue]
+      params: { id: ParamValue; documentId: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['pdfFromVisit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['pdfFromVisit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['pdfFromVisit']>>>
     }
   }
   'users.index': {
@@ -668,6 +681,84 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['equipment']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['equipment']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/template_choices_controller').default['equipment']>>>
+    }
+  }
+  'issued_documents.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/issued-documents/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['create']>>>
+    }
+  }
+  'issued_documents.store': {
+    methods: ["POST"]
+    pattern: '/issued-documents'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/issued_document').issuedDocumentValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/issued_document').issuedDocumentValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'issued_documents.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/issued-documents/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['show']>>>
+    }
+  }
+  'issued_documents.pdf': {
+    methods: ["GET","HEAD"]
+    pattern: '/issued-documents/:id/pdf'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['pdf']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['pdf']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['pdf']>>>
+    }
+  }
+  'issued_documents.replace': {
+    methods: ["GET","HEAD"]
+    pattern: '/issued-documents/:id/replace'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['replace']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['replace']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['replace']>>>
+    }
+  }
+  'issued_documents.store_replacement': {
+    methods: ["POST"]
+    pattern: '/issued-documents/:id/replace'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/issued_document').replacementValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/issued_document').replacementValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['storeReplacement']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['storeReplacement']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/issued_documents_controller').default['storeReplacement']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'my_visits.index': {
@@ -1450,6 +1541,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'item_documents.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/item-documents/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['show']>>>
+    }
+  }
   'item_documents.destroy': {
     methods: ["DELETE"]
     pattern: '/item-documents/:id'
@@ -1760,6 +1864,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'document_templates.archive': {
+    methods: ["POST"]
+    pattern: '/settings/document-templates/:id/archive'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['archive']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['archive']>>>
+    }
+  }
+  'document_templates.restore': {
+    methods: ["POST"]
+    pattern: '/settings/document-templates/:id/restore'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['restore']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['restore']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/document_templates_controller').default['restore']>>>
     }
   }
   'document_templates.fill': {

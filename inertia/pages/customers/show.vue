@@ -9,6 +9,7 @@ import SitePicker, { type PickedSite } from '~/components/site_picker.vue'
 import { customerTypeLabel } from '~/components/customer_types'
 import { urlFor } from '~/client'
 import JobList, { type JobRow } from '~/components/job_list.vue'
+import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
 import { formatMoney, t } from '~/i18n'
 
 const props = defineProps<{
@@ -29,6 +30,7 @@ const props = defineProps<{
   }
   sites: { id: number; summary: string }[]
   jobs: JobRow[]
+  issuedDocuments: IssuedDocumentRow[]
   balance: string
 }>()
 
@@ -158,6 +160,18 @@ function linkSite(site: PickedSite) {
             class="btn btn--secondary btn--sm"
           >
             <Plus :size="15" /> {{ t('ui.jobs.newForCustomer') }}
+          </Link>
+        </div>
+      </Section>
+      <Section :title="t('ui.issuedDocuments.title')">
+        <IssuedDocumentList :documents="issuedDocuments" :show-customer="false" />
+        <div>
+          <Link
+            route="issued_documents.create"
+            :qs="{ customerId: customer.id }"
+            class="btn btn--secondary btn--sm"
+          >
+            <Plus :size="15" /> {{ t('ui.issuedDocuments.newForCustomer') }}
           </Link>
         </div>
       </Section>

@@ -217,6 +217,8 @@ test.group('Document Templates', () => {
         client.post('/settings/document-templates').json(certificate),
         client.put(`/settings/document-templates/${template.id}`).json(certificate),
         client.post('/settings/document-templates/preview').json(certificate),
+        client.post(`/settings/document-templates/${template.id}/archive`),
+        client.post(`/settings/document-templates/${template.id}/restore`),
       ]) {
         const denied = await request
           .header('referer', '/')
@@ -228,5 +230,59 @@ test.group('Document Templates', () => {
     }
     assert.lengthOf(await DocumentTemplateVersion.all(), 0)
     assert.lengthOf(await DocumentTemplate.all(), 1)
+    await template.refresh()
+    assert.isNull(template.archivedAt)
+  })
+
+  test('the Admin archives a template, which then can not be edited until restored', async ({
+    client,
+    assert,
+  }) => {
+    const admin = await createUser('admin')
+    await client
+      .post('/settings/document-templates')
+      .json(certificate)
+      .withCsrfToken()
+      .loginAs(admin)
+    const template = await DocumentTemplate.findByOrFail('name', certificate.name)
+    const post = (url: string) =>
+      client.post(url).header('referer', '/').withCsrfToken().loginAs(admin).redirects(0)
+
+    const archived = await post(`/settings/document-templates/${template.id}/archive`)
+    archived.assertFlashMessage(
+      'success',
+      it('flash.documentTemplateArchived', { name: certificate.name })
+    )
+    await template.refresh()
+    assert.isNotNull(template.archivedAt)
+
+    const index = await client.get('/settings/document-templates').withInertia().loginAs(admin)
+    index.assertInertiaPropsContains({
+      templates: [],
+      archived: [{ id: template.id, name: certificate.name }],
+    })
+
+    const saved = await client
+      .put(`/settings/document-templates/${template.id}`)
+      .json({ ...certificate, name: 'Rinominato' })
+      .withCsrfToken()
+      .loginAs(admin)
+      .redirects(0)
+    saved.assertFlashMessage('error', it('flash.documentTemplateArchivedNoEdit'))
+    await template.refresh()
+    assert.equal(template.name, certificate.name)
+    assert.lengthOf(
+      await DocumentTemplateVersion.query().where('documentTemplateId', template.id),
+      1
+    )
+
+    await post(`/settings/document-templates/${template.id}/restore`)
+    await template.refresh()
+    assert.isNull(template.archivedAt)
+    const edit = await client
+      .get(`/settings/document-templates/${template.id}/edit`)
+      .withInertia()
+      .loginAs(admin)
+    edit.assertInertiaPropsContains({ template: { archived: false } })
   })
 })

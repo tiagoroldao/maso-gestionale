@@ -129,5 +129,8 @@
     "worker": "Il tecnico scelto non è attivo o non fa parte dell'intervento.",
     "installed": "L'apparecchio era già nell'immobile, o un altro addebito o intervento lo usa: l'articolo non si può cambiare da qui."
   },
-  "chargeAdded": "Addebito aggiunto."
+  "chargeAdded": "Addebito aggiunto.",
+  "documentTemplateArchived": "Modello «{name}» archiviato.",
+  "documentTemplateRestored": "Modello «{name}» ripristinato.",
+  "documentTemplateArchivedNoEdit": "Il modello è archiviato: ripristinalo per modificarlo."
 }

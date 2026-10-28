@@ -108,11 +108,17 @@ const routes = {
     tokens: [[0,"my-visits"],[1,"id"],[0,"serviced"]],
     types: placeholder as Registry['my_visits.set_serviced']['types'],
   },
-  'item_documents.show': {
+  'item_documents.show_from_visit': {
     methods: ["GET","HEAD"],
-    pattern: '/item-documents/:id',
-    tokens: [[0,"item-documents"],[1,"id"]],
-    types: placeholder as Registry['item_documents.show']['types'],
+    pattern: '/my-visits/:id/item-documents/:documentId',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"item-documents"],[1,"documentId"]],
+    types: placeholder as Registry['item_documents.show_from_visit']['types'],
+  },
+  'issued_documents.pdf_from_visit': {
+    methods: ["GET","HEAD"],
+    pattern: '/my-visits/:id/issued-documents/:documentId',
+    tokens: [[0,"my-visits"],[1,"id"],[0,"issued-documents"],[1,"documentId"]],
+    types: placeholder as Registry['issued_documents.pdf_from_visit']['types'],
   },
   'users.index': {
     methods: ["GET","HEAD"],
@@ -311,6 +317,42 @@ const routes = {
     pattern: '/sites/:id/installed-equipment',
     tokens: [[0,"sites"],[1,"id"],[0,"installed-equipment"]],
     types: placeholder as Registry['template_choices.equipment']['types'],
+  },
+  'issued_documents.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/issued-documents/create',
+    tokens: [[0,"issued-documents"],[0,"create"]],
+    types: placeholder as Registry['issued_documents.create']['types'],
+  },
+  'issued_documents.store': {
+    methods: ["POST"],
+    pattern: '/issued-documents',
+    tokens: [[0,"issued-documents"]],
+    types: placeholder as Registry['issued_documents.store']['types'],
+  },
+  'issued_documents.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/issued-documents/:id',
+    tokens: [[0,"issued-documents"],[1,"id"]],
+    types: placeholder as Registry['issued_documents.show']['types'],
+  },
+  'issued_documents.pdf': {
+    methods: ["GET","HEAD"],
+    pattern: '/issued-documents/:id/pdf',
+    tokens: [[0,"issued-documents"],[1,"id"],[0,"pdf"]],
+    types: placeholder as Registry['issued_documents.pdf']['types'],
+  },
+  'issued_documents.replace': {
+    methods: ["GET","HEAD"],
+    pattern: '/issued-documents/:id/replace',
+    tokens: [[0,"issued-documents"],[1,"id"],[0,"replace"]],
+    types: placeholder as Registry['issued_documents.replace']['types'],
+  },
+  'issued_documents.store_replacement': {
+    methods: ["POST"],
+    pattern: '/issued-documents/:id/replace',
+    tokens: [[0,"issued-documents"],[1,"id"],[0,"replace"]],
+    types: placeholder as Registry['issued_documents.store_replacement']['types'],
   },
   'my_visits.index': {
     methods: ["GET","HEAD"],
@@ -672,6 +714,12 @@ const routes = {
     tokens: [[0,"items"],[1,"id"],[0,"documents"]],
     types: placeholder as Registry['item_documents.store']['types'],
   },
+  'item_documents.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/item-documents/:id',
+    tokens: [[0,"item-documents"],[1,"id"]],
+    types: placeholder as Registry['item_documents.show']['types'],
+  },
   'item_documents.destroy': {
     methods: ["DELETE"],
     pattern: '/item-documents/:id',
@@ -815,6 +863,18 @@ const routes = {
     pattern: '/settings/document-templates/:id',
     tokens: [[0,"settings"],[0,"document-templates"],[1,"id"]],
     types: placeholder as Registry['document_templates.update']['types'],
+  },
+  'document_templates.archive': {
+    methods: ["POST"],
+    pattern: '/settings/document-templates/:id/archive',
+    tokens: [[0,"settings"],[0,"document-templates"],[1,"id"],[0,"archive"]],
+    types: placeholder as Registry['document_templates.archive']['types'],
+  },
+  'document_templates.restore': {
+    methods: ["POST"],
+    pattern: '/settings/document-templates/:id/restore',
+    tokens: [[0,"settings"],[0,"document-templates"],[1,"id"],[0,"restore"]],
+    types: placeholder as Registry['document_templates.restore']['types'],
   },
   'document_templates.fill': {
     methods: ["GET","HEAD"],

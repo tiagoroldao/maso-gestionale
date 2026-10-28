@@ -54,6 +54,14 @@ export type TemplateField = {
   columns?: TableColumn[]
 }
 
+/**
+ * A field's value as the filling form starts with it (a replacement is
+ * prefilled from its original): text as typed, a chosen record with its
+ * label, a list of Items, or a table's rows.
+ */
+export type TemplatePrefill =
+  string | boolean | { id: number; label: string } | { id: number; label: string }[] | string[][]
+
 export const FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/
 
 /**

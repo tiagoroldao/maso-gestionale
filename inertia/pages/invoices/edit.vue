@@ -247,18 +247,24 @@ function move(index: number, offset: number) {
 }
 
 /**
- * Whether the line can join the one above: both bill Charges and have an
- * amount.
+ * Whether the line can join the one above: both bill Charges, have an
+ * amount and share their VAT treatment (the merged line keeps it).
  */
 function canMergeUp(index: number) {
   const [above, line] = [lines[index - 1], lines[index]]
   return Boolean(
-    above?.chargeIds.length && line.chargeIds.length && amountOf(above) && amountOf(line)
+    above?.chargeIds.length &&
+    line.chargeIds.length &&
+    above.vatCodeId === line.vatCodeId &&
+    above.significantGood === line.significantGood &&
+    amountOf(above) &&
+    amountOf(line)
   )
 }
 
 /**
- * One line billing both lines' Charges, for their combined amount.
+ * One line billing both lines' Charges, for their combined amount, at
+ * their shared VAT Code.
  */
 function mergeUp(index: number) {
   const [above, line] = [lines[index - 1], lines[index]]
@@ -269,7 +275,6 @@ function mergeUp(index: number) {
     unit: null,
     unitPrice: amountForInput(amount.toFixed(2)),
     discountPercent: '',
-    significantGood: false,
     chargeIds: [...above.chargeIds, ...line.chargeIds],
   })
   lines.splice(index, 1)
