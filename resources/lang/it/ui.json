@@ -300,7 +300,15 @@
     "itemHint": "Facoltativo. Collegare l'articolo venduto mostra i suoi documenti e propone il suo intervallo di manutenzione.",
     "linkItem": "Collega un articolo",
     "unlinkItem": "Scollega",
-    "documents": "{count, plural, one {# documento} other {# documenti}}"
+    "documents": "{count, plural, one {# documento} other {# documenti}}",
+    "remove": "Segna come rimosso",
+    "removeConfirm": "Segnare l'apparecchio come rimosso?",
+    "removedOnOf": "Data di rimozione di {name}",
+    "replacedByOf": "Sostituito da (per {name})",
+    "noReplacement": "Nessuna sostituzione",
+    "removedTitle": "Apparecchi rimossi",
+    "removedOn": "rimosso il {date}",
+    "replacedBy": "sostituito da {name}"
   },
   "categories": {
     "title": "Categorie",
@@ -747,5 +755,13 @@
     "locked": "Bloccato: nell'anno è già stata emessa una fattura.",
     "sdiPrefix": "Lettera iniziale dei file SDI",
     "sdiPrefixHint": "Ogni file inviato a SDI ha un progressivo che inizia con questa lettera, così non si confonde con i file inviati dal vecchio gestionale."
+  },
+  "archive": {
+    "archive": "Archivia",
+    "restore": "Ripristina",
+    "archivedTag": "Archiviato",
+    "confirm": "Archiviare? Non comparirà più negli elenchi e nelle ricerche, ma resterà nello storico.",
+    "showArchived": "Mostra archiviati",
+    "hideArchived": "Mostra attivi"
   }
 }

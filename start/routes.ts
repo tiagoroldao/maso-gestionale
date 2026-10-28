@@ -90,6 +90,12 @@ router
           .get('customers/:id/edit', [controllers.Customers, 'edit'])
           .where('id', router.matchers.number())
         router
+          .post('customers/:id/archive', [controllers.Customers, 'archive'])
+          .where('id', router.matchers.number())
+        router
+          .post('customers/:id/restore', [controllers.Customers, 'restore'])
+          .where('id', router.matchers.number())
+        router
           .put('customers/:id', [controllers.Customers, 'update'])
           .where('id', router.matchers.number())
         router
@@ -109,6 +115,15 @@ router
           .get('sites/:id/edit', [controllers.Sites, 'edit'])
           .where('id', router.matchers.number())
         router.put('sites/:id', [controllers.Sites, 'update']).where('id', router.matchers.number())
+        router
+          .post('sites/:id/archive', [controllers.Sites, 'archive'])
+          .where('id', router.matchers.number())
+        router
+          .post('sites/:id/restore', [controllers.Sites, 'restore'])
+          .where('id', router.matchers.number())
+        router
+          .post('equipment/:id/remove', [controllers.InstalledEquipment, 'remove'])
+          .where('id', router.matchers.number())
         router
           .get('sites/:siteId/equipment/create', [controllers.InstalledEquipment, 'create'])
           .where('siteId', router.matchers.number())

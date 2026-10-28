@@ -1,5 +1,6 @@
 import db from '@adonisjs/lucid/services/db'
 import Site from '#models/site'
+import Archiving, { HasOpenJobsError } from '#services/archiving'
 import Customer from '#models/customer'
 import { siteSearchValidator, siteValidator } from '#validators/site'
 import { jobRow } from '#services/job_rows'
@@ -30,15 +31,35 @@ function toAttributes(data: Infer<typeof siteValidator>) {
 }
 
 export default class SitesController {
+  async archive({ params, response, session, i18n }: HttpContext) {
+    try {
+      await Archiving.archiveSite(params.id)
+      session.flash('success', i18n.t('flash.siteArchived'))
+    } catch (error) {
+      if (!(error instanceof HasOpenJobsError)) throw error
+      session.flash('error', i18n.t('flash.hasOpenJobs'))
+    }
+    response.redirect().toRoute('sites.show', { id: params.id })
+  }
+
+  async restore({ params, response, session, i18n }: HttpContext) {
+    await Archiving.restoreSite(params.id)
+    session.flash('success', i18n.t('flash.siteRestored'))
+    response.redirect().toRoute('sites.show', { id: params.id })
+  }
+
   async index({ request, inertia }: HttpContext) {
-    const { q, page = 1 } = await siteSearchValidator.validate(request.qs())
+    const { q, page = 1, archived = false } = await siteSearchValidator.validate(request.qs())
 
     const query = Site.query().withCount('customers')
+    if (archived) query.whereNotNull('archived_at')
+    else query.withScopes((scopes) => scopes.active())
     if (q) query.withScopes((scopes) => scopes.search(q))
     const results = await query.orderBy(ADDRESS_ORDER).paginate(page, PER_PAGE)
 
     return inertia.render('sites/index', {
       q: q ?? '',
+      archived,
       sites: results.all().map((site) => ({
         id: site.id,
         summary: site.summary,
@@ -102,27 +123,39 @@ export default class SitesController {
       )
       .firstOrFail()
 
+    const equipmentRow = (equipment: (typeof site.installedEquipment)[number]) => ({
+      id: equipment.id,
+      removedOn: equipment.removedOn?.toISODate() ?? null,
+      replacedBy:
+        site.installedEquipment.find((other) => other.id === equipment.replacedById)?.description ??
+        null,
+      description: equipment.description,
+      serialNumber: equipment.serialNumber,
+      installedOn: equipment.installedOn?.toISODate() ?? null,
+      maintenanceIntervalMonths: equipment.maintenanceIntervalMonths,
+      nextDueOn: equipment.nextDueOn?.toISODate() ?? null,
+      itemCode: equipment.item?.code ?? null,
+      documentCount: equipment.item ? Number(equipment.item.$extras.documents_count) : 0,
+    })
+
     return inertia.render('sites/show', {
       site: {
         id: site.id,
         summary: site.summary,
         accessNotes: site.accessNotes,
+        archived: site.archivedAt !== null,
       },
       customers: site.customers.map((customer) => ({
         id: customer.id,
         displayName: customer.displayName,
       })),
       jobs: site.jobs.map((job) => jobRow(job)),
-      installedEquipment: site.installedEquipment.map((equipment) => ({
-        id: equipment.id,
-        description: equipment.description,
-        serialNumber: equipment.serialNumber,
-        installedOn: equipment.installedOn?.toISODate() ?? null,
-        maintenanceIntervalMonths: equipment.maintenanceIntervalMonths,
-        nextDueOn: equipment.nextDueOn?.toISODate() ?? null,
-        itemCode: equipment.item?.code ?? null,
-        documentCount: equipment.item ? Number(equipment.item.$extras.documents_count) : 0,
-      })),
+      installedEquipment: site.installedEquipment
+        .filter((equipment) => !equipment.removedOn)
+        .map((equipment) => equipmentRow(equipment)),
+      removedEquipment: site.installedEquipment
+        .filter((equipment) => equipment.removedOn)
+        .map((equipment) => equipmentRow(equipment)),
     })
   }
 
@@ -172,12 +205,15 @@ export default class SitesController {
       : []
     const linkedIds: number[] = links.map((link) => link.site_id)
 
-    const linkedQuery = Site.query().whereIn('id', linkedIds)
+    const linkedQuery = Site.query()
+      .withScopes((scopes) => scopes.active())
+      .whereIn('id', linkedIds)
     if (q) linkedQuery.withScopes((scopes) => scopes.search(q))
     const linked = await linkedQuery.orderBy(ADDRESS_ORDER)
 
     const others = q
       ? await Site.query()
+          .withScopes((scopes) => scopes.active())
           .withScopes((scopes) => scopes.search(q))
           .whereNotIn('id', linkedIds)
           .orderBy(ADDRESS_ORDER)

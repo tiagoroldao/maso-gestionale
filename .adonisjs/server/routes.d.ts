@@ -35,6 +35,8 @@ export type ScannedRoutes = {
     'customers.store': { paramsTuple?: []; params?: {} }
     'customers.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'customers.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'customers.restore': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customer_sites.store': { paramsTuple: [ParamValue]; params: {'customerId': ParamValue} }
     'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
@@ -45,6 +47,9 @@ export type ScannedRoutes = {
     'sites.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'sites.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'sites.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.restore': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'installed_equipment.remove': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.create': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'installed_equipment.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -246,8 +251,13 @@ export type ScannedRoutes = {
     'users.deactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.reactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customers.store': { paramsTuple?: []; params?: {} }
+    'customers.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'customers.restore': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'customer_sites.store': { paramsTuple: [ParamValue]; params: {'customerId': ParamValue} }
     'sites.store': { paramsTuple?: []; params?: {} }
+    'sites.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'sites.restore': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'installed_equipment.remove': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.store': { paramsTuple: [ParamValue]; params: {'siteId': ParamValue} }
     'jobs.store': { paramsTuple?: []; params?: {} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

@@ -11,6 +11,7 @@ import { t } from '~/i18n'
 
 const props = defineProps<{
   q: string
+  archived: boolean
   sites: { id: number; summary: string; customerCount: number }[]
   pagination: { currentPage: number; lastPage: number; total: number }
 }>()
@@ -18,10 +19,14 @@ const props = defineProps<{
 const search = ref(props.q)
 
 function submitSearch() {
-  router.get(urlFor('sites.index'), search.value ? { q: search.value } : {}, {
-    preserveState: true,
-    replace: true,
-  })
+  router.get(
+    urlFor('sites.index'),
+    { ...(search.value && { q: search.value }), ...(props.archived && { archived: 'true' }) },
+    {
+      preserveState: true,
+      replace: true,
+    }
+  )
 }
 </script>
 
@@ -29,6 +34,13 @@ function submitSearch() {
   <AppLayout>
     <Page :title="t('ui.sites.title')" :description="t('ui.sites.description')">
       <template #actions>
+        <Link
+          route="sites.index"
+          :qs="archived ? {} : { archived: 'true' }"
+          class="btn btn--ghost btn--sm"
+        >
+          {{ archived ? t('ui.archive.hideArchived') : t('ui.archive.showArchived') }}
+        </Link>
         <Link route="sites.create" class="btn btn--primary btn--sm">
           <Plus :size="15" /> {{ t('ui.sites.new') }}
         </Link>
