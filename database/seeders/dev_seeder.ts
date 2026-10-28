@@ -93,7 +93,7 @@ export default class DevSeeder extends BaseSeeder {
       'Rifacimento colonna montante'
     )
     await Quotes.save(quoted, {
-      notes: 'Validità 30 giorni.',
+      validityDays: 30,
       lines: [
         {
           kind: 'item',
