@@ -45,7 +45,7 @@ export const invoiceValidator = vine
       .array(
         vine.object({
           // An existing line, kept with its identity; others are new
-          id: vine.number().optional(),
+          id: vine.number().withoutDecimals().positive().optional(),
           itemId: vine
             .number()
             .exists({

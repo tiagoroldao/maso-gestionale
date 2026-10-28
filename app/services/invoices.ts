@@ -354,10 +354,12 @@ export default class Invoices {
   }
 
   /**
-   * Replaces the lines of a draft, or of a rejected Invoice being corrected
-   * (which keeps its number and date), copying each VAT Code's rate and
-   * Natura and each Item's unit onto the line. A rejected Invoice already
-   * took its Items off stock, so the difference is booked in the stock.
+   * Saves the lines of a draft, or of a rejected Invoice being corrected
+   * (which keeps its number and date): lines sent back with their id are
+   * updated, the others removed and new ones added, copying each VAT
+   * Code's rate and Natura and each Item's unit onto the line. A rejected
+   * Invoice already took its Items off stock, so the difference is booked
+   * in the stock.
    */
   static async save(
     invoice: Invoice,
