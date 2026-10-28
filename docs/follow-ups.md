@@ -24,7 +24,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #70   | Visits link and service Installed Equipment (`lastServicedOn`, next due date in SQL)           | —                                                |
 | #72   | Stable issue date and validity on Quote PDFs                                                   | —                                                |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                               | The UX pass                                      |
-| #80   | Extract a Jobs service (create, cancel); the dev seeder copies the controller logic until then | —                                                |
 
 ## Added to existing issues
 
