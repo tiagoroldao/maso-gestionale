@@ -995,6 +995,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['destroy']>>>
     }
   }
+  'visits.mark_done': {
+    methods: ["POST"]
+    pattern: '/visits/:id/done'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
+    }
+  }
   'charges.store': {
     methods: ["POST"]
     pattern: '/jobs/:id/charges'

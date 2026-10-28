@@ -12,6 +12,7 @@ import type { ChargeState } from '@shared/charges'
 import type { AdvanceState } from '@shared/advances'
 import { LINE_KINDS } from '@shared/vat'
 import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
+import { isClosedVisit } from '@shared/visits'
 import { computed, ref } from 'vue'
 import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 
@@ -91,6 +92,7 @@ const props = defineProps<{
     endsAt: string
     status: string
     survey: boolean
+    closableByOffice: boolean
     billed: boolean
     technicians: string[]
     notes: { id: number; body: string; author: string | null }[]
@@ -103,6 +105,22 @@ const active = computed(() => takesNewWork(props.job.status))
 const left = computed(() =>
   Object.entries(props.leftToClose ?? {}).filter(([, count]) => count > 0)
 )
+// Cancelling leaves open Visits frozen until Office marks them done (#153)
+const visitTime = (visit: { startsAt: string; endsAt: string }) =>
+  `${formatDate(visit.startsAt)} ${visit.startsAt.slice(11, 16)}–${visit.endsAt.slice(11, 16)}`
+function confirmCancel() {
+  const open = props.visits.filter((visit) => !isClosedVisit(visit.status))
+  return confirm(
+    open.length
+      ? t('ui.jobs.cancelConfirmOpenVisits', {
+          number: props.job.number,
+          visits: open
+            .map((visit) => `• ${visitTime(visit)} (${t(`ui.visits.statuses.${visit.status}`)})`)
+            .join('\n'),
+        })
+      : t('ui.jobs.cancelConfirm', { number: props.job.number })
+  )
+}
 </script>
 
 <template>
@@ -185,9 +203,7 @@ const left = computed(() =>
                   :qs="{ date: visit.startsAt.slice(0, 10) }"
                   class="il"
                 >
-                  {{ formatDate(visit.startsAt) }} {{ visit.startsAt.slice(11, 16) }}–{{
-                    visit.endsAt.slice(11, 16)
-                  }}
+                  {{ visitTime(visit) }}
                 </Link>
                 <Link route="visits.edit" :params="{ id: visit.id }" class="btn btn--ghost btn--sm">
                   {{ t('ui.visits.edit') }}
@@ -218,6 +234,16 @@ const left = computed(() =>
                 <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
                 <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
                 <span v-if="visit.billed" class="tag">{{ t('ui.jobs.visitBilled') }}</span>
+                <Form
+                  v-if="visit.closableByOffice"
+                  route="visits.mark_done"
+                  :params="{ id: visit.id }"
+                  :on-before="() => confirm(t('ui.visits.markDoneConfirm'))"
+                >
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    {{ t('ui.visits.markDone') }}
+                  </button>
+                </Form>
               </td>
             </tr>
           </tbody>
@@ -469,11 +495,7 @@ const left = computed(() =>
             {{ t('ui.jobs.close') }}
           </button>
         </Form>
-        <Form
-          route="jobs.cancel"
-          :params="{ id: job.id }"
-          :on-before="() => confirm(t('ui.jobs.cancelConfirm', { number: job.number }))"
-        >
+        <Form route="jobs.cancel" :params="{ id: job.id }" :on-before="confirmCancel">
           <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.jobs.cancel') }}</button>
         </Form>
       </Section>

@@ -16,13 +16,21 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
  * The Visit is closed (its hours, Items and stock are final), its Job was
- * closed or cancelled, or the request doesn't fit it (a Technician not on
+ * closed or cancelled (or, for Office closing a frozen Visit, isn't
+ * cancelled), or the request doesn't fit it (a Technician not on
  * the Visit, an install without a Site, a Charge Office already reviewed).
  */
 export class FieldWorkRefusedError extends Error {
   constructor(
     readonly reason:
-      'done' | 'closed' | 'cancelled' | 'notOnVisit' | 'noSite' | 'notAtSite' | 'reviewed'
+      | 'done'
+      | 'closed'
+      | 'cancelled'
+      | 'notCancelled'
+      | 'notOnVisit'
+      | 'noSite'
+      | 'notAtSite'
+      | 'reviewed'
   ) {
     super(reason)
   }
@@ -36,7 +44,8 @@ export class FieldWorkRefusedError extends Error {
  *
  * A closed or cancelled Job's Visits are frozen as history: they leave the
  * Agenda and the Technicians' lists, and accept no further work (ADR
- * 0015); a closed Job is reopened first.
+ * 0015); a closed Job is reopened first. The one exception: Office marks
+ * done a Visit left open on a cancelled Job (closeOnCancelledJob, #153).
  */
 export default class FieldWork {
   /**
@@ -281,44 +290,89 @@ export default class FieldWork {
    * Visit's status no longer changes.
    */
   static async setStatus(visit: Visit, status: VisitStatus, user: User) {
-    await this.whileOpen(visit, async (trx, locked) => {
-      if (CLOSED_VISIT_STATUSES.includes(status)) {
-        await locked.load('job')
-        await locked.load('items', (items) => items.whereNull('stock_movement_id').preload('item'))
-        for (const line of locked.items) {
-          const movement = await StockLedger.use(line.item, {
-            quantity: line.quantity,
-            occurredOn: locked.startsAt.startOf('day'),
-            reference: locked.job.number,
-            user,
-            client: trx,
-          })
-          await Charge.query({ client: trx })
-            .where('id', line.id)
-            .update({ stock_movement_id: movement.id })
-        }
-      }
-
-      if (CLOSED_VISIT_STATUSES.includes(status)) {
-        // Serviced equipment was serviced on the Visit's day (never moved back)
-        const day = locked.startsAt.toISODate()!
-        await trx
-          .from('installed_equipment')
-          .whereIn(
-            'id',
-            trx
-              .from('visit_serviced_equipment')
-              .where('visit_id', locked.id)
-              .select('installed_equipment_id')
-          )
-          .where((q) => q.whereNull('last_serviced_on').orWhere('last_serviced_on', '<', day))
-          .update({ last_serviced_on: day })
-      }
-
-      locked.status = status
-      await locked.save()
-    })
+    await this.whileOpen(visit, (trx, locked) => this.changeStatus(trx, locked, status, user))
     visit.status = status
+  }
+
+  /**
+   * Office marks done a Visit left open when its Job was cancelled (#153),
+   * so its Items come off stock, its serviced equipment is dated and its
+   * Charges become billable (#111), as when any Visit closes. Only "done":
+   * nobody goes back on a cancelled Job. Refused once the Visit is closed,
+   * and on any Job not cancelled: an active Job's Visits close in the field,
+   * a closed Job is reopened first.
+   */
+  static async closeOnCancelledJob(visit: Visit, user: User) {
+    await db.transaction(async (trx) => {
+      const locked = await this.lockOpenVisit(trx, visit)
+      // Visit first, then its Job; cancelled is final, so a share lock holds it
+      const job = await Job.query({ client: trx })
+        .where('id', locked.jobId)
+        .forShare()
+        .firstOrFail()
+      if (job.status !== 'cancelled') {
+        throw new FieldWorkRefusedError(job.status === 'closed' ? 'closed' : 'notCancelled')
+      }
+      await this.changeStatus(trx, locked, 'done', user)
+    })
+    visit.status = 'done'
+  }
+
+  /**
+   * Sets the locked Visit's status; closing it takes its Items off stock
+   * and dates the equipment it serviced.
+   */
+  private static async changeStatus(
+    trx: TransactionClientContract,
+    locked: Visit,
+    status: VisitStatus,
+    user: User
+  ) {
+    if (CLOSED_VISIT_STATUSES.includes(status)) {
+      await locked.load('job')
+      await locked.load('items', (items) => items.whereNull('stock_movement_id').preload('item'))
+      for (const line of locked.items) {
+        const movement = await StockLedger.use(line.item, {
+          quantity: line.quantity,
+          occurredOn: locked.startsAt.startOf('day'),
+          reference: locked.job.number,
+          user,
+          client: trx,
+        })
+        await Charge.query({ client: trx })
+          .where('id', line.id)
+          .update({ stock_movement_id: movement.id })
+      }
+
+      // Serviced equipment was serviced on the Visit's day (never moved back)
+      const day = locked.startsAt.toISODate()!
+      await trx
+        .from('installed_equipment')
+        .whereIn(
+          'id',
+          trx
+            .from('visit_serviced_equipment')
+            .where('visit_id', locked.id)
+            .select('installed_equipment_id')
+        )
+        .where((q) => q.whereNull('last_serviced_on').orWhere('last_serviced_on', '<', day))
+        .update({ last_serviced_on: day })
+    }
+
+    locked.status = status
+    await locked.save()
+  }
+
+  /**
+   * Locks and re-reads the Visit, refusing if it is already closed.
+   */
+  private static async lockOpenVisit(trx: TransactionClientContract, visit: Visit) {
+    const locked = await Visit.query({ client: trx })
+      .where('id', visit.id)
+      .forUpdate()
+      .firstOrFail()
+    if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
+    return locked
   }
 
   /**
@@ -330,11 +384,7 @@ export default class FieldWork {
     work: (trx: TransactionClientContract, locked: Visit) => Promise<T>
   ) {
     return db.transaction(async (trx) => {
-      const locked = await Visit.query({ client: trx })
-        .where('id', visit.id)
-        .forUpdate()
-        .firstOrFail()
-      if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
+      const locked = await this.lockOpenVisit(trx, visit)
       // Shared lock: cancelling the Job (an update lock) waits for this work
       await this.lockActiveJob(trx, locked.jobId)
       return work(trx, locked)

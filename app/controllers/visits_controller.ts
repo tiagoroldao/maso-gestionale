@@ -8,7 +8,8 @@ import Scheduling, {
   VisitHasWorkError,
   VisitNotMovableError,
 } from '#services/scheduling'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import { CLOSED_VISIT_STATUSES, closableByOffice } from '#shared/visits'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
   editVisitValidator,
@@ -167,8 +168,27 @@ export default class VisitsController {
         survey: visit.survey,
         editable:
           !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
+        // Left open when the Job was cancelled: Office marks it done (#153)
+        closableByOffice: closableByOffice(visit.job.status, visit.status),
       },
     })
+  }
+
+  /**
+   * Office marks done a Visit left open when its Job was cancelled (#153):
+   * its Items come off stock and its Charges become billable, as when the
+   * Technician closes it.
+   */
+  async markDone({ params, response, session, auth, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    try {
+      await FieldWork.closeOnCancelledJob(visit, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.visitMarkedDone'))
+    } catch (error) {
+      if (!(error instanceof FieldWorkRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.fieldWorkRefused.${error.reason}`))
+    }
+    response.redirect().toRoute('jobs.show', { id: visit.jobId })
   }
 
   async update({ params, request, response, session, i18n }: HttpContext) {
