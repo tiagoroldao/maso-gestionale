@@ -20,6 +20,7 @@ export type ScannedRoutes = {
     'my_visits.add_hours': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.remove_hours': { paramsTuple: [ParamValue]; params: {'hourId': ParamValue} }
     'my_visits.add_item': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.set_serviced': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.remove_item': { paramsTuple: [ParamValue]; params: {'itemId': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.index': { paramsTuple?: []; params?: {} }
@@ -247,6 +248,7 @@ export type ScannedRoutes = {
     'my_visits.add_photo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.add_hours': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.add_item': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'my_visits.set_serviced': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.store': { paramsTuple?: []; params?: {} }
     'users.deactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'users.reactivate': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
