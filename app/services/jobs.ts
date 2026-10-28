@@ -26,8 +26,8 @@ export type NewJob = {
 }
 
 /**
- * Opening, editing and cancelling Jobs. A Quote's decline cancels through
- * `Quotes`, which holds its own lock on the Job.
+ * Opening, editing and cancelling Jobs. Declining a Quote never cancels its
+ * Job (ADR 0013): Office cancels it here when nothing else goes ahead.
  */
 export default class Jobs {
   /**
@@ -90,7 +90,7 @@ export default class Jobs {
 
   /**
    * Cancels the Job (once; cancelling again changes nothing). Locked, so a
-   * Quote save or decision can't overwrite the cancellation. Its Visits
+   * Quote save or decision can't slip past the cancellation. Its Visits
    * are kept as history and closed to field work (see FieldWork).
    */
   static cancel(id: number) {

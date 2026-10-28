@@ -50,7 +50,7 @@ test.group('Job status from Invoices', () => {
     )
     assert.equal(deriveJobStatus('in_progress', done, [issued('0')]), 'invoiced')
     assert.equal(deriveJobStatus('in_progress', done, [issued('100')]), 'closed')
-    assert.equal(deriveJobStatus('accepted', [], [issued('100'), issued('40')]), 'invoiced')
+    assert.equal(deriveJobStatus('open', [], [issued('100'), issued('40')]), 'invoiced')
     assert.equal(deriveJobStatus('cancelled', done, [issued('100')]), 'cancelled')
     // An overpaid Invoice isn't settled
     assert.equal(deriveJobStatus('in_progress', done, [issued('100.01')]), 'invoiced')

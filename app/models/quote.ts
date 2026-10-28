@@ -7,13 +7,14 @@ import { sumAmounts } from '#shared/money'
 import { invoiceTotals } from '#shared/invoice_totals'
 import type { CustomerSnapshot } from '#models/invoice'
 import type { CompanyDetails } from '#documents/document_renderer'
-import type { QuoteStatus } from '#shared/quotes'
+import { quoteNumber, type QuoteStatus } from '#shared/quotes'
 
 export { QUOTE_STATUSES, type QuoteStatus } from '#shared/quotes'
 
 /**
- * A priced proposal for a Job that the Customer accepts or declines.
- * Each priced line carries a VAT Code, as an Invoice line does.
+ * A priced proposal for a Job, or part of one, that the Customer accepts
+ * or declines; a Job can have several (ADR 0013). Each priced line
+ * carries a VAT Code, as an Invoice line does.
  */
 export default class Quote extends QuoteSchema {
   declare status: QuoteStatus
@@ -26,6 +27,22 @@ export default class Quote extends QuoteSchema {
 
   @hasMany(() => QuoteLine)
   declare lines: HasMany<typeof QuoteLine>
+
+  /**
+   * "2026/0007-2": the Job's number and the Quote's place among its
+   * Quotes (the Job must be preloaded).
+   */
+  get number() {
+    return quoteNumber(this.job.number, this.sequence)
+  }
+
+  /**
+   * Whether the Quote has a line with a price, which it needs before it
+   * can be sent or decided (lines must be preloaded).
+   */
+  get isPriced() {
+    return this.lines.some((line) => line.kind !== 'text')
+  }
 
   /**
    * The sum of the line totals before VAT (lines must be preloaded).

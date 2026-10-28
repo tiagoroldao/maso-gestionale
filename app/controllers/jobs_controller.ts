@@ -16,6 +16,7 @@ import { jobRow } from '#services/job_rows'
 import { CLOSED_SQL, INVOICED_SQL, NOT_INVOICED_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
 import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
+import { quoteNumber } from '#shared/quotes'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const PER_PAGE = 25
@@ -30,6 +31,7 @@ export default class JobsController {
       .preload('site')
       .preload('visits')
       .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('quotes', (quotes) => quotes.orderBy('sequence'))
     // Work Complete, Invoiced and Closed are derived, so they're conditions,
     // not columns; the active list leaves out cancelled and closed Jobs
     if (!status) query.whereNot('status', 'cancelled').whereRaw(`NOT (${CLOSED_SQL})`)
@@ -42,6 +44,14 @@ export default class JobsController {
         .whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
         .whereRaw(NOT_INVOICED_SQL)
     else if (status === 'cancelled') query.where('status', status)
+    // By their Quotes (ADR 0013): one waiting for the Customer (never on a
+    // cancelled Job, where no answer is recorded), or one accepted
+    else if (status === 'quote_sent')
+      query
+        .whereNot('status', 'cancelled')
+        .whereHas('quotes', (quotes) => quotes.where('status', 'sent'))
+    else if (status === 'quote_accepted')
+      query.whereHas('quotes', (quotes) => quotes.where('status', 'accepted'))
     else if (status !== 'all') query.where('status', status).whereRaw(NOT_INVOICED_SQL)
     if (q) {
       const pattern = likePattern(q)
@@ -71,7 +81,13 @@ export default class JobsController {
     return inertia.render('jobs/index', {
       q: q ?? '',
       status: status ?? 'active',
-      jobs: results.all().map(jobRow),
+      jobs: results.all().map((job) => ({
+        ...jobRow(job),
+        quotes: job.quotes.map((quote) => ({
+          number: quoteNumber(job.number, quote.sequence),
+          status: quote.status,
+        })),
+      })),
       pagination: {
         currentPage: results.currentPage,
         lastPage: results.lastPage,
@@ -150,17 +166,22 @@ export default class JobsController {
 
     const settings = await CompanySettings.current()
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
-    const quote = await job.related('quote').query().preload('lines').first()
+    const quotes = await job.related('quotes').query().preload('lines').orderBy('sequence')
     // Advance Invoices don't count as a draft from the Job's Charges
     const ownInvoices = invoices.filter((invoice) => !invoice.advance)
     const advances = await Invoices.advancesOf(undefined, job.id)
     const deductions = new Map(advances.map(({ advance, deducted }) => [advance.id, deducted]))
 
     return inertia.render('jobs/show', {
-      // Any Job may have a Quote (ADR 0012): it is listed when there is one,
-      // and can be started while the Job is open
-      quote: quote ? { status: quote.status } : null,
-      canStartQuote: !quote && Quotes.isEditable(job, null),
+      // A Job may have several Quotes, written at any time while it isn't
+      // cancelled (ADR 0013)
+      quotes: quotes.map((quote) => ({
+        id: quote.id,
+        number: quoteNumber(job.number, quote.sequence),
+        status: quote.status,
+        total: quote.totals.total,
+      })),
+      canWriteQuote: Quotes.canWrite(job),
       invoices: invoices.map((invoice) => ({
         id: invoice.id,
         number: invoice.formattedNumber,
@@ -192,8 +213,9 @@ export default class JobsController {
           work.some((line) => line.visitId === null && line.state === 'to_bill')),
       canInvoiceAdvance: job.status !== 'cancelled',
       // Taxable amounts: what issued Invoices billed (deductions net out the
-      // advances) against the work recorded, and the accepted Quote's total
-      // for comparison only, since it doesn't bind the bill (ADR 0012)
+      // advances) against the work recorded, and the sum of the accepted
+      // Quotes for comparison only, since they don't bind the bill (ADR
+      // 0012, 0013)
       invoicedSoFar: {
         amount: sumAmounts(
           invoices
@@ -201,7 +223,11 @@ export default class JobsController {
             .map((invoice) => invoice.totals.taxable)
         ),
         of: sumAmounts(amounts),
-        quoted: quote?.status === 'accepted' ? quote.taxable : null,
+        quoted: quotes.some((quote) => quote.status === 'accepted')
+          ? sumAmounts(
+              quotes.filter((quote) => quote.status === 'accepted').map((quote) => quote.taxable)
+            )
+          : null,
       },
       timeAndMaterials: {
         total: sumAmounts(amounts),

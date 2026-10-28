@@ -3,6 +3,7 @@ import db from '@adonisjs/lucid/services/db'
 import DevSeeder, { DEV_LOGINS } from '#database/seeders/dev_seeder'
 import Invoice from '#models/invoice'
 import Job from '#models/job'
+import Quote, { QUOTE_STATUSES } from '#models/quote'
 import User from '#models/user'
 import Visit from '#models/visit'
 import StockLedger from '#stock/stock_ledger'
@@ -21,7 +22,11 @@ test.group('Development seed data', () => {
 
     const jobs = await Job.all()
     const statuses = new Set(jobs.map((job) => job.status))
-    assert.includeMembers([...statuses], ['open', 'quoted', 'accepted', 'in_progress', 'cancelled'])
+    assert.includeMembers([...statuses], ['open', 'in_progress', 'cancelled'])
+    // Quotes in every status, several on one Job
+    const quotes = await Quote.all()
+    assert.sameMembers([...new Set(quotes.map((quote) => quote.status))], [...QUOTE_STATUSES])
+    assert.isTrue(quotes.some((quote) => quote.sequence === 2))
     const allVisits = await Visit.all()
     const visits = new Set(allVisits.map((visit) => visit.status))
     assert.includeMembers([...visits], ['planned', 'in_progress', 'done', 'needs_return'])
@@ -55,11 +60,11 @@ test.group('Development seed data', () => {
       lucaVisits.filter((visit) => visit.survey),
       1
     )
-    // Surveys leave their Jobs open and quoted
+    // Surveys leave their Jobs open, quoted or not
     const surveyed = await Job.query().whereHas('visits', (visit) => visit.where('survey', true))
     assert.sameMembers(
       surveyed.map((job) => job.status),
-      ['open', 'quoted']
+      ['open', 'open']
     )
 
     const agenda = await client.get('/agenda').qs({ view: 'week' }).withInertia().loginAs(office)

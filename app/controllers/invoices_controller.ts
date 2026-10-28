@@ -140,8 +140,8 @@ export default class InvoicesController {
   }
 
   /**
-   * A draft Invoice from a Job: its accepted Quote, or its recorded time
-   * and materials (or the Job's existing Invoice).
+   * A draft Invoice from a Job's Charges to bill, whether or not it has
+   * Quotes (ADR 0012), or the Job's existing draft.
    */
   async storeFromJob({ params, response, session, i18n }: HttpContext) {
     const job = await Job.findOrFail(params.id)

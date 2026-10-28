@@ -9,6 +9,7 @@ import Pagination from '~/components/pagination.vue'
 import JobList, { type JobRow } from '~/components/job_list.vue'
 import { urlFor } from '~/client'
 import { t } from '~/i18n'
+import { JOB_FILTERS } from '@shared/jobs'
 
 const props = defineProps<{
   q: string
@@ -19,19 +20,6 @@ const props = defineProps<{
 
 const search = ref(props.q)
 const status = ref(props.status)
-
-const statuses = [
-  'active',
-  'open',
-  'quoted',
-  'accepted',
-  'in_progress',
-  'work_complete',
-  'invoiced',
-  'closed',
-  'cancelled',
-  'all',
-]
 
 function submitSearch() {
   router.get(
@@ -74,7 +62,7 @@ function submitSearch() {
           :style="{ maxWidth: '200px' }"
           @change="submitSearch"
         >
-          <option v-for="value in statuses" :key="value" :value="value">
+          <option v-for="value in JOB_FILTERS" :key="value" :value="value">
             {{ t(`ui.jobs.filters.${value}`) }}
           </option>
         </select>

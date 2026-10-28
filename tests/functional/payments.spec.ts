@@ -420,7 +420,7 @@ test.group('Payments', () => {
     const office = await createUser('office')
     await completeCompany()
     const customer = await createCustomer()
-    const job = await createJob(customer, { status: 'accepted' })
+    const job = await createJob(customer)
     const invoice = await issued(customer, job.id)
 
     const ids = async (status?: string) => {
@@ -435,7 +435,7 @@ test.group('Payments', () => {
       ])
     }
     assert.deepEqual(await ids('invoiced'), [[job.id, 'invoiced']])
-    assert.deepEqual(await ids('accepted'), [])
+    assert.deepEqual(await ids('open'), [])
     const archive = await client
       .post(`/customers/${customer.id}/archive`)
       .withCsrfToken()

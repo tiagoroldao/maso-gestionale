@@ -82,13 +82,13 @@ test.group('Jobs', () => {
     ])
   })
 
-  test('Office edits an open or quoted Job', async ({ client, assert }) => {
+  test('Office edits an open or in progress Job', async ({ client, assert }) => {
     const office = await createUser('office')
     const customer = await createCustomer()
     const open = await createJob(customer)
-    const quoted = await createJob(customer, { status: 'quoted' })
+    const started = await createJob(customer, { status: 'in_progress' })
 
-    for (const job of [open, quoted]) {
+    for (const job of [open, started]) {
       await client
         .put(`/jobs/${job.id}`)
         .form({
@@ -139,7 +139,7 @@ test.group('Jobs', () => {
     assert.deepEqual(await titles({}), [kept.title])
     assert.deepEqual(await titles({ status: 'cancelled' }), ['Dropped'])
     assert.sameMembers(await titles({ status: 'all' }), ['Kept', 'Dropped'])
-    assert.deepEqual(await titles({ status: 'quoted' }), [])
+    assert.deepEqual(await titles({ status: 'quote_sent' }), [])
   })
 
   test('searches by number, title and Customer name', async ({ client, assert }) => {

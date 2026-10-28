@@ -32,7 +32,10 @@ type Line = {
 
 const props = defineProps<{
   job: { id: number; number: string; title: string; status: string; customer: string }
+  // Null while writing a new Quote, saved as a draft
   quote: {
+    id: number
+    number: string
     status: QuoteStatus
     sentAt: string | null
     notes: string | null
@@ -230,29 +233,29 @@ function move(index: number, offset: number) {
 }
 
 function save() {
-  router.put(
-    urlFor('quotes.update', { id: props.job.id }),
-    {
-      notes: notes.value,
-      ...(validityDays.value !== '' && { validityDays: validityDays.value }),
-      lines: lines.map((line) => ({
-        kind: line.kind,
-        ...(line.itemId && { itemId: line.itemId }),
-        ...(line.labourRateId && { labourRateId: line.labourRateId }),
-        description: line.description,
-        ...(line.kind !== 'text' && {
-          quantity: line.quantity,
-          unitPrice: line.unitPrice,
-          vatCodeId: line.vatCodeId,
-        }),
-      })),
-    },
-    {
-      preserveScroll: true,
-      onStart: () => (processing.value = true),
-      onFinish: () => (processing.value = false),
-    }
-  )
+  const body = {
+    notes: notes.value,
+    ...(validityDays.value !== '' && { validityDays: validityDays.value }),
+    lines: lines.map((line) => ({
+      kind: line.kind,
+      ...(line.itemId && { itemId: line.itemId }),
+      ...(line.labourRateId && { labourRateId: line.labourRateId }),
+      description: line.description,
+      ...(line.kind !== 'text' && {
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        vatCodeId: line.vatCodeId,
+      }),
+    })),
+  }
+  const options = {
+    preserveScroll: true,
+    onStart: () => (processing.value = true),
+    onFinish: () => (processing.value = false),
+  }
+  // A new Quote is created on its Job by the first save
+  if (props.quote) router.put(urlFor('quotes.update', { id: props.quote.id }), body, options)
+  else router.post(urlFor('quotes.store', { id: props.job.id }), body, options)
 }
 
 const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
@@ -279,7 +282,7 @@ const workers = computed(() => {
 
 function importLines() {
   router.post(
-    urlFor('quotes.import_lines', { id: props.job.id }),
+    urlFor('quotes.import_lines', { id: props.quote!.id }),
     {
       lineIds: chosen.value,
       ...(target.value !== '' && { visitId: target.value }),
@@ -298,7 +301,7 @@ function importLines() {
 <template>
   <AppLayout>
     <Page
-      :title="t('ui.quotes.title', { number: job.number })"
+      :title="quote ? t('ui.quotes.title', { number: quote.number }) : t('ui.quotes.new')"
       :description="`${job.title} · ${job.customer}`"
     >
       <template #actions>
@@ -307,7 +310,7 @@ function importLines() {
         </Link>
         <a
           v-if="quote"
-          :href="urlFor('quotes.pdf', { id: job.id })"
+          :href="urlFor('quotes.pdf', { id: quote.id })"
           target="_blank"
           rel="noopener"
           class="btn btn--secondary btn--sm"
@@ -617,7 +620,7 @@ function importLines() {
           <Form
             v-if="sendable"
             route="quotes.send"
-            :params="{ id: job.id }"
+            :params="{ id: quote.id }"
             :on-before="confirmDecision(t('ui.quotes.sendConfirm'))"
           >
             <button type="submit" class="btn btn--secondary btn--sm" :disabled="dirty">
@@ -626,7 +629,7 @@ function importLines() {
           </Form>
           <Form
             route="quotes.accept"
-            :params="{ id: job.id }"
+            :params="{ id: quote.id }"
             :on-before="
               confirmDecision(
                 t('ui.quotes.acceptConfirm', { total: formatMoney(quote.totals.total) })
@@ -639,8 +642,8 @@ function importLines() {
           </Form>
           <Form
             route="quotes.decline"
-            :params="{ id: job.id }"
-            :on-before="confirmDecision(t('ui.quotes.declineConfirm', { number: job.number }))"
+            :params="{ id: quote.id }"
+            :on-before="confirmDecision(t('ui.quotes.declineConfirm', { number: quote.number }))"
           >
             <button type="submit" class="btn btn--ghost btn--sm" :disabled="dirty">
               {{ t('ui.quotes.decline') }}

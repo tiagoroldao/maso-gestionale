@@ -29,7 +29,7 @@ async function acceptedJob({ imported = true } = {}) {
     (await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' }))
   const reduced = await vatCode('10%')
   const reverse = await vatCode('Inversione contabile – impianti su edifici')
-  await Quotes.save(job, {
+  const quote = await Quotes.create(job, {
     notes: 'Validità 30 giorni',
     lines: [
       {
@@ -51,17 +51,17 @@ async function acceptedJob({ imported = true } = {}) {
       { kind: 'text', description: 'Smaltimento incluso' },
     ],
   })
-  await Quotes.accept(job)
+  await Quotes.accept(quote)
   await job.refresh()
   if (imported) {
-    const quote = await job.related('quote').query().preload('lines').firstOrFail()
+    await quote.load('lines')
     await Quotes.importLines(
-      job,
+      quote,
       { lineIds: quote.lines.map((line) => line.id), workerName: 'Ditta Rossi' },
       await createUser('office')
     )
   }
-  return { job, item, reduced, customer }
+  return { job, item, reduced, customer, quote }
 }
 
 test.group('Invoices from Jobs with a Quote', () => {
@@ -186,6 +186,47 @@ test.group('Invoices from Jobs with a Quote', () => {
     })
   })
 
+  test('the comparison sums every accepted Quote of the Job, and only those', async ({
+    client,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const { job } = await acceptedJob({ imported: false })
+    const standard = await vatCode()
+    const extra = (unitPrice: string) =>
+      Quotes.create(job, {
+        lines: [
+          {
+            kind: 'call_out',
+            description: 'Lavori extra',
+            quantity: '1',
+            unitPrice,
+            vatCodeId: standard.id,
+          },
+        ],
+      })
+    await Quotes.accept(await extra('200'))
+    await Quotes.decline(await extra('5000'))
+    await Quotes.send(await extra('7000'))
+    await extra('9000')
+    const invoice = await Invoices.createAdvance(job)
+    await invoice.load('lines')
+    await Invoices.save(invoice, {
+      lines: invoice.lines.map((line) => ({
+        id: line.id,
+        description: line.description,
+        quantity: '1',
+        unitPrice: '100',
+        vatCodeId: line.vatCodeId,
+      })),
+    })
+    await Invoices.finalise(invoice)
+
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    // 1,660.00 and 200.00 accepted; the declined, sent and draft ones not
+    page.assertInertiaPropsContains({ invoicedSoFar: { amount: '100.00', quoted: '1860.00' } })
+  })
+
   test('a Job with a Quote is invoiced again for Charges added later, never once cancelled', async ({
     client,
     assert,
@@ -204,7 +245,7 @@ test.group('Invoices from Jobs with a Quote', () => {
       office
     )
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: true, job: { status: 'accepted' } })
+    page.assertInertiaPropsContains({ canInvoice: true, job: { status: 'open' } })
     const second = await Invoices.fromJob(job)
     assert.notEqual(second.id, invoice.id)
 

@@ -520,7 +520,7 @@ test.group('Charges on the Job itself', () => {
     assert,
   }) => {
     const office = await createUser('office')
-    const job = await createJob(await createCustomer(), { status: 'accepted' })
+    const job = await createJob(await createCustomer())
     const charge = await Charges.add(
       job,
       { description: 'Uscita', quantity: '1', unit: null, unitPrice: '35', vatKind: 'labour' },

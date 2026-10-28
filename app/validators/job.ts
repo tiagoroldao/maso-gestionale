@@ -1,6 +1,5 @@
 import vine from '@vinejs/vine'
-import { JOB_STATUSES } from '#models/job'
-import { WORK_CATEGORIES } from '#shared/jobs'
+import { JOB_FILTERS, WORK_CATEGORIES } from '#shared/jobs'
 
 /**
  * Archived Customers and Sites can't be picked, but a Job keeps its own.
@@ -26,14 +25,12 @@ export const jobValidator = vine.withMetaData<{ customerId?: number; siteId?: nu
 })
 
 /**
- * `status` filters the list: a single status, or "all". Without it the
- * list shows active (not cancelled) Jobs.
+ * `status` filters the list (JOB_FILTERS). Without it the list shows
+ * active Jobs (neither cancelled nor closed).
  */
 export const jobSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
-  status: vine
-    .enum([...JOB_STATUSES, 'work_complete', 'invoiced', 'closed', 'all'] as const)
-    .optional(),
+  status: vine.enum(JOB_FILTERS.filter((filter) => filter !== 'active')).optional(),
   page: vine.number().min(1).optional(),
 })
 
