@@ -46,7 +46,7 @@ async function vatCodeOptions(used: number[]) {
 }
 
 /**
- * A Job's Quote: written by Office, then accepted or declined.
+ * A Job's Quote: written by Office, sent, then accepted or declined.
  */
 export default class QuotesController {
   async edit({ params, inertia }: HttpContext) {
@@ -90,6 +90,7 @@ export default class QuotesController {
       quote: quote
         ? {
             status: quote.status,
+            sentAt: quote.sentAt ? localDateTime(quote.sentAt) : null,
             notes: quote.notes,
             validityDays: quote.validityDays,
             issuedOn: quote.issuedOn?.toISODate() ?? null,
@@ -111,6 +112,8 @@ export default class QuotesController {
           }
         : null,
       editable: Quotes.isEditable(job, quote),
+      sendable: Quotes.isSendable(job, quote),
+      decidable: Quotes.isDecidable(job, quote),
       importable,
       openVisits: visits.map((visit) => ({
         id: visit.id,
@@ -179,6 +182,22 @@ export default class QuotesController {
       session.flash('error', i18n.t(`flash.quoteImportRefused.${error.reason}`))
       return response.redirect().toRoute('quotes.edit', { id: job.id })
     }
+  }
+
+  /**
+   * Marks the draft as sent to the Customer, freezing it (ADR 0013).
+   */
+  async send({ params, response, session, i18n }: HttpContext) {
+    const job = await Job.findOrFail(params.id)
+    try {
+      await Quotes.send(job)
+    } catch (error) {
+      if (!(error instanceof QuoteNotEditableError)) throw error
+      session.flash('error', i18n.t('flash.quoteNotEditable'))
+      return response.redirect().toRoute('quotes.edit', { id: job.id })
+    }
+    session.flash('success', i18n.t('flash.quoteSent'))
+    response.redirect().toRoute('quotes.edit', { id: job.id })
   }
 
   async accept({ params, response, session, i18n }: HttpContext) {

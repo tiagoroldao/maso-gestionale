@@ -8,7 +8,7 @@ import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
 
 test.group('Quotes in the browser', () => {
-  test('Office writes a Quote from Items and labour, then it is accepted', async ({
+  test('Office writes a Quote from Items and labour, sends it, then it is accepted', async ({
     browserContext,
     visit,
     assert,
@@ -29,11 +29,18 @@ test.group('Quotes in the browser', () => {
     // 1200 + 2.5 × 40 = 1300, reverse charged (company maintenance): no VAT on top
     await page.getByRole('cell', { name: '1.300,00 €', exact: true }).first().waitFor()
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
+    await page.getByRole('button', { name: it('ui.quotes.send') }).click()
+
+    // Sent: frozen, still to be decided
+    await page.getByText(it('ui.quotes.statuses.sent'), { exact: true }).waitFor()
+    assert.isTrue(await page.getByLabel(it('ui.quotes.quantityOf', { position: 2 })).isDisabled())
+    assert.equal(await page.getByRole('button', { name: it('ui.quotes.save') }).count(), 0)
     await page.getByRole('button', { name: it('ui.quotes.accept') }).click()
 
     await page.waitForURL(`**/jobs/${job.id}`)
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(quote.status, 'accepted')
+    assert.isNotNull(quote.sentAt)
     assert.equal(quote.taxable, '1300.00')
     // Both new lines took the default VAT rule for the Job
     assert.deepEqual(

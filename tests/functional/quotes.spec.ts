@@ -1,6 +1,9 @@
 import { test } from '@japa/runner'
+import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
+import Charge from '#models/charge'
 import Quote from '#models/quote'
+import type User from '#models/user'
 import LabourRate from '#models/labour_rate'
 import CompanySettings from '#models/company_settings'
 import { createUser } from '#tests/helpers/users'
@@ -626,5 +629,286 @@ test.group('Quote dates and validity', () => {
     assert.include(html, 'N6.7')
     assert.include(html, 'inversione contabile')
     assert.include(html, it('documents.quote.total'))
+  })
+})
+
+test.group('Sending Quotes', () => {
+  /**
+   * A draft with priced lines, notes and a validity, dated some days ago.
+   */
+  async function draft(client: ApiClient, base?: Awaited<ReturnType<typeof setup>>) {
+    // Another Job on the same fixture, when a test needs several
+    const fixture = base ? { ...base, job: await createJob(base.customer) } : await setup()
+    const { office, job, item, rate } = fixture
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ notes: 'Prima versione', validityDays: 30, lines: quoteLines(item.id, rate.id) })
+      .withCsrfToken()
+      .loginAs(office)
+    const issued = DateTime.now().minus({ days: 4 }).startOf('day')
+    await Quote.query().where('jobId', job.id).update({ issued_on: issued.toISODate() })
+    return { ...fixture, issued }
+  }
+
+  async function statusOf(jobId: number) {
+    const quote = await Quote.findByOrFail('jobId', jobId)
+    return quote.status
+  }
+
+  async function send(client: ApiClient, jobId: number, user: User) {
+    return client.post(`/jobs/${jobId}/quote/send`).withCsrfToken().loginAs(user).redirects(0)
+  }
+
+  /**
+   * What a sent Quote must keep: its lines, notes, validity and date.
+   */
+  async function contents(jobId: number) {
+    const quote = await Quote.query()
+      .where('jobId', jobId)
+      .preload('lines', (lines) => lines.orderBy('position'))
+      .firstOrFail()
+    return {
+      status: quote.status,
+      notes: quote.notes,
+      validityDays: quote.validityDays,
+      issuedOn: quote.issuedOn?.toISODate(),
+      lines: quote.lines.map((line) => [line.description, line.quantity, line.unitPrice]),
+    }
+  }
+
+  test('Office and the Admin mark a draft as sent; the Job stays quoted', async ({
+    client,
+    assert,
+  }) => {
+    const base = await setup()
+    for (const role of ['office', 'admin'] as const) {
+      const { job, issued } = await draft(client, base)
+      const user = await createUser(role)
+
+      const response = await send(client, job.id, user)
+
+      response.assertHeader('location', `/jobs/${job.id}/quote`)
+      response.assertFlashMessage('success', it('flash.quoteSent'))
+      const quote = await Quote.findByOrFail('jobId', job.id)
+      assert.equal(quote.status, 'sent')
+      assert.isNotNull(quote.sentAt)
+      assert.isNull(quote.decidedAt)
+      // Dated by its last save, as the Customer received it
+      assert.equal(quote.issuedOn?.toISODate(), issued.toISODate())
+      await job.refresh()
+      assert.equal(job.status, 'quoted')
+    }
+  })
+
+  test('a sent Quote refuses every change: lines, notes, validity and date', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, item, rate } = await draft(client)
+    await send(client, job.id, office)
+    const before = await contents(job.id)
+
+    for (const body of [
+      // The same lines with a new note, validity or price, or none at all
+      { notes: 'Seconda versione', validityDays: 30, lines: quoteLines(item.id, rate.id) },
+      { notes: 'Prima versione', validityDays: 60, lines: quoteLines(item.id, rate.id) },
+      {
+        notes: 'Prima versione',
+        validityDays: 30,
+        lines: quoteLines(item.id, rate.id).map((line) =>
+          line.kind === 'item' ? { ...line, unitPrice: '999' } : line
+        ),
+      },
+      { lines: [] },
+    ]) {
+      const response = await client
+        .put(`/jobs/${job.id}/quote`)
+        .json(body)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      response.assertFlashMessage('error', it('flash.quoteNotEditable'))
+    }
+    // Sending it again changes nothing either
+    const again = await send(client, job.id, office)
+    again.assertFlashMessage('error', it('flash.quoteNotEditable'))
+
+    assert.deepEqual(await contents(job.id), before)
+    await job.refresh()
+    assert.equal(job.status, 'quoted')
+  })
+
+  test('the page shows a sent Quote frozen, still to be decided', async ({ client, assert }) => {
+    const { office, job } = await draft(client)
+    const props = async () => {
+      const page = await client.get(`/jobs/${job.id}/quote`).withInertia().loginAs(office)
+      return page.inertiaProps
+    }
+
+    assert.containsSubset(await props(), {
+      quote: { status: 'draft', sentAt: null },
+      editable: true,
+      sendable: true,
+      decidable: true,
+    })
+    await send(client, job.id, office)
+    const sent = await props()
+    assert.containsSubset(sent, {
+      quote: { status: 'sent' },
+      editable: false,
+      sendable: false,
+      decidable: true,
+    })
+    assert.isNotNull((sent.quote as { sentAt: string | null }).sentAt)
+
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    assert.containsSubset(page.inertiaProps, { quote: { status: 'sent' }, canStartQuote: false })
+  })
+
+  test('only a draft with priced lines on a live Job can be sent', async ({ client, assert }) => {
+    const base = await setup()
+    const { office, job } = base
+    // No Quote yet
+    const none = await send(client, job.id, office)
+    none.assertFlashMessage('error', it('flash.quoteNotEditable'))
+
+    // Only text: nothing to price, the Job is still open
+    await client
+      .put(`/jobs/${job.id}/quote`)
+      .json({ lines: [{ kind: 'text', description: 'Da definire' }] })
+      .withCsrfToken()
+      .loginAs(office)
+    const text = await send(client, job.id, office)
+    text.assertFlashMessage('error', it('flash.quoteNotEditable'))
+    assert.equal(await statusOf(job.id), 'draft')
+
+    // Already decided
+    for (const decision of ['accept', 'decline'] as const) {
+      const decided = await draft(client, base)
+      await client.post(`/jobs/${decided.job.id}/quote/${decision}`).withCsrfToken().loginAs(office)
+      const response = await send(client, decided.job.id, office)
+      response.assertFlashMessage('error', it('flash.quoteNotEditable'))
+      const quote = await Quote.findByOrFail('jobId', decided.job.id)
+      assert.equal(quote.status, decision === 'accept' ? 'accepted' : 'declined')
+    }
+
+    // A cancelled Job's draft
+    const cancelled = await draft(client, base)
+    await client.post(`/jobs/${cancelled.job.id}/cancel`).withCsrfToken().loginAs(office)
+    const response = await send(client, cancelled.job.id, office)
+    response.assertFlashMessage('error', it('flash.quoteNotEditable'))
+    assert.equal(await statusOf(cancelled.job.id), 'draft')
+  })
+
+  test('a sent Quote is accepted, moving the Job as before', async ({ client, assert }) => {
+    const { office, job } = await draft(client)
+    await send(client, job.id, office)
+    const { sentAt } = await Quote.findByOrFail('jobId', job.id)
+
+    const response = await client
+      .post(`/jobs/${job.id}/quote/accept`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('success', it('flash.quoteAccepted'))
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.equal(quote.status, 'accepted')
+    assert.isNotNull(quote.decidedAt)
+    assert.equal(quote.sentAt?.toMillis(), sentAt?.toMillis())
+    await job.refresh()
+    assert.equal(job.status, 'accepted')
+  })
+
+  test('a sent Quote is declined, cancelling the Job as before', async ({ client, assert }) => {
+    const { office, job } = await draft(client)
+    await send(client, job.id, office)
+
+    await client.post(`/jobs/${job.id}/quote/decline`).withCsrfToken().loginAs(office)
+
+    const quote = await Quote.findByOrFail('jobId', job.id)
+    assert.equal(quote.status, 'declined')
+    assert.isNotNull(quote.decidedAt)
+    await job.refresh()
+    assert.equal(job.status, 'cancelled')
+    assert.isNotNull(job.cancelledAt)
+  })
+
+  test('a draft decided on the spot counts as sent', async ({ client, assert }) => {
+    const base = await setup()
+    for (const [decision, status, jobStatus] of [
+      ['accept', 'accepted', 'accepted'],
+      ['decline', 'declined', 'cancelled'],
+    ] as const) {
+      const { office, job } = await draft(client, base)
+
+      await client.post(`/jobs/${job.id}/quote/${decision}`).withCsrfToken().loginAs(office)
+
+      const quote = await Quote.findByOrFail('jobId', job.id)
+      assert.equal(quote.status, status)
+      assert.isNotNull(quote.sentAt)
+      assert.equal(quote.sentAt?.toMillis(), quote.decidedAt?.toMillis())
+      await job.refresh()
+      assert.equal(job.status, jobStatus)
+    }
+  })
+
+  test("a sent Quote's lines can't be imported until it is accepted", async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await draft(client)
+    await send(client, job.id, office)
+    const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
+
+    const response = await client
+      .post(`/jobs/${job.id}/quote/import`)
+      .json({ lineIds: quote.lines.map((line) => line.id), workerName: 'Mario' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('error', it('flash.quoteImportRefused.notAccepted'))
+    assert.lengthOf(await Charge.query().where('jobId', job.id), 0)
+  })
+
+  test("a cancelled Job's sent Quote stays as it is", async ({ client, assert }) => {
+    const { office, job, item, rate } = await draft(client)
+    await send(client, job.id, office)
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+    const before = await contents(job.id)
+
+    for (const request of [
+      client.put(`/jobs/${job.id}/quote`).json({ lines: quoteLines(item.id, rate.id) }),
+      client.post(`/jobs/${job.id}/quote/send`),
+      client.post(`/jobs/${job.id}/quote/accept`),
+      client.post(`/jobs/${job.id}/quote/decline`),
+    ]) {
+      const response = await request.withCsrfToken().loginAs(office).redirects(0)
+      response.assertFlashMessage('error', it('flash.quoteNotEditable'))
+    }
+    assert.deepEqual(await contents(job.id), { ...before, status: 'sent' })
+    await job.refresh()
+    assert.equal(job.status, 'cancelled')
+  })
+
+  test('Technicians and the Superuser can not send or decide a Quote', async ({
+    client,
+    assert,
+  }) => {
+    const { job } = await draft(client)
+    for (const role of ['technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      for (const action of ['send', 'accept', 'decline']) {
+        const response = await client
+          .post(`/jobs/${job.id}/quote/${action}`)
+          .header('referer', '/')
+          .withCsrfToken()
+          .loginAs(user)
+          .redirects(0)
+        response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      }
+    }
+    assert.equal(await statusOf(job.id), 'draft')
   })
 })

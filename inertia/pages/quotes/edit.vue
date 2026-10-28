@@ -33,6 +33,7 @@ const props = defineProps<{
   job: { id: number; number: string; title: string; status: string; customer: string }
   quote: {
     status: string
+    sentAt: string | null
     notes: string | null
     validityDays: number | null
     issuedOn: string | null
@@ -54,6 +55,9 @@ const props = defineProps<{
     }[]
   } | null
   editable: boolean
+  // A draft with priced lines can be sent; sent, or still a draft, decided
+  sendable: boolean
+  decidable: boolean
   // An accepted Quote on a Job not cancelled: its lines can become Charges
   importable: boolean
   openVisits: { id: number; startsAt: string; technicianIds: number[] }[]
@@ -312,10 +316,13 @@ function importLines() {
       </template>
 
       <Section>
-        <p v-if="quote && quote.status !== 'draft'" class="tag">
-          {{ t(`ui.quotes.statuses.${quote.status}`) }}
+        <p v-if="quote" data-testid="quote-status">
+          <span class="tag">{{ t(`ui.quotes.statuses.${quote.status}`) }}</span>
+          <span v-if="quote.sentAt" class="field__hint">
+            · {{ t('ui.quotes.sentOn', { date: formatDate(quote.sentAt) }) }}
+          </span>
         </p>
-        <p v-else-if="!editable" class="field__hint">{{ t('ui.quotes.notEditable') }}</p>
+        <p v-if="!editable" class="field__hint">{{ t('ui.quotes.notEditable') }}</p>
 
         <table class="table">
           <thead>
@@ -604,11 +611,18 @@ function importLines() {
         <span v-if="errors.lines" class="field__error">{{ errors.lines }}</span>
       </Section>
 
-      <Section
-        v-if="quote && quote.status === 'draft' && job.status === 'quoted'"
-        :title="t('ui.quotes.decisionTitle')"
-      >
+      <Section v-if="quote && decidable" :title="t('ui.quotes.decisionTitle')">
         <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
+          <Form
+            v-if="sendable"
+            route="quotes.send"
+            :params="{ id: job.id }"
+            :on-before="confirmDecision(t('ui.quotes.sendConfirm'))"
+          >
+            <button type="submit" class="btn btn--secondary btn--sm" :disabled="dirty">
+              {{ t('ui.quotes.send') }}
+            </button>
+          </Form>
           <Form
             route="quotes.accept"
             :params="{ id: job.id }"

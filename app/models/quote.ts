@@ -6,7 +6,9 @@ import QuoteLine from '#models/quote_line'
 import { sumAmounts } from '#shared/money'
 import { invoiceTotals } from '#shared/invoice_totals'
 
-export const QUOTE_STATUSES = ['draft', 'accepted', 'declined'] as const
+// A draft is edited freely; once sent it is frozen, then accepted or
+// declined (ADR 0013)
+export const QUOTE_STATUSES = ['draft', 'sent', 'accepted', 'declined'] as const
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number]
 
 /**
