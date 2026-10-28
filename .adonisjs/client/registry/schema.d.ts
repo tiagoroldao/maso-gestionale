@@ -865,6 +865,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['destroy']>>>
     }
   }
+  'charges.store': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/charges'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/charge').jobChargeValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/charge').jobChargeValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'charges.edit': {
     methods: ["GET","HEAD"]
     pattern: '/charges/:id/edit'
@@ -882,10 +895,10 @@ export interface Registry {
     methods: ["PUT"]
     pattern: '/charges/:id/recorded'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/charge').labourCorrectionValidator)>|InferInput<(typeof import('#validators/charge').itemCorrectionValidator)>>
+      body: ExtractBody<InferInput<(typeof import('#validators/charge').labourCorrectionValidator)>|InferInput<(typeof import('#validators/charge').itemCorrectionValidator)>|InferInput<(typeof import('#validators/charge').otherCorrectionValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/charge').labourCorrectionValidator)>|InferInput<(typeof import('#validators/charge').itemCorrectionValidator)>>
+      query: ExtractQuery<InferInput<(typeof import('#validators/charge').labourCorrectionValidator)>|InferInput<(typeof import('#validators/charge').itemCorrectionValidator)>|InferInput<(typeof import('#validators/charge').otherCorrectionValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['correct']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['correct']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['correct']>>> | { status: 422; response: { errors: SimpleError[] } }

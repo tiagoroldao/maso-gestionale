@@ -3,6 +3,7 @@ import { hasBillableWork } from '#shared/visits'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
 import Charge from '#models/charge'
+import CompanySettings from '#models/company_settings'
 import { ArchivedRecordError } from '#services/archiving'
 import Customer from '#models/customer'
 import { likePattern } from '#services/search'
@@ -143,6 +144,7 @@ export default class JobsController {
       }))
     const amounts = work.map((line) => line.amount)
 
+    const settings = await CompanySettings.current()
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
     const quote = await job.related('quote').query().preload('lines').first()
     // Advance Invoices don't count as the Job's own Invoice (#23)
@@ -163,13 +165,15 @@ export default class JobsController {
         (job.kind === 'quoted'
           ? ownInvoices.length === 0 && quote?.status === 'accepted'
           : !ownInvoices.some((invoice) => invoice.status === 'draft') &&
-            hasBillableWork(
+            (hasBillableWork(
               job.visits.map((visit) => ({
                 status: visit.status,
                 unbilledLines: work.filter((line) => line.visitId === visit.id && !line.billed)
                   .length,
               }))
-            )),
+            ) ||
+              // Costs Office added to the Job itself are billable at once
+              work.some((line) => line.visitId === null && !line.billed))),
       // On a Quoted Job, only before the Quote's Invoice, which takes them back
       canInvoiceAdvance:
         job.status !== 'cancelled' && (job.kind !== 'quoted' || ownInvoices.length === 0),
@@ -193,11 +197,12 @@ export default class JobsController {
         billed: sumAmounts(work.filter((line) => line.billed).map((line) => line.amount)),
         lines: amounts.length,
       },
+      callOutFee: settings?.callOutFee ?? null,
       charges: charges.map((charge) => ({
         id: charge.id,
         visitId: charge.visitId,
         description: charge.description,
-        unit: charge.unit,
+        unit: charge.billUnit,
         quantity: charge.billQuantity,
         unitPrice: charge.unitPrice,
         amount: lineTotal(charge.billQuantity, charge.unitPrice),

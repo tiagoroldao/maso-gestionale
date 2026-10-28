@@ -9,15 +9,32 @@ import { localDateTime } from '#services/dates'
 import {
   chargeBillingValidator,
   itemCorrectionValidator,
+  jobChargeValidator,
   labourCorrectionValidator,
+  otherCorrectionValidator,
 } from '#validators/charge'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
- * Office's review of a Charge (ADR 0010): correcting what was recorded,
- * editing what is billed, marking it not billable, and its history.
+ * Office's review of a Charge (ADR 0010): adding other costs to a Job,
+ * correcting what was recorded, editing what is billed, marking it not
+ * billable, and its history.
  */
 export default class ChargesController {
+  async store({ params, request, response, session, auth, i18n }: HttpContext) {
+    const job = await Job.findOrFail(params.id)
+    const data = await request.validateUsing(jobChargeValidator)
+
+    try {
+      await Charges.add(job, { ...data, unit: data.unit ?? null }, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.chargeAdded'))
+    } catch (error) {
+      if (!(error instanceof ChargeRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.chargeRefused.${error.reason}`))
+    }
+    return response.redirect().toRoute('jobs.show', { id: job.id })
+  }
+
   async edit({ params, inertia }: HttpContext) {
     const charge = await Charge.query()
       .where('id', params.id)
@@ -75,7 +92,8 @@ export default class ChargesController {
           quantity: charge.billQuantity,
           unitPrice: charge.unitPrice,
           description: charge.description,
-          unit: charge.unit,
+          unit: charge.billUnit,
+          vatKind: charge.vatKind,
         },
         invoice: charge.invoice
           ? { id: charge.invoice.id, number: charge.invoice.formattedNumber }
@@ -104,7 +122,9 @@ export default class ChargesController {
     const data =
       charge.kind === 'labour'
         ? await request.validateUsing(labourCorrectionValidator)
-        : await request.validateUsing(itemCorrectionValidator)
+        : charge.kind === 'item'
+          ? await request.validateUsing(itemCorrectionValidator)
+          : await request.validateUsing(otherCorrectionValidator)
 
     return this.refusable(charge, { response, session, i18n }, async () => {
       await Charges.correct(

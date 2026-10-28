@@ -50,4 +50,21 @@ test.group('Charges in the browser', () => {
     await charge.refresh()
     assert.equal(charge.unitPrice, '35.0000')
   })
+
+  test('Office adds a cost to the Job from its page', async ({ browserContext, visit }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const job = await createJob(await createCustomer(), { kind: 'time_and_materials' })
+
+    const page = await visit(`/jobs/${job.id}`)
+    await page.getByLabel(it('ui.charges.description')).fill('Collaboratore esterno')
+    await page.getByLabel(it('ui.charges.quantity')).fill('8')
+    await page.getByLabel(it('ui.charges.unit')).fill('h')
+    await page.getByLabel(it('ui.charges.unitPrice')).fill('30')
+    await page.getByLabel(it('ui.charges.vatKind')).selectOption('material')
+    await page.getByRole('button', { name: it('ui.charges.add') }).click()
+
+    await page.getByText(it('flash.chargeAdded')).waitFor()
+    await page.getByTestId('charges').getByText('Collaboratore esterno').waitFor()
+    await page.getByTestId('charges').getByText('240,00').waitFor()
+  })
 })

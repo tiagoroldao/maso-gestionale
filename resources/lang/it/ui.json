@@ -934,9 +934,22 @@
       "worker": "chi",
       "item": "articolo",
       "unitPrice": "prezzo",
-      "description": "descrizione"
+      "description": "descrizione",
+      "unit": "unità",
+      "vatKind": "tipo per l'IVA"
     },
     "stockCorrection": "Correzione dell'addebito n. {id}",
-    "change": "{field}: {before} → {after}"
+    "change": "{field}: {before} → {after}",
+    "add": "Aggiungi addebito",
+    "addHint": "Altri costi sulla commessa: diritto di chiamata, giornata di un collaboratore esterno, materiali comprati per il lavoro.",
+    "useCallOut": "Diritto di chiamata",
+    "callOut": "Diritto di chiamata",
+    "unit": "Unità",
+    "vatKind": "Tipo per l'IVA",
+    "vatKinds": {
+      "labour": "Manodopera",
+      "material": "Materiale",
+      "significant_good": "Bene significativo"
+    }
   }
 }

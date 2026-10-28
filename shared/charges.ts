@@ -2,7 +2,11 @@
  * Charges (ADR 0010): what a Job can be billed for, with a history. Used
  * by the server and the Office pages alike.
  */
-export const CHARGE_KINDS = ['labour', 'item'] as const
+/**
+ * Hours at a Labour Rate, an Item used, or any other cost Office adds to a
+ * Job (a call-out, a contractor's day, materials bought for the Job).
+ */
+export const CHARGE_KINDS = ['labour', 'item', 'other'] as const
 export type ChargeKind = (typeof CHARGE_KINDS)[number]
 
 export const CHARGE_EVENT_KINDS = [

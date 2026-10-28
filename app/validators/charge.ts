@@ -1,5 +1,6 @@
 import vine from '@vinejs/vine'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
+import { LINE_KINDS } from '#shared/vat'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
 
@@ -35,10 +36,32 @@ export const itemCorrectionValidator = vine.create({
 })
 
 /**
- * What a Charge bills: quantity, unit price and the Invoice line's text.
+ * Correcting another cost Office added: its quantity.
  */
-export const chargeBillingValidator = vine.create({
+export const otherCorrectionValidator = vine.create({
+  quantity: quantity(),
+})
+
+const billing = {
   quantity: quantity(),
   unitPrice: vine.string().use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: '9999999999' })),
   description: vine.string().trim().minLength(1).maxLength(255),
+  // Another cost's own unit ("h", "pz", "km") and default VAT rule
+  unit: vine.string().trim().maxLength(10).optional(),
+  vatKind: vine.enum(LINE_KINDS).optional(),
+}
+
+/**
+ * What a Charge bills: quantity, unit price and the Invoice line's text
+ * (and, for another cost, its unit and VAT kind).
+ */
+export const chargeBillingValidator = vine.create(billing)
+
+/**
+ * Another cost Office adds to a Job: a call-out, a contractor's day,
+ * materials bought for the Job.
+ */
+export const jobChargeValidator = vine.create({
+  ...billing,
+  vatKind: vine.enum(LINE_KINDS),
 })

@@ -7,6 +7,7 @@ import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput } from '@shared/money'
 import type { ChargeEventKind, ChargeKind, ChargeState } from '@shared/charges'
+import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
 
 const props = defineProps<{
@@ -22,7 +23,13 @@ const props = defineProps<{
       workerName: string | null
       item: { id: number; code: string; description: string; unit: string } | null
     }
-    billing: { quantity: string; unitPrice: string; description: string; unit: string }
+    billing: {
+      quantity: string
+      unitPrice: string
+      description: string
+      unit: string | null
+      vatKind: LineKind | null
+    }
     invoice: { id: number; number: string | null } | null
     history: {
       id: number
@@ -55,6 +62,7 @@ const shown = (key: string, value: string | null) => {
   if (value === null) return '—'
   if (key === 'unitPrice') return formatMoney(value)
   if (key === 'quantity') return amountForInput(value)
+  if (key === 'vatKind') return t(`ui.charges.vatKinds.${value}`)
   return value
 }
 </script>
@@ -146,7 +154,7 @@ const shown = (key: string, value: string | null) => {
               <span v-if="errors.workerName" class="field__error">{{ errors.workerName }}</span>
             </div>
           </template>
-          <div v-else class="field">
+          <div v-else-if="charge.kind === 'item'" class="field">
             <span class="field__label">{{ t('ui.charges.item') }}</span>
             <input type="hidden" name="itemId" :value="item?.id" />
             <p v-if="item" :style="{ margin: 0 }">
@@ -165,7 +173,10 @@ const shown = (key: string, value: string | null) => {
           </div>
           <div class="field">
             <label class="field__label" for="correct-quantity">
-              {{ t('ui.charges.quantity') }} ({{ charge.kind === 'labour' ? 'h' : item?.unit }})
+              {{ t('ui.charges.quantity') }}
+              {{
+                charge.kind === 'labour' ? '(h)' : charge.kind === 'item' ? `(${item?.unit})` : ''
+              }}
             </label>
             <input
               id="correct-quantity"
@@ -231,6 +242,31 @@ const shown = (key: string, value: string | null) => {
               />
               <span v-if="errors.unitPrice" class="field__error">{{ errors.unitPrice }}</span>
             </div>
+            <template v-if="charge.kind === 'other'">
+              <div class="field">
+                <label class="field__label" for="billing-unit">{{ t('ui.charges.unit') }}</label>
+                <input
+                  id="billing-unit"
+                  name="unit"
+                  class="field__input"
+                  :value="charge.billing.unit ?? ''"
+                />
+                <span v-if="errors.unit" class="field__error">{{ errors.unit }}</span>
+              </div>
+              <div class="field">
+                <label class="field__label" for="billing-vat">{{ t('ui.charges.vatKind') }}</label>
+                <select
+                  id="billing-vat"
+                  name="vatKind"
+                  class="field__input"
+                  :value="charge.billing.vatKind"
+                >
+                  <option v-for="kind in LINE_KINDS" :key="kind" :value="kind">
+                    {{ t(`ui.charges.vatKinds.${kind}`) }}
+                  </option>
+                </select>
+              </div>
+            </template>
             <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
               {{ t('ui.charges.saveBilling') }}
             </button>

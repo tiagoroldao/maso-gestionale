@@ -8,8 +8,27 @@ import { formatDate, formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
 import { amountForInput } from '@shared/money'
 import type { ChargeState } from '@shared/charges'
+import { LINE_KINDS } from '@shared/vat'
+import { ref } from 'vue'
 
 const confirm = (message: string) => window.confirm(message)
+// The new cost's fields, pre-filled with the call-out fee on request
+const newCharge = ref({
+  description: '',
+  quantity: '1',
+  unit: '',
+  unitPrice: '',
+  vatKind: 'labour',
+})
+function fillCallOut(fee: string) {
+  newCharge.value = {
+    description: t('ui.charges.callOut'),
+    quantity: '1',
+    unit: '',
+    unitPrice: amountForInput(fee),
+    vatKind: 'labour',
+  }
+}
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
 defineProps<{
@@ -18,11 +37,12 @@ defineProps<{
   canInvoiceAdvance: boolean
   invoicedSoFar: { amount: string; of: string | null }
   timeAndMaterials: { total: string; billed: string; lines: number }
+  callOutFee: string | null
   charges: {
     id: number
     visitId: number | null
     description: string
-    unit: string
+    unit: string | null
     quantity: string
     unitPrice: string
     amount: string
@@ -218,6 +238,94 @@ defineProps<{
           </tbody>
         </table>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.charges.none') }}</p>
+        <Form
+          v-if="job.status !== 'cancelled'"
+          v-slot="{ processing, errors }"
+          route="charges.store"
+          :params="{ id: job.id }"
+          class="form"
+          @success="
+            newCharge = {
+              description: '',
+              quantity: '1',
+              unit: '',
+              unitPrice: '',
+              vatKind: 'labour',
+            }
+          "
+        >
+          <p class="field__hint" :style="{ margin: 0 }">
+            {{ t('ui.charges.addHint') }}
+            <button
+              v-if="callOutFee"
+              type="button"
+              class="btn btn--ghost btn--sm"
+              @click="fillCallOut(callOutFee)"
+            >
+              {{ t('ui.charges.useCallOut') }}
+            </button>
+          </p>
+          <div class="field">
+            <label class="field__label" for="new-charge-description">{{
+              t('ui.charges.description')
+            }}</label>
+            <input
+              id="new-charge-description"
+              v-model="newCharge.description"
+              name="description"
+              class="field__input"
+            />
+            <span v-if="errors.description" class="field__error">{{ errors.description }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="new-charge-quantity">{{
+              t('ui.charges.quantity')
+            }}</label>
+            <input
+              id="new-charge-quantity"
+              v-model="newCharge.quantity"
+              name="quantity"
+              inputmode="decimal"
+              class="field__input"
+            />
+            <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="new-charge-unit">{{ t('ui.charges.unit') }}</label>
+            <input id="new-charge-unit" v-model="newCharge.unit" name="unit" class="field__input" />
+            <span v-if="errors.unit" class="field__error">{{ errors.unit }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="new-charge-price">{{
+              t('ui.charges.unitPrice')
+            }}</label>
+            <input
+              id="new-charge-price"
+              v-model="newCharge.unitPrice"
+              name="unitPrice"
+              inputmode="decimal"
+              class="field__input"
+            />
+            <span v-if="errors.unitPrice" class="field__error">{{ errors.unitPrice }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="new-charge-vat">{{ t('ui.charges.vatKind') }}</label>
+            <select
+              id="new-charge-vat"
+              v-model="newCharge.vatKind"
+              name="vatKind"
+              class="field__input"
+            >
+              <option v-for="kind in LINE_KINDS" :key="kind" :value="kind">
+                {{ t(`ui.charges.vatKinds.${kind}`) }}
+              </option>
+            </select>
+            <span v-if="errors.vatKind" class="field__error">{{ errors.vatKind }}</span>
+          </div>
+          <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
+            {{ t('ui.charges.add') }}
+          </button>
+        </Form>
       </Section>
 
       <Section v-if="job.kind === 'quoted'" :title="t('ui.quotes.section')">
