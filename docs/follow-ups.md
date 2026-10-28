@@ -20,8 +20,8 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
 | #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
-| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
-| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                      |
+| #103  | Closing a Job is manual (ADR 0015)                                                        | —                                                 |
+| #111  | Finished work on a cancelled Job can still be invoiced (decided)                          | —                                                 |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #144  | Payments are records: overpaid Invoices, refunds, warnings (ADR 0014)                     | —                                                 |
@@ -36,7 +36,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#19:** concurrency tests on separate connections; Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
-- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, needs the business).
+- **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links; Credit Notes credit Charges (#146); billing done work on a cancelled Job (#111, decided: it stays billable).
 - **#25:** Invoiced and Closed filterable in SQL; Closed Jobs out of the default list.
 
 ## Not yet issues
