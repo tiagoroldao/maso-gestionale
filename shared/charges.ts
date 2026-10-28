@@ -8,6 +8,11 @@
  * Job (a call-out, a contractor's day, materials bought for the Job).
  */
 export const CHARGE_KINDS = ['labour', 'item', 'other'] as const
+
+/**
+ * The longest description a Charge bills, as long as an Invoice line's.
+ */
+export const CHARGE_DESCRIPTION_MAX = 1000
 export type ChargeKind = (typeof CHARGE_KINDS)[number]
 
 export const CHARGE_EVENT_KINDS = [

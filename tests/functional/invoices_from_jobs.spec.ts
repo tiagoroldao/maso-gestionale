@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
 import StockMovement from '#models/stock_movement'
 import LabourRate from '#models/labour_rate'
@@ -21,7 +22,7 @@ import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
  */
 async function acceptedJob({ imported = true } = {}) {
   const customer = await createCustomer({ name: 'Condominio Verdi' })
-  const job = await createJob(customer, { workCategory: 'maintenance' })
+  const job = await createJob(customer, { workCategory: 'sale' })
   const item = await createItem({ unit: 'pz' })
   const rate =
     (await LabourRate.findBy('name', 'Idraulico')) ??
@@ -64,7 +65,7 @@ async function acceptedJob({ imported = true } = {}) {
 }
 
 test.group('Invoices from Jobs with a Quote', () => {
-  test("the draft bills the imported Charges at the Job's VAT, not the Quote itself", async ({
+  test('the draft bills the imported Charges at the VAT the Customer accepted', async ({
     client,
     assert,
   }) => {
@@ -83,9 +84,11 @@ test.group('Invoices from Jobs with a Quote', () => {
       .firstOrFail()
     response.assertHeader('location', `/invoices/${invoice.id}/edit`)
     assert.equal(invoice.status, 'draft')
-    // Priced as quoted; VAT from the Job's default rules, like any Charge,
-    // not the Quote's; the text line and the Quote's notes stay on it
+    // Priced as quoted, at the Quote's VAT (10%, reverse charge) rather
+    // than the Job's defaults; the text line and the Quote's notes stay on it
     const defaults = await VatDefaults.forJob(job)
+    assert.notEqual(defaults.labour.natura, 'N6.7')
+    assert.notEqual(defaults.material.rate, '10.00')
     assert.deepEqual(
       invoice.lines.map((line) => [
         line.itemId,
@@ -94,10 +97,11 @@ test.group('Invoices from Jobs with a Quote', () => {
         line.unit,
         line.unitPrice,
         line.vatRate,
+        line.natura,
       ]),
       [
-        [item.id, 'Caldaia', '1.000', 'pz', '1500.0000', defaults.material.rate],
-        [null, 'Posa', '4.000', 'h', '40.0000', defaults.labour.rate],
+        [item.id, 'Caldaia', '1.000', 'pz', '1500.0000', '10.00', null],
+        [null, 'Posa', '4.000', 'h', '40.0000', '0.00', 'N6.7'],
       ]
     )
     assert.isNull(invoice.notes)
@@ -110,6 +114,27 @@ test.group('Invoices from Jobs with a Quote', () => {
       .redirects(0)
     again.assertHeader('location', `/invoices/${invoice.id}/edit`)
     assert.lengthOf(await Invoice.query().where('jobId', job.id), 1)
+  })
+
+  test("a Quote line's VAT Code archived since falls back to the Job's default", async ({
+    assert,
+  }) => {
+    const { job, reduced } = await acceptedJob()
+    reduced.archivedAt = DateTime.now()
+    await reduced.save()
+
+    const invoice = await Invoices.fromJob(job)
+
+    const defaults = await VatDefaults.forJob(job)
+    await invoice.load('lines', (l) => l.orderBy('position'))
+    assert.deepEqual(
+      invoice.lines.map((line) => [line.vatCodeId, line.natura]),
+      [
+        [defaults.material.id, defaults.material.natura],
+        [invoice.lines[1].vatCodeId, 'N6.7'],
+      ]
+    )
+    assert.notEqual(invoice.lines[0].vatCodeId, reduced.id)
   })
 
   test('an accepted Quote alone is not billable: nothing imported, nothing to invoice', async ({

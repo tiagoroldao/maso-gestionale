@@ -14,6 +14,7 @@ import Visit from '#models/visit'
 import Scheduling from '#services/scheduling'
 import { lineTotal } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 
 export class QuoteNotEditableError extends Error {}
 
@@ -158,8 +159,8 @@ export default class Quotes {
    * Item used (taken off stock when the Visit closes; on the Job itself it
    * moves no stock), a labour line hours at its Labour Rate for the worker
    * given, the call-out a Job Charge (always on the Job), and text lines
-   * are skipped. Each starts at the line's quantity, price and description
-   * and records which line it came from; a line imported twice gives two
+   * are skipped. Each starts at the line's quantity, price, description
+   * and VAT Code and records which line it came from; a line imported twice gives two
    * Charges. Locks the Visit, then the Job, as field work does.
    */
   static async importLines(job: Job, input: QuoteImportInput, user: User) {
@@ -200,7 +201,9 @@ export default class Quotes {
           quantity: line.quantity!,
           billQuantity: line.quantity!,
           unitPrice: line.unitPrice!,
-          description: line.description.slice(0, 255),
+          description: line.description.slice(0, CHARGE_DESCRIPTION_MAX),
+          // The VAT treatment the Customer accepted, billed as such
+          vatCodeId: line.vatCodeId,
         }
         const values: Partial<Charge> =
           line.kind === 'item'

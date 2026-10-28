@@ -1,6 +1,7 @@
 import vine from '@vinejs/vine'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { LINE_KINDS } from '#shared/vat'
+import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
 
@@ -45,7 +46,7 @@ export const otherCorrectionValidator = vine.create({
 const billing = {
   quantity: quantity(),
   unitPrice: vine.string().use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: '9999999999' })),
-  description: vine.string().trim().minLength(1).maxLength(255),
+  description: vine.string().trim().minLength(1).maxLength(CHARGE_DESCRIPTION_MAX),
   // Another cost's own unit ("h", "pz", "km") and default VAT rule
   unit: vine.string().trim().maxLength(10).optional(),
   vatKind: vine.enum(LINE_KINDS).optional(),

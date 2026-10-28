@@ -23,6 +23,7 @@ import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { lineTotal, splitAmount } from '#shared/money'
 import { advanceLeft, deductionRows } from '#shared/advances'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import {
   canTransition,
   isDeletable,
@@ -382,6 +383,16 @@ export default class Invoices {
       if (!work.length) throw new JobNotInvoiceableError()
 
       const defaults = await VatDefaults.forJob(locked, trx)
+      // Imported Quote lines bill at the VAT Code the Customer accepted,
+      // unless it was archived since (ADR 0012)
+      const quotedIds = work.flatMap(({ charge }) => (charge.vatCodeId ? [charge.vatCodeId] : []))
+      const quoted = quotedIds.length
+        ? await VatCode.query({ client: trx })
+            .whereIn('id', quotedIds)
+            .withScopes((scopes) => scopes.active())
+        : []
+      const codeOf = (charge: Charge) =>
+        quoted.find((code) => code.id === charge.vatCodeId) ?? defaults[charge.lineKind]
 
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
@@ -389,12 +400,15 @@ export default class Invoices {
       )
       const lines = await InvoiceLine.createMany(
         work.map(({ day, charge }, position) => {
-          const code = defaults[charge.lineKind]
+          const code = codeOf(charge)
+          // The Visit's day fits after the description on the line
+          const suffix = day ? ` (${day})` : ''
           return {
             invoiceId: invoice.id,
             position,
             itemId: charge.itemId,
-            description: day ? `${charge.description} (${day})` : charge.description,
+            description:
+              charge.description.slice(0, CHARGE_DESCRIPTION_MAX - suffix.length) + suffix,
             quantity: charge.billQuantity,
             unit: charge.billUnit,
             unitPrice: charge.unitPrice,

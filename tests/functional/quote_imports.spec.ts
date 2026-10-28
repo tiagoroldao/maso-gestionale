@@ -316,10 +316,84 @@ test.group('Importing Quote lines as Charges', () => {
       'Correzione'
     )
     await charge.refresh()
+    // Repriced: no longer as quoted, and billed at the Job's default VAT
     assert.deepEqual(
-      [charge.unitPrice, charge.description],
-      ['60.0000', 'Capo cantiere – Ditta Rossi']
+      [charge.unitPrice, charge.description, charge.vatCodeId],
+      ['60.0000', 'Capo cantiere – Ditta Rossi', null]
     )
+
+    // Corrected again: it follows what was recorded like any Charge
+    await Charges.correct(
+      charge,
+      { quantity: '7', labourRateId: senior.id, workerName: 'Ditta Bianchi' },
+      office,
+      'Correzione'
+    )
+    await charge.refresh()
+    assert.deepEqual(
+      [charge.billQuantity, charge.unitPrice, charge.description],
+      ['7.000', '60.0000', 'Capo cantiere – Ditta Bianchi']
+    )
+  })
+
+  test('lines of nothing are skipped; a long description is kept whole', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const job = await createJob(await createCustomer())
+    const standard = await vatCode()
+    const long = 'Fornitura e posa '.repeat(50).trim()
+    await Quotes.save(job, {
+      lines: [
+        {
+          kind: 'call_out',
+          description: 'Sopralluogo gratuito',
+          quantity: '0',
+          unitPrice: '35',
+          vatCodeId: standard.id,
+        },
+        {
+          kind: 'call_out',
+          description: long,
+          quantity: '1',
+          unitPrice: '35',
+          vatCodeId: standard.id,
+        },
+      ],
+    })
+    await Quotes.accept(job)
+    const quote = await job.related('quote').query().preload('lines').firstOrFail()
+    const [zero, priced] = quote.lines.sort((a, b) => a.position - b.position)
+
+    const refused = await importing(client, job, office, { lineIds: [zero.id] })
+    refused.assertFlashMessage('error', it('flash.quoteImportRefused.noLines'))
+    await importing(client, job, office, { lineIds: [zero.id, priced.id] })
+
+    const charges = await chargesOf(job)
+    assert.deepEqual(
+      charges.map((charge) => [charge.quoteLineId, charge.description]),
+      [[priced.id, long]]
+    )
+    assert.isAbove(long.length, 255)
+  })
+
+  test("a Technician can't remove a line Office imported onto their Visit", async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, job, visit, itemLine } = await quotedJob()
+    await importing(client, job, office, { lineIds: [itemLine.id], visitId: visit.id })
+    const [charge] = await chargesOf(job)
+
+    const refused = await client
+      .delete(`/charges/${charge.id}`)
+      .withCsrfToken()
+      .loginAs(anna)
+      .redirects(0)
+
+    refused.assertFlashMessage('error', it('flash.fieldWorkRefused.reviewed'))
+    assert.isNotNull(await Charge.find(charge.id))
   })
 
   test('the Admin imports too; Technicians and the Superuser can not', async ({

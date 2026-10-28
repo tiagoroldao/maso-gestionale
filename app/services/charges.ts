@@ -11,7 +11,7 @@ import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
 import StockLedger from '#stock/stock_ledger'
-import { isHeld, type ChargeState } from '#shared/charges'
+import { CHARGE_DESCRIPTION_MAX, isHeld, type ChargeState } from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { CHARGE_STATE_SQL } from '#services/job_status'
@@ -248,19 +248,22 @@ export default class Charges {
    * description and, when `repriced` (a new Labour Rate or Item), its
    * current price. Another cost keeps its own description and price, and
    * so does a Charge imported from a Quote line (ADR 0012) until its
-   * Labour Rate or Item changes.
+   * Labour Rate or Item changes; then it also leaves the Quote's VAT Code
+   * for the Job's default rules, like any Charge.
    */
   private static async followRecorded(
     trx: TransactionClientContract,
     charge: Charge,
     repriced: boolean
   ) {
-    // Imported from a Quote line: its own words and price stand
-    const asQuoted = charge.quoteLineId !== null && !repriced
+    // Imported from a Quote line and never repriced (repricing drops the
+    // Quote's VAT Code): its own words and price stand
+    const asQuoted = charge.quoteLineId !== null && charge.vatCodeId !== null && !repriced
     if (asQuoted) {
       charge.billQuantity = charge.quantity
       return
     }
+    if (repriced) charge.vatCodeId = null
     if (charge.kind === 'labour') {
       const rate = await LabourRate.findOrFail(charge.labourRateId, { client: trx })
       const technician = charge.userId ? await User.find(charge.userId, { client: trx }) : null
@@ -270,7 +273,7 @@ export default class Charges {
     } else if (charge.kind === 'item') {
       const item = await Item.findOrFail(charge.itemId, { client: trx })
       if (repriced) charge.unitPrice = item.resalePrice
-      charge.description = item.description.slice(0, 255)
+      charge.description = item.description.slice(0, CHARGE_DESCRIPTION_MAX)
     }
     charge.billQuantity = charge.quantity
   }
