@@ -3,6 +3,7 @@ import Job from '#models/job'
 import Quote from '#models/quote'
 import QuoteLine from '#models/quote_line'
 import LabourRate from '#models/labour_rate'
+import VatCode from '#models/vat_code'
 import CompanySettings from '#models/company_settings'
 import Quotes, { QuoteNotEditableError } from '#services/quotes'
 import DocumentRenderer from '#documents/document_renderer'
@@ -27,6 +28,27 @@ const euro = new Intl.NumberFormat('it-IT', {
 const quantityFormat = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 })
 
 /**
+ * Active VAT Codes, plus any the Quote's lines already use.
+ */
+async function vatCodeOptions(used: number[]) {
+  const codes = await VatCode.query()
+    .where((q) => q.withScopes((scopes) => scopes.active()).orWhereIn('id', used))
+    .orderBy([
+      { column: 'rate', order: 'desc' },
+      { column: 'name', order: 'asc' },
+    ])
+  return codes.map((code) => ({
+    id: code.id,
+    name: code.name,
+    rate: code.rate,
+    natura: code.natura,
+  }))
+}
+
+const vatLabel = (rate: string, natura: string | null) =>
+  natura ?? `${Number(rate).toLocaleString('it-IT')}%`
+
+/**
  * A Job's Quote: written by Office, then accepted or declined.
  */
 export default class QuotesController {
@@ -49,8 +71,9 @@ export default class QuotesController {
         ? {
             status: quote.status,
             notes: quote.notes,
-            total: quote.total,
+            totals: quote.totals,
             lines: quote.lines.map((line) => ({
+              vatCodeId: line.vatCodeId,
               kind: line.kind,
               itemId: line.itemId,
               labourRateId: line.labourRateId,
@@ -69,6 +92,9 @@ export default class QuotesController {
         hourlyPrice: rate.hourlyPrice,
       })),
       callOutFee: settings.callOutFee ?? null,
+      vatCodes: await vatCodeOptions(
+        (quote?.lines ?? []).flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : []))
+      ),
     })
   }
 
@@ -83,6 +109,7 @@ export default class QuotesController {
       meta: {
         itemIds: current.flatMap((line) => (line.itemId ? [line.itemId] : [])),
         labourRateIds: current.flatMap((line) => (line.labourRateId ? [line.labourRateId] : [])),
+        vatCodeIds: current.flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : [])),
       },
     })
 
@@ -115,7 +142,15 @@ export default class QuotesController {
       job: { number: job.number, title: job.title },
       issuedOn: (quote.updatedAt ?? quote.createdAt).toFormat('dd/MM/yyyy'),
       notes: quote.notes,
-      total: euro.format(quote.total as unknown as number),
+      taxable: euro.format(quote.totals.taxable as unknown as number),
+      vat: euro.format(quote.totals.vat as unknown as number),
+      total: euro.format(quote.totals.total as unknown as number),
+      summary: quote.totals.summary.map((row) => ({
+        vat: vatLabel(row.vatRate, row.natura),
+        taxable: euro.format(row.taxable as unknown as number),
+        vatAmount: euro.format(row.vat as unknown as number),
+      })),
+      legalNotes: [...new Set(quote.lines.flatMap((line) => line.legalNote ?? []))],
       lines: quote.lines.map((line) => ({
         kind: line.kind,
         description: line.description,
@@ -123,6 +158,7 @@ export default class QuotesController {
         unit: line.unit ?? '',
         unitPrice: line.unitPrice ? euro.format(line.unitPrice as unknown as number) : '',
         lineTotal: line.lineTotal ? euro.format(line.lineTotal as unknown as number) : '',
+        vat: line.vatRate !== null ? vatLabel(line.vatRate, line.natura) : '',
       })),
       t: (key: string, data?: Record<string, unknown>) => i18n.t(key, data),
     })

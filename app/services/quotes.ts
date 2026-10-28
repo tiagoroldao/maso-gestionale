@@ -5,6 +5,7 @@ import Item from '#models/item'
 import Job from '#models/job'
 import Quote from '#models/quote'
 import QuoteLine, { type QuoteLineKind } from '#models/quote_line'
+import VatCode from '#models/vat_code'
 import { lineTotal } from '#shared/money'
 
 export class QuoteNotEditableError extends Error {}
@@ -16,6 +17,7 @@ export type QuoteLineInput = {
   description: string
   quantity?: string
   unitPrice?: string
+  vatCodeId?: number
 }
 
 /**
@@ -55,9 +57,14 @@ export default class Quotes {
       await saved.save()
 
       const units = await this.itemUnits(input.lines, trx)
+      const codeIds = input.lines.flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : []))
+      const codes = codeIds.length
+        ? await VatCode.query({ client: trx }).whereIn('id', codeIds)
+        : []
+      const vat = new Map(codes.map((code) => [code.id, code]))
       await QuoteLine.query({ client: trx }).where('quoteId', saved.id).delete()
       await QuoteLine.createMany(
-        input.lines.map((line, index) => this.toRow(saved.id, index, line, units)),
+        input.lines.map((line, index) => this.toRow(saved.id, index, line, units, vat)),
         { client: trx }
       )
 
@@ -132,13 +139,15 @@ export default class Quotes {
     quoteId: number,
     position: number,
     line: QuoteLineInput,
-    units: Map<number, string>
+    units: Map<number, string>,
+    vat: Map<number, VatCode>
   ) {
     if (line.kind === 'text') {
       return { quoteId, position, kind: line.kind, description: line.description }
     }
     const quantity = line.quantity!
     const unitPrice = line.unitPrice!
+    const code = vat.get(line.vatCodeId!)!
     return {
       quoteId,
       position,
@@ -155,6 +164,11 @@ export default class Quotes {
             : null,
       unitPrice,
       lineTotal: lineTotal(quantity, unitPrice),
+      // Copied from the VAT Code when written (ADR 0008)
+      vatCodeId: code.id,
+      vatRate: code.rate,
+      natura: code.natura,
+      legalNote: code.legalNote,
     }
   }
 }
