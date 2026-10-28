@@ -56,4 +56,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).
 - **Job filter values copied in two places** (#25): the page and the validator each list the Job filter values, and `DisplayedJobStatus` lives in `app/services`, not `shared/`. Move them to one shared list (from the #97 review).
 - **Payment dated before the Invoice** (#25): `paidOn` can be earlier than the Invoice's `issuedOn` (an advance paid before issuing is plausible, so decide before refusing it) (from the #97 review).
+- **Correction below paid, stock side untested** (#102): no test refuses a correction on a Job-less Invoice with Item lines to show stock isn't rebooked and the snapshots stay (the throw precedes `rebookSale` in the transaction) (from the #106 review).
+- **"Paid" computed two ways:** `Invoices.save` sums Payments in SQL, `Payments.record` uses the preloaded `invoice.paid`. One shared helper would keep them from drifting (from the #106 review).
+- **PDF documents format euro themselves:** `invoice_document.ts` and `quote_document.ts` each build an `Intl.NumberFormat` instead of `formatMoney` from `shared/money.ts`.
 - **Browser test log noise:** the browser suite logs "Transaction query already complete" six times while still passing. Pre-existing since before #16; not investigated.

@@ -12,6 +12,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
+import { formatMoney } from '#shared/money'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
@@ -176,19 +177,27 @@ test.group('Payments', () => {
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    response.assertFlashMessage('error', it('flash.invoiceBelowPaid', { paid: 100 }))
-    assert.include(it('flash.invoiceBelowPaid', { paid: 100 }), '100,00')
+    response.assertFlashMessage(
+      'error',
+      it('flash.invoiceBelowPaid', { paid: formatMoney('100.00') })
+    )
     await invoice.refresh()
     assert.equal(invoice.total, '122.00')
     await invoice.load('lines')
     assert.equal(invoice.lines[0].unitPrice, '100.0000')
 
     // Exactly what was paid is fine: 81.97 + 22% = 100.00
-    await Invoices.save(invoice, {
-      lines: [
-        { description: 'Intervento', quantity: '1', unitPrice: '81.97', vatCodeId: standard.id },
-      ],
-    })
+    const saved = await client
+      .put(`/invoices/${invoice.id}`)
+      .json({
+        lines: [
+          { description: 'Intervento', quantity: '1', unitPrice: '81,97', vatCodeId: standard.id },
+        ],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    saved.assertFlashMessage('success', it('flash.invoiceSaved'))
     await invoice.refresh()
     assert.equal(invoice.total, '100.00')
   })
