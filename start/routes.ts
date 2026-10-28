@@ -316,6 +316,8 @@ router
         router
           .post('settings/vat-codes/:id/archive', [controllers.VatCodes, 'archive'])
           .where('id', router.matchers.number())
+        router.get('settings/vat-rules', [controllers.VatRules, 'index'])
+        router.put('settings/vat-rules', [controllers.VatRules, 'update'])
         router.get('settings/invoice-numbering', [controllers.InvoiceNumbering, 'index'])
         router.put('settings/invoice-numbering/sdi-prefix', [
           controllers.InvoiceNumbering,

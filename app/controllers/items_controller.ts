@@ -236,6 +236,7 @@ export default class ItemsController {
         description: item.description,
         unit: item.unit,
         maintenanceIntervalMonths: item.maintenanceIntervalMonths,
+        significantGood: item.significantGood,
         ...(withPrices && {
           purchasePrice: item.purchasePrice,
           resalePrice: item.resalePrice,

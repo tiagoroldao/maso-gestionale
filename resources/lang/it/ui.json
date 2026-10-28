@@ -116,6 +116,7 @@
     "categories": "Categorie",
     "rates": "Tariffe",
     "vatCodes": "Codici IVA",
+    "vatRules": "Regole IVA",
     "invoiceNumbering": "Numerazione fatture"
   },
   "company": {
@@ -499,6 +500,20 @@
     "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
     "callOutFee": "Diritto di chiamata (€)"
   },
+  "vatRules": {
+    "title": "Regole IVA",
+    "description": "Il codice IVA proposto per le nuove righe di preventivi e fatture di una commessa, per tipo di cliente, tipo di lavoro e immobile. Le righe esistenti non cambiano. Da verificare con il commercialista.",
+    "residential": "Abitativo",
+    "notResidential": "Non abitativo",
+    "save": "Salva regole",
+    "archived": "(archiviato)",
+    "codeFor": "{kind}: {customerType}, {workCategory}, {residential}",
+    "lineKinds": {
+      "labour": "Manodopera",
+      "material": "Materiale",
+      "significant_good": "Bene significativo"
+    }
+  },
   "vatCodes": {
     "title": "Codici IVA",
     "description": "Aliquote e nature usate sulle righe delle fatture. Da verificare con il commercialista.",
@@ -662,6 +677,7 @@
     "outcomeNotes": "Note sull'esito",
     "outcomeNotesHint": "Per uno scarto, i codici e la descrizione della notifica di SDI.",
     "recordOutcome": "Registra esito",
+    "significantGoodSplit": "Bene significativo al 10%: la parte del suo valore che supera il resto della prestazione va fatturata al 22%.",
     "file": "File",
     "uploadedOn": "Caricato il",
     "downloadSent": "Scarica il file inviato",

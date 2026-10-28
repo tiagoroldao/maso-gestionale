@@ -7,6 +7,7 @@ import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
+import VatDefaults from '#services/vat_defaults'
 import Invoices, {
   InvoiceNotEditableError,
   InvoiceNotFinalisableError,
@@ -55,6 +56,18 @@ async function vatCodeOptions(used: number[]) {
     rate: code.rate,
     natura: code.natura,
   }))
+}
+
+/**
+ * The VAT Codes new lines start with: a Job's from the default rules,
+ * otherwise the Item's code or the standard rate (VatDefaults).
+ */
+async function vatDefaultProps(job: Job | null) {
+  const standard = await VatDefaults.standard()
+  return {
+    vatDefaults: job ? await VatDefaults.idsForJob(job) : null,
+    standardVatCodeId: standard.id,
+  }
 }
 
 /**
@@ -142,7 +155,7 @@ export default class InvoicesController {
       .where('id', params.id)
       .preload('customer')
       .preload('job')
-      .preload('lines', (lines) => lines.orderBy('position'))
+      .preload('lines', (lines) => lines.orderBy('position').preload('item'))
       .preload('submissions', (submissions) => submissions.orderBy('preparedAt'))
       .preload('payments', (payments) => payments.orderBy('paidOn'))
       .firstOrFail()
@@ -176,6 +189,7 @@ export default class InvoicesController {
           unitPrice: line.unitPrice,
           discountPercent: line.discountPercent,
           vatCodeId: line.vatCodeId,
+          significantGood: line.item?.significantGood ?? false,
         })),
       },
       // Not while a prepared Submission's file may already be on SDI
@@ -221,6 +235,7 @@ export default class InvoicesController {
             }
           : null,
       vatCodes: await vatCodeOptions(invoice.lines.map((line) => line.vatCodeId)),
+      ...(await vatDefaultProps(invoice.job)),
     })
   }
 

@@ -10,6 +10,7 @@ import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { urlFor } from '~/client'
 import { formatMoney, formatUnitPrice, t } from '~/i18n'
 import { amountForInput, lineTotal, parseAmount, parseQuantity } from '@shared/money'
+import { lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
 import { invoiceTotals } from '@shared/invoice_totals'
 import { formatDate } from '@shared/dates'
 
@@ -25,6 +26,7 @@ type Line = {
   unit: string | null
   unitPrice: string
   vatCodeId: number | null
+  significantGood: boolean
 }
 
 const props = defineProps<{
@@ -45,12 +47,15 @@ const props = defineProps<{
       unit: string | null
       unitPrice: string | null
       lineTotal: string | null
+      significantGood: boolean
     }[]
   } | null
   editable: boolean
   labourRates: { id: number; name: string; hourlyPrice: string }[]
   callOutFee: string | null
   vatCodes: { id: number; name: string; rate: string; natura: string | null }[]
+  // New lines follow the Job's default VAT rules
+  vatDefaults: Record<LineKind, number>
 }>()
 
 const page = usePage()
@@ -70,12 +75,15 @@ function linesFromProps() {
     unit: line.unit,
     unitPrice: line.unitPrice ? amountForInput(line.unitPrice) : '',
     vatCodeId: line.vatCodeId,
+    significantGood: line.significantGood,
   }))
 }
 
 const codes = computed(() => new Map(props.vatCodes.map((code) => [code.id, code])))
-// New lines start on the standard rate: the highest rate charging VAT
-const standardCode = computed(() => props.vatCodes.find((code) => !code.natura)?.id ?? null)
+function splitWarning(line: Line) {
+  const code = line.vatCodeId ? codes.value.get(line.vatCodeId) : undefined
+  return code ? needsSignificantGoodSplit(code, line.significantGood) : false
+}
 
 const lines = reactive<Line[]>(linesFromProps())
 const notes = ref(props.quote?.notes ?? '')
@@ -151,8 +159,8 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     quantity: '1',
     unit: item.unit,
     unitPrice: item.resalePrice ? amountForInput(item.resalePrice) : '',
-    vatCodeId:
-      item.vatCodeId && codes.value.has(item.vatCodeId) ? item.vatCodeId : standardCode.value,
+    vatCodeId: props.vatDefaults[lineKindOf(item)],
+    significantGood: item.significantGood,
   })
 }
 
@@ -168,7 +176,8 @@ function addLabour() {
     quantity: '1',
     unit: 'h',
     unitPrice: amountForInput(rate.hourlyPrice),
-    vatCodeId: standardCode.value,
+    vatCodeId: props.vatDefaults.labour,
+    significantGood: false,
   })
   labourRateId.value = ''
 }
@@ -183,7 +192,8 @@ function addCallOut() {
     quantity: '1',
     unit: null,
     unitPrice: props.callOutFee ? amountForInput(props.callOutFee) : '',
-    vatCodeId: standardCode.value,
+    vatCodeId: props.vatDefaults.labour,
+    significantGood: false,
   })
 }
 
@@ -198,6 +208,7 @@ function addText() {
     unit: null,
     unitPrice: '',
     vatCodeId: null,
+    significantGood: false,
   })
 }
 
@@ -338,6 +349,9 @@ const confirmDecision = (message: string) => () => window.confirm(message)
                   </select>
                   <span v-if="lineError(index, 'vatCodeId')" class="field__error">
                     {{ lineError(index, 'vatCodeId') }}
+                  </span>
+                  <span v-if="splitWarning(line)" class="field__hint" data-testid="split-warning">
+                    {{ t('ui.invoices.significantGoodSplit') }}
                   </span>
                 </template>
               </td>
