@@ -768,6 +768,18 @@ const routes = {
     tokens: [[0,"instance"]],
     types: placeholder as Registry['instance']['types'],
   },
+  'instance.update': {
+    methods: ["PUT"],
+    pattern: '/instance',
+    tokens: [[0,"instance"]],
+    types: placeholder as Registry['instance.update']['types'],
+  },
+  'instance.admin_password': {
+    methods: ["PUT"],
+    pattern: '/instance/admins/:id/password',
+    tokens: [[0,"instance"],[0,"admins"],[1,"id"],[0,"password"]],
+    types: placeholder as Registry['instance.admin_password']['types'],
+  },
 } as const satisfies Record<string, AdonisEndpoint>
 
 export { routes }

@@ -1653,9 +1653,35 @@ export interface Registry {
       paramsTuple: []
       params: {}
       query: {}
-      response: unknown
-      errorResponse: unknown
-      rawResponse: ExtractRawResponse<unknown>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['show']>>>
+    }
+  }
+  'instance.update': {
+    methods: ["PUT"]
+    pattern: '/instance'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/instance_settings').instanceSettingsValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/instance_settings').instanceSettingsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'instance.admin_password': {
+    methods: ["PUT"]
+    pattern: '/instance/admins/:id/password'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/instance_settings').adminPasswordValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/instance_settings').adminPasswordValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['setAdminPassword']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['setAdminPassword']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['setAdminPassword']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
 }

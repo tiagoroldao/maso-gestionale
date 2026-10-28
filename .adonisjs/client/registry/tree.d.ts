@@ -176,5 +176,8 @@ export interface ApiDefinition {
     update: typeof routes['payment_terms.update']
     destroy: typeof routes['payment_terms.destroy']
   }
-  instance: typeof routes['instance']
+  instance: typeof routes['instance'] & {
+    update: typeof routes['instance.update']
+    adminPassword: typeof routes['instance.admin_password']
+  }
 }

@@ -333,7 +333,12 @@ router
 
     router
       .group(() => {
-        router.on('/instance').renderInertia('instance', {}).as('instance')
+        router.get('/instance', [controllers.Instance, 'show']).as('instance')
+        router.put('/instance', [controllers.Instance, 'update']).as('instance.update')
+        router
+          .put('/instance/admins/:id/password', [controllers.Instance, 'setAdminPassword'])
+          .where('id', router.matchers.number())
+          .as('instance.admin_password')
       })
       .use(middleware.can('accessInstance'))
   })
