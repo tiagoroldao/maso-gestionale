@@ -3,6 +3,8 @@ import { hasBillableWork, isClosedVisit } from '#shared/visits'
 import { isVisitBilled, type ChargeState } from '#shared/charges'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
+import Invoices from '#services/invoices'
+import { advanceState } from '#shared/advances'
 import Charge from '#models/charge'
 import CompanySettings from '#models/company_settings'
 import { ArchivedRecordError } from '#services/archiving'
@@ -151,6 +153,8 @@ export default class JobsController {
     const quote = await job.related('quote').query().preload('lines').first()
     // Advance Invoices don't count as the Job's own Invoice (#23)
     const ownInvoices = invoices.filter((invoice) => !invoice.advance)
+    const advances = await Invoices.advancesOf(undefined, job.id)
+    const deductions = new Map(advances.map(({ advance, deducted }) => [advance.id, deducted]))
 
     return inertia.render('jobs/show', {
       invoices: invoices.map((invoice) => ({
@@ -159,6 +163,13 @@ export default class JobsController {
         status: invoice.status,
         total: invoice.totals.total,
         advance: invoice.advance,
+        // An issued advance: how much issued Invoices took back (ADR 0011)
+        deduction: deductions.has(invoice.id)
+          ? {
+              deducted: deductions.get(invoice.id)!,
+              state: advanceState(invoice.total!, deductions.get(invoice.id)!),
+            }
+          : null,
       })),
       // Never for a cancelled Job; a Quote once, Time & Materials work as
       // long as some is to bill and no draft is waiting
@@ -177,9 +188,11 @@ export default class JobsController {
             ) ||
               // Costs Office added to the Job itself are billable at once
               work.some((line) => line.visitId === null && line.state === 'to_bill'))),
-      // On a Quoted Job, only before the Quote's Invoice, which takes them back
+      // On a Quoted Job, only until the Quote's Invoice, which takes them
+      // back, is issued
       canInvoiceAdvance:
-        job.status !== 'cancelled' && (job.kind !== 'quoted' || ownInvoices.length === 0),
+        job.status !== 'cancelled' &&
+        (job.kind !== 'quoted' || ownInvoices.every((invoice) => invoice.status === 'draft')),
       // Taxable amounts: what issued Invoices billed (deductions net out the
       // advances) against the accepted Quote or the work recorded
       invoicedSoFar: {

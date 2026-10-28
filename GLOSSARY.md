@@ -113,7 +113,7 @@ A fiscal document linked to an Invoice that reduces or cancels it after delivery
 _Avoid_: Refund, correction invoice
 
 **Advance Invoice** (_Fattura di acconto_):
-An Invoice for part of a Job, deducted from the Job's final Invoice.
+An Invoice for part of a Job, billed up front and taken back, partly or fully, by the Job's later Invoices (usually its final one) as Office sets on each (ADR 0011).
 _Avoid_: Deposit, partial invoice, SAL
 
 **Supplier Invoice** (_Fattura passiva_):

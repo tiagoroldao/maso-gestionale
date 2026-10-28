@@ -1,3 +1,4 @@
+import db from '@adonisjs/lucid/services/db'
 import Customer from '#models/customer'
 import Job from '#models/job'
 import Payment from '#models/payment'
@@ -186,6 +187,16 @@ export default class InvoicesController {
     const lastRejection = invoice.submissions.findLast(
       (submission) => submission.outcome === 'rejected'
     )
+    // A Job's Invoice takes back issued advances: those with something
+    // left, and those it already takes back (ADR 0011)
+    const deductions = await db.from('advance_deductions').where('invoice_id', invoice.id)
+    const deducted = new Map(
+      deductions.map((row) => [row.advance_id as number, row.amount as string])
+    )
+    const advances =
+      invoice.jobId && !invoice.advance
+        ? await Invoices.advancesOf(undefined, invoice.jobId, invoice.id)
+        : null
     // Other Invoices still waiting to go (or go back) to SDI, to warn before finalising
     const unsubmitted = await Invoice.query()
       .whereIn('status', ['finalised', 'rejected'])
@@ -242,6 +253,16 @@ export default class InvoicesController {
           ? lastRejection.noticeOn.plus({ days: RESUBMISSION_DAYS }).toISODate()
           : null,
       unsubmittedCount: Number(unsubmitted?.$extras.waiting ?? 0),
+      deductions:
+        advances
+          ?.map(({ advance, left }) => ({
+            advanceId: advance.id,
+            number: advance.formattedNumber!,
+            total: advance.total!,
+            left,
+            amount: deducted.get(advance.id) ?? null,
+          }))
+          .filter((row) => Number(row.left) > 0 || row.amount !== null) ?? null,
       payments: invoice.payments.map((payment) => ({
         id: payment.id,
         amount: payment.amount,
@@ -279,7 +300,12 @@ export default class InvoicesController {
     try {
       await Invoices.save(
         invoice,
-        { discountPercent: data.discountPercent, notes: data.notes ?? null, lines: data.lines },
+        {
+          discountPercent: data.discountPercent,
+          notes: data.notes ?? null,
+          lines: data.lines,
+          deductions: data.deductions,
+        },
         auth.getUserOrFail()
       )
     } catch (error) {

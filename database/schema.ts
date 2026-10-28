@@ -7,6 +7,21 @@
 import { BaseModel, column } from '@adonisjs/lucid/orm'
 import { DateTime } from 'luxon'
 
+export class AdvanceDeductionSchema extends BaseModel {
+  static $columns = ['advanceId', 'amount', 'createdAt', 'id', 'invoiceId'] as const
+  $columns = AdvanceDeductionSchema.$columns
+  @column()
+  declare advanceId: number
+  @column()
+  declare amount: string
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceId: number
+}
+
 export class CategorySchema extends BaseModel {
   static $columns = ['createdAt', 'id', 'markupPercent', 'name', 'updatedAt'] as const
   $columns = CategorySchema.$columns
@@ -396,7 +411,7 @@ export class InvoiceSubmissionSchema extends BaseModel {
 }
 
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['advance', 'companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'deductedInId', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'total', 'updatedAt', 'year'] as const
+  static $columns = ['advance', 'companySnapshot', 'createdAt', 'customerId', 'customerSnapshot', 'discountPercent', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'status', 'total', 'updatedAt', 'year'] as const
   $columns = InvoiceSchema.$columns
   @column()
   declare advance: boolean
@@ -408,8 +423,6 @@ export class InvoiceSchema extends BaseModel {
   declare customerId: number
   @column()
   declare customerSnapshot: any | null
-  @column()
-  declare deductedInId: number | null
   @column()
   declare discountPercent: string
   @column.date()

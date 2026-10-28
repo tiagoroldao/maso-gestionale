@@ -104,7 +104,7 @@ export function invoiceTotals(lines: TotalsLine[], discountPercent = '0'): Invoi
     (a, b) => new Big(b.vatRate).cmp(a.vatRate) || (a.natura ?? '').localeCompare(b.natura ?? '')
   )
   const linesTotal = rows.reduce((sum, row) => sum.plus(row.amount), new Big(0))
-  // On the work billed; an advance is always taken back in full
+  // On the work billed; deductions never carry the global discount
   const discountable = rows.reduce((sum, row) => sum.plus(row.discountable), new Big(0))
   const discount = cents(discountable.times(discountPercent).div(100))
   const shares = splitProportionally(

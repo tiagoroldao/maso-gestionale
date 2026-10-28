@@ -236,8 +236,9 @@ test.group('Invoicing from Charges', () => {
     const reduced = await vatCode('10%')
     const standard = await vatCode()
 
-    // The hours at 22%, the valves at 10%; a line sent as a deduction
-    // can't take a Charge, so the call-out is released
+    // The hours at 22%, the valves at 10%; a line sent as a deduction is
+    // dropped (deductions write their own lines, ADR 0011), and can't take
+    // a Charge, so the call-out is released
     await client
       .put(`/invoices/${draft.id}`)
       .json({
@@ -255,10 +256,9 @@ test.group('Invoicing from Charges', () => {
       [
         [standard.id, '22.00'],
         [reduced.id, '10.00'],
-        [callOutLine.vatCodeId, '22.00'],
       ]
     )
-    assert.deepEqual(await chargesByLine(draft), [[hours.id], [valves.id], []])
+    assert.deepEqual(await chargesByLine(draft), [[hours.id], [valves.id]])
     assert.equal(await stateOf(callOut), 'to_bill')
   })
 
