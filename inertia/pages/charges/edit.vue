@@ -35,7 +35,7 @@ const props = defineProps<{
       } | null
     }[]
   }
-  job: { id: number; number: string; title: string }
+  job: { id: number; number: string; title: string; cancelled: boolean }
   labourRates: { id: number; name: string }[]
   technicians: { id: number; name: string }[]
 }>()
@@ -189,7 +189,10 @@ const shown = (key: string, value: string | null) => {
           :params="{ id: charge.id }"
           class="form"
         >
-          <fieldset :disabled="charge.invoice !== null" :style="{ border: 0, padding: 0 }">
+          <fieldset
+            :disabled="charge.invoice !== null || job.cancelled"
+            :style="{ border: 0, padding: 0 }"
+          >
             <div class="field">
               <label class="field__label" for="billing-description">{{
                 t('ui.charges.description')
@@ -233,7 +236,7 @@ const shown = (key: string, value: string | null) => {
             </button>
           </fieldset>
         </Form>
-        <template v-if="charge.invoice === null">
+        <template v-if="charge.invoice === null && !job.cancelled">
           <Form
             v-if="charge.state === 'not_billable'"
             route="charges.mark_billable"

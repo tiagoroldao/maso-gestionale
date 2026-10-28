@@ -122,9 +122,10 @@ export default class extends BaseSchema {
       JOIN visits v ON v.id = l.visit_id
       JOIN items i ON i.id = l.item_id
       ORDER BY l.id`)
+    // Who recorded them was never kept
     this.schema.raw(`
       INSERT INTO charge_events (charge_id, kind, user_id, created_at)
-      SELECT id, 'recorded', user_id, created_at FROM charges ORDER BY id`)
+      SELECT id, 'recorded', NULL, created_at FROM charges ORDER BY id`)
     this.schema.dropTable('visit_items')
     this.schema.dropTable('visit_hours')
   }

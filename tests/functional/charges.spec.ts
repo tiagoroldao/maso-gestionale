@@ -169,6 +169,65 @@ test.group('Charges', () => {
     page.assertInertiaPropsContains({ charge: { state: 'to_bill' } })
   })
 
+  test('hours go only to an active Technician on the Visit, unless already theirs', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, office, rate, hours } = await setup()
+    const outsider = await createUser('technician')
+    const retired = await createUser('technician', { isActive: false })
+    const visit = await Visit.findOrFail(hours.visitId)
+    await visit.related('technicians').attach([retired.id])
+    const correct = (technicianId: number) =>
+      client
+        .put(`/charges/${hours.id}/recorded`)
+        .form({ labourRateId: String(rate.id), technicianId: String(technicianId), quantity: '1' })
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+
+    for (const user of [outsider, retired, office]) {
+      const refused = await correct(user.id)
+      refused.assertFlashMessage('error', it('flash.chargeRefused.worker'))
+    }
+    await hours.refresh()
+    assert.equal(hours.userId, anna.id)
+    assert.equal(hours.quantity, '2.000')
+
+    // Anna keeps her hours even once deactivated
+    anna.isActive = false
+    await anna.save()
+    const kept = await correct(anna.id)
+    kept.assertFlashMessage('success', it('flash.chargeCorrected'))
+  })
+
+  test("a cancelled Job's Charges can be corrected, but their billing is frozen", async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, rate, hours } = await setup()
+    await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
+
+    for (const request of [
+      client
+        .put(`/charges/${hours.id}/billing`)
+        .form({ quantity: '1', unitPrice: '1', description: 'x' }),
+      client.post(`/charges/${hours.id}/not-billable`),
+    ]) {
+      const refused = await request.withCsrfToken().loginAs(office).redirects(0)
+      refused.assertFlashMessage('error', it('flash.chargeRefused.cancelled'))
+    }
+    assert.deepEqual(await history(hours), ['recorded'])
+
+    const corrected = await client
+      .put(`/charges/${hours.id}/recorded`)
+      .form({ labourRateId: String(rate.id), workerName: 'Marco', quantity: '1' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    corrected.assertFlashMessage('success', it('flash.chargeCorrected'))
+  })
+
   test('correcting an Item off stock moves stock by the difference', async ({ client, assert }) => {
     const { anna, office, job, visit, valve, line } = await setup()
     const tap = await createItem({ description: 'Rubinetto', unit: 'pz', resalePrice: '20' })
@@ -205,6 +264,31 @@ test.group('Charges', () => {
     // The usage itself is never rewritten
     const usage = await StockMovement.findOrFail(line.stockMovementId)
     assert.equal(usage.quantity, '-3.000')
+  })
+
+  test('an Item corrected on an open Visit leaves stock with the corrected quantity', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, office, visit, valve, line } = await setup()
+
+    await client
+      .put(`/charges/${line.id}/recorded`)
+      .form({ itemId: String(valve.id), quantity: '5' })
+      .withCsrfToken()
+      .loginAs(office)
+    const corrected = await ChargeEvent.query()
+      .where('chargeId', line.id)
+      .where('kind', 'corrected')
+      .firstOrFail()
+    assert.deepEqual(corrected.changes, {
+      before: { quantity: '3.000' },
+      after: { quantity: '5.000' },
+    })
+
+    await FieldWork.setStatus(visit, 'done', anna)
+    assert.equal(await StockLedger.levelOf(valve), '-5.000')
+    assert.lengthOf(await StockMovement.query().where('kind', 'adjustment'), 0)
   })
 
   test('an archived Labour Rate or Item can only stay, not be picked', async ({

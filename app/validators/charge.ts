@@ -7,22 +7,16 @@ const quantity = () => vine.string().use(quantityRule({ allowNegative: false, ma
 
 /**
  * Correcting recorded hours: the Labour Rate and who worked them (a
- * Technician, or a name for someone outside the app). An archived choice
- * is refused unless already on the Charge (Charges service).
+ * Technician, or a name for someone outside the app). An archived rate
+ * or a Technician not on the Visit is refused unless already on the
+ * Charge (Charges service).
  */
 export const labourCorrectionValidator = vine.create({
-  quantity: quantity(),
+  // As in the field: one entry per day's work
+  quantity: vine.string().use(quantityRule({ allowNegative: false, max: '24' })),
   labourRateId: vine.number().exists({ table: 'labour_rates', column: 'id' }),
-  technicianId: vine
-    .number()
-    .exists({
-      table: 'users',
-      column: 'id',
-      filter: (db) => {
-        db.where('role', 'technician')
-      },
-    })
-    .optional(),
+  // Who may work the hours is checked against the Visit (Charges service)
+  technicianId: vine.number().exists({ table: 'users', column: 'id' }).optional(),
   workerName: vine
     .string()
     .trim()

@@ -1,3 +1,4 @@
+import db from '@adonisjs/lucid/services/db'
 import Charge from '#models/charge'
 import Job from '#models/job'
 import Visit from '#models/visit'
@@ -33,9 +34,21 @@ export default class ChargesController {
     const rates = await LabourRate.query()
       .where((query) => query.whereNull('archivedAt').orWhere('id', charge.labourRateId ?? 0))
       .orderBy('name')
+    // Active Technicians on the Visit, and whoever the Charge already names
     const technicians = await User.query()
-      .where('role', 'technician')
-      .where((query) => query.where('isActive', true).orWhere('id', charge.userId ?? 0))
+      .where((query) => {
+        query
+          .where((active) => {
+            active.where('role', 'technician').where('isActive', true)
+            if (visit) {
+              active.whereIn(
+                'id',
+                db.from('visit_technicians').where('visit_id', visit.id).select('user_id')
+              )
+            }
+          })
+          .orWhere('id', charge.userId ?? 0)
+      })
       .orderBy('email')
 
     return inertia.render('charges/edit', {
@@ -75,7 +88,12 @@ export default class ChargesController {
           changes: event.changes,
         })),
       },
-      job: { id: job.id, number: job.number, title: job.title },
+      job: {
+        id: job.id,
+        number: job.number,
+        title: job.title,
+        cancelled: job.status === 'cancelled',
+      },
       labourRates: rates.map((rate) => ({ id: rate.id, name: rate.name })),
       technicians: technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
     })

@@ -15,11 +15,12 @@ import { labourDescription } from '#services/field_work'
 
 /**
  * An Invoice holds the Charge (a draft or an issued one), so what is
- * billed changes only through billing (ADR 0010); or a correction picked
- * an archived Labour Rate or Item.
+ * billed changes only through billing (ADR 0010); its Job was cancelled,
+ * which freezes billing; or a correction picked an archived Labour Rate
+ * or Item, or a Technician who is inactive or not on the Visit.
  */
 export class ChargeRefusedError extends Error {
-  constructor(readonly reason: 'billed' | 'archived') {
+  constructor(readonly reason: 'billed' | 'cancelled' | 'archived' | 'worker') {
     super(reason)
   }
 }
@@ -69,6 +70,19 @@ export default class Charges {
         const technician = input.technicianId
           ? await User.findOrFail(input.technicianId, { client: trx })
           : null
+        // Hours belong to someone on the Visit (Scheduling relies on it);
+        // the Charge's own worker can stay whatever happened since
+        if (technician && technician.id !== locked.userId) {
+          const onVisit =
+            !locked.visitId ||
+            (await trx
+              .from('visit_technicians')
+              .where('visit_id', locked.visitId)
+              .where('user_id', technician.id)
+              .first())
+          const working = technician.role === 'technician' && technician.isActive
+          if (!working || !onVisit) throw new ChargeRefusedError('worker')
+        }
         const worker = technician
           ? (technician.fullName ?? technician.email)
           : input.workerName!.trim()
@@ -106,8 +120,8 @@ export default class Charges {
    * Edits what is billed, until an Invoice holds the Charge.
    */
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked) => {
-      if (locked.invoiceId !== null) throw new ChargeRefusedError('billed')
+    await this.whileLocked(charge, async (trx, locked, job) => {
+      this.refuseBillingChange(locked, job)
       const before = billingValues(locked)
       locked.merge({
         billQuantity: input.quantity,
@@ -125,8 +139,8 @@ export default class Charges {
    * holds it. Marking it as it already is changes nothing.
    */
   static async setBillable(charge: Charge, billable: boolean, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked) => {
-      if (locked.invoiceId !== null) throw new ChargeRefusedError('billed')
+    await this.whileLocked(charge, async (trx, locked, job) => {
+      this.refuseBillingChange(locked, job)
       const events = await ChargeEvent.query({ client: trx })
         .where('chargeId', locked.id)
         .orderBy('id')
@@ -134,6 +148,15 @@ export default class Charges {
       if (notBillable !== billable) return
       await this.addEvent(trx, locked, billable ? 'billable' : 'not_billable', user, null)
     })
+  }
+
+  /**
+   * What is billed is frozen once an Invoice holds the Charge, and on a
+   * cancelled Job (what was recorded can still be corrected).
+   */
+  private static refuseBillingChange(charge: Charge, job: Job) {
+    if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+    if (charge.invoiceId !== null) throw new ChargeRefusedError('billed')
   }
 
   /**

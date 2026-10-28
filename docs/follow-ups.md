@@ -31,6 +31,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #117  | Add Charges from the accepted Quote                                                       | —                                                                   |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                              |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                              |
+| #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                                   |
 
 ## Added to existing issues
 
@@ -56,6 +57,8 @@ Review findings folded into planned work, so they are picked up with it:
 - **Release image is amd64 only** (#36): add `docker/setup-qemu-action` and `platforms: linux/amd64,linux/arm64` if the server turns out to be ARM (ADR 0002: whatever hardware the business owns) (from the #100 review).
 - **`latest` follows the newest tag pushed** (#36): a hotfix on an older line (`v1.0.1` after `v1.1.0`) moves `latest` back. Only matters once old lines get patches; pin `APP_VERSION` meanwhile (from the #100 review).
 - **Concurrent equipment removal untested:** `FieldWork.removeItem` locks the equipment it created before checking whether another line or Visit uses it. Only reading the code checks this; no test runs two connections against it (from the #98 review).
+- **Charge history deletes** (#114): the `charge_events` trigger blocks updates only. Deletes stay possible so that removing a Charge in the field cascades, but a raw delete of an event would silently change the Charge's derived state. Allow a delete only when the parent Charge is gone, if this ever matters (from the #121 review).
+- **Office removing a Charge through the field route** (#114): `viewVisit` lets Admin and Office use `DELETE /charges/:id` on an open Visit's unreviewed Charge, which leaves no history. This was already possible with Visit hours (from the #121 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
 - **Small leftovers from the #97 review:** the zero-amount Payment test checks the field, not the `amount.positive` message; the `amountRule` docstring line is over 100 characters.
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).
