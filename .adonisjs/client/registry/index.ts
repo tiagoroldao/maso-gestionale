@@ -720,6 +720,42 @@ const routes = {
     tokens: [[0,"settings"],[0,"vat-codes"],[1,"id"],[0,"archive"]],
     types: placeholder as Registry['vat_codes.archive']['types'],
   },
+  'document_templates.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/document-templates',
+    tokens: [[0,"settings"],[0,"document-templates"]],
+    types: placeholder as Registry['document_templates.index']['types'],
+  },
+  'document_templates.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/document-templates/new',
+    tokens: [[0,"settings"],[0,"document-templates"],[0,"new"]],
+    types: placeholder as Registry['document_templates.create']['types'],
+  },
+  'document_templates.store': {
+    methods: ["POST"],
+    pattern: '/settings/document-templates',
+    tokens: [[0,"settings"],[0,"document-templates"]],
+    types: placeholder as Registry['document_templates.store']['types'],
+  },
+  'document_templates.preview': {
+    methods: ["POST"],
+    pattern: '/settings/document-templates/preview',
+    tokens: [[0,"settings"],[0,"document-templates"],[0,"preview"]],
+    types: placeholder as Registry['document_templates.preview']['types'],
+  },
+  'document_templates.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/document-templates/:id/edit',
+    tokens: [[0,"settings"],[0,"document-templates"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['document_templates.edit']['types'],
+  },
+  'document_templates.update': {
+    methods: ["PUT"],
+    pattern: '/settings/document-templates/:id',
+    tokens: [[0,"settings"],[0,"document-templates"],[1,"id"]],
+    types: placeholder as Registry['document_templates.update']['types'],
+  },
   'vat_rules.index': {
     methods: ["GET","HEAD"],
     pattern: '/settings/vat-rules',

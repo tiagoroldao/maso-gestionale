@@ -137,6 +137,7 @@
     "rates": "Tariffe",
     "vatCodes": "Codici IVA",
     "vatRules": "Regole IVA",
+    "documentTemplates": "Modelli di documento",
     "invoiceNumbering": "Numerazione fatture"
   },
   "company": {
@@ -519,6 +520,49 @@
     "callOutTitle": "Diritto di chiamata",
     "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
     "callOutFee": "Diritto di chiamata (€)"
+  },
+  "documentTemplates": {
+    "title": "Modelli di documento",
+    "description": "Dichiarazioni e certificati da compilare per un cliente, stampati sulla carta intestata. Ogni salvataggio crea una nuova versione.",
+    "new": "Nuovo modello",
+    "empty": "Nessun modello.",
+    "version": "Versione {version}",
+    "name": "Nome del modello",
+    "fields": "Campi da compilare",
+    "fieldsHint": "I dati richiesti quando si emette il documento. Il codice si usa nei segnaposto.",
+    "fieldKey": "codice",
+    "fieldLabel": "Etichetta",
+    "fieldOptions": "Scelte, separate da virgola",
+    "fieldKeyOf": "Codice del campo {position}",
+    "fieldLabelOf": "Etichetta del campo {position}",
+    "fieldTypeOf": "Tipo del campo {position}",
+    "fieldOptionsOf": "Scelte del campo {position}",
+    "fieldTypes": {
+      "text": "Testo",
+      "long_text": "Testo lungo",
+      "number": "Numero",
+      "date": "Data",
+      "boolean": "Sì / No",
+      "choice": "Scelta da elenco"
+    },
+    "required": "Obbligatorio",
+    "addField": "Aggiungi campo",
+    "removeField": "Rimuovi",
+    "body": "Testo",
+    "bold": "Grassetto",
+    "italic": "Corsivo",
+    "heading": "Titolo",
+    "bulletList": "Elenco",
+    "insertPlaceholder": "Inserisci un dato…",
+    "builtIn": {
+      "company.name": "Nome dell'azienda",
+      "recipient.name": "Nome del destinatario",
+      "today": "Data di oggi"
+    },
+    "preview": "Anteprima",
+    "refreshPreview": "Aggiorna anteprima",
+    "previewFailed": "Anteprima non disponibile: controlla i campi e il testo.",
+    "save": "Salva modello"
   },
   "vatRules": {
     "title": "Regole IVA",

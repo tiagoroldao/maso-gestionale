@@ -8,6 +8,7 @@ export const controllers = {
   CompanySettings: () => import('#controllers/company_settings_controller'),
   CustomerSites: () => import('#controllers/customer_sites_controller'),
   Customers: () => import('#controllers/customers_controller'),
+  DocumentTemplates: () => import('#controllers/document_templates_controller'),
   InstalledEquipment: () => import('#controllers/installed_equipment_controller'),
   Instance: () => import('#controllers/instance_controller'),
   InvoiceNumbering: () => import('#controllers/invoice_numbering_controller'),
