@@ -37,8 +37,8 @@ test.group('Invoices from Time & Materials in the browser', () => {
     await page.getByRole('button', { name: it('ui.invoices.fromTimeAndMaterials') }).click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
 
-    // 2 h × 40 = 80, 22% VAT
-    await page.getByTestId('invoice-total').getByText('97,60 €').waitFor()
+    // 2 h × 40 = 80, reverse charged by the default rules (company maintenance)
+    await page.getByTestId('invoice-total').getByText('80,00 €').waitFor()
     const invoice = await Invoice.findByOrFail('jobId', job.id)
     assert.equal(invoice.status, 'draft')
   })

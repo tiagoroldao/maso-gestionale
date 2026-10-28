@@ -617,6 +617,25 @@ export class VatCodeSchema extends BaseModel {
   declare updatedAt: DateTime | null
 }
 
+export class VatRuleSchema extends BaseModel {
+  static $columns = ['customerType', 'id', 'lineKind', 'residential', 'updatedAt', 'vatCodeId', 'workCategory'] as const
+  $columns = VatRuleSchema.$columns
+  @column()
+  declare customerType: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lineKind: string
+  @column()
+  declare residential: boolean
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime | null
+  @column()
+  declare vatCodeId: number
+  @column()
+  declare workCategory: string
+}
+
 export class VisitHourSchema extends BaseModel {
   static $columns = ['createdAt', 'hours', 'id', 'labourRateId', 'unitPrice', 'userId', 'visitId'] as const
   $columns = VisitHourSchema.$columns

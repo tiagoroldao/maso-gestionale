@@ -720,6 +720,18 @@ const routes = {
     tokens: [[0,"settings"],[0,"vat-codes"],[1,"id"],[0,"archive"]],
     types: placeholder as Registry['vat_codes.archive']['types'],
   },
+  'vat_rules.index': {
+    methods: ["GET","HEAD"],
+    pattern: '/settings/vat-rules',
+    tokens: [[0,"settings"],[0,"vat-rules"]],
+    types: placeholder as Registry['vat_rules.index']['types'],
+  },
+  'vat_rules.update': {
+    methods: ["PUT"],
+    pattern: '/settings/vat-rules',
+    tokens: [[0,"settings"],[0,"vat-rules"]],
+    types: placeholder as Registry['vat_rules.update']['types'],
+  },
   'invoice_numbering.index': {
     methods: ["GET","HEAD"],
     pattern: '/settings/invoice-numbering',

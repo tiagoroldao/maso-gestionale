@@ -165,6 +165,10 @@ export interface ApiDefinition {
     update: typeof routes['vat_codes.update']
     archive: typeof routes['vat_codes.archive']
   }
+  vatRules: {
+    index: typeof routes['vat_rules.index']
+    update: typeof routes['vat_rules.update']
+  }
   invoiceNumbering: {
     index: typeof routes['invoice_numbering.index']
     updateSdiPrefix: typeof routes['invoice_numbering.update_sdi_prefix']

@@ -4,6 +4,7 @@ import QuoteLine from '#models/quote_line'
 import LabourRate from '#models/labour_rate'
 import VatCode from '#models/vat_code'
 import CompanySettings from '#models/company_settings'
+import VatDefaults from '#services/vat_defaults'
 import Quotes, { QuoteNotEditableError } from '#services/quotes'
 import DocumentRenderer from '#documents/document_renderer'
 import { quoteDocument } from '#documents/quote_document'
@@ -15,7 +16,9 @@ async function loadJob(id: number) {
   return Job.query()
     .where('id', id)
     .preload('customer')
-    .preload('quote', (quote) => quote.preload('lines', (lines) => lines.orderBy('position')))
+    .preload('quote', (quote) =>
+      quote.preload('lines', (lines) => lines.orderBy('position').preload('item'))
+    )
     .firstOrFail()
 }
 
@@ -73,6 +76,7 @@ export default class QuotesController {
               unit: line.unit,
               unitPrice: line.unitPrice,
               lineTotal: line.lineTotal,
+              significantGood: line.item?.significantGood ?? false,
             })),
           }
         : null,
@@ -86,6 +90,7 @@ export default class QuotesController {
       vatCodes: await vatCodeOptions(
         (quote?.lines ?? []).flatMap((line) => (line.vatCodeId ? [line.vatCodeId] : []))
       ),
+      vatDefaults: await VatDefaults.idsForJob(job),
     })
   }
 

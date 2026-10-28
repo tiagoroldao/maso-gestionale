@@ -1554,6 +1554,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_codes_controller').default['archive']>>>
     }
   }
+  'vat_rules.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/settings/vat-rules'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['index']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['index']>>>
+    }
+  }
+  'vat_rules.update': {
+    methods: ["PUT"]
+    pattern: '/settings/vat-rules'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/vat_rule').vatRulesValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/vat_rule').vatRulesValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/vat_rules_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'invoice_numbering.index': {
     methods: ["GET","HEAD"]
     pattern: '/settings/invoice-numbering'

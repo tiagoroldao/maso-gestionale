@@ -39,6 +39,7 @@
   "labourRateSaved": "Tariffa salvata.",
   "labourRateArchived": "Tariffa «{name}» archiviata.",
   "vatCodeAdded": "Codice IVA aggiunto.",
+  "vatRulesSaved": "Regole IVA salvate.",
   "instanceSaved": "Impostazioni dell'istanza salvate.",
   "invoicetronicNotAvailable": "L'invio automatico tramite Invoicetronic non è ancora disponibile: resta la modalità manuale.",
   "adminPasswordSet": "Nuova password impostata per {email}.",
