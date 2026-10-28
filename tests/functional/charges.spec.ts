@@ -21,6 +21,7 @@ import { createItem } from '#tests/helpers/items'
 import { createSite } from '#tests/helpers/sites'
 import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { stateOf } from '#tests/helpers/charges'
 
 /**
  * A Time & Materials Job with an open Visit: Anna's hours and a valve.
@@ -352,8 +353,8 @@ test.group('Charges', () => {
       invoice.lines.map((l) => l.description),
       ['Idraulico – Anna (20/10)']
     )
-    await line.refresh()
-    assert.isNull(line.invoiceId)
+    assert.equal(await stateOf(line), 'not_billable')
+    assert.equal(await stateOf(hours), 'in_draft')
 
     // Once an Invoice holds a Charge, billing changes only through billing
     for (const request of [
@@ -442,6 +443,7 @@ test.group('Charges', () => {
           .form({ quantity: '9', unitPrice: '1', description: 'x' }),
         client.post(`/charges/${hours.id}/not-billable`),
         client.post(`/charges/${hours.id}/billable`),
+        client.post(`/charges/${hours.id}/to-bill`),
       ]) {
         const denied = await request
           .header('referer', '/')
@@ -513,8 +515,7 @@ test.group('Charges on the Job itself', () => {
     await job.refresh()
     const defaults = await VatDefaults.forJob(job)
     assert.equal(line.vatCodeId, defaults.material.id)
-    await charge.refresh()
-    assert.equal(charge.invoiceId, invoice.id)
+    assert.equal(await stateOf(charge), 'in_draft')
   })
 
   test('its quantity, billing, unit and VAT kind are reviewed like any Charge', async ({

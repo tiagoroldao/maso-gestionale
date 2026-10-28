@@ -5,13 +5,17 @@ import db from '@adonisjs/lucid/services/db'
  * deleted in this order.
  */
 const TABLES = [
+  'invoice_line_charges',
+  'charge_events',
   'issued_documents',
   'document_template_versions',
   'document_templates',
-  'sites',
   'stock_movements',
   'invoice_lines',
   'invoices',
+  'charges',
+  'jobs',
+  'sites',
   'invoice_sequences',
   'items',
   'customers',

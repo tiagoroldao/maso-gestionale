@@ -173,7 +173,12 @@ export default class InvoicesController {
       .where('id', params.id)
       .preload('customer')
       .preload('job')
-      .preload('lines', (lines) => lines.orderBy('position').preload('item'))
+      .preload('lines', (lines) =>
+        lines
+          .orderBy('position')
+          .preload('item')
+          .preload('charges', (charges) => charges.orderBy('id'))
+      )
       .preload('submissions', (submissions) => submissions.orderBy('preparedAt'))
       .preload('payments', (payments) => payments.orderBy('paidOn'))
       .firstOrFail()
@@ -211,6 +216,7 @@ export default class InvoicesController {
           vatCodeId: line.vatCodeId,
           significantGood: line.item?.significantGood ?? false,
           deductsInvoiceId: line.deductsInvoiceId,
+          chargeIds: line.charges.map((charge) => charge.id),
         })),
       },
       // Not while a prepared Submission's file may already be on SDI

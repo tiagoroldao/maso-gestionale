@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput } from '@shared/money'
-import type { ChargeEventKind, ChargeKind, ChargeState } from '@shared/charges'
+import { isHeld, type ChargeEventKind, type ChargeKind, type ChargeState } from '@shared/charges'
 import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
 
@@ -40,6 +40,8 @@ const props = defineProps<{
         before: Record<string, string | null>
         after: Record<string, string | null>
       } | null
+      invoice: { id: number; number: string | null } | null
+      amount: string | null
     }[]
   }
   job: { id: number; number: string; title: string; cancelled: boolean }
@@ -56,6 +58,13 @@ function pickItem(picked: PickedItem) {
   item.value = picked
   changingItem.value = false
 }
+
+// What is billed is frozen while an Invoice holds or bills the Charge
+const frozen = computed(() => isHeld(props.charge.state) || props.job.cancelled)
+const confirmSetBack = () =>
+  window.confirm(
+    t('ui.charges.setBackToBillConfirm', { number: props.charge.invoice?.number ?? '' })
+  )
 
 const quantity = (value: string) => amountForInput(value)
 const shown = (key: string, value: string | null) => {
@@ -200,10 +209,7 @@ const shown = (key: string, value: string | null) => {
           :params="{ id: charge.id }"
           class="form"
         >
-          <fieldset
-            :disabled="charge.invoice !== null || job.cancelled"
-            :style="{ border: 0, padding: 0 }"
-          >
+          <fieldset :disabled="frozen" :style="{ border: 0, padding: 0 }">
             <div class="field">
               <label class="field__label" for="billing-description">{{
                 t('ui.charges.description')
@@ -273,7 +279,17 @@ const shown = (key: string, value: string | null) => {
             </button>
           </fieldset>
         </Form>
-        <template v-if="charge.invoice === null && !job.cancelled">
+        <Form
+          v-if="charge.state === 'billed' && !job.cancelled"
+          route="charges.set_back_to_bill"
+          :params="{ id: charge.id }"
+          :on-before="confirmSetBack"
+        >
+          <button type="submit" class="btn btn--ghost btn--sm">
+            {{ t('ui.charges.setBackToBill') }}
+          </button>
+        </Form>
+        <template v-if="!frozen">
           <Form
             v-if="charge.state === 'not_billable'"
             route="charges.mark_billable"
@@ -299,6 +315,21 @@ const shown = (key: string, value: string | null) => {
               <td>{{ t(`ui.charges.events.${event.kind}`) }}</td>
               <td>{{ event.user ?? '' }}</td>
               <td>
+                <Link
+                  v-if="event.invoice"
+                  route="invoices.edit"
+                  :params="{ id: event.invoice.id }"
+                  class="il"
+                >
+                  {{
+                    event.amount
+                      ? t('ui.charges.billedIn', {
+                          number: event.invoice.number ?? '',
+                          amount: formatMoney(event.amount),
+                        })
+                      : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
+                  }}
+                </Link>
                 <div v-for="(after, key) in event.changes?.after ?? {}" :key="key">
                   {{
                     t('ui.charges.change', {

@@ -486,6 +486,12 @@ const routes = {
     tokens: [[0,"charges"],[1,"id"],[0,"billable"]],
     types: placeholder as Registry['charges.mark_billable']['types'],
   },
+  'charges.set_back_to_bill': {
+    methods: ["POST"],
+    pattern: '/charges/:id/to-bill',
+    tokens: [[0,"charges"],[1,"id"],[0,"to-bill"]],
+    types: placeholder as Registry['charges.set_back_to_bill']['types'],
+  },
   'quotes.edit': {
     methods: ["GET","HEAD"],
     pattern: '/jobs/:id/quote',

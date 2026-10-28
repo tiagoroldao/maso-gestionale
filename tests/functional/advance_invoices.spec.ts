@@ -151,6 +151,37 @@ test.group('Advance Invoices', () => {
     })
   })
 
+  test('deduction lines saved back with their ids still take the advance back', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    const job = await acceptedJob()
+    await issuedAdvance(job, '300')
+    const final = await Invoices.fromJob(job)
+    await final.load('lines', (lines) => lines.orderBy('position'))
+    const ids = final.lines.map((line) => line.id)
+
+    await Invoices.save(final, {
+      lines: final.lines.map((line) => ({
+        id: line.id,
+        description: line.description,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        vatCodeId: line.vatCodeId,
+        ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
+      })),
+    })
+    await Invoices.finalise(final)
+    await final.refresh()
+    await final.load('lines', (lines) => lines.orderBy('position'))
+    assert.equal(final.status, 'finalised')
+    assert.deepEqual(
+      final.lines.map((line) => line.id),
+      ids
+    )
+    assert.equal(final.totals.taxable, '700.00')
+  })
+
   test('deleting the final draft frees the advance for the next one', async ({ assert }) => {
     await completeCompany()
     const job = await acceptedJob()

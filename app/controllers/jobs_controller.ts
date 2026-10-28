@@ -1,5 +1,6 @@
 import Job from '#models/job'
-import { hasBillableWork } from '#shared/visits'
+import { hasBillableWork, isClosedVisit } from '#shared/visits'
+import { isVisitBilled, type ChargeState } from '#shared/charges'
 import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
 import Invoice from '#models/invoice'
 import Charge from '#models/charge'
@@ -129,20 +130,21 @@ export default class JobsController {
     const charges = await Charge.query()
       .where('jobId', job.id)
       .preload('events', (events) => events.orderBy('id'))
-      .preload('invoice')
+      .preload('invoiceLines', (lines) => lines.preload('invoice'))
       .preload('item')
       .preload('technician')
       .orderBy(['createdAt', 'id'])
-    // What is billable so far, as Office set it to bill, and how much of it
-    // an Invoice already holds
+    // What a Charge bills: the amount its Invoice billed, otherwise what
+    // Office set to bill
+    const amountOf = (charge: Charge) =>
+      charge.billing?.amount ?? lineTotal(charge.billQuantity, charge.unitPrice)
+    // What is billable so far, and where it stands
     const work = charges
       .filter((charge) => charge.state !== 'not_billable')
-      .map((charge) => ({
-        visitId: charge.visitId,
-        amount: lineTotal(charge.billQuantity, charge.unitPrice),
-        billed: charge.invoiceId !== null,
-      }))
+      .map((charge) => ({ visitId: charge.visitId, amount: amountOf(charge), state: charge.state }))
     const amounts = work.map((line) => line.amount)
+    const sumOf = (state: ChargeState) =>
+      sumAmounts(work.filter((line) => line.state === state).map((line) => line.amount))
 
     const settings = await CompanySettings.current()
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
@@ -159,7 +161,7 @@ export default class JobsController {
         advance: invoice.advance,
       })),
       // Never for a cancelled Job; a Quote once, Time & Materials work as
-      // long as some is unbilled and no draft is waiting
+      // long as some is to bill and no draft is waiting
       canInvoice:
         job.status !== 'cancelled' &&
         (job.kind === 'quoted'
@@ -168,12 +170,13 @@ export default class JobsController {
             (hasBillableWork(
               job.visits.map((visit) => ({
                 status: visit.status,
-                unbilledLines: work.filter((line) => line.visitId === visit.id && !line.billed)
-                  .length,
+                unbilledLines: work.filter(
+                  (line) => line.visitId === visit.id && line.state === 'to_bill'
+                ).length,
               }))
             ) ||
               // Costs Office added to the Job itself are billable at once
-              work.some((line) => line.visitId === null && !line.billed))),
+              work.some((line) => line.visitId === null && line.state === 'to_bill'))),
       // On a Quoted Job, only before the Quote's Invoice, which takes them back
       canInvoiceAdvance:
         job.status !== 'cancelled' && (job.kind !== 'quoted' || ownInvoices.length === 0),
@@ -194,7 +197,8 @@ export default class JobsController {
       },
       timeAndMaterials: {
         total: sumAmounts(amounts),
-        billed: sumAmounts(work.filter((line) => line.billed).map((line) => line.amount)),
+        billed: sumOf('billed'),
+        inDraft: sumOf('in_draft'),
         lines: amounts.length,
       },
       callOutFee: settings?.callOutFee ?? null,
@@ -205,7 +209,7 @@ export default class JobsController {
         unit: charge.billUnit,
         quantity: charge.billQuantity,
         unitPrice: charge.unitPrice,
-        amount: lineTotal(charge.billQuantity, charge.unitPrice),
+        amount: amountOf(charge),
         state: charge.state,
       })),
       job: {
@@ -218,6 +222,10 @@ export default class JobsController {
         startsAt: localDateTime(visit.startsAt),
         endsAt: localDateTime(visit.endsAt),
         status: visit.status,
+        billed: isVisitBilled(
+          isClosedVisit(visit.status),
+          charges.filter((charge) => charge.visitId === visit.id).map((charge) => charge.state)
+        ),
         technicians: visit.technicians.map((technician) => technician.fullName ?? technician.email),
         notes: visit.fieldNotes.map((note) => ({
           id: note.id,

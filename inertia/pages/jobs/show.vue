@@ -35,7 +35,7 @@ defineProps<{
   canInvoice: boolean
   canInvoiceAdvance: boolean
   invoicedSoFar: { amount: string; of: string | null }
-  timeAndMaterials: { total: string; billed: string; lines: number }
+  timeAndMaterials: { total: string; billed: string; inDraft: string; lines: number }
   callOutFee: string | null
   charges: {
     id: number
@@ -65,6 +65,7 @@ defineProps<{
     startsAt: string
     endsAt: string
     status: string
+    billed: boolean
     technicians: string[]
     notes: { id: number; body: string; author: string | null }[]
     photoIds: number[]
@@ -134,6 +135,9 @@ defineProps<{
         </p>
         <p v-if="job.kind === 'time_and_materials'" :style="{ margin: 0 }" data-testid="billed">
           {{ t('ui.jobs.billed', { amount: formatMoney(timeAndMaterials.billed) }) }}
+          <template v-if="Number(timeAndMaterials.inDraft)">
+            · {{ t('ui.jobs.inDraft', { amount: formatMoney(timeAndMaterials.inDraft) }) }}
+          </template>
         </p>
       </Section>
 
@@ -178,6 +182,7 @@ defineProps<{
               </td>
               <td>
                 <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
+                <span v-if="visit.billed" class="tag">{{ t('ui.jobs.visitBilled') }}</span>
               </td>
             </tr>
           </tbody>

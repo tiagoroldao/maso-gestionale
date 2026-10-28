@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
-import { ArrowDown, ArrowUp, FileText, Trash2 } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, FileText, Merge, Trash2 } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
@@ -34,6 +34,8 @@ type Line = {
   significantGood: boolean
   // Set on a line taking back an Advance Invoice
   deductsInvoiceId: number | null
+  // The Charges the line bills (ADR 0010)
+  chargeIds: number[]
 }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
@@ -61,6 +63,7 @@ const props = defineProps<{
       vatCodeId: number
       significantGood: boolean
       deductsInvoiceId: number | null
+      chargeIds: number[]
     }[]
   }
   editable: boolean
@@ -106,6 +109,7 @@ function linesFromProps(): Line[] {
     vatCodeId: line.vatCodeId,
     significantGood: line.significantGood,
     deductsInvoiceId: line.deductsInvoiceId,
+    chargeIds: line.chargeIds,
   }))
 }
 
@@ -201,6 +205,7 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     vatCodeId: defaultCode(item),
     significantGood: item.significantGood,
     deductsInvoiceId: null,
+    chargeIds: [],
   })
 }
 
@@ -217,12 +222,47 @@ function addFreeLine() {
     vatCodeId: defaultCode(null),
     significantGood: false,
     deductsInvoiceId: null,
+    chargeIds: [],
   })
 }
 
 function move(index: number, offset: number) {
   const [line] = lines.splice(index, 1)
   lines.splice(index + offset, 0, line)
+}
+
+/**
+ * Whether the line can join the one above: both bill Charges, have an
+ * amount and share their VAT treatment (the merged line keeps it).
+ */
+function canMergeUp(index: number) {
+  const [above, line] = [lines[index - 1], lines[index]]
+  return Boolean(
+    above?.chargeIds.length &&
+    line.chargeIds.length &&
+    above.vatCodeId === line.vatCodeId &&
+    above.significantGood === line.significantGood &&
+    amountOf(above) &&
+    amountOf(line)
+  )
+}
+
+/**
+ * One line billing both lines' Charges, for their combined amount, at
+ * their shared VAT Code.
+ */
+function mergeUp(index: number) {
+  const [above, line] = [lines[index - 1], lines[index]]
+  const amount = parseAmount(amountOf(above)!)!.plus(amountOf(line)!)
+  Object.assign(above, {
+    itemId: null,
+    quantity: '1',
+    unit: null,
+    unitPrice: amountForInput(amount.toFixed(2)),
+    discountPercent: '',
+    chargeIds: [...above.chargeIds, ...line.chargeIds],
+  })
+  lines.splice(index, 1)
 }
 
 const processing = ref(false)
@@ -243,6 +283,7 @@ function save() {
         ...(line.discountPercent && { discountPercent: line.discountPercent }),
         vatCodeId: line.vatCodeId,
         ...(line.deductsInvoiceId && { deductsInvoiceId: line.deductsInvoiceId }),
+        ...(line.chargeIds.length && { chargeIds: line.chargeIds }),
       })),
     },
     {
@@ -347,6 +388,9 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               <td>
                 <span class="field__hint">
                   {{ line.itemId ? t('ui.invoices.itemLine') : t('ui.invoices.freeLine') }}
+                  <template v-if="line.chargeIds.length">
+                    · {{ t('ui.invoices.billsCharges', { count: line.chargeIds.length }) }}
+                  </template>
                 </span>
                 <input
                   v-model="line.description"
@@ -437,6 +481,16 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                   @click="move(index, 1)"
                 >
                   <ArrowDown :size="14" />
+                </button>
+                <button
+                  v-if="canMergeUp(index)"
+                  type="button"
+                  class="iconbtn"
+                  :aria-label="t('ui.invoices.mergeUp')"
+                  :title="t('ui.invoices.mergeUp')"
+                  @click="mergeUp(index)"
+                >
+                  <Merge :size="14" />
                 </button>
                 <button
                   type="button"
