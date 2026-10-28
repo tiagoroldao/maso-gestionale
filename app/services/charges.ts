@@ -20,7 +20,7 @@ import { labourDescription } from '#services/field_work'
  * billed changes only through billing (ADR 0010); its Job was cancelled,
  * which freezes billing; or a correction picked an archived Labour Rate
  * or Item, or a Technician who is inactive or not on the Visit; or it
- * would change the Item of equipment the Charge only linked to.
+ * would change the Item of equipment the Charge doesn't own alone.
  */
 export class ChargeRefusedError extends Error {
   constructor(readonly reason: 'billed' | 'cancelled' | 'archived' | 'worker' | 'installed') {
@@ -210,9 +210,10 @@ export default class Charges {
 
   /**
    * An installed Item replaced by another: the equipment this Charge
-   * created now is the new Item (with its maintenance interval, unless
-   * one was set by hand). Equipment that was already at the Site and only
-   * linked by this Charge isn't this Charge's to change.
+   * created now is the new Item, with its description and maintenance
+   * interval unless those were set by hand. Equipment this Charge only
+   * linked to, or that another Charge has installed onto or a Visit
+   * serviced since, isn't this Charge's alone to change.
    */
   private static async moveEquipment(trx: TransactionClientContract, charge: Charge, item: Item) {
     if (!charge.createdEquipment) throw new ChargeRefusedError('installed')
@@ -222,12 +223,32 @@ export default class Charges {
       .forUpdate()
       .first()
     if (!equipment) return
+    const sharedSince =
+      equipment.itemId !== charge.itemId ||
+      (await trx
+        .from('charges')
+        .where('installed_equipment_id', equipment.id)
+        .whereNot('id', charge.id)
+        .first()) ||
+      (await trx
+        .from('visit_serviced_equipment')
+        .where('installed_equipment_id', equipment.id)
+        .first())
+    if (sharedSince) throw new ChargeRefusedError('installed')
+
     const previous = await Item.findOrFail(charge.itemId, { client: trx })
-    const interval =
-      equipment.maintenanceIntervalMonths === previous.maintenanceIntervalMonths
-        ? item.maintenanceIntervalMonths
-        : equipment.maintenanceIntervalMonths
-    equipment.merge({ itemId: item.id, maintenanceIntervalMonths: interval })
+    const type = (description: string) => description.slice(0, 100)
+    equipment.merge({
+      itemId: item.id,
+      equipmentType:
+        equipment.equipmentType === type(previous.description)
+          ? type(item.description)
+          : equipment.equipmentType,
+      maintenanceIntervalMonths:
+        equipment.maintenanceIntervalMonths === previous.maintenanceIntervalMonths
+          ? item.maintenanceIntervalMonths
+          : equipment.maintenanceIntervalMonths,
+    })
     await equipment.useTransaction(trx).save()
   }
 

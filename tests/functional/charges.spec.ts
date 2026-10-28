@@ -699,7 +699,70 @@ test.group('Charges for installed Items', () => {
 
     const equipment = await InstalledEquipment.findOrFail(charge.installedEquipmentId)
     assert.equal(equipment.itemId, other.id)
+    assert.equal(equipment.equipmentType, 'Caldaia B')
     assert.equal(equipment.maintenanceIntervalMonths, 24)
+
+    // Set by hand: kept on the next change
+    equipment.merge({ equipmentType: 'Caldaia murale', maintenanceIntervalMonths: 6 })
+    await equipment.save()
+    await client
+      .put(`/charges/${charge.id}/recorded`)
+      .form({ itemId: String(boiler.id), quantity: '1' })
+      .withCsrfToken()
+      .loginAs(office)
+    await equipment.refresh()
+    assert.equal(equipment.itemId, boiler.id)
+    assert.equal(equipment.equipmentType, 'Caldaia murale')
+    assert.equal(equipment.maintenanceIntervalMonths, 6)
+  })
+
+  test('equipment installed onto or serviced since is not moved', async ({ client, assert }) => {
+    const { anna, office, job, visit } = await setup()
+    const site = await createSite()
+    job.siteId = site.id
+    await job.save()
+    const boiler = await createItem({ description: 'Caldaia A' })
+    const other = await createItem({ description: 'Caldaia B' })
+    const charge = await FieldWork.recordItem(visit, {
+      itemId: boiler.id,
+      quantity: '1',
+      installed: true,
+    })
+    const start = DateTime.fromISO('2026-11-20T09:00')
+    const later = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await later.related('technicians').attach([anna.id])
+    await FieldWork.setServiced(later, [charge.installedEquipmentId!])
+
+    const refused = await client
+      .put(`/charges/${charge.id}/recorded`)
+      .form({ itemId: String(other.id), quantity: '1' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refused.assertFlashMessage('error', it('flash.chargeRefused.installed'))
+    const equipment = await InstalledEquipment.findOrFail(charge.installedEquipmentId)
+    assert.equal(equipment.itemId, boiler.id)
+
+    // Another Item installed onto it: not this Charge's to change either
+    await FieldWork.setServiced(later, [])
+    await FieldWork.recordItem(later, {
+      itemId: other.id,
+      quantity: '1',
+      installed: true,
+      equipmentId: equipment.id,
+    })
+    const again = await client
+      .put(`/charges/${charge.id}/recorded`)
+      .form({ itemId: String(other.id), quantity: '1' })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    again.assertFlashMessage('error', it('flash.chargeRefused.installed'))
   })
 
   test('equipment already at the Site keeps its Item; the change is refused', async ({
