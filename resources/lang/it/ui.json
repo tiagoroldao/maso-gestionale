@@ -228,7 +228,8 @@
       "label": "Cerca un cliente",
       "noMatches": "Nessun cliente corrisponde.",
       "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
-    }
+    },
+    "balance": "Da incassare"
   },
   "sites": {
     "title": "Immobili",
@@ -463,7 +464,9 @@
       "accepted": "Accettata",
       "in_progress": "In corso",
       "cancelled": "Annullata",
-      "work_complete": "Lavori completati"
+      "work_complete": "Lavori completati",
+      "invoiced": "Fatturata",
+      "closed": "Chiusa"
     },
     "filters": {
       "active": "Attive",
@@ -473,7 +476,9 @@
       "in_progress": "In corso",
       "cancelled": "Annullate",
       "all": "Tutte",
-      "work_complete": "Lavori completati"
+      "work_complete": "Lavori completati",
+      "invoiced": "Fatturate",
+      "closed": "Chiuse"
     },
     "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
     "cancelledNotEditable": "Una commessa annullata non si può modificare.",
@@ -637,7 +642,8 @@
       "draft": "Bozze",
       "finalised": "Emesse da inviare",
       "submitted": "Inviate, in attesa di esito",
-      "rejected": "Scartate"
+      "rejected": "Scartate",
+      "overdue": "Scadute"
     },
     "resubmitBy": "Scartata: correggi e reinvia entro il {date}.",
     "sdiTitle": "Invio a SDI",
@@ -659,7 +665,22 @@
     "unsubmittedWarning": "{count, plural, one {C'è # fattura emessa} other {Ci sono # fatture emesse}} non ancora {count, plural, one {inviata} other {inviate}} a SDI.",
     "fromQuote": "Crea la fattura dal preventivo",
     "job": "Commessa {number}",
-    "fromTimeAndMaterials": "Crea la fattura da ore e materiali"
+    "fromTimeAndMaterials": "Crea la fattura da ore e materiali",
+    "payment": "Pagamento",
+    "paymentStatuses": {
+      "unpaid": "Da pagare",
+      "partly_paid": "Pagata in parte",
+      "paid": "Pagata",
+      "overdue": "Scaduta"
+    },
+    "paymentsTitle": "Incassi",
+    "paidOf": "Incassato {paid}, da incassare {outstanding}.",
+    "removePayment": "Elimina",
+    "removePaymentConfirm": "Eliminare questo incasso?",
+    "amountPaid": "Importo (€)",
+    "paidOn": "Data",
+    "paymentNote": "Nota",
+    "recordPayment": "Registra incasso"
   },
   "visits": {
     "title": "Interventi",

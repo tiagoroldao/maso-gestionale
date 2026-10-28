@@ -1,4 +1,7 @@
 import Customer from '#models/customer'
+import Invoice from '#models/invoice'
+import { outstanding } from '#shared/payment_status'
+import { sumAmounts } from '#shared/money'
 import Archiving, { HasOpenJobsError } from '#services/archiving'
 import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
@@ -112,6 +115,7 @@ export default class CustomersController {
         jobs
           .preload('site')
           .preload('visits')
+          .preload('invoices', (invoices) => invoices.preload('payments'))
           .orderBy([
             { column: 'year', order: 'desc' },
             { column: 'sequence', order: 'desc' },
@@ -119,7 +123,17 @@ export default class CustomersController {
       )
       .firstOrFail()
 
+    // Outstanding on the Customer's issued Invoices
+    const issued = await Invoice.query()
+      .where('customerId', customer.id)
+      .whereNot('status', 'draft')
+      .preload('payments')
+    const balance = sumAmounts(
+      issued.map((invoice) => outstanding(invoice.total ?? '0', invoice.paid))
+    )
+
     return inertia.render('customers/show', {
+      balance,
       customer: {
         id: customer.id,
         displayName: customer.displayName,
