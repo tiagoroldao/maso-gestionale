@@ -1,5 +1,6 @@
 import vine from '@vinejs/vine'
-import { SDI_MODES } from '#models/instance_settings'
+import { SDI_MODES } from '#shared/instance'
+import { password } from '#validators/user'
 
 /**
  * Instance settings as the Superuser saves them. A blank secret keeps the
@@ -25,6 +26,6 @@ export const instanceSettingsValidator = vine.create({
  * A new password for an Admin who lost theirs, set by the Superuser.
  */
 export const adminPasswordValidator = vine.create({
-  password: vine.string().minLength(8).maxLength(32),
-  passwordConfirmation: vine.string().sameAs('password'),
+  password: password(),
+  passwordConfirmation: password().sameAs('password'),
 })

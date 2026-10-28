@@ -3,9 +3,8 @@ import { Form } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
+import { SDI_MODES } from '@shared/instance'
 import { t } from '~/i18n'
-
-const SDI_MODES = ['manual', 'invoicetronic'] as const
 
 defineProps<{
   settings: {

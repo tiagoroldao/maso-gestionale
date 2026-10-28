@@ -45,6 +45,34 @@ test.group('Instance settings', () => {
     assert.isNull(settings.apiKey)
   })
 
+  test('the webhook secret is kept the same way', async ({ client, assert }) => {
+    const superuser = await createUser('superuser')
+
+    await client
+      .put('/instance')
+      .form({ ...fields, webhookSecret: 'whsec_456' })
+      .withCsrfToken()
+      .loginAs(superuser)
+    const settings = await InstanceSettings.findOrFail(1)
+    assert.equal(settings.secret, 'whsec_456')
+    const raw = await db.from('instance_settings').where('id', 1).firstOrFail()
+    assert.notInclude(raw.webhook_secret, 'whsec_456')
+    const page = await client.get('/instance').withInertia().loginAs(superuser)
+    page.assertInertiaPropsContains({ settings: { hasWebhookSecret: true } })
+    assert.notInclude(JSON.stringify(page.inertiaProps), 'whsec')
+
+    await client.put('/instance').form(fields).withCsrfToken().loginAs(superuser)
+    await settings.refresh()
+    assert.equal(settings.secret, 'whsec_456')
+    await client
+      .put('/instance')
+      .form({ ...fields, clearWebhookSecret: 'true' })
+      .withCsrfToken()
+      .loginAs(superuser)
+    await settings.refresh()
+    assert.isNull(settings.secret)
+  })
+
   test('Invoicetronic mode is not available yet', async ({ client, assert }) => {
     const superuser = await createUser('superuser')
 
@@ -129,6 +157,17 @@ test.group('Instance settings', () => {
           .redirects(0)
         denied.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
       }
+    }
+    // Nor anyone signed out
+    for (const request of [
+      client.put('/instance').form(fields),
+      client
+        .put(`/instance/admins/${admin.id}/password`)
+        .form({ password: 'nuova-password', passwordConfirmation: 'nuova-password' }),
+    ]) {
+      const guest = await request.withCsrfToken().redirects(0)
+      guest.assertStatus(302)
+      guest.assertHeader('location', '/login')
     }
     assert.isNull(await InstanceSettings.find(1))
     await admin.refresh()

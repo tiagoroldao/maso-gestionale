@@ -1,8 +1,7 @@
 import encryption from '@adonisjs/core/services/encryption'
 import { InstanceSettingSchema } from '#database/schema'
 
-export const SDI_MODES = ['manual', 'invoicetronic'] as const
-export type SdiMode = (typeof SDI_MODES)[number]
+import type { SdiMode } from '#shared/instance'
 
 /**
  * The Superuser's settings for this Instance (ADR 0005): how invoices
