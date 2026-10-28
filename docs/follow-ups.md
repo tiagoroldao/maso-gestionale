@@ -4,32 +4,33 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Tracked as issues
 
-| Issue | What                                                                                      | Waiting on                                                    |
-| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                                  |
-| #24   | Credit Notes (credit Charges, ADR 0010)                                                   | The business (`needs-human`): effect on payments and balances |
-| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                                  |
-| #34   | How updates are applied                                                                   | The business (`needs-human`)                                  |
-| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                                  |
-| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                                            |
-| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                                       |
-| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17              |
-| #59   | Proposal: payment in instalments                                                          | Review of proposal                                            |
-| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                                            |
-| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                            |
-| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                                   |
-| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                             |
-| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                                   |
-| #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key             |
-| #102  | Refuse correcting a rejected Invoice below what is already paid                           | —                                                             |
-| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                             |
-| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                                  |
-| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                                        |
-| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                                        |
-| #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                             |
-| #136  | Survey Visits (ADR 0013)                                                                  | —                                                             |
-| #137  | Quotes are frozen once sent (ADR 0013)                                                    | —                                                             |
-| #138  | Several Quotes per Job; a Job's status follows its work (ADR 0013)                        | #136, #137                                                    |
+| Issue | What                                                                                      | Waiting on                                        |
+| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------- |
+| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                      |
+| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                      |
+| #34   | How updates are applied                                                                   | The business (`needs-human`)                      |
+| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                      |
+| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                                |
+| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                           |
+| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17  |
+| #59   | Proposal: payment in instalments                                                          | Review of proposal                                |
+| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                                |
+| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                |
+| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                       |
+| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
+| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
+| #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
+| #103  | Closed Jobs: what stays editable; Payments after archiving                                | —                                                 |
+| #111  | Can done work on a cancelled Job still be invoiced?                                       | The business (`needs-human`)                      |
+| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
+| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
+| #123  | Changing an installed Item Charge's Item updates its Installed Equipment                  | —                                                 |
+| #136  | Survey Visits (ADR 0013)                                                                  | —                                                 |
+| #137  | Quotes are frozen once sent (ADR 0013)                                                    | —                                                 |
+| #138  | Several Quotes per Job; a Job's status follows its work (ADR 0013)                        | #136, #137                                        |
+| #144  | Payments are records: overpaid Invoices, refunds, warnings (ADR 0014)                     | —                                                 |
+| #145  | Credit Notes (ADR 0014)                                                                   | #144                                              |
+| #146  | Credit Notes credit Charges and Advance Invoices (ADR 0014)                               | #145                                              |
 
 ## Added to existing issues
 

@@ -17,6 +17,6 @@ Quoted and Time & Materials Jobs both invoice from their Charges (refined by ADR
 ## Consequences
 
 - Invoice lines need an identity that survives saving a draft, so a line can record which Charges it bills (#110).
-- Credit Notes (#24) credit Charges: they become outstanding again, to be billed again, or Office marks them not billable.
+- Credit Notes (#24) credit Charges: they become outstanding again, to be billed again, or Office marks them not billable. (Refined by ADR 0014: a fully credited line's Charges are credited, a final state like not billable, unless Office sets them back to bill.)
 - Defaults by kind can come later (a Labour Rate whose hours are not billable by default, such as training or warranty).
 - Technicians record Charges without seeing prices; prices are set from the Labour Rate or the Item when recorded and edited only by Office.
