@@ -17,6 +17,7 @@ const props = defineProps<{
     durationMinutes: number
     technicianIds: number[]
     notes: string | null
+    survey: boolean
     editable: boolean
   } | null
 }>()
@@ -89,6 +90,16 @@ const confirmDelete = () => window.confirm(t('ui.visits.deleteConfirm'))
                 </option>
               </select>
             </div>
+          </div>
+        </Section>
+
+        <Section>
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input type="checkbox" name="survey" value="true" :checked="visit?.survey" />
+              {{ t('ui.visits.survey') }}
+            </label>
+            <span class="field__hint">{{ t('ui.visits.surveyHint') }}</span>
           </div>
         </Section>
 

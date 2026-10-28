@@ -81,15 +81,36 @@ export default class DevSeeder extends BaseSeeder {
     const reduced = await VatCode.findByOrFail('name', '10%')
     const reverseCharge = await VatCode.findByOrFail('natura', 'N6.7')
 
-    // Open: just phoned in, nothing planned yet
-    await this.job(customers.private, 'maintenance', 'Perdita sotto il lavello')
+    // Open: just phoned in, a Survey booked for tomorrow (the Job stays open)
+    const leakUnderSink = await this.job(
+      customers.private,
+      'maintenance',
+      'Perdita sotto il lavello'
+    )
+    await Scheduling.plan(leakUnderSink, {
+      startsAt: at(today.plus({ days: 1 }), 8),
+      endsAt: at(today.plus({ days: 1 }), 9),
+      technicianIds: [luca.id],
+      survey: true,
+    })
 
-    // Quoted: a draft Quote waiting for the Customer
+    // Quoted: surveyed last week, a draft Quote waiting for the Customer
     const quoted = await this.job(
       customers.condominium,
       'renovation',
       'Rifacimento colonna montante'
     )
+    const survey = await Scheduling.plan(quoted, {
+      startsAt: at(today.minus({ days: 7 }), 10),
+      endsAt: at(today.minus({ days: 7 }), 11),
+      technicianIds: [giorgio.id],
+      survey: true,
+    })
+    await survey.related('fieldNotes').create({
+      body: 'Colonna in ferro zincato, otto piani: da sostituire per intero.',
+      userId: giorgio.id,
+    })
+    await FieldWork.setStatus(survey, 'done', giorgio)
     await Quotes.save(quoted, {
       validityDays: 30,
       lines: [

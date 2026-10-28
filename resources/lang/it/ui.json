@@ -886,7 +886,9 @@
     "deleteHint": "Solo per interventi pianificati per errore: non è possibile se ha ore, materiali, foto o note.",
     "closedHint": "L'intervento è chiuso e non si può più modificare.",
     "inactive": "(disattivato)",
-    "unassigned": "Senza tecnici"
+    "unassigned": "Senza tecnici",
+    "survey": "Sopralluogo",
+    "surveyHint": "Per vedere il cantiere prima di preventivare o iniziare i lavori: non avvia la commessa."
   },
   "field": {
     "title": "I miei interventi",

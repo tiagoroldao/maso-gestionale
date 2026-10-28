@@ -870,7 +870,7 @@ export class VisitTechnicianSchema extends BaseModel {
 }
 
 export class VisitSchema extends BaseModel {
-  static $columns = ['createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startsAt', 'status', 'updatedAt'] as const
+  static $columns = ['createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startsAt', 'status', 'survey', 'updatedAt'] as const
   $columns = VisitSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -886,6 +886,8 @@ export class VisitSchema extends BaseModel {
   declare startsAt: DateTime
   @column()
   declare status: string
+  @column()
+  declare survey: boolean
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
 }

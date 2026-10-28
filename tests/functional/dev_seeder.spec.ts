@@ -41,13 +41,25 @@ test.group('Development seed data', () => {
       .loginAs(office)
     assert.lengthOf(complete.inertiaProps.jobs as unknown[], 1)
 
-    // Today's started boiler Visit and tomorrow's follow-up
+    // Today's started boiler Visit and tomorrow's follow-up, and a Survey
     const luca = await User.findByOrFail('email', DEV_LOGINS.technicians[0])
     const mine = await client.get('/my-visits').withInertia().loginAs(luca)
-    const lucaVisits = mine.inertiaProps.visits as { status: string }[]
+    const lucaVisits = mine.inertiaProps.visits as { status: string; survey: boolean }[]
     assert.sameMembers(
-      lucaVisits.filter((visit) => visit.status !== 'needs_return').map((visit) => visit.status),
+      lucaVisits
+        .filter((visit) => visit.status !== 'needs_return' && !visit.survey)
+        .map((visit) => visit.status),
       ['in_progress', 'planned']
+    )
+    assert.lengthOf(
+      lucaVisits.filter((visit) => visit.survey),
+      1
+    )
+    // Surveys leave their Jobs open and quoted
+    const surveyed = await Job.query().whereHas('visits', (visit) => visit.where('survey', true))
+    assert.sameMembers(
+      surveyed.map((job) => job.status),
+      ['open', 'quoted']
     )
 
     const agenda = await client.get('/agenda').qs({ view: 'week' }).withInertia().loginAs(office)

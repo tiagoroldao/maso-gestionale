@@ -11,6 +11,7 @@ const props = defineProps<{
     startsAt: string
     endsAt: string
     status: string
+    survey: boolean
     job: { number: string; title: string }
     customer: string
     site: string | null
@@ -45,6 +46,7 @@ const days = computed(() => {
         >
           <span class="field-card__time">
             {{ visit.startsAt.slice(11, 16) }}–{{ visit.endsAt.slice(11, 16) }}
+            <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
             <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
           </span>
           <strong>{{ visit.customer }}</strong>

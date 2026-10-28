@@ -74,6 +74,7 @@ defineProps<{
     startsAt: string
     endsAt: string
     status: string
+    survey: boolean
     billed: boolean
     technicians: string[]
     notes: { id: number; body: string; author: string | null }[]
@@ -188,6 +189,7 @@ defineProps<{
                 </div>
               </td>
               <td>
+                <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
                 <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
                 <span v-if="visit.billed" class="tag">{{ t('ui.jobs.visitBilled') }}</span>
               </td>

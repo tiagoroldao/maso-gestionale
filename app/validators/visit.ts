@@ -15,7 +15,8 @@ const technicianIds = () =>
     .distinct()
 
 /**
- * A Visit planned from the Job page: day, start time, length and who goes.
+ * A Visit planned from the Job page: day, start time, length, who goes,
+ * and whether it is a Survey.
  */
 export const visitValidator = vine.create({
   date: vine.date({ formats: ['YYYY-MM-DD'] }),
@@ -27,6 +28,7 @@ export const visitValidator = vine.create({
     .max(24 * 60),
   technicianIds: technicianIds(),
   notes: vine.string().trim().maxLength(5000).optional(),
+  survey: vine.boolean().optional(),
 })
 
 /**
@@ -62,6 +64,7 @@ export const editVisitValidator = vine.withMetaData<{ technicianIds: number[] }>
     .minLength(1)
     .distinct(),
   notes: vine.string().trim().maxLength(5000).optional(),
+  survey: vine.boolean().optional(),
 })
 
 /**
