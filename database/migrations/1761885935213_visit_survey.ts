@@ -9,12 +9,13 @@ export default class extends BaseSchema {
     this.schema.alterTable('visits', (table) => {
       table.boolean('survey').notNullable().defaultTo(false)
     })
-    // The old rule: for a Job whose Quote was decided, Visits that ended by
-    // the decision were surveys
+    // The old rule: for a Job with a Quote, Visits that ended by its
+    // decision were surveys. A Quote not yet decided would be decided after
+    // now, so the Visits already over are surveys too
     this.schema.raw(`UPDATE visits SET survey = true
       WHERE EXISTS (SELECT 1 FROM quotes q
-        WHERE q.job_id = visits.job_id AND q.decided_at IS NOT NULL
-          AND visits.ends_at <= q.decided_at)`)
+        WHERE q.job_id = visits.job_id
+          AND visits.ends_at <= coalesce(q.decided_at, now()))`)
   }
 
   async down() {

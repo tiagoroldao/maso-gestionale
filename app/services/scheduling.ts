@@ -181,8 +181,10 @@ export default class Scheduling {
   }
 
   /**
-   * Locks the Visit, then share-locks its Job (the order field work uses),
-   * refusing a closed Visit or one whose Job was cancelled.
+   * Locks the Visit, then its Job (the order field work uses): shared by
+   * default, for update when the caller may change the Job's status
+   * (update, destroy). Refuses a closed Visit or one whose Job was
+   * cancelled.
    */
   private static async lockOpenVisit(
     trx: TransactionClientContract,
