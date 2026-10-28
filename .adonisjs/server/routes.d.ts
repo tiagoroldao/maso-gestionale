@@ -62,6 +62,9 @@ export type ScannedRoutes = {
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.accept': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -147,6 +150,7 @@ export type ScannedRoutes = {
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
+    'visits.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.index': { paramsTuple?: []; params?: {} }
@@ -201,6 +205,7 @@ export type ScannedRoutes = {
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
+    'visits.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.index': { paramsTuple?: []; params?: {} }
@@ -264,6 +269,7 @@ export type ScannedRoutes = {
     'my_visits.remove_hours': { paramsTuple: [ParamValue]; params: {'hourId': ParamValue} }
     'my_visits.remove_item': { paramsTuple: [ParamValue]; params: {'itemId': ParamValue} }
     'customer_sites.destroy': { paramsTuple: [ParamValue,ParamValue]; params: {'customerId': ParamValue,'siteId': ParamValue} }
+    'visits.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -276,6 +282,7 @@ export type ScannedRoutes = {
     'sites.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'installed_equipment.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

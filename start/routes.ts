@@ -155,6 +155,15 @@ router
           .patch('visits/:id/move', [controllers.Visits, 'move'])
           .where('id', router.matchers.number())
         router
+          .get('visits/:id/edit', [controllers.Visits, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('visits/:id', [controllers.Visits, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .delete('visits/:id', [controllers.Visits, 'destroy'])
+          .where('id', router.matchers.number())
+        router
           .get('jobs/:id/quote', [controllers.Quotes, 'edit'])
           .where('id', router.matchers.number())
         router

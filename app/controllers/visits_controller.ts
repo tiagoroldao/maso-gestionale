@@ -2,17 +2,35 @@ import { DateTime } from 'luxon'
 import Job from '#models/job'
 import User from '#models/user'
 import Visit from '#models/visit'
-import Scheduling, { JobNotSchedulableError, VisitNotMovableError } from '#services/scheduling'
-import { moveVisitValidator, scheduleValidator, visitValidator } from '#validators/visit'
+import Scheduling, {
+  JobNotSchedulableError,
+  VisitHasWorkError,
+  VisitNotMovableError,
+} from '#services/scheduling'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import {
+  editVisitValidator,
+  moveVisitValidator,
+  scheduleValidator,
+  visitValidator,
+} from '#validators/visit'
 import { localDateTime } from '#services/dates'
 import type { HttpContext } from '@adonisjs/core/http'
 
-async function technicians() {
+/**
+ * Active Technicians, plus `extra` ones (e.g. deactivated since but still
+ * on Visits being shown), marked inactive.
+ */
+async function technicians(extra: number[] = []) {
   const users = await User.query()
     .where('role', 'technician')
-    .where('isActive', true)
+    .where((q) => q.where('isActive', true).orWhereIn('id', extra))
     .orderBy('fullName')
-  return users.map((user) => ({ id: user.id, name: user.fullName ?? user.email }))
+  return users.map((user) => ({
+    id: user.id,
+    name: user.fullName ?? user.email,
+    active: user.isActive,
+  }))
 }
 
 /**
@@ -25,6 +43,7 @@ export default class VisitsController {
     return inertia.render('visits/create', {
       job: { id: job.id, number: job.number, title: job.title, customer: job.customer.displayName },
       technicians: await technicians(),
+      visit: null,
     })
   }
 
@@ -78,7 +97,11 @@ export default class VisitsController {
       days: Array.from({ length: view === 'week' ? 7 : 1 }, (_, i) =>
         from.plus({ days: i }).toFormat('yyyy-MM-dd')
       ),
-      technicians: await technicians(),
+      // Lanes for every active Technician, and for deactivated ones who
+      // still have Visits in view, so no Visit disappears
+      technicians: await technicians(
+        visits.flatMap((visit) => visit.technicians.map((technician) => technician.id))
+      ),
       visits: visits.map((visit) => ({
         id: visit.id,
         startsAt: localDateTime(visit.startsAt),
@@ -94,6 +117,77 @@ export default class VisitsController {
         },
       })),
     })
+  }
+
+  async edit({ params, inertia }: HttpContext) {
+    const visit = await Visit.query()
+      .where('id', params.id)
+      .preload('technicians')
+      .preload('job', (job) => job.preload('customer'))
+      .firstOrFail()
+    const ids = visit.technicians.map((technician) => technician.id)
+
+    return inertia.render('visits/create', {
+      job: {
+        id: visit.job.id,
+        number: visit.job.number,
+        title: visit.job.title,
+        customer: visit.job.customer.displayName,
+      },
+      technicians: await technicians(ids),
+      visit: {
+        id: visit.id,
+        date: visit.startsAt.toISODate()!,
+        startTime: visit.startsAt.toFormat('HH:mm'),
+        durationMinutes: Math.round(visit.endsAt.diff(visit.startsAt, 'minutes').minutes),
+        technicianIds: ids,
+        notes: visit.notes,
+        editable: !CLOSED_VISIT_STATUSES.includes(visit.status),
+      },
+    })
+  }
+
+  async update({ params, request, response, session, i18n }: HttpContext) {
+    const visit = await Visit.query().where('id', params.id).preload('technicians').firstOrFail()
+    const data = await request.validateUsing(editVisitValidator, {
+      meta: { technicianIds: visit.technicians.map((technician) => technician.id) },
+    })
+
+    const startsAt = DateTime.fromISO(`${data.date.toISODate()}T${data.startTime}`)
+    try {
+      await Scheduling.update(visit, {
+        startsAt,
+        endsAt: startsAt.plus({ minutes: data.durationMinutes }),
+        technicianIds: data.technicianIds,
+        notes: data.notes ?? null,
+      })
+    } catch (error) {
+      if (!(error instanceof VisitNotMovableError)) throw error
+      session.flash('error', i18n.t('flash.visitNotMovable'))
+      return response.redirect().toRoute('jobs.show', { id: visit.jobId })
+    }
+
+    session.flash('success', i18n.t('flash.visitSaved'))
+    response.redirect().toRoute('jobs.show', { id: visit.jobId })
+  }
+
+  async destroy({ params, response, session, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    try {
+      await Scheduling.destroy(visit)
+    } catch (error) {
+      if (error instanceof VisitHasWorkError) {
+        session.flash('error', i18n.t('flash.visitHasWork'))
+      } else if (error instanceof VisitNotMovableError) {
+        session.flash('error', i18n.t('flash.visitNotMovable'))
+      } else {
+        throw error
+      }
+      return response.redirect().toRoute('jobs.show', { id: visit.jobId })
+    }
+
+    session.flash('success', i18n.t('flash.visitDeleted'))
+    response.redirect().toRoute('jobs.show', { id: visit.jobId })
   }
 
   async move({ params, request, response, session, i18n }: HttpContext) {

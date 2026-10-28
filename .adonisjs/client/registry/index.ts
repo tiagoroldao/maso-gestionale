@@ -354,6 +354,24 @@ const routes = {
     tokens: [[0,"visits"],[1,"id"],[0,"move"]],
     types: placeholder as Registry['visits.move']['types'],
   },
+  'visits.edit': {
+    methods: ["GET","HEAD"],
+    pattern: '/visits/:id/edit',
+    tokens: [[0,"visits"],[1,"id"],[0,"edit"]],
+    types: placeholder as Registry['visits.edit']['types'],
+  },
+  'visits.update': {
+    methods: ["PUT"],
+    pattern: '/visits/:id',
+    tokens: [[0,"visits"],[1,"id"]],
+    types: placeholder as Registry['visits.update']['types'],
+  },
+  'visits.destroy': {
+    methods: ["DELETE"],
+    pattern: '/visits/:id',
+    tokens: [[0,"visits"],[1,"id"]],
+    types: placeholder as Registry['visits.destroy']['types'],
+  },
   'quotes.edit': {
     methods: ["GET","HEAD"],
     pattern: '/jobs/:id/quote',

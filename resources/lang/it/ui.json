@@ -647,7 +647,15 @@
       "done": "Completato",
       "needs_return": "Da ripianificare"
     },
-    "hours": "{hours, plural, one {# ora} other {# ore}}"
+    "hours": "{hours, plural, one {# ora} other {# ore}}",
+    "editTitle": "Modifica intervento – commessa {number}",
+    "edit": "Modifica",
+    "save": "Salva intervento",
+    "delete": "Elimina intervento",
+    "deleteConfirm": "Eliminare questo intervento?",
+    "deleteHint": "Solo per interventi pianificati per errore: non è possibile se ha ore, materiali, foto o note.",
+    "closedHint": "L'intervento è chiuso e non si può più modificare.",
+    "inactive": "(disattivato)"
   },
   "field": {
     "title": "I miei interventi",

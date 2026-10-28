@@ -71,5 +71,8 @@
     "companyIncomplete": "Completa i dati aziendali (ragione sociale, Partita IVA, regime fiscale, sede) prima di emettere fatture."
   },
   "numberingSaved": "Numerazione {year} salvata.",
-  "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura."
+  "numberingLocked": "La numerazione {year} è bloccata: è già stata emessa una fattura.",
+  "visitSaved": "Intervento salvato.",
+  "visitDeleted": "Intervento eliminato.",
+  "visitHasWork": "L'intervento ha già ore, materiali, foto o note: non si può eliminare."
 }
