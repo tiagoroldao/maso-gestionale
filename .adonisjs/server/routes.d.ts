@@ -123,6 +123,12 @@ export type ScannedRoutes = {
     'vat_codes.store': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_codes.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.index': { paramsTuple?: []; params?: {} }
+    'document_templates.create': { paramsTuple?: []; params?: {} }
+    'document_templates.store': { paramsTuple?: []; params?: {} }
+    'document_templates.preview': { paramsTuple?: []; params?: {} }
+    'document_templates.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.index': { paramsTuple?: []; params?: {} }
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
@@ -188,6 +194,9 @@ export type ScannedRoutes = {
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
+    'document_templates.index': { paramsTuple?: []; params?: {} }
+    'document_templates.create': { paramsTuple?: []; params?: {} }
+    'document_templates.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
@@ -245,6 +254,9 @@ export type ScannedRoutes = {
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
+    'document_templates.index': { paramsTuple?: []; params?: {} }
+    'document_templates.create': { paramsTuple?: []; params?: {} }
+    'document_templates.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
@@ -296,6 +308,8 @@ export type ScannedRoutes = {
     'rates.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_codes.store': { paramsTuple?: []; params?: {} }
     'vat_codes.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.store': { paramsTuple?: []; params?: {} }
+    'document_templates.preview': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
@@ -324,6 +338,7 @@ export type ScannedRoutes = {
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update_call_out_fee': { paramsTuple?: []; params?: {} }
     'vat_codes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'document_templates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
