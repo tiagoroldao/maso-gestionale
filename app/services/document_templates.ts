@@ -8,6 +8,12 @@ import type { TemplateField, TemplateNode } from '#shared/document_templates'
 export type TemplateInput = { name: string; body: TemplateNode; fields: TemplateField[] }
 
 /**
+ * An archived template is kept for the documents issued from it, and no
+ * longer changed: restore it first.
+ */
+export class TemplateArchivedError extends Error {}
+
+/**
  * Saving Document Templates: every save adds a version, numbered from 1,
  * so documents issued from an earlier one keep it as it was.
  */
@@ -27,6 +33,7 @@ export default class DocumentTemplates {
         .where('id', template.id)
         .forUpdate()
         .firstOrFail()
+      if (locked.archivedAt) throw new TemplateArchivedError()
       locked.useTransaction(trx)
       locked.name = input.name
       await locked.save()

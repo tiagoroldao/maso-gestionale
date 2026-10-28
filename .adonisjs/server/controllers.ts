@@ -14,6 +14,7 @@ export const controllers = {
   Instance: () => import('#controllers/instance_controller'),
   InvoiceNumbering: () => import('#controllers/invoice_numbering_controller'),
   Invoices: () => import('#controllers/invoices_controller'),
+  IssuedDocuments: () => import('#controllers/issued_documents_controller'),
   ItemDocuments: () => import('#controllers/item_documents_controller'),
   Items: () => import('#controllers/items_controller'),
   Jobs: () => import('#controllers/jobs_controller'),

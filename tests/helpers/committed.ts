@@ -5,6 +5,10 @@ import db from '@adonisjs/lucid/services/db'
  * deleted in this order.
  */
 const TABLES = [
+  'issued_documents',
+  'document_template_versions',
+  'document_templates',
+  'sites',
   'stock_movements',
   'invoice_lines',
   'invoices',
@@ -13,6 +17,15 @@ const TABLES = [
   'customers',
   'users',
 ]
+
+/**
+ * Tables whose rows a trigger keeps from being deleted (frozen records):
+ * the trigger is turned off while cleaning up.
+ */
+const FROZEN: Record<string, string> = {
+  issued_documents: 'issued_documents_frozen',
+  document_template_versions: 'document_template_versions_frozen',
+}
 
 /**
  * For tests tagged `@committed`, which run outside the global test
@@ -31,7 +44,13 @@ export async function committedData() {
   }
   return async () => {
     for (const table of TABLES) {
-      await db.from(table).where('id', '>', before.get(table)!).delete()
+      const trigger = Object.hasOwn(FROZEN, table) ? FROZEN[table] : null
+      if (trigger) await db.rawQuery(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`)
+      try {
+        await db.from(table).where('id', '>', before.get(table)!).delete()
+      } finally {
+        if (trigger) await db.rawQuery(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`)
+      }
     }
     await db.from('company_settings').where('id', 1).delete()
     if (settings) await db.table('company_settings').insert(settings)

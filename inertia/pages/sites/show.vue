@@ -6,11 +6,13 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, t, todayIso } from '~/i18n'
 import JobList, { type JobRow } from '~/components/job_list.vue'
+import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
 
 defineProps<{
   site: { id: number; summary: string; accessNotes: string | null; archived: boolean }
   customers: { id: number; displayName: string }[]
   jobs: JobRow[]
+  issuedDocuments: IssuedDocumentRow[]
   installedEquipment: {
     id: number
     description: string
@@ -173,6 +175,9 @@ const confirm = (message: string) => window.confirm(message)
             <Plus :size="15" /> {{ t('ui.equipment.add') }}
           </Link>
         </div>
+      </Section>
+      <Section :title="t('ui.issuedDocuments.title')">
+        <IssuedDocumentList :documents="issuedDocuments" />
       </Section>
     </Page>
   </AppLayout>

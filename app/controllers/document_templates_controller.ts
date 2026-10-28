@@ -3,7 +3,7 @@ import CompanySettings from '#models/company_settings'
 import Customer from '#models/customer'
 import DocumentTemplate from '#models/document_template'
 import DocumentRenderer from '#documents/document_renderer'
-import DocumentTemplates from '#services/document_templates'
+import DocumentTemplates, { TemplateArchivedError } from '#services/document_templates'
 import TemplateData, { TemplateDataError } from '#services/template_data'
 import { isUniqueViolation } from '#services/database_errors'
 import { formatDate, todayIso } from '#shared/dates'
@@ -38,6 +38,8 @@ export default class DocumentTemplatesController {
       .withAggregate('versions', (versions) => versions.max('created_at').as('savedAt'))
       .orderBy('name')
 
+    const archived = await DocumentTemplate.query().whereNotNull('archived_at').orderBy('name')
+
     return inertia.render('settings/document_templates/index', {
       templates: templates.map((template) => ({
         id: template.id,
@@ -46,6 +48,7 @@ export default class DocumentTemplatesController {
         // When the latest version was saved
         savedAt: DateTime.fromJSDate(template.$extras.savedAt).toISODate()!,
       })),
+      archived: archived.map((template) => ({ id: template.id, name: template.name })),
     })
   }
 
@@ -77,6 +80,7 @@ export default class DocumentTemplatesController {
         version: current.version,
         body: current.body,
         fields: current.fields,
+        archived: template.archivedAt !== null,
       },
     })
   }
@@ -88,9 +92,38 @@ export default class DocumentTemplatesController {
       const version = await DocumentTemplates.save(template, toInput(data), auth.getUserOrFail())
       session.flash('success', i18n.t('flash.documentTemplateSaved', { version: version.version }))
     } catch (error) {
-      if (!isUniqueViolation(error)) throw error
-      session.flash('error', i18n.t('flash.alreadyTaken'))
+      if (error instanceof TemplateArchivedError) {
+        session.flash('error', i18n.t('flash.documentTemplateArchivedNoEdit'))
+      } else if (isUniqueViolation(error)) {
+        session.flash('error', i18n.t('flash.alreadyTaken'))
+      } else {
+        throw error
+      }
     }
+    response.redirect().toRoute('document_templates.edit', { id: template.id })
+  }
+
+  /**
+   * Templates are archived, never deleted: Issued Documents refer to them.
+   * An archived one can't be issued or edited, and keeps its name (names
+   * stay unique, so restoring never clashes).
+   */
+  async archive({ params, response, session, i18n }: HttpContext) {
+    const template = await DocumentTemplate.findOrFail(params.id)
+    // The update waits for any issue holding the template (IssuedDocuments)
+    template.archivedAt = DateTime.now()
+    await template.save()
+
+    session.flash('success', i18n.t('flash.documentTemplateArchived', { name: template.name }))
+    response.redirect().toRoute('document_templates.index')
+  }
+
+  async restore({ params, response, session, i18n }: HttpContext) {
+    const template = await DocumentTemplate.findOrFail(params.id)
+    template.archivedAt = null
+    await template.save()
+
+    session.flash('success', i18n.t('flash.documentTemplateRestored', { name: template.name }))
     response.redirect().toRoute('document_templates.edit', { id: template.id })
   }
 
@@ -120,7 +153,7 @@ export default class DocumentTemplatesController {
 
   /**
    * "Try with real data": the saved template's fields to fill for a
-   * Customer, as Issued Documents will (#31).
+   * Customer, as Issued Documents do (#31).
    */
   async fill({ params, inertia }: HttpContext) {
     const template = await DocumentTemplate.findOrFail(params.id)
@@ -153,7 +186,7 @@ export default class DocumentTemplatesController {
     }
 
     try {
-      const { values, tables } = await TemplateData.resolve(
+      const { values, tables, recipient } = await TemplateData.resolve(
         current.fields,
         customer,
         data.values ?? {},
@@ -161,7 +194,7 @@ export default class DocumentTemplatesController {
       )
       const html = await new DocumentRenderer().renderHtml({
         title: current.name,
-        recipient: customer.toRecipient(),
+        recipient,
         bodyHtml: renderTemplateBody(current.body, values, tables),
       })
       return { html }

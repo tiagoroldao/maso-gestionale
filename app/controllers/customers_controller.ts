@@ -7,6 +7,7 @@ import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
 import { customerPickerValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
+import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 import { likePattern } from '#services/search'
@@ -152,6 +153,7 @@ export default class CustomersController {
       },
       sites: customer.sites.map((site) => ({ id: site.id, summary: site.summary })),
       jobs: customer.jobs.map((job) => jobRow(job)),
+      issuedDocuments: await IssuedDocuments.history({ customerId: customer.id }),
     })
   }
 
