@@ -12,7 +12,7 @@ import { itemFlagDefaults } from '#shared/items'
  * A stocked article with a purchase price and an independently set resale
  * price. Prices are decimal strings (ADR 0007). Equipment Items become
  * Installed Equipment when their Charges are done; Groupable ones' Charges
- * may share an Invoice line (#176).
+ * share a line on Invoice drafts (#176, ADR 0017).
  */
 export default class Item extends ItemSchema {
   /**

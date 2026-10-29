@@ -18,6 +18,8 @@ import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
 
 const confirm = (message: string) => window.confirm(message)
+// A draft from the Charges combines alike ones unless unticked (ADR 0017)
+const combine = ref(true)
 type WorkTotals = { planned: string; done: string; notDone: string }
 type SummaryRow = WorkTotals & { visits: (WorkTotals & { visitId: number | null })[] }
 // The new cost's fields, pre-filled with the call-out fee on request
@@ -627,7 +629,33 @@ function confirmCancel() {
             {{ t('ui.invoices.newAdvance') }}
           </button>
         </Form>
-        <Form v-if="canInvoice" route="invoices.store_from_job" :params="{ id: job.id }">
+        <Form
+          v-if="canInvoice"
+          v-slot="{ errors: draftErrors }"
+          route="invoices.store_from_job"
+          :params="{ id: job.id }"
+        >
+          <!-- Sent either way, so the choice is always explicit -->
+          <input type="hidden" name="combine" :value="combine ? 'true' : 'false'" />
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input v-model="combine" type="checkbox" />
+              {{ t('ui.invoices.combineCharges') }}
+            </label>
+            <span class="field__hint">{{ t('ui.invoices.combineChargesHint') }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="invoice-up-to">{{ t('ui.invoices.upTo') }}</label>
+            <input
+              id="invoice-up-to"
+              name="upTo"
+              type="date"
+              class="field__input"
+              :style="{ maxWidth: '200px' }"
+            />
+            <span class="field__hint">{{ t('ui.invoices.upToHint') }}</span>
+            <span v-if="draftErrors.upTo" class="field__error">{{ draftErrors.upTo }}</span>
+          </div>
           <button type="submit" class="btn btn--secondary btn--sm">
             {{ t('ui.invoices.fromCharges') }}
           </button>

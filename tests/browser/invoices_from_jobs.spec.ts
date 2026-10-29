@@ -1,10 +1,15 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
+import InvoiceLine from '#models/invoice_line'
+import LabourRate from '#models/labour_rate'
+import Visit from '#models/visit'
+import FieldWork from '#services/field_work'
 import Quotes from '#services/quotes'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
-import { vatCode } from '#tests/helpers/items'
+import { createItem, vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { it } from '#tests/helpers/i18n'
 
@@ -51,5 +56,67 @@ test.group('Invoices from Jobs in the browser', () => {
     const invoice = await Invoice.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(invoice.status, 'finalised')
     assert.equal(invoice.totals.taxable, '50.00')
+  })
+
+  test('a combined draft, with its consumables folded into one line', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const anna = await createUser('technician', { fullName: 'Anna' })
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const rate = await LabourRate.create({ name: 'Idraulico', hourlyPrice: '40' })
+    const valve = await createItem({ description: 'Valvola', resalePrice: '7.5' })
+    const pipe = await createItem({ description: 'Tubo', resalePrice: '3' })
+    for (const day of ['2026-10-05', '2026-10-12']) {
+      const start = DateTime.fromISO(`${day}T09:00`)
+      const onDay = await Visit.create({
+        jobId: job.id,
+        startsAt: start,
+        endsAt: start.plus({ hours: 2 }),
+        status: 'planned',
+      })
+      await onDay.related('technicians').attach([anna.id])
+      await FieldWork.recordHours(onDay, {
+        technicianId: anna.id,
+        labourRateId: rate.id,
+        hours: '2',
+      })
+      await FieldWork.recordItem(onDay, { itemId: valve.id, quantity: '2' })
+      await FieldWork.recordItem(onDay, { itemId: pipe.id, quantity: '1' })
+      await FieldWork.setStatus(onDay, 'done', anna)
+    }
+
+    // Combining is ticked by default
+    const page = await visit(`/jobs/${job.id}`)
+    await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
+    await page.waitForURL(/\/invoices\/\d+\/edit$/)
+    await page.getByRole('button', { name: it('ui.invoices.foldConsumables') }).click()
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await page.getByText(it('flash.invoiceSaved')).waitFor()
+
+    const invoice = await Invoice.query().where('jobId', job.id).firstOrFail()
+    const lines = await InvoiceLine.query()
+      .where('invoiceId', invoice.id)
+      .preload('charges')
+      .orderBy('position')
+    assert.deepEqual(
+      lines.map((line) => [line.description, line.quantity, line.lineTotal, line.charges.length]),
+      [
+        [
+          it('documents.invoice.combinedLine', {
+            name: 'Idraulico',
+            visits: 2,
+            from: '05/10',
+            to: '12/10',
+          }),
+          '4.000',
+          '160.00',
+          2,
+        ],
+        [it('documents.invoice.consumablesLine'), '1.000', '36.00', 4],
+      ]
+    )
   })
 })

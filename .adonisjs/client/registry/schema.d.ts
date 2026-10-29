@@ -1389,13 +1389,13 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/jobs/:id/invoices'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').invoiceFromJobValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').invoiceFromJobValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'invoices.store_credit_note': {

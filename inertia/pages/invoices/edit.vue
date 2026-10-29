@@ -26,6 +26,7 @@ import {
   vatLabel,
   type LineKind,
 } from '@shared/vat'
+import { consumableFolds } from '@shared/combined_lines'
 import type { DocumentType } from '@shared/credit_notes'
 
 type Line = {
@@ -40,6 +41,8 @@ type Line = {
   discountPercent: string
   vatCodeId: number
   significantGood: boolean
+  // Billing a Groupable Item: folds with the consumables (ADR 0017)
+  groupable: boolean
   // Set on a line taking back an Advance Invoice
   deductsInvoiceId: number | null
   // The Charges the line bills (ADR 0010)
@@ -88,6 +91,7 @@ const props = defineProps<{
       discountPercent: string
       vatCodeId: number
       significantGood: boolean
+      groupable: boolean
       deductsInvoiceId: number | null
       chargeIds: number[]
       creditsLineId: number | null
@@ -152,6 +156,7 @@ function linesFromProps(): Line[] {
     discountPercent: Number(line.discountPercent) ? trim(line.discountPercent) : '',
     vatCodeId: line.vatCodeId,
     significantGood: line.significantGood,
+    groupable: line.groupable,
     deductsInvoiceId: line.deductsInvoiceId,
     chargeIds: line.chargeIds,
     creditsLineId: line.creditsLineId,
@@ -271,6 +276,7 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     discountPercent: '',
     vatCodeId: defaultCode(item),
     significantGood: item.significantGood,
+    groupable: false,
     deductsInvoiceId: null,
     chargeIds: [],
     creditsLineId: null,
@@ -292,6 +298,7 @@ function addFreeLine() {
     discountPercent: '',
     vatCodeId: defaultCode(null),
     significantGood: false,
+    groupable: false,
     deductsInvoiceId: null,
     chargeIds: [],
     creditsLineId: null,
@@ -338,6 +345,47 @@ function mergeUp(index: number) {
     chargeIds: [...above.chargeIds, ...line.chargeIds],
   })
   lines.splice(index, 1)
+}
+
+/**
+ * "Fold consumables" (ADR 0017): the lines of Groupable Items, by VAT
+ * treatment and kind (a significant good stays apart, as for mergeUp).
+ */
+const folds = computed(() =>
+  consumableFolds(
+    lines.map((line) => {
+      const values = totalsLine(line)
+      return {
+        // Lines billing Charges only: a sale's Item lines take it off stock
+        groupable: line.groupable && line.itemId !== null && line.chargeIds.length > 0,
+        vatKey: `${line.vatCodeId}|${values?.vatRate}|${values?.natura}|${line.significantGood}`,
+        amount: amountOf(line),
+      }
+    })
+  )
+)
+
+/**
+ * Folds each VAT treatment's Groupable Item lines into one lump line,
+ * "Materiale di consumo", 1 × their total, billing all their Charges.
+ */
+function foldConsumables() {
+  const removed = new Set<number>()
+  for (const { indices, amount } of folds.value) {
+    const [first, ...rest] = indices.map((index) => lines[index])
+    Object.assign(first, {
+      itemId: null,
+      groupable: false,
+      description: t('documents.invoice.consumablesLine'),
+      quantity: '1',
+      unit: null,
+      unitPrice: amountForInput(amount),
+      discountPercent: '',
+      chargeIds: [first, ...rest].flatMap((line) => line.chargeIds),
+    })
+    for (const line of rest) removed.add(line.key)
+  }
+  lines.splice(0, lines.length, ...lines.filter((line) => !removed.has(line.key)))
 }
 
 const processing = ref(false)
@@ -682,6 +730,13 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
         </table>
         <span v-if="deductionError" class="field__error">{{ deductionError }}</span>
       </Section>
+
+      <p v-if="editable && !creditNote && folds.length" data-testid="fold-consumables">
+        <button type="button" class="btn btn--secondary btn--sm" @click="foldConsumables">
+          {{ t('ui.invoices.foldConsumables') }}
+        </button>
+        <span class="field__hint">{{ t('ui.invoices.foldConsumablesHint') }}</span>
+      </p>
 
       <!-- A Credit Note's lines are the credited Invoice's, lowered -->
       <Section v-if="editable && !fixedLines" :title="t('ui.invoices.addTitle')">

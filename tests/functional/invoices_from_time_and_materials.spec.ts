@@ -68,6 +68,8 @@ test.group('Invoices from Jobs without a Quote', () => {
 
     const response = await client
       .post(`/jobs/${job.id}/invoices`)
+      // Each Charge on its own line, as Office can ask (ADR 0017)
+      .form({ combine: 'false' })
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
@@ -165,10 +167,11 @@ test.group('Invoices from Jobs without a Quote', () => {
       hours: '1',
     })
 
-    // The first Visit's four lines, not the open follow-up's hour
+    // The first Visit's three lines (its hours combined), not the open
+    // follow-up's hour
     const first = await Invoices.fromJob(job)
     await first.load('lines')
-    assert.lengthOf(first.lines, 4)
+    assert.lengthOf(first.lines, 3)
     // While that draft is open, asking again returns it, and nothing more is offered
     const returned = await Invoices.fromJob(job)
     assert.equal(returned.id, first.id)
@@ -242,7 +245,8 @@ test.group('Invoices from Jobs without a Quote', () => {
     })
     const again = await Invoices.fromJob(job)
     await again.load('lines')
-    assert.lengthOf(again.lines, 4)
+    // Its hours combined (ADR 0017)
+    assert.lengthOf(again.lines, 3)
   })
 
   test("a rule's archived VAT Code gives way to the standard rate", async ({ assert }) => {
@@ -271,7 +275,8 @@ test.group('Invoices from Jobs without a Quote', () => {
       .redirects(0)
     response.assertFlashMessage('success', it('flash.invoiceCreated'))
     const invoice = await Invoice.query().where('jobId', job.id).preload('lines').firstOrFail()
-    assert.lengthOf(invoice.lines, 4)
+    // Its hours combined (ADR 0017)
+    assert.lengthOf(invoice.lines, 3)
     await job.refresh()
     assert.equal(job.status, 'cancelled')
   })

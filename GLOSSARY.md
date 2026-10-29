@@ -77,7 +77,7 @@ The single place where the business holds stock.
 _Avoid_: Inventory, depot
 
 **Item** (_Articolo_):
-A stocked article with a purchase price and an independently set resale price, which can be added to an invoice. An **Equipment** (_Apparecchio_) Item becomes Installed Equipment at the Site when its Charge is done; a **Groupable** (_Raggruppabile_) Item's Charges may share one Invoice line with others of the same Item and price.
+A stocked article with a purchase price and an independently set resale price, which can be added to an invoice. An **Equipment** (_Apparecchio_) Item becomes Installed Equipment at the Site when its Charge is done; a **Groupable** (_Accorpabile_) Item's Charges are combined on one Invoice line with others of the same Item, price and VAT Code when a draft is made.
 _Avoid_: Product, part, material
 
 **Significant Good** (_Bene significativo_):
@@ -105,6 +105,10 @@ _Avoid_: Reserved, allocated
 **Invoice** (_Fattura_):
 A request for payment to a Customer, which becomes a fiscal document with a number only once finalised.
 _Avoid_: Bill, receipt
+
+**Combined line** (_Riga accorpata_):
+A draft Invoice line billing several alike Charges (hours of one Labour Rate, or one Groupable Item, at one price and VAT Code), with their quantities added up (ADR 0017). Drafting combines by default; "fold consumables" (_accorpa i materiali di consumo_) further lumps every Groupable Item line into one.
+_Avoid_: Grouped line (groups are an Invoice's sections, #184), merged line
 
 **VAT Code** (_Codice IVA_):
 The VAT treatment of an Invoice or Quote line (and an Item's default): a rate, or no VAT together with the reason (exempt, out of scope, reverse charge) the tax agency requires.

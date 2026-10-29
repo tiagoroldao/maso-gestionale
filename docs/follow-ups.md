@@ -22,10 +22,10 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #179  | Group alike Charges on Invoice drafts                                                     | —                                                 |
 | #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
 | #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 | #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
+| #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                       |
 
 ## Added to existing issues
 
@@ -75,6 +75,8 @@ Review findings folded into planned work, so they are picked up with it:
 - **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).
 - **PDF documents format euro themselves:** `invoice_document.ts` and `quote_document.ts` each build an `Intl.NumberFormat` instead of `formatMoney` from `shared/money.ts`, which itself hard-codes the `'it'` locale (the `LOCALE` constant lives in `inertia/i18n.ts`); fine while there is one language (from the #106 review).
 - **Visit team read before the lock** (#93): the edit validator reads "already on the Visit" before `Scheduling.update` locks it, so a stale form submitted just after someone was removed can put them back even if no longer a Technician. Same pattern as for deactivated Technicians; low risk (from the #105 review).
+- **A folded or merged line loses its significant-good warning** (#179): "fold consumables" and "merge up" give the line no Item, so the 10% split warning (`needsSignificantGoodSplit`) no longer shows. Only matters if Office marks a significant good Accorpabile; pairs with the assisted split (#58) (from the #193 review).
+- **Folds aren't checked by the server** (#179): saving a draft lets its lines regroup any Charges the Invoice already holds, as "merge up" does, so the server doesn't check that a lump line holds only Groupable Items. By design (ADR 0017): folding is Office's choice on the page (from the #193 review).
 - **Work report seed migration untested both ways** (#180): `1761885935232_seed_work_report_template` is not tested up, down and up again with a report issued from the seeded template and with the template edited (both must keep it on `down()`), nor with an Admin template of the same name made before (`up()` skips it, `down()` keeps it). Checked by hand on a scratch database only (from the #191 review).
 - **An optional work report field left empty prints nothing** (#180): through the API (the form always sends the options), a non-required `work_report` field sent empty resolves like an empty table field, so the body's table prints nothing for it. Harmless today: the seeded template's field is required (from the #191 review).
 - **One draft holds a Charge at a time, by the Job lock** (#116): nothing in the schema stops two drafts' lines linking the same Charge; drafting, saving, finalising and deleting all lock the Job first, and only Charges the Invoice already holds can move between its lines.
