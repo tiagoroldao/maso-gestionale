@@ -37,6 +37,14 @@ const page = usePage()
 const confirmArchive = () => window.confirm(t('ui.documentTemplates.archiveConfirm'))
 const errors = computed(() => (page.props.errors ?? {}) as Record<string, string>)
 
+// A table column's errors show after its inputs, with the input each is about
+const columnLabels = {
+  key: t('ui.documentTemplates.columnKey'),
+  label: t('ui.documentTemplates.columnLabel'),
+  type: t('ui.documentTemplates.columnType'),
+  from: t('ui.documentTemplates.columnFrom'),
+}
+
 type ColumnRow = { key: string; label: string; type: TableColumn['type']; from: string }
 type FieldRow = {
   key: string
@@ -302,12 +310,18 @@ async function refreshPreview() {
                     >
                       {{ t('ui.documentTemplates.removeColumn') }}
                     </button>
-                    <template v-for="part in ['key', 'label', 'type', 'from']" :key="part">
+                    <!-- After the column's inputs, so naming the one each error is about -->
+                    <template v-for="(label, part) in columnLabels" :key="part">
                       <span
                         v-if="errors[`fields.${index}.columns.${c}.${part}`]"
                         class="field__error"
                       >
-                        {{ errors[`fields.${index}.columns.${c}.${part}`] }}
+                        {{
+                          t('ui.common.fieldError', {
+                            field: label,
+                            message: errors[`fields.${index}.columns.${c}.${part}`],
+                          })
+                        }}
                       </span>
                     </template>
                   </div>

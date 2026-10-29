@@ -669,6 +669,10 @@
     "columnLabelOf": "Etichetta della colonna {column} del campo {position}",
     "columnTypeOf": "Tipo della colonna {column} del campo {position}",
     "columnFromOf": "Origine della colonna {column} del campo {position}",
+    "columnKey": "Codice",
+    "columnLabel": "Etichetta",
+    "columnType": "Tipo",
+    "columnFrom": "Origine",
     "columnTypes": {
       "text": "Testo",
       "number": "Numero",

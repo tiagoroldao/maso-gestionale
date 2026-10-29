@@ -219,7 +219,9 @@ test.group('Draft Invoices', () => {
       .loginAs(office)
       .redirects(0)
     const errors = refused.flashMessage('inputErrorsBag') as Record<string, unknown>
-    assert.deepEqual(Object.keys(errors), ['lines.1.itemId'])
+    assert.deepEqual(errors, {
+      'lines.1.itemId': [it('validator.shared.messages.lines.*.itemId.database.exists')],
+    })
 
     await save(client, invoice, {
       lines: [

@@ -49,6 +49,8 @@
       "array.minLength": "Scegli almeno {min, plural, one {un elemento} other {# elementi}}",
       "array.maxLength": "Massimo {max, plural, one {un elemento} other {# elementi}}",
       "technicianIds.*.database.exists": "Si possono scegliere solo tecnici attivi",
+      "lines.*.itemId.database.exists": "L'articolo scelto non è più disponibile",
+      "lines.*.labourRateId.database.exists": "La tariffa scelta non è più disponibile",
       "photo.file.extname": "La foto deve essere un'immagine JPEG, PNG o WebP",
       "templateFields.one.site": "Un modello può avere un solo campo immobile",
       "templateFields.one.job": "Un modello può avere un solo campo commessa",
