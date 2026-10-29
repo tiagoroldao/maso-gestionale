@@ -359,10 +359,12 @@ test.group('Supplier Invoice lines', (group) => {
 
     // Received as 20 pieces: 0.60 each, with a warning to check the quantity
     const boxes = await receive(client, office, lines[0], { itemId: gaskets.id, quantity: '20' })
+    // One message: the receipt confirmed, then the warning (#217)
     boxes.assertFlashMessage(
       'warning',
-      it('flash.supplierInvoiceLineUnits', { lineUnit: 'CF', unit: 'pz' })
+      `${it('flash.supplierInvoiceLineReceived', { quantity: '20', unit: 'pz', code: gaskets.code })} ${it('flash.supplierInvoiceLineUnits', { lineUnit: 'CF', unit: 'pz' })}`
     )
+    boxes.assertFlashMissing('success')
     await gaskets.refresh()
     assert.equal(gaskets.purchasePrice, '0.6000')
 
@@ -409,8 +411,9 @@ test.group('Supplier Invoice lines', (group) => {
     const warned = await receive(client, office, lines[0], { itemId: below.id, quantity: '10' })
     warned.assertFlashMessage(
       'warning',
-      it('flash.supplierInvoiceLineBelowMarkup', { code: below.code, markup: '35' })
+      `${it('flash.supplierInvoiceLineReceived', { quantity: '10', unit: 'pz', code: below.code })} ${it('flash.supplierInvoiceLineBelowMarkup', { code: below.code, markup: '35' })}`
     )
+    warned.assertFlashMissing('success')
     await below.refresh()
     assert.equal(below.resalePrice, '7.0000')
     assert.equal(below.purchasePrice, '5.2500')
@@ -1096,8 +1099,9 @@ test.group('Supplier Invoice lines: already received, and the costs confirmed (#
     })
     warned.assertFlashMessage(
       'warning',
-      it('flash.supplierInvoiceLineBelowMarkup', { code: cheap.code, markup: '35' })
+      `${it('flash.supplierInvoiceLineAlreadyReceived', { code: cheap.code })} ${it('flash.supplierInvoiceLineBelowMarkup', { code: cheap.code, markup: '35' })}`
     )
+    warned.assertFlashMissing('success')
     await cheap.refresh()
     assert.equal(cheap.purchasePrice, '97.5000')
     assert.equal(cheap.resalePrice, '6.0000')

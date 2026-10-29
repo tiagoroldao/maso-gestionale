@@ -31,14 +31,11 @@ export default class SupplierInvoiceLinesController {
           .slice(0, 255),
         user: auth.getUserOrFail(),
       })
-      session.flash(
-        'success',
-        i18n.t('flash.supplierInvoiceLineReceived', {
-          quantity: formatQuantity(received.movement.quantity),
-          unit: received.item.unit,
-          code: received.item.code,
-        })
-      )
+      const confirmation = i18n.t('flash.supplierInvoiceLineReceived', {
+        quantity: formatQuantity(received.movement.quantity),
+        unit: received.item.unit,
+        code: received.item.code,
+      })
       const warnings = [
         received.unitsDiffer &&
           i18n.t('flash.supplierInvoiceLineUnits', {
@@ -51,7 +48,7 @@ export default class SupplierInvoiceLinesController {
             markup: amountForInput(received.belowMarkup).replace(/,00$/, ''),
           }),
       ].filter((warning): warning is string => Boolean(warning))
-      if (warnings.length) session.flash('warning', warnings.join(' '))
+      flashOutcome(session, confirmation, warnings)
     } catch (error) {
       if (!(error instanceof LineRefusedError)) throw error
       session.flash('error', i18n.t(`flash.supplierInvoiceLineRefused.${error.reason}`))
@@ -71,19 +68,18 @@ export default class SupplierInvoiceLinesController {
         ...data,
         user: auth.getUserOrFail(),
       })
-      session.flash(
-        'success',
-        i18n.t('flash.supplierInvoiceLineAlreadyReceived', { code: marked.item.code })
+      flashOutcome(
+        session,
+        i18n.t('flash.supplierInvoiceLineAlreadyReceived', { code: marked.item.code }),
+        marked.belowMarkup === null
+          ? []
+          : [
+              i18n.t('flash.supplierInvoiceLineBelowMarkup', {
+                code: marked.item.code,
+                markup: amountForInput(marked.belowMarkup).replace(/,00$/, ''),
+              }),
+            ]
       )
-      if (marked.belowMarkup !== null) {
-        session.flash(
-          'warning',
-          i18n.t('flash.supplierInvoiceLineBelowMarkup', {
-            code: marked.item.code,
-            markup: amountForInput(marked.belowMarkup).replace(/,00$/, ''),
-          })
-        )
-      }
     } catch (error) {
       if (!(error instanceof LineRefusedError)) throw error
       session.flash('error', i18n.t(`flash.supplierInvoiceLineRefused.${error.reason}`))
@@ -121,4 +117,13 @@ export default class SupplierInvoiceLinesController {
     }
     return response.redirect().toRoute('supplier_invoices.show', { id: line.supplierInvoiceId })
   }
+}
+
+/**
+ * One toast shows at a time (#217): with warnings, one warning that
+ * confirms first, else the plain confirmation.
+ */
+function flashOutcome(session: HttpContext['session'], confirmation: string, warnings: string[]) {
+  if (warnings.length) session.flash('warning', [confirmation, ...warnings].join(' '))
+  else session.flash('success', confirmation)
 }
