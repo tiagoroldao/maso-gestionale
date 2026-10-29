@@ -28,12 +28,20 @@ export const labourCorrectionValidator = vine.create({
     .requiredIfMissing('technicianId'),
 })
 
+// Left out, a detail stays as it is; empty (null), it is cleared
+const detail = () => vine.string().trim().maxLength(100).nullable().optional()
+
 /**
- * Correcting an Item used (see labourCorrectionValidator on archived).
+ * Correcting an Item used (see labourCorrectionValidator on archived),
+ * and an Equipment Item's pending details until it is done (#169).
  */
 export const itemCorrectionValidator = vine.create({
   quantity: quantity(),
   itemId: vine.number().exists({ table: 'items', column: 'id' }),
+  equipmentType: detail(),
+  make: detail(),
+  model: detail(),
+  serialNumber: detail(),
 })
 
 /**
