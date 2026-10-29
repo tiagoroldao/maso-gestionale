@@ -143,7 +143,7 @@ export default class MyVisitsController {
         description: line.item.description,
         unit: line.item.unit,
         quantity: line.quantity,
-        installed: line.installed,
+        equipment: line.item.equipment,
         notDone: line.workState === 'not_done',
       })),
       notes: visit.fieldNotes.map((note) => ({

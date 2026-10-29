@@ -23,6 +23,10 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #169  | Pending equipment details on a Charge shown and correctable (`ui-later`)                  | The UX pass                                       |
+| #177  | Schedule repeated Visits for long Jobs                                                    | —                                                 |
+| #178  | Job page summary for Jobs with many Visits                                                | —                                                 |
+| #179  | Group alike Charges on Invoice drafts                                                     | —                                                 |
+| #180  | Work report for a Job (rapportino)                                                        | —                                                 |
 
 ## Added to existing issues
 
@@ -33,7 +37,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
-- **#169:** the #168 equipment warnings (`removed`, `elsewhere`, `noSite`) also reach a Technician at the field close, but their advice ("correggilo / aggiungilo a mano nella scheda dell'immobile") is meant for Office: give the Technician a variant that says to tell the office ("avvisa l'ufficio") in the UX pass (from the #170 review).
+- **#169:** the `noSite` equipment warning also reaches a Technician at the field close, but their advice ("correggilo / aggiungilo a mano nella scheda dell'immobile") is meant for Office: give the Technician a variant that says to tell the office ("avvisa l'ufficio") in the UX pass (from the #170 review).
 - **#34:** the update's backup is `docker compose run --rm backup backup:run` (non-zero exit on failure), taken before pulling the new image (not yet commented on #34).
 
 ## Not yet issues
@@ -59,9 +63,10 @@ Review findings folded into planned work, so they are picked up with it:
 - **Call-out Fee wording** (ADR 0012): the glossary calls it a price for attending a Visit, while an imported Quote call-out becomes a Job Charge. Revisit if it confuses anyone (from the #131 review).
 - **Test file names** (#130): `invoices_from_time_and_materials.spec.ts` (functional and browser) now test Jobs without a Quote; rename them (from the #133 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
-- **Equipment lock order at Visit close untested** (#162): closing a Visit locks each existing unit its installed Items go onto in Charge order, so two Visits closing at once onto the same two units in opposite order could deadlock. Unlikely (two Visits on one Site's same units); no test runs two connections (from the #167 review).
-- **Re-done onto an existing unit** (#162): a Charge installed onto a unit already at the Site that goes done → not done → done applies its Item and serial number to the unit again, overwriting hand edits made after the first done (a Charge that created its unit reuses it unchanged). Skip the update on a repeat done if it matters (from the #167 review).
-- **Charges from before #162** (migration 224 era): a Charge that created its equipment when recorded and is still planned gives no warning when its Item is corrected, and removing it in the field leaves its equipment behind. Only dev data has any; no data migration (from the #167 review).
+- **Charges from before #162** (migration 224 era): a Charge that created its equipment when recorded and is still planned gives no warning when its Item or quantity is corrected, and removing it in the field leaves its equipment behind (#176 kept its link, so done it reuses that equipment). Only dev data has any; no data migration (from the #167 review).
+- **Equipment Charges on the Job itself install nothing** (#176): only a Visit's Charge creates Installed Equipment when done (dated by the Visit), so an Equipment Item imported from a Quote onto the Job and confirmed used by Office creates none; Office adds it on the Site page. Import such lines onto a Visit, or date them otherwise, if it happens in practice.
+- **An Item's Equipment flag changed later** (#176): the Item's flag at the moment a Charge becomes done decides, so a change also affects Charges already recorded and still planned (the issue said only later Charges). A planned Charge recorded in part pieces before its Item became Equipment creates its whole part (at least one).
+- **Quote imports of Equipment Items in part pieces** (#176): whole pieces are checked in the field and on corrections, not on Quote imports; a Quote line of 1,5 boilers imports as is and creates one unit when done.
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set and `start/env.ts` requires at boot (from the #101 review).
 - **Invoice edit page loads every Submission's XML** to work out `hasFile`; select a boolean instead if Invoices accumulate many Submissions (from the #101 review).
 - **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).

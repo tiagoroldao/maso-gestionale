@@ -3,7 +3,6 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import InstalledEquipment from '#models/installed_equipment'
 import Visit from '#models/visit'
-import Charge from '#models/charge'
 import FieldWork from '#services/field_work'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -36,32 +35,6 @@ async function setup() {
   })
   return { anna, site, visit, boiler, item }
 }
-
-test.group('Installing onto Site equipment', () => {
-  test("equipment at another Site can't be picked", async ({ client, assert }) => {
-    const { anna, visit, item } = await setup()
-    const otherSite = await createSite()
-    const elsewhere = await InstalledEquipment.create({
-      siteId: otherSite.id,
-      equipmentType: 'Altro',
-    })
-
-    const response = await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({
-        itemId: String(item.id),
-        quantity: '1',
-        installed: 'true',
-        equipmentId: String(elsewhere.id),
-      })
-      .withCsrfToken()
-      .loginAs(anna)
-      .redirects(0)
-
-    response.assertFlashMessage('error', it('flash.fieldWorkRefused.notAtSite'))
-    assert.lengthOf(await Charge.all(), 0)
-  })
-})
 
 test.group('Servicing equipment', () => {
   test('closing the Visit dates the service of the equipment it serviced', async ({

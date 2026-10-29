@@ -14,6 +14,7 @@ export type PickedItem = {
   unit: string
   maintenanceIntervalMonths: number | null
   significantGood: boolean
+  equipment: boolean
 }
 
 defineProps<{ label?: string }>()

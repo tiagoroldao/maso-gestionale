@@ -61,14 +61,12 @@ export class ChargeEventSchema extends BaseModel {
 }
 
 export class ChargeSchema extends BaseModel {
-  static $columns = ['billQuantity', 'createdAt', 'createdEquipment', 'description', 'equipmentMake', 'equipmentModel', 'equipmentSerialNumber', 'equipmentType', 'id', 'installed', 'installedEquipmentId', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'quoteLineId', 'stockMovementId', 'unit', 'unitPrice', 'updatedAt', 'userId', 'vatCodeId', 'vatKind', 'visitId', 'workerName'] as const
+  static $columns = ['billQuantity', 'createdAt', 'description', 'equipmentMake', 'equipmentModel', 'equipmentSerialNumber', 'equipmentType', 'id', 'itemId', 'jobId', 'kind', 'labourRateId', 'quantity', 'quoteLineId', 'stockMovementId', 'unit', 'unitPrice', 'updatedAt', 'userId', 'vatCodeId', 'vatKind', 'visitId', 'workerName'] as const
   $columns = ChargeSchema.$columns
   @column()
   declare billQuantity: string
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
-  @column()
-  declare createdEquipment: boolean
   @column()
   declare description: string
   @column()
@@ -81,10 +79,6 @@ export class ChargeSchema extends BaseModel {
   declare equipmentType: string | null
   @column({ isPrimary: true })
   declare id: number
-  @column()
-  declare installed: boolean
-  @column()
-  declare installedEquipmentId: number | null
   @column()
   declare itemId: number | null
   @column()
@@ -278,8 +272,10 @@ export class DocumentTemplateSchema extends BaseModel {
 }
 
 export class InstalledEquipmentSchema extends BaseModel {
-  static $columns = ['createdAt', 'equipmentType', 'id', 'installedOn', 'itemId', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'removedOn', 'replacedById', 'serialNumber', 'siteId', 'updatedAt'] as const
+  static $columns = ['chargeId', 'createdAt', 'equipmentType', 'id', 'installedOn', 'itemId', 'lastServicedOn', 'maintenanceIntervalMonths', 'make', 'model', 'notes', 'removedOn', 'replacedById', 'serialNumber', 'siteId', 'updatedAt'] as const
   $columns = InstalledEquipmentSchema.$columns
+  @column()
+  declare chargeId: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column()
@@ -589,7 +585,7 @@ export class ItemDocumentSchema extends BaseModel {
 }
 
 export class ItemSchema extends BaseModel {
-  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'significantGood', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatCodeId'] as const
+  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'equipment', 'groupable', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'significantGood', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatCodeId'] as const
   $columns = ItemSchema.$columns
   @column.dateTime()
   declare archivedAt: DateTime | null
@@ -601,6 +597,10 @@ export class ItemSchema extends BaseModel {
   declare createdAt: DateTime
   @column()
   declare description: string
+  @column()
+  declare equipment: boolean
+  @column()
+  declare groupable: boolean
   @column({ isPrimary: true })
   declare id: number
   @column()

@@ -22,6 +22,7 @@ import {
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { isCancelledVisit, isClosedVisit } from '#shared/visits'
+import { isWholeQuantity } from '#shared/items'
 import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
 
 /**
@@ -36,7 +37,9 @@ import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
  * it ('inDraft'), and a Visit's Charges are planned until the Visit closes
  * ('visitOpen', ADR 0016) and not done while it is cancelled
  * ('visitCancelled', #157). Cancelling a Visit is refused for the same
- * reasons ('inDraft', 'frozen') when any of its Charges has one.
+ * reasons ('inDraft', 'frozen') when any of its Charges has one. An
+ * Equipment Item's Charge takes only whole quantities ('wholeQuantity',
+ * #176).
  */
 export class ChargeRefusedError extends Error {
   constructor(
@@ -52,6 +55,7 @@ export class ChargeRefusedError extends Error {
       | 'inDraft'
       | 'visitOpen'
       | 'visitCancelled'
+      | 'wholeQuantity'
   ) {
     super(reason)
   }
@@ -128,10 +132,10 @@ export default class Charges {
    * done and not done; a Charge on the Job itself at any time, confirming
    * planned work used (done) or not. Stock follows: an Item becoming done
    * leaves stock (a usage dated today, referencing the Job), one done
-   * becoming not done comes back (an adjustment). An installed Item
-   * becoming done creates or updates its equipment, as closing the Visit
-   * does (#162); becoming not done leaves the equipment as it is. Either
-   * way it returns what Office is warned about the equipment (#168).
+   * becoming not done comes back (an adjustment). An Equipment Item
+   * becoming done creates its equipment, as closing the Visit does (#162,
+   * #176); becoming not done leaves the equipment as it is. Either way it
+   * returns what Office is warned about the equipment.
    * Refused while a draft holds the Charge, and while an issued Invoice
    * bills it and no Credit Note credited that. Like corrections, it plays
    * no part in the Job's status: a closed or cancelled Job's Charges are
@@ -232,10 +236,11 @@ export default class Charges {
    * nothing billed it and Office never edited its billing, what is billed
    * follows: the quantity, the description and, for a new Labour Rate or
    * Item, its current price. Its Job's status plays no part: a closed or
-   * cancelled Job's Charges are still billed (#111). A new Item never
-   * changes Installed Equipment (#162): it returns a warning naming the
-   * equipment the Charge installed, if any, and a Charge not
-   * yet done installs the new Item when it becomes done.
+   * cancelled Job's Charges are still billed (#111). A new Item or
+   * quantity never changes Installed Equipment (#162, #176): it returns a
+   * warning naming the equipment the Charge created, if any, and a Charge
+   * not yet done installs as its new Item and quantity say when it becomes
+   * done. An Equipment Item takes only a whole quantity.
    */
   static async correct(
     charge: Charge,
@@ -290,9 +295,13 @@ export default class Charges {
       } else if (locked.kind === 'item') {
         const item = await Item.findOrFail(input.itemId, { client: trx })
         if (item.archivedAt && item.id !== locked.itemId) throw new ChargeRefusedError('archived')
-        if (item.id !== locked.itemId) {
+        if (item.equipment && !isWholeQuantity(input.quantity)) {
+          throw new ChargeRefusedError('wholeQuantity')
+        }
+        const newItem = item.id !== locked.itemId
+        if (newItem || !new Big(input.quantity).eq(locked.quantity)) {
           const events = await ChargeEvent.query({ client: trx }).where('chargeId', locked.id)
-          left = await Installations.left(trx, locked, events)
+          left = await Installations.left(trx, locked, events, newItem ? 'left' : 'quantity')
         }
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })

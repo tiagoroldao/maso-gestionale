@@ -40,6 +40,8 @@ export const itemValidator = vine.withMetaData<{ id?: number; vatCodeId?: number
   }),
   // A checkbox: absent when unticked
   significantGood: vine.boolean().optional(),
+  equipment: vine.boolean().optional(),
+  groupable: vine.boolean().optional(),
   purchasePrice: price(),
   resalePrice: price(),
   reorderLevel: vine

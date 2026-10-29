@@ -231,6 +231,90 @@ test.group('Items', (group) => {
   })
 })
 
+test.group('Equipment and Groupable Items (#176)', (group) => {
+  group.each.setup(async () => {
+    const standard = await vatCode()
+    itemFields.vatCodeId = String(standard.id)
+  })
+
+  test('{$self} sets both flags on the form; the list and the edit page show them')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+
+      // Ticked boxes send "true"; unticked ones are left out
+      await client
+        .post('/items')
+        .form({ ...itemFields, equipment: 'true', maintenanceIntervalMonths: '12' })
+        .withCsrfToken()
+        .loginAs(user)
+      const item = await Item.firstOrFail()
+      assert.deepEqual([item.equipment, item.groupable], [true, false])
+
+      const list = await client.get('/items').withInertia().loginAs(user)
+      list.assertInertiaPropsContains({
+        items: [{ code: 'RAC-12', equipment: true, groupable: false }],
+      })
+
+      await client
+        .put(`/items/${item.id}`)
+        .form({ ...itemFields, code: item.code, groupable: 'true' })
+        .withCsrfToken()
+        .loginAs(user)
+      await item.refresh()
+      assert.deepEqual([item.equipment, item.groupable], [false, true])
+      const edit = await client.get(`/items/${item.id}/edit`).withInertia().loginAs(user)
+      edit.assertInertiaPropsContains({ item: { equipment: false, groupable: true } })
+    })
+
+  test('an Item created without the flags gets the defaults', async ({ assert }) => {
+    const plain = await createItem()
+    const boiler = await createItem({ maintenanceIntervalMonths: 12 })
+    const toilet = await createItem({ significantGood: true })
+    const chosen = await createItem({ maintenanceIntervalMonths: 12, equipment: false })
+
+    assert.deepEqual(
+      [plain, boiler, toilet, chosen].map((item) => [item.equipment, item.groupable]),
+      [
+        [false, true],
+        [true, false],
+        [false, false],
+        [false, false],
+      ]
+    )
+  })
+
+  test('the picker tells every role whether an Item is Equipment', async ({ client, assert }) => {
+    await createItem({ code: 'CAL-25', maintenanceIntervalMonths: 12 })
+
+    for (const role of ['technician', 'office'] as const) {
+      const response = await client
+        .get('/items/search')
+        .qs({ q: 'cal' })
+        .loginAs(await createUser(role))
+      assert.isTrue(response.body().items[0].equipment)
+    }
+  })
+
+  test('Technicians and the Superuser can not change the flags', async ({ client, assert }) => {
+    const item = await createItem()
+
+    for (const role of ['technician', 'superuser'] as const) {
+      const response = await client
+        .put(`/items/${item.id}`)
+        .form({ ...itemFields, code: item.code, equipment: 'true' })
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(await createUser(role))
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+
+    await item.refresh()
+    assert.deepEqual([item.equipment, item.groupable], [false, true])
+  })
+})
+
 test.group('Categories', () => {
   test('the Admin adds Categories with a markup', async ({ client }) => {
     const admin = await createUser('admin')
