@@ -180,7 +180,7 @@ export default class Charges {
           locked.stockMovementId = null
         }
         await locked.save()
-        // Installed on a Visit: done on the Visit's day
+        // Installed on a Visit: on the Visit's work day (#174)
         if (work === 'done' && visit) {
           warnings = await Installations.install(trx, locked, visit, job.siteId)
         }

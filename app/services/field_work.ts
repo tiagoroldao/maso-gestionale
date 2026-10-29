@@ -20,8 +20,8 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
  * The Visit is closed (its hours, Items and stock are final) or cancelled
  * (read-only until Office restores it, #157), its Job was
  * closed or cancelled (or, for Office closing a frozen Visit, isn't
- * cancelled), the Visit is closed before it has started (`notStarted`,
- * #154), or the request doesn't fit it (a Technician not on the Visit, an
+ * cancelled), the Visit is closed while still planned with a start to
+ * come (`notStarted`, #174), or the request doesn't fit it (a Technician not on the Visit, an
  * install without a Site, a Charge Office already reviewed).
  */
 export class FieldWorkRefusedError extends Error {
@@ -310,11 +310,14 @@ export default class FieldWork {
   }
 
   /**
-   * Sets the locked Visit's status; closing it, refused before the Visit
-   * starts, makes its planned Charges done (Items off stock, installed
-   * ones installed) or, for those in `notDone`, not done, and dates the
-   * equipment it serviced. Returns the warnings about the equipment its
-   * installed Items went onto (#168).
+   * Sets the locked Visit's status, recording who marked it in progress
+   * and who closed it, and when (#174); back to planned, it is no longer
+   * under way and its start is cleared. Closing it, refused while it is
+   * still planned with a start to come (#174), makes its planned Charges
+   * done (Items off stock, installed ones installed) or, for those in
+   * `notDone`, not done, and dates the equipment it serviced, all on its
+   * work day (`Visit.workDay`). Returns the warnings about the equipment
+   * its installed Items went onto (#168).
    */
   private static async changeStatus(
     trx: TransactionClientContract,
@@ -324,9 +327,20 @@ export default class FieldWork {
     notDone: number[]
   ): Promise<EquipmentWarning[]> {
     const warnings: EquipmentWarning[] = []
+    const now = DateTime.now()
+    if (status === 'in_progress' && locked.status !== 'in_progress') {
+      locked.merge({ startedAt: now, startedById: user.id })
+    } else if (status === 'planned') {
+      locked.merge({ startedAt: null, startedById: null })
+    }
     if (isClosedVisit(status)) {
-      // Not before it starts: its Items would leave stock on a future day (#154)
-      if (locked.startsAt > DateTime.now()) throw new FieldWorkRefusedError('notStarted')
+      // Under way, or its start passed: a planned Visit still to come is
+      // not closed, or its Items would leave stock on a day to come (#174)
+      if (locked.status === 'planned' && locked.startsAt > now) {
+        throw new FieldWorkRefusedError('notStarted')
+      }
+      locked.merge({ closedAt: now, closedById: user.id })
+      const workDay = locked.workDay(now)
       await locked.load('job')
       // Locked after the Visit and its Job, as Office's changes do
       const charges = await Charge.query({ client: trx })
@@ -347,7 +361,7 @@ export default class FieldWork {
         if (charge.stockMovementId) continue
         const movement = await StockLedger.use(charge.item, {
           quantity: charge.quantity,
-          occurredOn: locked.startsAt.startOf('day'),
+          occurredOn: workDay,
           reference: locked.job.number,
           user,
           client: trx,
@@ -357,8 +371,8 @@ export default class FieldWork {
           .update({ stock_movement_id: movement.id })
       }
 
-      // Serviced equipment was serviced on the Visit's day (never moved back)
-      const day = locked.startsAt.toISODate()!
+      // Serviced equipment was serviced on the work day (never moved back)
+      const day = workDay.toISODate()!
       await trx
         .from('installed_equipment')
         .whereIn(

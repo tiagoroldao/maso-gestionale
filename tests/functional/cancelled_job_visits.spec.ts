@@ -178,7 +178,7 @@ test.group('Visits left open on a cancelled Job (#153)', () => {
     }
   })
 
-  test('refused for a Visit that has not started yet: nothing leaves stock (#154)', async ({
+  test('refused for a planned Visit still to come: nothing leaves stock (#174)', async ({
     client,
     assert,
   }) => {
@@ -186,12 +186,12 @@ test.group('Visits left open on a cancelled Job (#153)', () => {
     const { job, visit, item } = await workedVisit()
     await post(client, office, `/jobs/${job.id}/cancel`)
     const startsAt = DateTime.now().plus({ minutes: 5 })
-    await visit.merge({ startsAt, endsAt: startsAt.plus({ hours: 2 }) }).save()
+    await visit.merge({ status: 'planned', startsAt, endsAt: startsAt.plus({ hours: 2 }) }).save()
 
     const response = await post(client, office, `/visits/${visit.id}/done`)
     response.assertFlashMessage('error', it('flash.fieldWorkRefused.notStarted'))
     await visit.refresh()
-    assert.equal(visit.status, 'in_progress')
+    assert.equal(visit.status, 'planned')
     assert.equal(await StockLedger.levelOf(item), '5.000')
     assert.lengthOf(await StockMovement.query().where('kind', 'usage'), 0)
     const charges = await Charge.query().where('visitId', visit.id).preload('events')

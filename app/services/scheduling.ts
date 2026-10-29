@@ -201,13 +201,21 @@ export default class Scheduling {
 
   /**
    * Restores a cancelled Visit, planned again (#157): its Charges are
-   * planned again too. Only on a Job that takes new work.
+   * planned again too, and when it was started and closed, and by whom, is
+   * cleared (#174). Only on a Job that takes new work.
    */
   static async restore(visit: Visit, user: User) {
     await this.whileCancelling(visit, async (trx, locked, job) => {
       if (!isCancelledVisit(locked.status)) throw new VisitCancelRefusedError('notCancelled')
       await Charges.followVisit(trx, locked, 'planned', user)
-      locked.merge({ status: 'planned', cancelledAt: null })
+      locked.merge({
+        status: 'planned',
+        cancelledAt: null,
+        startedAt: null,
+        startedById: null,
+        closedAt: null,
+        closedById: null,
+      })
       await locked.useTransaction(trx).save()
       await this.followWork(trx, job)
     })
