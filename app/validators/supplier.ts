@@ -108,5 +108,11 @@ export const receiveLineValidator = vine.create({
   occurredOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
 })
 
+/** The period of Supplier Invoices to export, by invoice date, both days included */
+export const supplierInvoiceExportValidator = vine.create({
+  issuedFrom: vine.date({ formats: ['YYYY-MM-DD'] }),
+  issuedTo: vine.date({ formats: ['YYYY-MM-DD'] }).afterOrSameAs('issuedFrom'),
+})
+
 /** A page of the inbox or the Supplier list */
 export const pageValidator = vine.create({ page: vine.number().min(1).optional() })

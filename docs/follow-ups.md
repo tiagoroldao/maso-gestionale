@@ -26,6 +26,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 | #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
 | #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                       |
+| #209  | Supplier Invoice export: keep the dates after a refused range (`ui-later`)                | The UX pass                                       |
 | #210  | Warn when goods received by hand are received again from the Supplier Invoice             | The business (`needs-human`)                      |
 
 ## Added to existing issues
@@ -156,3 +157,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **Invoice-level discounts aren't in the unit cost** (#199): a line's unit cost is its own amount over the quantity, so a discount on the whole invoice (`ScontoMaggiorazione` in `DatiGeneraliDocumento`) or a negative discount line (which can only be marked not stock) isn't spread over the received lines; their purchase prices are before that discount. Also asked of the business in #210 (from the #208 review).
 - **A backdated receipt says nothing about the price** (#199): receiving a line dated before a newer costed receipt of the Item leaves the purchase price as it is (`StockLedger.receive`), and Office isn't told why the price didn't follow the invoice. Say so in the flash if it confuses anyone (from the #208 review).
 - **Credit notes from suppliers don't move stock** (#199): a TD04's lines can only be marked not stock; goods sent back are recorded as an adjustment on the Item's page. Invoices in another currency likewise can only be marked, with their receipt recorded by hand in euro.
+- **The Supplier Invoice export converts one PDF at a time** (#200): each goes through Gotenberg in turn while the zip streams, so a period of several hundred invoices keeps one request open for minutes. Convert a few at once, or build the zip in the background, if Office exports periods that large.
+- **A PDF failing midway through an export** (#200): only the first conversion is checked before the download starts (Gotenberg down is reported on the inbox); a later failure ends the download with an error and an unreadable zip, and Office starts it again.
+- **Credit Notes in the export's CSV index** (#200): amounts are written as in the file (positive), with the document type ("Nota di credito") in its own column. Sign them if the commercialista prefers.

@@ -193,6 +193,7 @@ export interface ApiDefinition {
   supplierInvoices: {
     index: typeof routes['supplier_invoices.index']
     store: typeof routes['supplier_invoices.store']
+    export: typeof routes['supplier_invoices.export']
     show: typeof routes['supplier_invoices.show']
     file: typeof routes['supplier_invoices.file']
   }

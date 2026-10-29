@@ -1,13 +1,20 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import type { Readable } from 'node:stream'
 import type Item from '#models/item'
 import SupplierInvoice from '#models/supplier_invoice'
 import SupplierInvoiceLines from '#services/supplier_invoice_lines'
 import SupplierInvoices, { SupplierInvoiceRefusedError } from '#services/supplier_invoices'
-import { todayIso } from '#shared/dates'
+import SupplierInvoiceExport from '#services/supplier_invoice_export'
 import { lineReceiptRefusal } from '#shared/supplier_invoices'
 import { storagePath } from '#services/storage'
-import { pageValidator, supplierInvoiceUploadValidator } from '#validators/supplier'
+import { PdfConversionError } from '#documents/pdf_converter'
+import { TIME_ZONE, todayIso } from '#shared/dates'
+import {
+  pageValidator,
+  supplierInvoiceExportValidator,
+  supplierInvoiceUploadValidator,
+} from '#validators/supplier'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const PER_PAGE = 25
@@ -148,5 +155,37 @@ export default class SupplierInvoicesController {
     response.header('x-content-type-options', 'nosniff')
     response.header('content-security-policy', 'sandbox')
     return response.attachment(path, invoice.fileName, 'attachment')
+  }
+
+  /**
+   * The Supplier Invoices issued in a period, for the commercialista
+   * (#200): one zip, streamed as it is built, with the original files, a
+   * PDF of each and a CSV index.
+   */
+  async export({ request, response, session, i18n, logger }: HttpContext) {
+    const { issuedFrom, issuedTo } = await request.validateUsing(supplierInvoiceExportValidator)
+    const from = issuedFrom.setZone(TIME_ZONE).toISODate()!
+    const to = issuedTo.setZone(TIME_ZONE).toISODate()!
+    const invoices = await SupplierInvoiceExport.invoicesIssuedIn(from, to)
+    if (!invoices.length) {
+      session.flash('error', i18n.t('flash.supplierInvoiceExportEmpty'))
+      return response.redirect().withQs(false).toRoute('supplier_invoices.index')
+    }
+
+    let zip: Readable
+    try {
+      zip = await SupplierInvoiceExport.zip(invoices, i18n)
+    } catch (error) {
+      if (!(error instanceof PdfConversionError)) throw error
+      logger.warn({ err: error }, 'PDF conversion failed')
+      session.flash('error', i18n.t('errors.pdfUnavailable'))
+      return response.redirect().withQs(false).toRoute('supplier_invoices.index')
+    }
+    response.header('content-type', 'application/zip')
+    response.header(
+      'content-disposition',
+      `attachment; filename="fatture-passive_${from}_${to}.zip"`
+    )
+    response.stream(zip)
   }
 }

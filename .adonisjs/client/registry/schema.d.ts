@@ -1879,6 +1879,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'supplier_invoices.export': {
+    methods: ["GET","HEAD"]
+    pattern: '/supplier-invoices/export'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/supplier').supplierInvoiceExportValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['export']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['export']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['export']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'supplier_invoices.show': {
     methods: ["GET","HEAD"]
     pattern: '/supplier-invoices/:id'
