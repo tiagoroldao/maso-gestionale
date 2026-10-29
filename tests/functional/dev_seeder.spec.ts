@@ -77,10 +77,10 @@ test.group('Development seed data', () => {
       ['FLX-30']
     )
 
-    // Equipment is registered by hand, or by a done installed Item (#162)
+    // Equipment is registered by hand, or by a done Equipment Item (#162)
     const pending = await db
-      .from('charges')
-      .where('created_equipment', true)
+      .from('installed_equipment')
+      .join('charges', 'charges.id', 'installed_equipment.charge_id')
       .whereRaw(`${WORK_STATE_SQL('charges')} <> 'done'`)
     assert.lengthOf(pending, 0)
     assert.isNotEmpty(await db.from('installed_equipment'))

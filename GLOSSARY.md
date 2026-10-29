@@ -13,7 +13,7 @@ A physical address where work is done and equipment is installed, independent of
 _Avoid_: Location, address, property
 
 **Installed Equipment** (_Apparecchio_):
-A specific piece of equipment (boiler, AC unit, water heater…) installed at a Site, which outlives changes of Customer and may refer to the Item it was sold as. Registered at the Site by hand, or when the Charge for an installed Item becomes done; after that it is managed by hand.
+A specific piece of equipment (boiler, AC unit, water heater…) installed at a Site, which outlives changes of Customer and may refer to the Item it was sold as. Registered at the Site by hand, or when a Charge of an Equipment Item becomes done (one per piece); after that it is managed by hand, and a wrong one is deleted on the Site.
 _Avoid_: Product, asset, impianto (when meaning a single unit), installation
 
 **Maintenance Interval** (_Intervallo di manutenzione_):
@@ -73,7 +73,7 @@ The single place where the business holds stock.
 _Avoid_: Inventory, depot
 
 **Item** (_Articolo_):
-A stocked article with a purchase price and an independently set resale price, which can be added to an invoice.
+A stocked article with a purchase price and an independently set resale price, which can be added to an invoice. An **Equipment** (_Apparecchio_) Item becomes Installed Equipment at the Site when its Charge is done; a **Groupable** (_Raggruppabile_) Item's Charges may share one Invoice line with others of the same Item and price.
 _Avoid_: Product, part, material
 
 **Significant Good** (_Bene significativo_):

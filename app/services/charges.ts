@@ -22,6 +22,7 @@ import {
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { isCancelledVisit, isClosedVisit } from '#shared/visits'
+import { isWholeQuantity, takesSerialNumber } from '#shared/items'
 import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
 
 /**
@@ -36,7 +37,9 @@ import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
  * it ('inDraft'), and a Visit's Charges are planned until the Visit closes
  * ('visitOpen', ADR 0016) and not done while it is cancelled
  * ('visitCancelled', #157). Cancelling a Visit is refused for the same
- * reasons ('inDraft', 'frozen') when any of its Charges has one.
+ * reasons ('inDraft', 'frozen') when any of its Charges has one. An
+ * Equipment Item's Charge takes only whole quantities ('wholeQuantity',
+ * #176).
  */
 export class ChargeRefusedError extends Error {
   constructor(
@@ -52,6 +55,7 @@ export class ChargeRefusedError extends Error {
       | 'inDraft'
       | 'visitOpen'
       | 'visitCancelled'
+      | 'wholeQuantity'
   ) {
     super(reason)
   }
@@ -65,6 +69,17 @@ type Recorded = {
   workerName?: string | null
   // Item
   itemId?: number
+} & EquipmentDetails
+
+/**
+ * An Equipment Charge's pending details (#169): each one left out stays as
+ * it is, and an empty one (null) is cleared.
+ */
+type EquipmentDetails = {
+  equipmentType?: string | null
+  make?: string | null
+  model?: string | null
+  serialNumber?: string | null
 }
 
 type Billing = {
@@ -127,11 +142,13 @@ export default class Charges {
    * once the Visit closed (it is planned until then), switching between
    * done and not done; a Charge on the Job itself at any time, confirming
    * planned work used (done) or not. Stock follows: an Item becoming done
-   * leaves stock (a usage dated today, referencing the Job), one done
-   * becoming not done comes back (an adjustment). An installed Item
-   * becoming done creates or updates its equipment, as closing the Visit
-   * does (#162); becoming not done leaves the equipment as it is. Either
-   * way it returns what Office is warned about the equipment (#168).
+   * leaves stock (a usage referencing the Job, dated by its Visit's work
+   * day, #174, or today for a Charge on the Job itself), one done becoming
+   * not done comes back (an adjustment dated today, a correction made when
+   * Office acts). An Equipment Item becoming done creates its equipment, as
+   * closing the Visit does (#162, #176); becoming not done leaves the
+   * equipment as it is. Either way it returns what Office is warned about
+   * the equipment.
    * Refused while a draft holds the Charge, and while an issued Invoice
    * bills it and no Credit Note credited that. Like corrections, it plays
    * no part in the Job's status: a closed or cancelled Job's Charges are
@@ -162,27 +179,31 @@ export default class Charges {
       let warnings: EquipmentWarning[] = []
       if (locked.kind === 'item') {
         const item = await Item.findOrFail(locked.itemId, { client: trx })
-        const common = {
-          occurredOn: DateTime.now().startOf('day'),
-          reference: job.number,
-          user,
-          client: trx,
-        }
+        const now = DateTime.now()
+        // Used when the Visit's work happened (#174), or today on the Job
+        const workDay = visit ? visit.workDay(now) : now.startOf('day')
+        const common = { reference: job.number, user, client: trx }
         if (work === 'done' && !locked.stockMovementId) {
-          const movement = await StockLedger.use(item, { ...common, quantity: locked.quantity })
+          const movement = await StockLedger.use(item, {
+            ...common,
+            occurredOn: workDay,
+            quantity: locked.quantity,
+          })
           locked.stockMovementId = movement.id
         } else if (work === 'not_done' && locked.stockMovementId) {
+          // A correction: back on stock the day Office makes it
           await StockLedger.adjust(item, {
             ...common,
+            occurredOn: now.startOf('day'),
             quantity: locked.quantity,
             reason: stockReason,
           })
           locked.stockMovementId = null
         }
         await locked.save()
-        // Installed on a Visit: done on the Visit's day
-        if (work === 'done' && visit) {
-          warnings = await Installations.install(trx, locked, visit, job.siteId)
+        // Installed the day it leaves stock, on a Visit or on the Job (#176)
+        if (work === 'done') {
+          warnings = await Installations.install(trx, locked, job.siteId, workDay)
         }
       }
       await this.addEvent(trx, locked, work, user, null)
@@ -232,10 +253,17 @@ export default class Charges {
    * nothing billed it and Office never edited its billing, what is billed
    * follows: the quantity, the description and, for a new Labour Rate or
    * Item, its current price. Its Job's status plays no part: a closed or
-   * cancelled Job's Charges are still billed (#111). A new Item never
-   * changes Installed Equipment (#162): it returns a warning naming the
-   * equipment the Charge installed, if any, and a Charge not
-   * yet done installs the new Item when it becomes done.
+   * cancelled Job's Charges are still billed (#111). A new Item or
+   * quantity never changes Installed Equipment (#162, #176): it returns a
+   * warning naming the equipment the Charge created, if any, and a Charge
+   * not yet done installs as its new Item and quantity say when it becomes
+   * done. An Equipment Item takes only a whole quantity. Until the Charge is
+   * done, Office also enters or corrects the equipment's pending details
+   * (type, make, model, and a serial number for a single piece, #169);
+   * another Item that isn't Equipment clears them, and a quantity other
+   * than one its serial number. Once done they are left as they were, and
+   * details sent anyway (it became done while the page was open) return a
+   * warning: the equipment is managed on the Site page.
    */
   static async correct(
     charge: Charge,
@@ -290,9 +318,24 @@ export default class Charges {
       } else if (locked.kind === 'item') {
         const item = await Item.findOrFail(input.itemId, { client: trx })
         if (item.archivedAt && item.id !== locked.itemId) throw new ChargeRefusedError('archived')
-        if (item.id !== locked.itemId) {
-          const events = await ChargeEvent.query({ client: trx }).where('chargeId', locked.id)
-          left = await Installations.left(trx, locked, events)
+        if (item.equipment && !isWholeQuantity(input.quantity)) {
+          throw new ChargeRefusedError('wholeQuantity')
+        }
+        const events = await ChargeEvent.query({ client: trx })
+          .where('chargeId', locked.id)
+          .orderBy('id')
+        const newItem = item.id !== locked.itemId
+        if (newItem || !new Big(input.quantity).eq(locked.quantity)) {
+          left = await Installations.left(trx, locked, events, newItem ? 'left' : 'quantity')
+        }
+        if (workState(events) !== 'done') {
+          locked.merge(pendingDetails(locked, item.equipment, input))
+        } else if (detailsChanged(locked, input)) {
+          // Done while the page was open: not saved, and Office is told
+          left = [
+            ...left,
+            { reason: 'detailsDone', equipment: Installations.describe(locked, item) },
+          ]
         }
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })
@@ -611,7 +654,45 @@ export default class Charges {
     }
     if (charge.kind === 'other') return { quantity: charge.quantity }
     const item = await Item.findOrFail(charge.itemId, { client: trx })
-    return { quantity: charge.quantity, item: `${item.code} ${item.description}` }
+    return {
+      quantity: charge.quantity,
+      item: `${item.code} ${item.description}`,
+      equipmentType: charge.equipmentType,
+      make: charge.equipmentMake,
+      model: charge.equipmentModel,
+      serialNumber: charge.equipmentSerialNumber,
+    }
+  }
+}
+
+/**
+ * Whether `input` sends a pending detail other than the Charge's own.
+ */
+function detailsChanged(charge: Charge, input: Recorded) {
+  const sent = [
+    [input.equipmentType, charge.equipmentType],
+    [input.make, charge.equipmentMake],
+    [input.model, charge.equipmentModel],
+    [input.serialNumber, charge.equipmentSerialNumber],
+  ] as const
+  return sent.some(([given, current]) => given !== undefined && (given || null) !== current)
+}
+
+/**
+ * The pending details a Charge not yet done keeps after a correction to
+ * `input` (#169): none for an Item that isn't Equipment, and a serial
+ * number for a single piece only.
+ */
+function pendingDetails(charge: Charge, equipment: boolean, input: Recorded) {
+  const value = (given: string | null | undefined, current: string | null) =>
+    equipment ? (given === undefined ? current : given || null) : null
+  return {
+    equipmentType: value(input.equipmentType, charge.equipmentType),
+    equipmentMake: value(input.make, charge.equipmentMake),
+    equipmentModel: value(input.model, charge.equipmentModel),
+    equipmentSerialNumber: takesSerialNumber(input.quantity)
+      ? value(input.serialNumber, charge.equipmentSerialNumber)
+      : null,
   }
 }
 
@@ -625,24 +706,27 @@ function billingValues(charge: Charge) {
   }
 }
 
+// The values compared as decimals; any other ("007", a serial number) as text
+const DECIMAL_KEYS = new Set(['quantity', 'unitPrice'])
+
 /**
- * The values that changed, or null when none did. Decimals compare by
- * value ("2.000" and "2" are the same quantity).
+ * The values that changed, or null when none did. Quantities and prices
+ * compare by value ("2.000" and "2" are the same quantity).
  */
 function diff(
   before: Record<string, string | null>,
   after: Record<string, string | null>
 ): ChargeChanges | null {
-  const same = (a: string | null, b: string | null) => {
+  const same = (key: string, a: string | null, b: string | null) => {
     if (a === b) return true
-    if (a === null || b === null) return false
+    if (a === null || b === null || !DECIMAL_KEYS.has(key)) return false
     try {
       return new Big(a).eq(b)
     } catch {
       return false
     }
   }
-  const keys = Object.keys(after).filter((key) => !same(before[key], after[key]))
+  const keys = Object.keys(after).filter((key) => !same(key, before[key], after[key]))
   if (!keys.length) return null
   return {
     before: Object.fromEntries(keys.map((key) => [key, before[key]])),

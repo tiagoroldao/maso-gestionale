@@ -9,8 +9,10 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { urlFor } from '~/client'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
-import { amountForInput } from '@shared/money'
+import { amountForInput, parseAmount } from '@shared/money'
+import { takesSerialNumber } from '@shared/items'
 import { formatDate, t } from '~/i18n'
+import { formatDateTime } from '@shared/dates'
 
 const props = defineProps<{
   visit: {
@@ -20,6 +22,8 @@ const props = defineProps<{
     status: string
     survey: boolean
     officeNotes: string | null
+    started: { at: string; by: string | null } | null
+    closed: { at: string; by: string | null } | null
     technicians: string[]
   }
   job: { number: string; title: string; description: string | null }
@@ -56,7 +60,8 @@ const props = defineProps<{
     description: string
     unit: string
     quantity: string
-    installed: boolean
+    equipment: boolean
+    details: { description: string; serialNumber: string | null } | null
     notDone: boolean
   }[]
 }>()
@@ -64,9 +69,13 @@ const props = defineProps<{
 const picked = ref<PickedItem | null>(null)
 // Hours by someone outside the app, named instead of picked
 const someoneElse = ref(false)
-const installed = ref(false)
-// Installing onto equipment already at the Site, or ('') new equipment
-const equipmentId = ref<number | ''>('')
+// The picked Item's quantity: an Equipment Item takes a serial number
+// for a single piece only (#176)
+const itemQuantity = ref('1')
+const singlePiece = computed(() => {
+  const parsed = parseAmount(itemQuantity.value)
+  return parsed !== null && takesSerialNumber(parsed.toFixed())
+})
 const quantity = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 const confirmDone = (status: string) => () =>
   !isClosedVisit(status) || window.confirm(t('ui.field.completeConfirm'))
@@ -170,6 +179,26 @@ function toggle(id: number, ticked: boolean) {
             </button>
           </Form>
         </div>
+        <p v-if="visit.started" class="field__hint" data-testid="visit-started">
+          {{
+            visit.started.by
+              ? t('ui.visits.startedBy', {
+                  at: formatDateTime(visit.started.at),
+                  by: visit.started.by,
+                })
+              : t('ui.visits.started', { at: formatDateTime(visit.started.at) })
+          }}
+        </p>
+        <p v-if="visit.closed" class="field__hint" data-testid="visit-closed">
+          {{
+            visit.closed.by
+              ? t('ui.visits.closedBy', {
+                  at: formatDateTime(visit.closed.at),
+                  by: visit.closed.by,
+                })
+              : t('ui.visits.closed', { at: formatDateTime(visit.closed.at) })
+          }}
+        </p>
       </Section>
 
       <Section :title="t('ui.field.where')">
@@ -341,8 +370,17 @@ function toggle(id: number, ticked: boolean) {
           <span>
             <strong>{{ quantity(line.quantity) }} {{ line.unit }}</strong> ·
             <span class="mono">{{ line.code }}</span> {{ line.description }}
-            <span v-if="line.installed" class="tag">{{ t('ui.field.installedTag') }}</span>
+            <span v-if="line.equipment" class="tag">{{ t('ui.field.equipmentTag') }}</span>
             <span v-if="line.notDone" class="tag">{{ t('ui.charges.workStates.not_done') }}</span>
+            <!-- The details it is registered with when done (#169) -->
+            <span v-if="line.details" class="field__hint" data-testid="item-equipment-details">
+              <br />
+              {{ line.details.description }}
+              <template v-if="line.details.serialNumber">
+                · {{ t('ui.field.serialNumber') }}
+                <span class="mono">{{ line.details.serialNumber }}</span>
+              </template>
+            </span>
           </span>
           <Form
             v-if="!done"
@@ -362,7 +400,7 @@ function toggle(id: number, ticked: boolean) {
             route="my_visits.add_item"
             :params="{ id: visit.id }"
             class="field-form"
-            @success="((picked = null), (installed = false), (equipmentId = ''))"
+            @success="((picked = null), (itemQuantity = '1'))"
           >
             <input type="hidden" name="itemId" :value="picked.id" />
             <p :style="{ margin: 0 }">
@@ -374,38 +412,15 @@ function toggle(id: number, ticked: boolean) {
               </label>
               <input
                 id="item-quantity"
+                v-model="itemQuantity"
                 name="quantity"
                 inputmode="decimal"
                 class="field__input"
-                value="1"
               />
               <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
             </div>
-            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input v-model="installed" type="checkbox" name="installed" value="true" />
-              {{ t('ui.field.installed') }}
-            </label>
-            <div v-if="installed && site?.equipment.length" class="field">
-              <label class="field__label" for="item-equipment">{{
-                t('ui.field.installedOnto')
-              }}</label>
-              <select
-                id="item-equipment"
-                v-model="equipmentId"
-                name="equipmentId"
-                class="field__input"
-              >
-                <option value="">{{ t('ui.field.newEquipment') }}</option>
-                <option
-                  v-for="equipment in site.equipment"
-                  :key="equipment.id"
-                  :value="equipment.id"
-                >
-                  {{ equipment.description }}
-                </option>
-              </select>
-            </div>
-            <template v-if="installed && equipmentId === ''">
+            <template v-if="picked.equipment">
+              <p class="field__hint" :style="{ margin: 0 }">{{ t('ui.field.equipmentDetails') }}</p>
               <div class="field">
                 <label class="field__label" for="item-type">{{
                   t('ui.field.equipmentType')
@@ -421,12 +436,17 @@ function toggle(id: number, ticked: boolean) {
                 <label class="field__label" for="item-model">{{ t('ui.field.model') }}</label>
                 <input id="item-model" name="model" class="field__input" />
               </div>
+              <div v-if="singlePiece" class="field">
+                <label class="field__label" for="item-serial">{{
+                  t('ui.field.serialNumber')
+                }}</label>
+                <input id="item-serial" name="serialNumber" class="field__input" />
+                <span v-if="errors.serialNumber" class="field__error">{{
+                  errors.serialNumber
+                }}</span>
+              </div>
+              <span v-else class="field__hint">{{ t('ui.field.serialNumberHint') }}</span>
             </template>
-            <div v-if="installed" class="field">
-              <label class="field__label" for="item-serial">{{ t('ui.field.serialNumber') }}</label>
-              <input id="item-serial" name="serialNumber" class="field__input" />
-              <span v-if="errors.serialNumber" class="field__error">{{ errors.serialNumber }}</span>
-            </div>
             <span v-if="errors.itemId" class="field__error">{{ errors.itemId }}</span>
             <div :style="{ display: 'flex', gap: '8px' }">
               <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">

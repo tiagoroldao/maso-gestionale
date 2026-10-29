@@ -17,6 +17,8 @@ import { computed, ref } from 'vue'
 import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 
 const confirm = (message: string) => window.confirm(message)
+type WorkTotals = { planned: string; done: string; notDone: string }
+type SummaryRow = WorkTotals & { visits: (WorkTotals & { visitId: number | null })[] }
 // The new cost's fields, pre-filled with the call-out fee on request
 const blankCharge = () => ({
   description: '',
@@ -63,6 +65,23 @@ const props = defineProps<{
   invoicedSoFar: { amount: string; of: string; quoted: string | null }
   timeAndMaterials: { total: string; billed: string; inDraft: string; lines: number }
   callOutFee: string | null
+  // Where the Visits stand, cancelled ones apart (#178)
+  progress: {
+    done: number
+    total: number
+    cancelled: number
+    next: { startsAt: string; endsAt: string } | null
+  }
+  // Hours and Items across the Visits and the Job, by work state (#178)
+  summary: {
+    hours: (SummaryRow & {
+      key: string
+      worker: string | null
+      labourRate: string | null
+      unit: string
+    })[]
+    items: (SummaryRow & { itemId: number; item: string; unit: string | null })[]
+  }
   charges: {
     id: number
     visitId: number | null
@@ -111,6 +130,18 @@ const left = computed(() =>
 // Cancelling leaves open Visits frozen until Office marks them done (#153)
 const visitTime = (visit: { startsAt: string; endsAt: string }) =>
   `${formatDate(visit.startsAt)} ${visit.startsAt.slice(11, 16)}–${visit.endsAt.slice(11, 16)}`
+// Where a summary figure comes from: a Visit by its time, or the Job itself
+function chargeSource(visitId: number | null) {
+  if (visitId === null) return t('ui.charges.onJob')
+  const visit = props.visits.find((candidate) => candidate.id === visitId)
+  return visit ? visitTime(visit) : ''
+}
+// The summary's columns: each figure and the work state it totals
+const WORK_COLUMNS = [
+  ['planned', 'planned'],
+  ['done', 'done'],
+  ['notDone', 'not_done'],
+] as const
 function confirmCancel() {
   const open = props.visits.filter((visit) => isOpenVisit(visit.status))
   return confirm(
@@ -197,76 +228,169 @@ function confirmCancel() {
       </Section>
 
       <Section :title="t('ui.visits.title')">
-        <table v-if="visits.length" class="table">
-          <tbody>
-            <tr v-for="visit in visits" :key="visit.id">
-              <td>
-                <Link
-                  route="visits.schedule"
-                  :qs="{ date: visit.startsAt.slice(0, 10) }"
-                  class="il"
-                >
-                  {{ visitTime(visit) }}
-                </Link>
-                <Link route="visits.edit" :params="{ id: visit.id }" class="btn btn--ghost btn--sm">
-                  {{ t('ui.visits.edit') }}
-                </Link>
-              </td>
-              <td>
-                {{ visit.technicians.join(', ') }}
-                <div v-for="note in visit.notes" :key="note.id" class="field__hint">
-                  {{ note.author }}: {{ note.body }}
-                </div>
-                <div v-if="visit.photoIds.length" class="field-photos">
-                  <a
-                    v-for="photoId in visit.photoIds"
-                    :key="photoId"
-                    :href="urlFor('visit_photos.show', { id: photoId })"
-                    target="_blank"
-                    rel="noopener"
+        <!-- Collapsed by default, a long Job having many Visits (#178), unless
+             one waits for Office to mark it done (#153) -->
+        <details
+          v-if="visits.length"
+          :open="visits.some((visit) => visit.closableByOffice)"
+          data-testid="visits"
+        >
+          <summary data-testid="visit-progress">
+            {{ t('ui.jobs.progress', { done: progress.done, total: progress.total }) }}
+            <template v-if="progress.cancelled">
+              · {{ t('ui.jobs.progressCancelled', { count: progress.cancelled }) }}
+            </template>
+            <template v-if="progress.next">
+              · {{ t('ui.jobs.progressNext', { when: visitTime(progress.next) }) }}
+            </template>
+          </summary>
+          <table class="table">
+            <tbody>
+              <tr v-for="visit in visits" :key="visit.id">
+                <td>
+                  <Link
+                    route="visits.schedule"
+                    :qs="{ date: visit.startsAt.slice(0, 10) }"
+                    class="il"
                   >
-                    <img
-                      :src="urlFor('visit_photos.show', { id: photoId })"
-                      :alt="t('ui.field.photo')"
-                      loading="lazy"
-                    />
-                  </a>
-                </div>
-              </td>
-              <td>
-                <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
-                <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
-                <span v-if="visit.billed" class="tag">{{ t('ui.jobs.visitBilled') }}</span>
-                <Form
-                  v-if="visit.closableByOffice"
-                  route="visits.mark_done"
-                  :params="{ id: visit.id }"
-                  :on-before="() => confirm(t('ui.visits.markDoneConfirm'))"
-                >
-                  <!-- Its Charges, all ticked: unticked ones become not done (ADR 0016) -->
-                  <label
-                    v-for="charge in visit.charges"
-                    :key="charge.id"
-                    :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
+                    {{ visitTime(visit) }}
+                  </Link>
+                  <Link
+                    route="visits.edit"
+                    :params="{ id: visit.id }"
+                    class="btn btn--ghost btn--sm"
                   >
-                    <input type="hidden" name="reviewed[]" :value="charge.id" />
-                    <input type="checkbox" name="done[]" :value="charge.id" checked />
-                    {{ charge.description }}
-                  </label>
-                  <button type="submit" class="btn btn--ghost btn--sm">
-                    {{ t('ui.visits.markDone') }}
-                  </button>
-                </Form>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                    {{ t('ui.visits.edit') }}
+                  </Link>
+                </td>
+                <td>
+                  {{ visit.technicians.join(', ') }}
+                  <div v-for="note in visit.notes" :key="note.id" class="field__hint">
+                    {{ note.author }}: {{ note.body }}
+                  </div>
+                  <div v-if="visit.photoIds.length" class="field-photos">
+                    <a
+                      v-for="photoId in visit.photoIds"
+                      :key="photoId"
+                      :href="urlFor('visit_photos.show', { id: photoId })"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <img
+                        :src="urlFor('visit_photos.show', { id: photoId })"
+                        :alt="t('ui.field.photo')"
+                        loading="lazy"
+                      />
+                    </a>
+                  </div>
+                </td>
+                <td>
+                  <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
+                  <span class="tag">{{ t(`ui.visits.statuses.${visit.status}`) }}</span>
+                  <span v-if="visit.billed" class="tag">{{ t('ui.jobs.visitBilled') }}</span>
+                  <Form
+                    v-if="visit.closableByOffice"
+                    route="visits.mark_done"
+                    :params="{ id: visit.id }"
+                    :on-before="() => confirm(t('ui.visits.markDoneConfirm'))"
+                  >
+                    <!-- Its Charges, all ticked: unticked ones become not done (ADR 0016) -->
+                    <label
+                      v-for="charge in visit.charges"
+                      :key="charge.id"
+                      :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
+                    >
+                      <input type="hidden" name="reviewed[]" :value="charge.id" />
+                      <input type="checkbox" name="done[]" :value="charge.id" checked />
+                      {{ charge.description }}
+                    </label>
+                    <button type="submit" class="btn btn--ghost btn--sm">
+                      {{ t('ui.visits.markDone') }}
+                    </button>
+                  </Form>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </details>
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.visits.none') }}</p>
         <div v-if="active">
           <Link route="visits.create" :params="{ id: job.id }" class="btn btn--secondary btn--sm">
             {{ t('ui.visits.plan') }}
           </Link>
         </div>
+      </Section>
+
+      <Section
+        v-if="summary.hours.length || summary.items.length"
+        :title="t('ui.jobs.summary')"
+        data-testid="charge-summary"
+      >
+        <p class="field__hint" :style="{ margin: 0 }">{{ t('ui.jobs.summaryHint') }}</p>
+        <table v-if="summary.hours.length" class="table">
+          <thead>
+            <tr>
+              <th>{{ t('ui.charges.worker') }}</th>
+              <th>{{ t('ui.charges.labourRate') }}</th>
+              <th v-for="[, state] in WORK_COLUMNS" :key="state">
+                {{ t(`ui.charges.workStates.${state}`) }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in summary.hours" :key="row.key">
+              <td>
+                <details>
+                  <summary>{{ row.worker ?? '—' }}</summary>
+                  <div v-for="visit in row.visits" :key="visit.visitId ?? 0" class="field__hint">
+                    {{ chargeSource(visit.visitId) }}:
+                    <template v-for="[key, state] in WORK_COLUMNS" :key="state">
+                      <template v-if="Number(visit[key])">
+                        {{ t(`ui.charges.workStates.${state}`) }} {{ quantity(visit[key]) }}
+                        {{ row.unit }}
+                      </template>
+                    </template>
+                  </div>
+                </details>
+              </td>
+              <td>{{ row.labourRate ?? '—' }}</td>
+              <td v-for="[key] in WORK_COLUMNS" :key="key">
+                {{ quantity(row[key]) }} {{ row.unit }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+        <table v-if="summary.items.length" class="table">
+          <thead>
+            <tr>
+              <th>{{ t('ui.charges.item') }}</th>
+              <th v-for="[, state] in WORK_COLUMNS" :key="state">
+                {{ t(`ui.charges.workStates.${state}`) }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="row in summary.items" :key="row.itemId">
+              <td>
+                <details>
+                  <summary>{{ row.item }}</summary>
+                  <div v-for="visit in row.visits" :key="visit.visitId ?? 0" class="field__hint">
+                    {{ chargeSource(visit.visitId) }}:
+                    <template v-for="[key, state] in WORK_COLUMNS" :key="state">
+                      <template v-if="Number(visit[key])">
+                        {{ t(`ui.charges.workStates.${state}`) }} {{ quantity(visit[key]) }}
+                        {{ row.unit }}
+                      </template>
+                    </template>
+                  </div>
+                </details>
+              </td>
+              <td v-for="[key] in WORK_COLUMNS" :key="key">
+                {{ quantity(row[key]) }} {{ row.unit }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </Section>
 
       <Section :title="t('ui.charges.title')">

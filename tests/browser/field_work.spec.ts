@@ -24,7 +24,7 @@ test.group('Field work in the browser', () => {
       status: 'in_progress',
       siteId: site.id,
     })
-    // Started: a Visit closes only once it has (#154)
+    // Its start passed: a planned Visit closes only then (#174)
     const start = DateTime.now().minus({ minutes: 30 })
     const planned = await Visit.create({
       jobId: job.id,

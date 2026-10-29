@@ -13,6 +13,7 @@ import Installations, { type EquipmentWarning } from '#services/installations'
 import StockLedger from '#stock/stock_ledger'
 import { isCancelledVisit, isClosedVisit } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
+import { isWholeQuantity, takesSerialNumber } from '#shared/items'
 
 export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
@@ -20,9 +21,10 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
  * The Visit is closed (its hours, Items and stock are final) or cancelled
  * (read-only until Office restores it, #157), its Job was
  * closed or cancelled (or, for Office closing a frozen Visit, isn't
- * cancelled), the Visit is closed before it has started (`notStarted`,
- * #154), or the request doesn't fit it (a Technician not on the Visit, an
- * install without a Site, a Charge Office already reviewed).
+ * cancelled), the Visit is closed while still planned with a start to
+ * come (`notStarted`, #174), or the request doesn't fit it (a Technician
+ * not on the Visit, a part of an Equipment Item, a Charge Office already
+ * reviewed).
  */
 export class FieldWorkRefusedError extends Error {
   constructor(
@@ -34,7 +36,7 @@ export class FieldWorkRefusedError extends Error {
       | 'notCancelled'
       | 'notStarted'
       | 'notOnVisit'
-      | 'noSite'
+      | 'wholeQuantity'
       | 'notAtSite'
       | 'reviewed'
   ) {
@@ -43,10 +45,10 @@ export class FieldWorkRefusedError extends Error {
 }
 
 /**
- * What Technicians record on a Visit: hours and Items used (some installed
- * at the Site), as Charges (ADR 0010) planned until the Visit closes, notes and photos,
+ * What Technicians record on a Visit: hours and Items used (Equipment ones
+ * installed at the Site), as Charges (ADR 0010) planned until the Visit closes, notes and photos,
  * and closing it, which reviews the Charges, takes the done Items off
- * stock and installs the done installed ones (ADR 0016, #162). Every
+ * stock and installs the done Equipment ones (ADR 0016, #162). Every
  * change locks the Visit, so a colleague closing it at the same moment
  * can't leave lines off stock or reopen it.
  *
@@ -170,19 +172,17 @@ export default class FieldWork {
   }
 
   /**
-   * Records an Item used. An installed one keeps the equipment's details
-   * on the Charge (a new unit's type, make, model and serial number, or
-   * the unit at the Job's Site it goes onto) until it becomes done, when
-   * the equipment is created or updated (Installations, #162).
+   * Records an Item used. An Equipment Item, in whole pieces only, keeps
+   * the equipment's details on the Charge (type, make, model, and a serial
+   * number for a single piece) until it becomes done, when the equipment
+   * is created at the Job's Site (Installations, #162, #176).
    */
   static async recordItem(
     visit: Visit,
     input: {
       itemId: number
       quantity: string
-      installed?: boolean
       serialNumber?: string | null
-      equipmentId?: number | null
       equipmentType?: string | null
       make?: string | null
       model?: string | null
@@ -190,22 +190,11 @@ export default class FieldWork {
     recordedBy: User | null = null
   ) {
     return this.whileOpen(visit, async (trx, locked) => {
-      await locked.load('job')
-      if (input.installed && !locked.job.siteId) throw new FieldWorkRefusedError('noSite')
-
       const item = await Item.findOrFail(input.itemId, { client: trx })
-      let equipmentId: number | null = null
-      if (input.installed && input.equipmentId) {
-        // Onto equipment already registered at this Site, still there
-        const existing = await InstalledEquipment.query({ client: trx })
-          .where('id', input.equipmentId)
-          .where('siteId', locked.job.siteId!)
-          .whereNull('removedOn')
-          .first()
-        if (!existing) throw new FieldWorkRefusedError('notAtSite')
-        equipmentId = existing.id
+      const equipment = item.equipment
+      if (equipment && !isWholeQuantity(input.quantity)) {
+        throw new FieldWorkRefusedError('wholeQuantity')
       }
-      const newUnit = input.installed && !equipmentId
 
       return this.record(trx, recordedBy, {
         jobId: locked.jobId,
@@ -213,12 +202,11 @@ export default class FieldWork {
         kind: 'item',
         itemId: item.id,
         quantity: input.quantity,
-        installed: Boolean(input.installed),
-        installedEquipmentId: equipmentId,
-        equipmentType: newUnit ? input.equipmentType || null : null,
-        equipmentMake: newUnit ? input.make || null : null,
-        equipmentModel: newUnit ? input.model || null : null,
-        equipmentSerialNumber: input.installed ? input.serialNumber || null : null,
+        equipmentType: equipment ? input.equipmentType || null : null,
+        equipmentMake: equipment ? input.make || null : null,
+        equipmentModel: equipment ? input.model || null : null,
+        equipmentSerialNumber:
+          equipment && takesSerialNumber(input.quantity) ? input.serialNumber || null : null,
         billQuantity: input.quantity,
         // The Item's resale price when recorded
         unitPrice: item.resalePrice,
@@ -258,11 +246,11 @@ export default class FieldWork {
   /**
    * Changes the Visit's status. Closing it (done, or needs another visit)
    * is the review of its Charges (ADR 0016): each becomes done, an Item
-   * leaving stock and an installed one creating or updating its equipment
-   * (#162) in the same transaction, except those in `notDone` (unticked in
+   * leaving stock and an Equipment one creating its equipment (#162, #176)
+   * in the same transaction, except those in `notDone` (unticked in
    * the review), which become not done and touch neither. A closed
    * Visit's status no longer changes. Returns the warnings about equipment
-   * that changed since it was recorded (#168).
+   * that couldn't be created (no Site).
    */
   static async setStatus(
     visit: Visit,
@@ -280,8 +268,8 @@ export default class FieldWork {
   /**
    * Office marks done a Visit left open when its Job was cancelled (#153),
    * reviewing its Charges as the field does (`notDone`, ADR 0016), so its
-   * done Items come off stock, its done installed Items create or update
-   * their equipment (#162), its serviced equipment is dated and its
+   * done Items come off stock, its done Equipment Items create their
+   * equipment (#162), its serviced equipment is dated and its
    * done Charges become billable (#111), as when any Visit closes. Only
    * "done": nobody goes back on a cancelled Job. Refused once the Visit is
    * closed, and on any Job not cancelled: an active Job's Visits close in
@@ -310,11 +298,14 @@ export default class FieldWork {
   }
 
   /**
-   * Sets the locked Visit's status; closing it, refused before the Visit
-   * starts, makes its planned Charges done (Items off stock, installed
-   * ones installed) or, for those in `notDone`, not done, and dates the
-   * equipment it serviced. Returns the warnings about the equipment its
-   * installed Items went onto (#168).
+   * Sets the locked Visit's status, recording who marked it in progress
+   * and who closed it, and when (#174); back to planned, it is no longer
+   * under way and its start is cleared. Closing it, refused while it is
+   * still planned with a start to come (#174), makes its planned Charges
+   * done (Items off stock, Equipment ones installed) or, for those in
+   * `notDone`, not done, and dates the equipment it serviced, all on its
+   * work day (`Visit.workDay`). Returns the warnings about the equipment
+   * its Equipment Items couldn't create.
    */
   private static async changeStatus(
     trx: TransactionClientContract,
@@ -324,9 +315,20 @@ export default class FieldWork {
     notDone: number[]
   ): Promise<EquipmentWarning[]> {
     const warnings: EquipmentWarning[] = []
+    const now = DateTime.now()
+    if (status === 'in_progress' && locked.status !== 'in_progress') {
+      locked.merge({ startedAt: now, startedById: user.id })
+    } else if (status === 'planned') {
+      locked.merge({ startedAt: null, startedById: null })
+    }
     if (isClosedVisit(status)) {
-      // Not before it starts: its Items would leave stock on a future day (#154)
-      if (locked.startsAt > DateTime.now()) throw new FieldWorkRefusedError('notStarted')
+      // Under way, or its start passed: a planned Visit still to come is
+      // not closed, or its Items would leave stock on a day to come (#174)
+      if (locked.status === 'planned' && locked.startsAt > now) {
+        throw new FieldWorkRefusedError('notStarted')
+      }
+      locked.merge({ closedAt: now, closedById: user.id })
+      const workDay = locked.workDay(now)
       await locked.load('job')
       // Locked after the Visit and its Job, as Office's changes do
       const charges = await Charge.query({ client: trx })
@@ -343,11 +345,13 @@ export default class FieldWork {
           { client: trx }
         )
         if (!done || charge.kind !== 'item') continue
-        warnings.push(...(await Installations.install(trx, charge, locked, locked.job.siteId)))
+        warnings.push(
+          ...(await Installations.install(trx, charge, locked.job.siteId, locked.workDay(now)))
+        )
         if (charge.stockMovementId) continue
         const movement = await StockLedger.use(charge.item, {
           quantity: charge.quantity,
-          occurredOn: locked.startsAt.startOf('day'),
+          occurredOn: workDay,
           reference: locked.job.number,
           user,
           client: trx,
@@ -357,8 +361,8 @@ export default class FieldWork {
           .update({ stock_movement_id: movement.id })
       }
 
-      // Serviced equipment was serviced on the Visit's day (never moved back)
-      const day = locked.startsAt.toISODate()!
+      // Serviced equipment was serviced on the work day (never moved back)
+      const day = workDay.toISODate()!
       await trx
         .from('installed_equipment')
         .whereIn(

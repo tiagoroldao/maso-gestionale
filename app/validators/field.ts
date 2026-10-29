@@ -71,11 +71,9 @@ export const visitItemValidator = vine.create({
     },
   }),
   quantity: vine.string().use(quantityRule({ allowNegative: false, max: '99999' })),
-  installed: vine.boolean().optional(),
+  // An Equipment Item's details: type, make, model, and a serial number
+  // for a single piece (#176)
   serialNumber: vine.string().trim().maxLength(100).optional(),
-  // Installing onto equipment already registered at the Site, or new
-  // equipment described by type, make and model
-  equipmentId: vine.number().optional(),
   equipmentType: vine.string().trim().maxLength(100).optional(),
   make: vine.string().trim().maxLength(100).optional(),
   model: vine.string().trim().maxLength(100).optional(),

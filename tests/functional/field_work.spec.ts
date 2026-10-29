@@ -25,7 +25,7 @@ async function setup() {
     status: 'in_progress',
     siteId: site.id,
   })
-  // Started an hour ago: a Visit closes only once it has started (#154)
+  // Started an hour ago: a planned Visit closes only once its start passed (#174)
   const start = DateTime.now().minus({ hours: 1 })
   const visit = await Visit.create({
     jobId: job.id,
@@ -89,22 +89,6 @@ test.group('Field work', () => {
 
     await visit.load('hours')
     assert.lengthOf(visit.hours, 0)
-  })
-
-  test('installing needs a Site on the Job', async ({ client, assert }) => {
-    const { anna, job, visit, item } = await setup()
-    job.siteId = null
-    await job.save()
-
-    const response = await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({ itemId: String(item.id), quantity: '1', installed: 'true' })
-      .withCsrfToken()
-      .loginAs(anna)
-      .redirects(0)
-
-    response.assertFlashMessage('error', it('flash.fieldWorkRefused.noSite'))
-    assert.lengthOf(await Charge.all(), 0)
   })
 
   test('marking the Visit done takes the Items off stock once, then locks it', async ({
@@ -186,7 +170,7 @@ test.group('Field work', () => {
     more.assertFlashMessage('error', it('flash.fieldWorkRefused.done'))
   })
 
-  test('a Visit that has not started yet can not be closed: nothing leaves stock (#154)', async ({
+  test('a planned Visit still to come can not be closed: nothing leaves stock (#174)', async ({
     client,
     assert,
   }) => {
