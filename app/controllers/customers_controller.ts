@@ -1,6 +1,8 @@
 import Customer from '#models/customer'
 import Invoice from '#models/invoice'
-import { overpaidBy, owed } from '#shared/payment_status'
+import { DateTime } from 'luxon'
+import { overpaidBy, owed, paymentStatus } from '#shared/payment_status'
+import { PAYABLE_DOCUMENT_TYPES } from '#shared/payments'
 import { sumAmounts } from '#shared/money'
 import Archiving, { HasOpenJobsError } from '#services/archiving'
 import PaymentTerms from '#models/payment_terms'
@@ -117,7 +119,7 @@ export default class CustomersController {
           .withScopes((scopes) => scopes.withBillingState())
           .preload('site')
           .preload('visits')
-          .preload('invoices', (invoices) => invoices.preload('payments'))
+          .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
           .orderBy([
             { column: 'year', order: 'desc' },
             { column: 'sequence', order: 'desc' },
@@ -125,21 +127,48 @@ export default class CustomersController {
       )
       .firstOrFail()
 
-    // What the Customer still owes on issued Invoices; an overpaid one
-    // doesn't offset the others (Payments belong to one Invoice, ADR 0014)
-    // but is flagged, to refund or correct
+    // What the Customer still owes on issued Invoices, after their Credit
+    // Notes; an overpaid one doesn't offset the others (Payments belong to
+    // one Invoice, ADR 0014) but is flagged, to refund or correct
     const issued = await Invoice.query()
       .where('customerId', customer.id)
+      .whereIn('documentType', [...PAYABLE_DOCUMENT_TYPES])
       .whereNot('status', 'draft')
       .preload('payments')
-      .orderBy('id')
-    const amounts = issued.map((invoice) => ({ total: invoice.total ?? '0', paid: invoice.paid }))
+      .preload('creditNotes')
+      .orderBy([
+        { column: 'issuedOn', order: 'desc' },
+        { column: 'id', order: 'desc' },
+      ])
+    const amounts = issued.map((invoice) => ({
+      total: invoice.total ?? '0',
+      credited: invoice.credited,
+      paid: invoice.paid,
+    }))
     const balance = sumAmounts(
       amounts.filter((amount) => !overpaidBy(amount)).map((amount) => owed(amount))
     )
 
+    const today = DateTime.now().toISODate()!
+
     return inertia.render('customers/show', {
       balance,
+      // Issued Invoices and Legacy Invoices (#27), newest first
+      invoices: issued.map((invoice) => ({
+        id: invoice.id,
+        number: invoice.formattedNumber!,
+        documentType: invoice.documentType,
+        advance: invoice.advance,
+        issuedOn: invoice.issuedOn!.toISODate()!,
+        total: invoice.total!,
+        payment: paymentStatus({
+          total: invoice.total!,
+          credited: invoice.credited,
+          paid: invoice.paid,
+          dueOn: invoice.dueOn!.toISODate()!,
+          today,
+        }),
+      })),
       overpaid: issued.flatMap((invoice, index) => {
         const by = overpaidBy(amounts[index])
         return by ? [{ id: invoice.id, number: invoice.formattedNumber!, overpaidBy: by }] : []

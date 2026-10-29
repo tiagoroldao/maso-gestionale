@@ -1,16 +1,11 @@
 import type { DateTime } from 'luxon'
-import type { JobStatus } from '#models/job'
 import type { VisitStatus } from '#models/visit'
+import type { JobIndicators } from '#shared/jobs'
 import { isSettled } from '#shared/payment_status'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { BILLING_EVENT_KINDS, WORK_EVENT_KINDS } from '#shared/charges'
 
-/**
- * The status shown for a Job: the stored status, refined from its Visits
- * (Work Complete) and its Invoices (Invoiced, then Closed once settled).
- */
-export type DisplayedJobStatus = JobStatus | 'work_complete' | 'invoiced' | 'closed'
-
-type InvoiceSummary = { status: string; total: string | null; paid: string }
+type InvoiceSummary = { status: string; total: string | null; credited: string; paid: string }
 
 type VisitSummary = { status: VisitStatus; startsAt: DateTime; survey: boolean }
 
@@ -24,32 +19,33 @@ function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
 }
 
 /**
- * Work Complete: the Job is in progress, it has a work Visit, and every
- * Visit is finished, Surveys included, so nothing is left to do or to
- * plan. A Job with only Surveys has had no work (ADR 0013).
+ * The indicators shown beside a Job's stored status (ADR 0015), whatever
+ * that status is; WORK_COMPLETE_SQL, INVOICED_SQL and JOB_PAID_SQL say the
+ * same in SQL:
+ * - work complete: the Job has a work Visit and every Visit is finished,
+ *   Surveys included, so nothing is left to do or to plan. A Job with only
+ *   Surveys has had no work (ADR 0013);
+ * - invoiced: an Invoice is past draft and nothing is left to bill
+ *   (`billingOpen`, from BILLING_OPEN_SQL), every advance taken back;
+ * - paid: an Invoice is past draft and every one is settled: nothing owed,
+ *   and none overpaid (ADR 0014).
  */
-export function deriveJobStatus(
-  stored: JobStatus,
+export function jobIndicators(
   visits: VisitSummary[],
-  invoices: InvoiceSummary[] = [],
-  billingOpen = false
-): DisplayedJobStatus {
-  if (stored === 'cancelled') return stored
-  // Invoiced once an Invoice is past draft and nothing is left to bill
-  // (BILLING_OPEN_SQL); Closed when every Invoice is settled: nothing
-  // owed, and none overpaid (ADR 0014)
+  invoices: InvoiceSummary[],
+  billingOpen: boolean
+): JobIndicators {
   const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
-  if (issued.length && !billingOpen) {
-    const settled = issued.every((invoice) =>
-      isSettled({ total: invoice.total!, paid: invoice.paid })
-    )
-    return settled ? 'closed' : 'invoiced'
+  return {
+    workComplete:
+      visits.some((visit) => !visit.survey) && visits.every((visit) => isFinished(visit, visits)),
+    invoiced: issued.length > 0 && !billingOpen,
+    paid:
+      issued.length > 0 &&
+      issued.every((invoice) =>
+        isSettled({ total: invoice.total!, credited: invoice.credited, paid: invoice.paid })
+      ),
   }
-  const workComplete =
-    stored === 'in_progress' &&
-    visits.some((visit) => !visit.survey) &&
-    visits.every((visit) => isFinished(visit, visits))
-  return workComplete ? 'work_complete' : stored
 }
 
 /**
@@ -59,10 +55,18 @@ export const PAID_SQL = (alias: string) =>
   `(SELECT coalesce(sum(p.amount), 0) FROM payments p WHERE p.invoice_id = ${alias}.id)`
 
 /**
+ * The SQL equivalent of the Invoice `alias`'s Credit Notes, as credits()
+ * counts them: every one past draft.
+ */
+export const CREDITED_SQL = (alias: string) => `(SELECT coalesce(sum(cn.total), 0) FROM invoices cn
+  WHERE cn.credits_invoice_id = ${alias}.id AND cn.status <> 'draft')`
+
+/**
  * The SQL equivalent of owed() for the issued Invoice `alias`: below zero
  * when it is overpaid.
  */
-export const OWED_SQL = (alias: string) => `(${alias}.total - ${PAID_SQL(alias)})`
+export const OWED_SQL = (alias: string) =>
+  `(${alias}.total - ${CREDITED_SQL(alias)} - ${PAID_SQL(alias)})`
 
 /**
  * The same rules as SQL, for filtering Job lists: raw conditions on the
@@ -71,23 +75,24 @@ export const OWED_SQL = (alias: string) => `(${alias}.total - ${PAID_SQL(alias)}
 const ISSUED_SQL = `EXISTS (SELECT 1 FROM invoices i
   WHERE i.job_id = jobs.id AND i.status <> 'draft')`
 /** An issued Invoice not settled (isSettled()): something owed, or overpaid */
-const UNSETTLED_SQL = `EXISTS (SELECT 1 FROM invoices i
+export const UNSETTLED_SQL = `EXISTS (SELECT 1 FROM invoices i
   WHERE i.job_id = jobs.id AND i.status <> 'draft' AND ${OWED_SQL('i')} <> 0)`
 
 /**
  * The SQL equivalents of chargeState() for the Charge `alias`: the latest
  * decision in its history ("not billable" or "billable"), the latest
- * billing event ("billed" or "unbilled"), and whether a draft holds it.
+ * billing event (BILLING_EVENT_KINDS), and whether a draft holds it.
  */
 export const NOT_BILLABLE_SQL = (alias: string) => `coalesce((SELECT e.kind = 'not_billable'
   FROM charge_events e
   WHERE e.charge_id = ${alias}.id AND e.kind IN ('not_billable', 'billable')
   ORDER BY e.id DESC LIMIT 1), false)`
 
-const BILLED_SQL = (alias: string) => `coalesce((SELECT e.kind = 'billed'
+const LATEST_BILLING_SQL = (alias: string) => `coalesce((SELECT e.kind
   FROM charge_events e
-  WHERE e.charge_id = ${alias}.id AND e.kind IN ('billed', 'unbilled')
-  ORDER BY e.id DESC LIMIT 1), false)`
+  WHERE e.charge_id = ${alias}.id
+    AND e.kind IN (${BILLING_EVENT_KINDS.map((kind) => `'${kind}'`).join(', ')})
+  ORDER BY e.id DESC LIMIT 1), 'none')`
 
 const IN_DRAFT_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_charges lc
   JOIN invoice_lines l ON l.id = lc.invoice_line_id
@@ -96,15 +101,49 @@ const IN_DRAFT_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_char
 
 export const CHARGE_STATE_SQL = (alias: string) => `(CASE
   WHEN ${NOT_BILLABLE_SQL(alias)} THEN 'not_billable'
-  WHEN ${BILLED_SQL(alias)} THEN 'billed'
-  WHEN ${IN_DRAFT_SQL(alias)} THEN 'in_draft'
-  ELSE 'to_bill' END)`
+  ELSE (CASE ${LATEST_BILLING_SQL(alias)}
+    WHEN 'billed' THEN 'billed'
+    WHEN 'uncredited' THEN 'billed'
+    WHEN 'credited' THEN 'credited'
+    ELSE (CASE WHEN ${IN_DRAFT_SQL(alias)} THEN 'in_draft' ELSE 'to_bill' END) END) END)`
 
 /**
- * Outstanding, as isOutstanding(): to bill, or only held by a draft.
+ * The SQL equivalent of workState() for the Charge `alias`: its latest
+ * work event, or planned before any (ADR 0016).
+ */
+export const WORK_STATE_SQL = (alias: string) => `coalesce((SELECT e.kind
+  FROM charge_events e
+  WHERE e.charge_id = ${alias}.id
+    AND e.kind IN (${WORK_EVENT_KINDS.map((kind) => `'${kind}'`).join(', ')})
+  ORDER BY e.id DESC LIMIT 1), 'planned')`
+
+/**
+ * Outstanding, as isOutstanding(): to bill, or only held by a draft; not
+ * billed by an issued Invoice nor credited, and not "not done" (planned
+ * work keeps billing open).
  */
 export const OUTSTANDING_SQL = (alias: string) =>
-  `(NOT ${NOT_BILLABLE_SQL(alias)} AND NOT ${BILLED_SQL(alias)})`
+  `(NOT ${NOT_BILLABLE_SQL(alias)}
+    AND ${LATEST_BILLING_SQL(alias)} NOT IN ('billed', 'uncredited', 'credited')
+    AND ${WORK_STATE_SQL(alias)} <> 'not_done')`
+
+/**
+ * An issued Invoice line bills the Charge `alias` and no Credit Notes
+ * credited that line in full (creditedInFull()): its work state and
+ * recorded quantity are frozen, even once Office sets it back to bill
+ * (ADR 0016). Only Credit Notes SDI delivered (or couldn't deliver) count:
+ * one merely finalised may still be rejected and corrected below the line,
+ * giving the Charge its billing back. A draft's line doesn't freeze it,
+ * nor does a line removed from a rejected Invoice, whose link goes with it.
+ */
+export const WORK_FROZEN_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_charges flc
+  JOIN invoice_lines fl ON fl.id = flc.invoice_line_id
+  JOIN invoices fi ON fi.id = fl.invoice_id
+  WHERE flc.charge_id = ${alias}.id AND fi.status <> 'draft'
+    AND NOT coalesce((SELECT sum(cl.line_total) >= fl.line_total FROM invoice_lines cl
+      JOIN invoices cn ON cn.id = cl.invoice_id
+      WHERE cl.credits_line_id = fl.id
+        AND cn.status IN ('delivered', 'not_deliverable')), false))`
 
 /**
  * The SQL equivalent of isVisitBilled() for the Visit `alias`.
@@ -116,21 +155,42 @@ export const VISIT_BILLED_SQL = (
     WHERE vc.visit_id = ${alias}.id AND ${OUTSTANDING_SQL('vc')}))`
 
 /**
+ * A deduction `ad` (of advance_deductions) a Credit Note past draft gives
+ * back: it credits the deducting Invoice's lines taking back that advance
+ * (ADR 0014; Invoices.save makes it credit all of them or none).
+ */
+export const DEDUCTION_REVERSED_SQL = (ad: string) => `EXISTS (SELECT 1 FROM invoice_lines fl
+  JOIN invoice_lines rl ON rl.credits_line_id = fl.id
+  JOIN invoices rn ON rn.id = rl.invoice_id
+  WHERE fl.invoice_id = ${ad}.invoice_id AND fl.deducts_invoice_id = ${ad}.advance_id
+    AND rn.status <> 'draft')`
+
+/**
  * How much of the Advance Invoice `alias` issued Invoices took back, VAT
- * included.
+ * included: their deductions, less those a Credit Note gave back.
  */
 export const ADVANCE_DEDUCTED_SQL = (alias: string) => `(SELECT coalesce(sum(ad.amount), 0)
   FROM advance_deductions ad JOIN invoices di ON di.id = ad.invoice_id
-  WHERE ad.advance_id = ${alias}.id AND di.status <> 'draft')`
+  WHERE ad.advance_id = ${alias}.id AND di.status <> 'draft'
+    AND NOT ${DEDUCTION_REVERSED_SQL('ad')})`
+
+/**
+ * How much of the Advance Invoice `alias` is taken back, as advanceState()
+ * and advanceLeft() count it: deducted by issued Invoices, or credited by
+ * its Credit Notes past draft (ADR 0014).
+ */
+export const ADVANCE_TAKEN_BACK_SQL = (alias: string) =>
+  `(${ADVANCE_DEDUCTED_SQL(alias)} + ${CREDITED_SQL(alias)})`
 
 /**
  * A Job still has something to bill, so an issued Invoice was a partial
  * one and the Job isn't Invoiced yet, whether or not it has a Quote (ADR
  * 0012):
  * - a Visit not billed (still open, or with outstanding Charges) or an
- *   outstanding Charge on the Job itself;
- * - an issued Advance Invoice not yet fully deducted by issued Invoices
- *   (advanceState()).
+ *   outstanding Charge on the Job itself (a credited or not done one
+ *   isn't; a planned one is, its work still to come, ADR 0016);
+ * - an issued Advance Invoice not yet fully taken back by issued Invoices
+ *   and Credit Notes (advanceState()).
  */
 export const BILLING_OPEN_SQL = `(
   EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT ${VISIT_BILLED_SQL('v')})
@@ -138,21 +198,22 @@ export const BILLING_OPEN_SQL = `(
     WHERE c.job_id = jobs.id AND c.visit_id IS NULL AND ${OUTSTANDING_SQL('c')})
   OR EXISTS (SELECT 1 FROM invoices a
     WHERE a.job_id = jobs.id AND a.advance AND a.status <> 'draft'
-      AND a.total > ${ADVANCE_DEDUCTED_SQL('a')}))`
+      AND a.total > ${ADVANCE_TAKEN_BACK_SQL('a')}))`
 
-const FULLY_INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
+/**
+ * The Visit `alias` isn't finished (isFinished()): planned or under way,
+ * or needing another visit with none planned after it.
+ */
+export const VISIT_TO_DO_SQL = (alias: string) => `(${alias}.status IN ('planned', 'in_progress')
+  OR (${alias}.status = 'needs_return' AND NOT EXISTS (SELECT 1 FROM visits later
+    WHERE later.job_id = ${alias}.job_id AND later.starts_at > ${alias}.starts_at)))`
 
-export const CLOSED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND NOT ${UNSETTLED_SQL}`
-export const INVOICED_SQL = `jobs.status <> 'cancelled' AND ${FULLY_INVOICED_SQL} AND ${UNSETTLED_SQL}`
-/** Not yet invoiced in full: what Work Complete and stored statuses describe */
-export const NOT_INVOICED_SQL = `NOT ${FULLY_INVOICED_SQL}`
-
-export const WORK_COMPLETE_SQL = `${NOT_INVOICED_SQL} AND jobs.status = 'in_progress'
-  AND EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT v.survey)
-  AND NOT EXISTS (
-    SELECT 1 FROM visits v
-    WHERE v.job_id = jobs.id
-      AND (v.status IN ('planned', 'in_progress')
-        OR (v.status = 'needs_return' AND NOT EXISTS (
-          SELECT 1 FROM visits later WHERE later.job_id = v.job_id AND later.starts_at > v.starts_at)))
-  )`
+/**
+ * The indicators of jobIndicators() as SQL conditions, for the Jobs list's
+ * filters: work complete, invoiced, paid, and all three (ready to close).
+ */
+export const WORK_COMPLETE_SQL = `(EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT v.survey)
+  AND NOT EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND ${VISIT_TO_DO_SQL('v')}))`
+export const INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
+export const JOB_PAID_SQL = `(${ISSUED_SQL} AND NOT ${UNSETTLED_SQL})`
+export const READY_TO_CLOSE_SQL = `(${WORK_COMPLETE_SQL} AND ${INVOICED_SQL} AND ${JOB_PAID_SQL})`

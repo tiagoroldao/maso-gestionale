@@ -1,5 +1,15 @@
 import { test } from '@japa/runner'
-import { chargeState, isVisitBilled } from '#shared/charges'
+import {
+  canSetBackToBill,
+  chargeState,
+  isDraftable,
+  isHeld,
+  isOutstanding,
+  isVisitBilled,
+  workState,
+  type ChargeState,
+  type WorkState,
+} from '#shared/charges'
 
 const events = (...kinds: string[]) => kinds.map((kind) => ({ kind }))
 
@@ -16,6 +26,19 @@ test.group('Charge state', () => {
     assert.equal(chargeState(events('billed', 'unbilled', 'billed'), false), 'billed')
   })
 
+  test('credited by Credit Notes until set back to bill or uncredited', ({ assert }) => {
+    assert.equal(chargeState(events('recorded', 'billed', 'credited'), false), 'credited')
+    assert.equal(chargeState(events('billed', 'credited', 'uncredited'), false), 'billed')
+    assert.equal(chargeState(events('billed', 'credited', 'unbilled'), false), 'to_bill')
+    assert.equal(chargeState(events('billed', 'credited', 'unbilled'), true), 'in_draft')
+    assert.equal(chargeState(events('billed', 'credited', 'unbilled', 'billed'), false), 'billed')
+    // Final, and frozen until set back to bill
+    assert.isTrue(isHeld('credited'))
+    assert.isTrue(canSetBackToBill('credited'))
+    assert.isTrue(canSetBackToBill('billed'))
+    assert.isFalse(canSetBackToBill('in_draft'))
+  })
+
   test('the latest decision makes it not billable', ({ assert }) => {
     assert.equal(chargeState(events('recorded', 'not_billable'), false), 'not_billable')
     assert.equal(chargeState(events('not_billable', 'billable'), false), 'to_bill')
@@ -23,10 +46,47 @@ test.group('Charge state', () => {
   })
 
   test('a Visit is billed once closed with nothing outstanding', ({ assert }) => {
-    assert.isTrue(isVisitBilled(true, ['billed', 'not_billable']))
+    const done = (...states: ChargeState[]) =>
+      states.map((state) => ({ state, work: 'done' as const }))
+    assert.isTrue(isVisitBilled(true, done('billed', 'not_billable')))
+    assert.isTrue(isVisitBilled(true, done('billed', 'credited')))
     assert.isTrue(isVisitBilled(true, []))
-    assert.isFalse(isVisitBilled(true, ['billed', 'in_draft']))
-    assert.isFalse(isVisitBilled(true, ['to_bill']))
-    assert.isFalse(isVisitBilled(false, ['billed']))
+    assert.isFalse(isVisitBilled(true, done('billed', 'in_draft')))
+    assert.isFalse(isVisitBilled(true, done('to_bill')))
+    assert.isFalse(isVisitBilled(false, done('billed')))
+    // Work not done is never outstanding (ADR 0016)
+    assert.isTrue(isVisitBilled(true, [...done('billed'), { state: 'to_bill', work: 'not_done' }]))
+  })
+})
+
+test.group('Work state', () => {
+  test('planned until a work event, then the latest one', ({ assert }) => {
+    assert.equal(workState(events('recorded')), 'planned')
+    assert.equal(workState(events('recorded', 'done')), 'done')
+    assert.equal(workState(events('recorded', 'not_done')), 'not_done')
+    assert.equal(workState(events('recorded', 'done', 'not_done', 'done')), 'done')
+    assert.equal(workState(events('recorded', 'not_done', 'planned')), 'planned')
+    // Billing events leave it alone, and it leaves the billing state alone
+    assert.equal(workState(events('recorded', 'done', 'billed', 'unbilled')), 'done')
+    assert.equal(chargeState(events('recorded', 'not_done'), false), 'to_bill')
+    assert.equal(chargeState(events('recorded', 'done', 'not_billable'), false), 'not_billable')
+  })
+
+  test('planned work keeps billing open; work not done never does', ({ assert }) => {
+    const cases: [ChargeState, WorkState, boolean, boolean][] = [
+      // state, work, outstanding, draftable
+      ['to_bill', 'planned', true, false],
+      ['to_bill', 'done', true, true],
+      ['to_bill', 'not_done', false, false],
+      ['in_draft', 'done', true, false],
+      ['not_billable', 'planned', false, false],
+      ['not_billable', 'done', false, false],
+      ['billed', 'done', false, false],
+      ['credited', 'done', false, false],
+    ]
+    for (const [state, work, outstanding, draftable] of cases) {
+      assert.equal(isOutstanding(state, work), outstanding, `${state} ${work}`)
+      assert.equal(isDraftable(state, work), draftable, `${state} ${work}`)
+    }
   })
 })

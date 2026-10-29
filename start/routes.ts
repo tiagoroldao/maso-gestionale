@@ -187,6 +187,12 @@ router
           .post('jobs/:id/cancel', [controllers.Jobs, 'cancel'])
           .where('id', router.matchers.number())
         router
+          .post('jobs/:id/close', [controllers.Jobs, 'close'])
+          .where('id', router.matchers.number())
+        router
+          .post('jobs/:id/reopen', [controllers.Jobs, 'reopen'])
+          .where('id', router.matchers.number())
+        router
           .get('jobs/:id/visits/create', [controllers.Visits, 'create'])
           .where('id', router.matchers.number())
         router
@@ -205,6 +211,9 @@ router
           .where('id', router.matchers.number())
         router
           .delete('visits/:id', [controllers.Visits, 'destroy'])
+          .where('id', router.matchers.number())
+        router
+          .post('visits/:id/done', [controllers.Visits, 'markDone'])
           .where('id', router.matchers.number())
         router
           .post('jobs/:id/charges', [controllers.Charges, 'store'])
@@ -226,6 +235,12 @@ router
           .where('id', router.matchers.number())
         router
           .post('charges/:id/to-bill', [controllers.Charges, 'setBackToBill'])
+          .where('id', router.matchers.number())
+        router
+          .post('charges/:id/done', [controllers.Charges, 'markDone'])
+          .where('id', router.matchers.number())
+        router
+          .post('charges/:id/not-done', [controllers.Charges, 'markNotDone'])
           .where('id', router.matchers.number())
         router
           .get('jobs/:id/quotes/create', [controllers.Quotes, 'create'])
@@ -273,6 +288,9 @@ router
           .post('jobs/:id/invoices', [controllers.Invoices, 'storeFromJob'])
           .where('id', router.matchers.number())
         router
+          .post('invoices/:id/credit-notes', [controllers.Invoices, 'storeCreditNote'])
+          .where('id', router.matchers.number())
+        router
           .get('invoices/:id/edit', [controllers.Invoices, 'edit'])
           .where('id', router.matchers.number())
         router
@@ -311,6 +329,22 @@ router
           .where('id', router.matchers.number())
         router
           .post('invoices/:id/submissions/outcome', [controllers.Invoices, 'recordOutcome'])
+          .where('id', router.matchers.number())
+        // Legacy Invoices (#27): entered by hand, outside the SDI flow
+        router.get('invoices/legacy/create', [controllers.LegacyInvoices, 'create'])
+        router.post('invoices/legacy', [controllers.LegacyInvoices, 'store'])
+        router
+          .get('invoices/:id/legacy', [controllers.LegacyInvoices, 'show'])
+          .where('id', router.matchers.number())
+        // POST, as the form may carry a new PDF
+        router
+          .post('invoices/:id/legacy', [controllers.LegacyInvoices, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .delete('invoices/:id/legacy', [controllers.LegacyInvoices, 'destroy'])
+          .where('id', router.matchers.number())
+        router
+          .get('invoices/:id/legacy/pdf', [controllers.LegacyInvoices, 'pdf'])
           .where('id', router.matchers.number())
       })
       .use(middleware.can('manageInvoices'))
@@ -424,6 +458,10 @@ router
         router.put('settings/invoice-numbering/sdi-prefix', [
           controllers.InvoiceNumbering,
           'updateSdiPrefix',
+        ])
+        router.put('settings/invoice-numbering/credit-notes', [
+          controllers.InvoiceNumbering,
+          'updateCreditNotes',
         ])
         router
           .put('settings/invoice-numbering/:year', [controllers.InvoiceNumbering, 'update'])

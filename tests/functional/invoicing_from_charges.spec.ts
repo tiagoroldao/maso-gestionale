@@ -140,7 +140,7 @@ test.group('Invoicing from Charges', () => {
       timeAndMaterials: { total: '137.50', billed: '137.50', inDraft: '0.00' },
       invoicedSoFar: { amount: '137.50', of: '137.50' },
       visits: [{ billed: true }],
-      job: { status: 'invoiced' },
+      job: { indicators: { invoiced: true } },
     })
   })
 
@@ -162,7 +162,7 @@ test.group('Invoicing from Charges', () => {
     // Released without a trace in its history; the kept lines still hold theirs
     assert.equal(await stateOf(callOut), 'to_bill')
     assert.equal(await sqlStateOf(callOut), 'to_bill')
-    assert.deepEqual(await history(callOut), ['recorded'])
+    assert.deepEqual(await history(callOut), ['recorded', 'done'])
     assert.deepEqual(await chargesByLine(draft), [[hours.id], [valves.id]])
 
     await Invoices.finalise(draft)
@@ -178,7 +178,7 @@ test.group('Invoicing from Charges', () => {
       timeAndMaterials: { billed: '102.50' },
       visits: [{ billed: true }],
     })
-    assert.notEqual(page.inertiaProps.job.status, 'invoiced')
+    assert.isFalse(page.inertiaProps.job.indicators.invoiced)
 
     const next = await Invoices.fromJob(job)
     assert.deepEqual(await chargesByLine(next), [[callOut.id]])
@@ -303,7 +303,7 @@ test.group('Invoicing from Charges', () => {
       .redirects(0)
     response.assertFlashMessage('success', it('flash.chargeSetBackToBill'))
     response.assertHeader('location', `/charges/${callOut.id}/edit`)
-    assert.deepEqual(await history(callOut), ['recorded', 'billed', 'unbilled'])
+    assert.deepEqual(await history(callOut), ['recorded', 'done', 'billed', 'unbilled'])
     const unbilled = await ChargeEvent.query()
       .where('chargeId', callOut.id)
       .where('kind', 'unbilled')
@@ -317,7 +317,7 @@ test.group('Invoicing from Charges', () => {
     assert.lengthOf(first.lines, 3)
     let page = await jobPage(client, job, office)
     page.assertInertiaPropsContains({ canInvoice: true, timeAndMaterials: { billed: '102.50' } })
-    assert.notEqual(page.inertiaProps.job.status, 'invoiced')
+    assert.isFalse(page.inertiaProps.job.indicators.invoiced)
 
     // Its billing is editable again; the next Invoice bills it as edited
     const edited = await client
@@ -331,6 +331,7 @@ test.group('Invoicing from Charges', () => {
     await Invoices.finalise(second)
     assert.deepEqual(await history(callOut), [
       'recorded',
+      'done',
       'billed',
       'unbilled',
       'billing_edited',
@@ -344,7 +345,7 @@ test.group('Invoicing from Charges', () => {
     page.assertInertiaPropsContains({
       timeAndMaterials: { total: '122.50', billed: '122.50' },
       invoicedSoFar: { amount: '157.50' },
-      job: { status: 'invoiced' },
+      job: { indicators: { invoiced: true } },
     })
   })
 
@@ -492,7 +493,7 @@ test.group('Invoicing from Charges', () => {
 
     await Invoices.finalise(draft)
     const page = await jobPage(client, job, office)
-    page.assertInertiaPropsContains({ canInvoice: false, job: { status: 'invoiced' } })
+    page.assertInertiaPropsContains({ canInvoice: false, job: { indicators: { invoiced: true } } })
     assert.equal(await stateOf(callOut), 'billed')
     const again = await client
       .post(`/jobs/${job.id}/invoices`)

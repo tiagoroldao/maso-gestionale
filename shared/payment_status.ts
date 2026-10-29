@@ -4,42 +4,43 @@ export const PAYMENT_STATUSES = ['unpaid', 'partly_paid', 'paid', 'overpaid', 'o
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number]
 
 /**
- * What is still owed on an Invoice: its total less its Payments, refunds
- * counting negative (ADR 0014). Below zero when the Invoice is overpaid.
- * The one place it is worked out (OWED_SQL in SQL), so Credit Notes
- * (#145) come off it here.
+ * An Invoice's amounts as owed() reads them: its total, what its Credit
+ * Notes credit (those credits() counts), and its Payments, refunds counting
+ * negative.
  */
-export function owed(input: { total: string; paid: string }) {
-  return new Big(input.total).minus(input.paid).toFixed(2)
+export type OwedInput = { total: string; credited: string; paid: string }
+
+/**
+ * What is still owed on an Invoice: its total less its Credit Notes less
+ * its Payments (ADR 0014). Below zero when the Invoice is overpaid. The
+ * one place it is worked out (OWED_SQL in SQL).
+ */
+export function owed(input: OwedInput) {
+  return new Big(input.total).minus(input.credited).minus(input.paid).toFixed(2)
 }
 
 /**
  * Settled: nothing is owed, and the Invoice isn't overpaid either.
  */
-export function isSettled(input: { total: string; paid: string }) {
+export function isSettled(input: OwedInput) {
   return new Big(owed(input)).eq(0)
 }
 
 /**
  * How much an overpaid Invoice was overpaid by; null when it isn't.
  */
-export function overpaidBy(input: { total: string; paid: string }) {
+export function overpaidBy(input: OwedInput) {
   const left = new Big(owed(input))
   return left.lt(0) ? left.abs().toFixed(2) : null
 }
 
 /**
- * An Invoice's payment status, worked out from what was paid and when it
- * is due (never set by hand): overpaid when what is owed is below zero,
- * paid when it is zero; otherwise overdue after the due date, partly paid
- * or unpaid before it.
+ * An Invoice's payment status, worked out from what was credited and paid
+ * and when it is due (never set by hand): overpaid when what is owed is
+ * below zero, paid when it is zero; otherwise overdue after the due date,
+ * partly paid or unpaid before it.
  */
-export function paymentStatus(input: {
-  total: string
-  paid: string
-  dueOn: string
-  today: string
-}): PaymentStatus {
+export function paymentStatus(input: OwedInput & { dueOn: string; today: string }): PaymentStatus {
   const left = new Big(owed(input))
   if (left.lt(0)) return 'overpaid'
   if (left.eq(0)) return 'paid'

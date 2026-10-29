@@ -17,6 +17,7 @@ const props = defineProps<{
     number: string | null
     issuedOn: string | null
     status: string
+    documentType: string
     customer: string
     createdAt: string
     total: string
@@ -38,6 +39,9 @@ function filter() {
   <AppLayout>
     <Page :title="t('ui.invoices.title')">
       <template #actions>
+        <Link route="legacy_invoices.create" class="btn btn--secondary btn--sm">
+          {{ t('ui.invoices.newLegacy') }}
+        </Link>
         <Link route="invoices.create" class="btn btn--primary btn--sm">
           <Plus :size="15" /> {{ t('ui.invoices.new') }}
         </Link>
@@ -65,7 +69,15 @@ function filter() {
         </thead>
         <tbody>
           <tr v-for="invoice in invoices" :key="invoice.id">
-            <td class="mono">{{ invoice.number ?? '' }}</td>
+            <td class="mono">
+              {{ invoice.number ?? '' }}
+              <span v-if="invoice.documentType === 'credit_note'" class="tag">
+                {{ t('ui.invoices.creditNote') }}
+              </span>
+              <span v-if="invoice.documentType === 'legacy'" class="tag">
+                {{ t('ui.invoices.legacy') }}
+              </span>
+            </td>
             <td>
               <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
                 {{ invoice.customer }}

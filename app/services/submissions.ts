@@ -82,6 +82,8 @@ export default class Submissions {
    */
   static async xml(invoice: Invoice, submission: InvoiceSubmission, discountLabel: string) {
     await invoice.load('lines', (lines) => lines.orderBy('position'))
+    // A Credit Note refers to the Invoice it credits
+    if (invoice.isCreditNote) await invoice.load('creditedInvoice')
     return buildFatturaPA(fatturaInputFor(invoice, submission.progressive, discountLabel))
   }
 
@@ -158,6 +160,8 @@ export default class Submissions {
         .where('id', invoice.id)
         .forUpdate()
         .firstOrFail()
+      // A Legacy Invoice is outside the SDI flow (#27)
+      if (locked.isLegacy) throw new SubmissionRefusedError()
       locked.useTransaction(trx)
       return work(trx, locked)
     })

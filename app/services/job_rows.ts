@@ -1,8 +1,11 @@
 import type Job from '#models/job'
-import { deriveJobStatus } from '#services/job_status'
+import { jobIndicators } from '#services/job_status'
 
 /**
- * A Job as shown in lists (Jobs, Customer and Site pages).
+ * A Job as shown in lists (Jobs, Customer and Site pages): its stored
+ * status, and the indicators beside it (ADR 0015) when its Visits and its
+ * Invoices with their Payments and Credit Notes are preloaded, with the `withBillingState`
+ * scope; null otherwise.
  */
 export function jobRow(job: Job) {
   return {
@@ -10,29 +13,32 @@ export function jobRow(job: Job) {
     number: job.number,
     title: job.title,
     workCategory: job.workCategory,
-    // Refined from the Visits and Invoices when loaded (Work Complete,
-    // Invoiced, Closed); Invoices need their Payments preloaded
-    status:
-      'visits' in job.$preloaded
-        ? deriveJobStatus(
-            job.status,
-            job.visits.map((visit) => ({
-              status: visit.status,
-              startsAt: visit.startsAt,
-              survey: visit.survey,
-            })),
-            'invoices' in job.$preloaded
-              ? job.invoices.map((invoice) => ({
-                  status: invoice.status,
-                  total: invoice.total,
-                  paid: invoice.paid,
-                }))
-              : [],
-            Boolean(job.$extras.billing_open)
-          )
-        : job.status,
+    status: job.status,
+    indicators: indicatorsOf(job),
     customer: job.customer ? { id: job.customer.id, displayName: job.customer.displayName } : null,
     site: job.site ? { id: job.site.id, summary: job.site.summary } : null,
     createdAt: job.createdAt.toISODate()!,
   }
+}
+
+function indicatorsOf(job: Job) {
+  if (!('visits' in job.$preloaded) || !('invoices' in job.$preloaded)) return null
+  // Without the billing state a partly invoiced Job would look invoiced
+  if (!('billing_open' in job.$extras)) {
+    throw new Error('Job indicators need the withBillingState scope')
+  }
+  return jobIndicators(
+    job.visits.map((visit) => ({
+      status: visit.status,
+      startsAt: visit.startsAt,
+      survey: visit.survey,
+    })),
+    job.invoices.map((invoice) => ({
+      status: invoice.status,
+      total: invoice.total,
+      credited: invoice.credited,
+      paid: invoice.paid,
+    })),
+    Boolean(job.$extras.billing_open)
+  )
 }

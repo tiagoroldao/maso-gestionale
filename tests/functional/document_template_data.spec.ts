@@ -12,6 +12,7 @@ import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
+import { markDone } from '#tests/helpers/charges'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const placeholder = (key: string) => ({ type: 'placeholder', attrs: { key } })
@@ -88,8 +89,9 @@ async function world() {
   return { customer, site, boiler, job, valve, tee }
 }
 
-function itemCharge(jobId: number, itemId: number, quantity: string) {
-  return Charge.create({
+async function itemCharge(jobId: number, itemId: number, quantity: string) {
+  // Done: documents list the Items used (ADR 0016)
+  const charge = await Charge.create({
     jobId,
     kind: 'item',
     itemId,
@@ -98,6 +100,7 @@ function itemCharge(jobId: number, itemId: number, quantity: string) {
     unitPrice: '1',
     description: 'x',
   })
+  return markDone(charge)
 }
 
 test.group('Document Templates: entity fields and tables', () => {

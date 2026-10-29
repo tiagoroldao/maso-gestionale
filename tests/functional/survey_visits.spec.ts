@@ -312,13 +312,14 @@ test.group('Survey Visits: shown as such', () => {
 
 test.group('Survey Visits: Work Complete', () => {
   /**
-   * The Job's status as its page shows it (TypeScript) and the list
-   * filters it falls under (SQL).
+   * Whether its page shows the Job's work complete (TypeScript), and the
+   * list filters it falls under (SQL).
    */
   async function statuses(client: ApiClient, job: Job) {
     const office = await createUser('office')
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    const shown = (page.inertiaProps.job as { status: string }).status
+    const shown = (page.inertiaProps.job as { indicators: { workComplete: boolean } }).indicators
+      .workComplete
     const listed: string[] = []
     for (const status of ['in_progress', 'work_complete']) {
       const list = await client.get('/jobs').qs({ status }).withInertia().loginAs(office)
@@ -332,7 +333,7 @@ test.group('Survey Visits: Work Complete', () => {
     const job = await createJob(await createCustomer(), { status: 'in_progress' })
     await visitOf(job, { survey: true, status: 'done' })
 
-    assert.deepEqual(await statuses(client, job), { shown: 'in_progress', listed: ['in_progress'] })
+    assert.deepEqual(await statuses(client, job), { shown: false, listed: ['in_progress'] })
   })
 
   test('done work and done Surveys make the Job Work Complete; a Survey to do does not', async ({
@@ -344,11 +345,11 @@ test.group('Survey Visits: Work Complete', () => {
     await visitOf(job, { status: 'done' })
 
     assert.deepEqual(await statuses(client, job), {
-      shown: 'work_complete',
-      listed: ['work_complete'],
+      shown: true,
+      listed: ['in_progress', 'work_complete'],
     })
 
     await visitOf(job, { survey: true }, 5)
-    assert.deepEqual(await statuses(client, job), { shown: 'in_progress', listed: ['in_progress'] })
+    assert.deepEqual(await statuses(client, job), { shown: false, listed: ['in_progress'] })
   })
 })

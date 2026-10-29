@@ -402,6 +402,18 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"cancel"]],
     types: placeholder as Registry['jobs.cancel']['types'],
   },
+  'jobs.close': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/close',
+    tokens: [[0,"jobs"],[1,"id"],[0,"close"]],
+    types: placeholder as Registry['jobs.close']['types'],
+  },
+  'jobs.reopen': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/reopen',
+    tokens: [[0,"jobs"],[1,"id"],[0,"reopen"]],
+    types: placeholder as Registry['jobs.reopen']['types'],
+  },
   'visits.create': {
     methods: ["GET","HEAD"],
     pattern: '/jobs/:id/visits/create',
@@ -450,6 +462,12 @@ const routes = {
     tokens: [[0,"visits"],[1,"id"]],
     types: placeholder as Registry['visits.destroy']['types'],
   },
+  'visits.mark_done': {
+    methods: ["POST"],
+    pattern: '/visits/:id/done',
+    tokens: [[0,"visits"],[1,"id"],[0,"done"]],
+    types: placeholder as Registry['visits.mark_done']['types'],
+  },
   'charges.store': {
     methods: ["POST"],
     pattern: '/jobs/:id/charges',
@@ -491,6 +509,18 @@ const routes = {
     pattern: '/charges/:id/to-bill',
     tokens: [[0,"charges"],[1,"id"],[0,"to-bill"]],
     types: placeholder as Registry['charges.set_back_to_bill']['types'],
+  },
+  'charges.mark_done': {
+    methods: ["POST"],
+    pattern: '/charges/:id/done',
+    tokens: [[0,"charges"],[1,"id"],[0,"done"]],
+    types: placeholder as Registry['charges.mark_done']['types'],
+  },
+  'charges.mark_not_done': {
+    methods: ["POST"],
+    pattern: '/charges/:id/not-done',
+    tokens: [[0,"charges"],[1,"id"],[0,"not-done"]],
+    types: placeholder as Registry['charges.mark_not_done']['types'],
   },
   'quotes.create': {
     methods: ["GET","HEAD"],
@@ -588,6 +618,12 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"invoices"]],
     types: placeholder as Registry['invoices.store_from_job']['types'],
   },
+  'invoices.store_credit_note': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/credit-notes',
+    tokens: [[0,"invoices"],[1,"id"],[0,"credit-notes"]],
+    types: placeholder as Registry['invoices.store_credit_note']['types'],
+  },
   'invoices.edit': {
     methods: ["GET","HEAD"],
     pattern: '/invoices/:id/edit',
@@ -659,6 +695,42 @@ const routes = {
     pattern: '/invoices/:id/submissions/outcome',
     tokens: [[0,"invoices"],[1,"id"],[0,"submissions"],[0,"outcome"]],
     types: placeholder as Registry['invoices.record_outcome']['types'],
+  },
+  'legacy_invoices.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/legacy/create',
+    tokens: [[0,"invoices"],[0,"legacy"],[0,"create"]],
+    types: placeholder as Registry['legacy_invoices.create']['types'],
+  },
+  'legacy_invoices.store': {
+    methods: ["POST"],
+    pattern: '/invoices/legacy',
+    tokens: [[0,"invoices"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.store']['types'],
+  },
+  'legacy_invoices.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/legacy',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.show']['types'],
+  },
+  'legacy_invoices.update': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/legacy',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.update']['types'],
+  },
+  'legacy_invoices.destroy': {
+    methods: ["DELETE"],
+    pattern: '/invoices/:id/legacy',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.destroy']['types'],
+  },
+  'legacy_invoices.pdf': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/legacy/pdf',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"],[0,"pdf"]],
+    types: placeholder as Registry['legacy_invoices.pdf']['types'],
   },
   'items.index': {
     methods: ["GET","HEAD"],
@@ -935,6 +1007,12 @@ const routes = {
     pattern: '/settings/invoice-numbering/sdi-prefix',
     tokens: [[0,"settings"],[0,"invoice-numbering"],[0,"sdi-prefix"]],
     types: placeholder as Registry['invoice_numbering.update_sdi_prefix']['types'],
+  },
+  'invoice_numbering.update_credit_notes': {
+    methods: ["PUT"],
+    pattern: '/settings/invoice-numbering/credit-notes',
+    tokens: [[0,"settings"],[0,"invoice-numbering"],[0,"credit-notes"]],
+    types: placeholder as Registry['invoice_numbering.update_credit_notes']['types'],
   },
   'invoice_numbering.update': {
     methods: ["PUT"],

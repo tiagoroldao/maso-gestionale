@@ -176,7 +176,7 @@ test.group('Invoices from Jobs without a Quote', () => {
     page.assertInertiaPropsContains({ canInvoice: false })
 
     // Issued and paid in full, but the follow-up is open: a partial Invoice,
-    // so the Job is neither Invoiced nor Closed, in the list or on its page
+    // so the Job isn't invoiced, though paid, in the list or on its page
     await Invoices.finalise(first)
     await first.refresh()
     await Payments.record(first, { amount: first.total!, paidOn: DateTime.now() })
@@ -191,13 +191,22 @@ test.group('Invoices from Jobs without a Quote', () => {
     assert.deepEqual(await listed('closed'), [])
     assert.deepEqual(await listed('in_progress'), [[job.id, 'in_progress']])
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: false, job: { status: 'in_progress' } })
+    page.assertInertiaPropsContains({
+      canInvoice: false,
+      job: {
+        status: 'in_progress',
+        indicators: { workComplete: false, invoiced: false, paid: true },
+      },
+    })
 
-    // Done, with its hour unbilled: Work Complete, ready for the next Invoice
+    // Done, with its hour unbilled: work complete, ready for the next Invoice
     await FieldWork.setStatus(followUp, 'done', anna)
-    assert.deepEqual(await listed('work_complete'), [[job.id, 'work_complete']])
+    assert.deepEqual(await listed('work_complete'), [[job.id, 'in_progress']])
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: true, job: { status: 'work_complete' } })
+    page.assertInertiaPropsContains({
+      canInvoice: true,
+      job: { status: 'in_progress', indicators: { workComplete: true, invoiced: false } },
+    })
     const second = await Invoices.fromJob(job)
     await second.load('lines')
     assert.notEqual(second.id, first.id)
@@ -206,9 +215,10 @@ test.group('Invoices from Jobs without a Quote', () => {
       ['1.000']
     )
 
-    // All billed and issued, the second unpaid: Invoiced
+    // All billed and issued, the second unpaid: invoiced, not ready to close
     await Invoices.finalise(second)
-    assert.deepEqual(await listed('invoiced'), [[job.id, 'invoiced']])
+    assert.deepEqual(await listed('invoiced'), [[job.id, 'in_progress']])
+    assert.deepEqual(await listed('ready_to_close'), [])
   })
 
   test('deleting a draft releases its Charges for the next one', async ({ client, assert }) => {
@@ -247,19 +257,22 @@ test.group('Invoices from Jobs without a Quote', () => {
     assert.equal(line.vatRate, '22.00')
   })
 
-  test('a cancelled Job is not invoiced', async ({ client, assert }) => {
+  test("a cancelled Job's finished work is still invoiced (#111)", async ({ client, assert }) => {
     const office = await createUser('office')
     const { job } = await workedJob()
     await client.post(`/jobs/${job.id}/cancel`).withCsrfToken().loginAs(office)
 
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: false })
+    page.assertInertiaPropsContains({ canInvoice: true, canInvoiceAdvance: false })
     const response = await client
       .post(`/jobs/${job.id}/invoices`)
       .withCsrfToken()
       .loginAs(office)
       .redirects(0)
-    response.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
-    assert.lengthOf(await Invoice.all(), 0)
+    response.assertFlashMessage('success', it('flash.invoiceCreated'))
+    const invoice = await Invoice.query().where('jobId', job.id).preload('lines').firstOrFail()
+    assert.lengthOf(invoice.lines, 4)
+    await job.refresh()
+    assert.equal(job.status, 'cancelled')
   })
 })

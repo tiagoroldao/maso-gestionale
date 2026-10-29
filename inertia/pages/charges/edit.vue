@@ -6,7 +6,14 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput } from '@shared/money'
-import { isHeld, type ChargeEventKind, type ChargeKind, type ChargeState } from '@shared/charges'
+import {
+  canSetBackToBill,
+  isHeld,
+  type ChargeEventKind,
+  type ChargeKind,
+  type ChargeState,
+  type WorkState,
+} from '@shared/charges'
 import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
 
@@ -15,6 +22,9 @@ const props = defineProps<{
     id: number
     kind: ChargeKind
     state: ChargeState
+    workState: WorkState
+    canSetWork: boolean
+    frozen: boolean
     visitStartsAt: string | null
     recorded: {
       quantity: string
@@ -44,7 +54,7 @@ const props = defineProps<{
       amount: string | null
     }[]
   }
-  job: { id: number; number: string; title: string; cancelled: boolean }
+  job: { id: number; number: string; title: string }
   labourRates: { id: number; name: string }[]
   technicians: { id: number; name: string }[]
 }>()
@@ -59,8 +69,9 @@ function pickItem(picked: PickedItem) {
   changingItem.value = false
 }
 
-// What is billed is frozen while an Invoice holds or bills the Charge
-const frozen = computed(() => isHeld(props.charge.state) || props.job.cancelled)
+// What is billed is frozen while an Invoice holds or bills the Charge,
+// whatever the Job's status (#111)
+const frozen = computed(() => isHeld(props.charge.state))
 const confirmSetBack = () =>
   window.confirm(
     t('ui.charges.setBackToBillConfirm', { number: props.charge.invoice?.number ?? '' })
@@ -96,6 +107,9 @@ const shown = (key: string, value: string | null) => {
       </template>
 
       <p>
+        <span class="tag" data-testid="charge-work-state">{{
+          t(`ui.charges.workStates.${charge.workState}`)
+        }}</span>
         <span class="tag" data-testid="charge-state">{{
           t(`ui.charges.states.${charge.state}`)
         }}</span>
@@ -113,7 +127,37 @@ const shown = (key: string, value: string | null) => {
         </Link>
       </p>
 
+      <Section :title="t('ui.charges.work')" :description="t('ui.charges.workHint')">
+        <div v-if="charge.canSetWork" :style="{ display: 'flex', gap: '8px' }">
+          <Form
+            v-if="charge.workState !== 'done'"
+            route="charges.mark_done"
+            :params="{ id: charge.id }"
+          >
+            <button type="submit" class="btn btn--secondary btn--sm">
+              {{
+                charge.workState === 'planned'
+                  ? t('ui.charges.confirmUsed')
+                  : t('ui.charges.markDone')
+              }}
+            </button>
+          </Form>
+          <Form
+            v-if="charge.workState !== 'not_done'"
+            route="charges.mark_not_done"
+            :params="{ id: charge.id }"
+          >
+            <button type="submit" class="btn btn--ghost btn--sm">
+              {{ t('ui.charges.markNotDone') }}
+            </button>
+          </Form>
+        </div>
+      </Section>
+
       <Section :title="t('ui.charges.recordedSection')" :description="t('ui.charges.recordedHint')">
+        <p v-if="charge.frozen" class="field__hint" data-testid="charge-frozen">
+          {{ t('ui.charges.frozenHint') }}
+        </p>
         <Form
           v-slot="{ processing, errors }"
           route="charges.correct"
@@ -283,7 +327,7 @@ const shown = (key: string, value: string | null) => {
           </fieldset>
         </Form>
         <Form
-          v-if="charge.state === 'billed' && !job.cancelled"
+          v-if="canSetBackToBill(charge.state)"
           route="charges.set_back_to_bill"
           :params="{ id: charge.id }"
           :on-before="confirmSetBack"
@@ -330,7 +374,9 @@ const shown = (key: string, value: string | null) => {
                           number: event.invoice.number ?? '',
                           amount: formatMoney(event.amount),
                         })
-                      : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
+                      : event.kind === 'credited' || event.kind === 'uncredited'
+                        ? t('ui.charges.creditedBy', { number: event.invoice.number ?? '' })
+                        : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
                   }}
                 </Link>
                 <div v-for="(after, key) in shownChanges(event.changes)" :key="key">

@@ -1,7 +1,13 @@
+import Big from 'big.js'
 import Job from '#models/job'
-import { hasBillableWork, isClosedVisit } from '#shared/visits'
-import { isVisitBilled, type ChargeState } from '#shared/charges'
-import Jobs, { JobInvoicedError, JobNotEditableError } from '#services/jobs'
+import { closableByOffice, hasBillableWork, isClosedVisit } from '#shared/visits'
+import { isDraftable, isVisitBilled, type ChargeState } from '#shared/charges'
+import Jobs, {
+  JobClosedError,
+  JobInvoicedError,
+  JobNotEditableError,
+  type JobLeftovers,
+} from '#services/jobs'
 import Invoice from '#models/invoice'
 import Invoices from '#services/invoices'
 import Quotes from '#services/quotes'
@@ -13,7 +19,8 @@ import Customer from '#models/customer'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
-import { CLOSED_SQL, INVOICED_SQL, NOT_INVOICED_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
+import { INVOICED_SQL, READY_TO_CLOSE_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
 import { quoteNumber } from '#shared/quotes'
@@ -30,29 +37,23 @@ export default class JobsController {
       .preload('customer')
       .preload('site')
       .preload('visits')
-      .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('quotes', (quotes) => quotes.orderBy('sequence'))
-    // Work Complete, Invoiced and Closed are derived, so they're conditions,
-    // not columns; the active list leaves out cancelled and closed Jobs
-    if (!status) query.whereNot('status', 'cancelled').whereRaw(`NOT (${CLOSED_SQL})`)
-    else if (status === 'work_complete') query.whereRaw(WORK_COMPLETE_SQL)
-    else if (status === 'invoiced') query.whereRaw(INVOICED_SQL)
-    else if (status === 'closed') query.whereRaw(CLOSED_SQL)
-    else if (status === 'in_progress')
-      query
-        .where('status', status)
-        .whereRaw(`NOT (${WORK_COMPLETE_SQL})`)
-        .whereRaw(NOT_INVOICED_SQL)
-    else if (status === 'cancelled') query.where('status', status)
+    // The active list (the default) leaves out closed and cancelled Jobs;
+    // the indicators (ADR 0015) are derived, so they're conditions on the
+    // active Jobs, not columns
+    const active = () => query.whereIn('status', [...ACTIVE_JOB_STATUSES])
+    if (!status) active()
+    else if (status === 'work_complete') active().whereRaw(WORK_COMPLETE_SQL)
+    else if (status === 'invoiced') active().whereRaw(INVOICED_SQL)
+    else if (status === 'ready_to_close') active().whereRaw(READY_TO_CLOSE_SQL)
     // By their Quotes (ADR 0013): one waiting for the Customer (never on a
-    // cancelled Job, where no answer is recorded), or one accepted
+    // closed or cancelled Job, where no answer is recorded), or one accepted
     else if (status === 'quote_sent')
-      query
-        .whereNot('status', 'cancelled')
-        .whereHas('quotes', (quotes) => quotes.where('status', 'sent'))
+      active().whereHas('quotes', (quotes) => quotes.where('status', 'sent'))
     else if (status === 'quote_accepted')
       query.whereHas('quotes', (quotes) => quotes.where('status', 'accepted'))
-    else if (status !== 'all') query.where('status', status).whereRaw(NOT_INVOICED_SQL)
+    else if (status !== 'all') query.where('status', status)
     if (q) {
       const pattern = likePattern(q)
       query.where((builder) => {
@@ -135,7 +136,7 @@ export default class JobsController {
       .where('id', params.id)
       .preload('customer')
       .preload('site')
-      .preload('invoices', (invoices) => invoices.preload('payments'))
+      .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
       .preload('visits', (visits) =>
         visits
           .preload('technicians')
@@ -156,10 +157,22 @@ export default class JobsController {
     // Office set to bill
     const amountOf = (charge: Charge) =>
       charge.billing?.amount ?? lineTotal(charge.billQuantity, charge.unitPrice)
-    // What is billable so far, and where it stands
+    // What is billable so far, and where it stands: not what Office marked
+    // not billable, nor what Credit Notes credited (ADR 0014), nor work not
+    // done (ADR 0016)
     const work = charges
-      .filter((charge) => charge.state !== 'not_billable')
-      .map((charge) => ({ visitId: charge.visitId, amount: amountOf(charge), state: charge.state }))
+      .filter(
+        (charge) =>
+          charge.state !== 'not_billable' &&
+          charge.state !== 'credited' &&
+          charge.workState !== 'not_done'
+      )
+      .map((charge) => ({
+        visitId: charge.visitId,
+        amount: amountOf(charge),
+        state: charge.state,
+        draftable: isDraftable(charge.state, charge.workState),
+      }))
     const amounts = work.map((line) => line.amount)
     const sumOf = (state: ChargeState) =>
       sumAmounts(work.filter((line) => line.state === state).map((line) => line.amount))
@@ -169,8 +182,19 @@ export default class JobsController {
     const quotes = await job.related('quotes').query().preload('lines').orderBy('sequence')
     // Advance Invoices don't count as a draft from the Job's Charges
     const ownInvoices = invoices.filter((invoice) => !invoice.advance)
-    const advances = await Invoices.advancesOf(undefined, job.id)
-    const deductions = new Map(advances.map(({ advance, deducted }) => [advance.id, deducted]))
+    const issuedAdvances = await Invoices.advancesOf(undefined, job.id)
+    const advances = new Map(issuedAdvances.map((entry) => [entry.advance.id, entry]))
+    // Each Invoice's Credit Notes, drafts included (ADR 0014)
+    const creditNotes = invoices.length
+      ? await Invoice.query()
+          .whereIn(
+            'creditsInvoiceId',
+            invoices.map((invoice) => invoice.id)
+          )
+          .preload('lines')
+          .orderBy('id')
+      : []
+    const issued = (invoice: Invoice) => invoice.status !== 'draft'
 
     return inertia.render('jobs/show', {
       // A Job may have several Quotes, written at any time while it isn't
@@ -182,46 +206,65 @@ export default class JobsController {
         total: quote.totals.total,
       })),
       canWriteQuote: Quotes.canWrite(job),
-      invoices: invoices.map((invoice) => ({
-        id: invoice.id,
-        number: invoice.formattedNumber,
-        status: invoice.status,
-        total: invoice.totals.total,
-        advance: invoice.advance,
-        // An issued advance: how much issued Invoices took back (ADR 0011)
-        deduction: deductions.has(invoice.id)
-          ? {
-              deducted: deductions.get(invoice.id)!,
-              state: advanceState(invoice.total!, deductions.get(invoice.id)!),
-            }
-          : null,
-      })),
-      // Every Job invoices from its Charges, Quote or not (ADR 0012): never
-      // a cancelled one, and only while some is to bill and no draft waits
+      invoices: invoices.map((invoice) => {
+        const advance = advances.get(invoice.id)
+        return {
+          id: invoice.id,
+          number: invoice.formattedNumber,
+          status: invoice.status,
+          total: invoice.totals.total,
+          advance: invoice.advance,
+          // A Legacy Invoice the previous software issued (#27)
+          legacy: invoice.isLegacy,
+          // An issued advance: how much issued Invoices deducted and Credit
+          // Notes credited of it (ADR 0011, 0014)
+          deduction: advance
+            ? {
+                deducted: advance.deducted,
+                credited: advance.credited,
+                state: advanceState(invoice.total!, advance.deducted, advance.credited),
+              }
+            : null,
+          creditNotes: creditNotes
+            .filter((note) => note.creditsInvoiceId === invoice.id)
+            .map((note) => ({
+              id: note.id,
+              number: note.formattedNumber,
+              status: note.status,
+              total: note.totals.total,
+            })),
+        }
+      }),
+      // Every Job invoices from its Charges, Quote or not (ADR 0012), even
+      // once closed or cancelled (#111), while some is to bill and no draft
+      // waits
       canInvoice:
-        job.status !== 'cancelled' &&
         !ownInvoices.some((invoice) => invoice.status === 'draft') &&
         (hasBillableWork(
           job.visits.map((visit) => ({
             status: visit.status,
-            unbilledLines: work.filter(
-              (line) => line.visitId === visit.id && line.state === 'to_bill'
-            ).length,
+            unbilledLines: work.filter((line) => line.visitId === visit.id && line.draftable)
+              .length,
           }))
         ) ||
-          // Charges on the Job itself are billable at once
-          work.some((line) => line.visitId === null && line.state === 'to_bill')),
-      canInvoiceAdvance: job.status !== 'cancelled',
+          // Done Charges on the Job itself are billable at once
+          work.some((line) => line.visitId === null && line.draftable)),
+      // An advance is for work to come
+      canInvoiceAdvance: job.isActive,
+      // What closing would leave behind, shown as a warning (ADR 0015)
+      leftToClose: job.isActive ? await Jobs.leftToClose(job.id) : null,
       // Taxable amounts: what issued Invoices billed (deductions net out the
-      // advances) against the work recorded, and the sum of the accepted
-      // Quotes for comparison only, since they don't bind the bill (ADR
-      // 0012, 0013)
+      // advances; a Legacy Invoice's taxable as printed, #27), less what
+      // Credit Notes past draft credited (ADR 0014),
+      // against the work recorded, and the sum of the accepted Quotes for
+      // comparison only, since they don't bind the bill (ADR 0012, 0013)
       invoicedSoFar: {
-        amount: sumAmounts(
-          invoices
-            .filter((invoice) => invoice.status !== 'draft')
-            .map((invoice) => invoice.totals.taxable)
-        ),
+        amount: sumAmounts([
+          ...invoices.filter(issued).map((invoice) => invoice.totals.taxable),
+          ...creditNotes
+            .filter(issued)
+            .map((note) => new Big(note.totals.taxable).neg().toFixed(2)),
+        ]),
         of: sumAmounts(amounts),
         quoted: quotes.some((quote) => quote.status === 'accepted')
           ? sumAmounts(
@@ -245,11 +288,13 @@ export default class JobsController {
         unitPrice: charge.unitPrice,
         amount: amountOf(charge),
         state: charge.state,
+        workState: charge.workState,
       })),
       job: {
         ...jobRow(job),
         description: job.description,
         cancelledAt: job.cancelledAt?.toISODate() ?? null,
+        closedAt: job.closedAt?.toISODate() ?? null,
       },
       visits: job.visits.map((visit) => ({
         id: visit.id,
@@ -257,10 +302,18 @@ export default class JobsController {
         endsAt: localDateTime(visit.endsAt),
         status: visit.status,
         survey: visit.survey,
+        // Left open when the Job was cancelled: Office marks it done (#153)
+        closableByOffice: closableByOffice(job.status, visit.status),
         billed: isVisitBilled(
           isClosedVisit(visit.status),
-          charges.filter((charge) => charge.visitId === visit.id).map((charge) => charge.state)
+          charges
+            .filter((charge) => charge.visitId === visit.id)
+            .map((charge) => ({ state: charge.state, work: charge.workState }))
         ),
+        // Its Charges, for the review when Office closes it (ADR 0016)
+        charges: charges
+          .filter((charge) => charge.visitId === visit.id)
+          .map((charge) => ({ id: charge.id, description: charge.description })),
         technicians: visit.technicians.map((technician) => technician.fullName ?? technician.email),
         notes: visit.fieldNotes.map((note) => ({
           id: note.id,
@@ -320,14 +373,78 @@ export default class JobsController {
     response.redirect().toRoute('jobs.show', { id: params.id })
   }
 
+  /**
+   * Cancels the Job. Visits still open never stop it (#153): the page's
+   * confirmation lists them, and the flash warns that they wait for Office
+   * to mark them done.
+   */
   async cancel({ params, response, session, i18n }: HttpContext) {
     try {
-      const job = await Jobs.cancel(params.id)
-      session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
+      const { job, openVisits } = await Jobs.cancel(params.id)
+      if (openVisits) {
+        session.flash(
+          'warning',
+          i18n.t('flash.jobCancelledWithOpenVisits', { number: job.number, count: openVisits })
+        )
+      } else {
+        session.flash('success', i18n.t('flash.jobCancelled', { number: job.number }))
+      }
     } catch (error) {
-      if (!(error instanceof JobInvoicedError)) throw error
-      session.flash('error', i18n.t('flash.jobInvoiced'))
+      if (error instanceof JobInvoicedError) session.flash('error', i18n.t('flash.jobInvoiced'))
+      else if (error instanceof JobClosedError) session.flash('error', i18n.t('flash.jobClosed'))
+      else throw error
     }
     response.redirect().toRoute('jobs.show', { id: params.id })
   }
+
+  /**
+   * Closes the Job by hand (ADR 0015): never refused for what is left,
+   * which turns the confirmation into a warning listing it.
+   */
+  async close({ params, response, session, i18n }: HttpContext) {
+    try {
+      const { job, left } = await Jobs.close(params.id)
+      const parts = leftovers(left).map(([key, count]) =>
+        i18n.t(`ui.jobs.leftToClose.${key}`, { count })
+      )
+      if (parts.length) {
+        session.flash(
+          'warning',
+          i18n.t('flash.jobClosedWithLeft', { number: job.number, left: parts.join(', ') })
+        )
+      } else {
+        session.flash('success', i18n.t('flash.jobClosedNow', { number: job.number }))
+      }
+    } catch (error) {
+      if (!(error instanceof JobNotEditableError)) throw error
+      session.flash('error', i18n.t('flash.jobNotEditable'))
+    }
+    response.redirect().toRoute('jobs.show', { id: params.id })
+  }
+
+  /**
+   * Reopens a closed Job when more work turns up.
+   */
+  async reopen({ params, response, session, i18n }: HttpContext) {
+    try {
+      const job = await Jobs.reopen(params.id)
+      session.flash('success', i18n.t('flash.jobReopened', { number: job.number }))
+    } catch (error) {
+      if (error instanceof JobNotEditableError) {
+        session.flash('error', i18n.t('flash.jobNotEditable'))
+      } else if (error instanceof ArchivedRecordError) {
+        session.flash('error', i18n.t('flash.jobReopenArchived'))
+      } else {
+        throw error
+      }
+    }
+    response.redirect().toRoute('jobs.show', { id: params.id })
+  }
+}
+
+/**
+ * The things left on a Job that closing warns about, with their counts.
+ */
+function leftovers(left: JobLeftovers) {
+  return Object.entries(left).filter(([, count]) => count > 0)
 }

@@ -8,7 +8,10 @@ import Scheduling, {
   VisitHasWorkError,
   VisitNotMovableError,
 } from '#services/scheduling'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import { notDoneIn, visitCloseValidator } from '#validators/field'
+import { CLOSED_VISIT_STATUSES, closableByOffice } from '#shared/visits'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
   editVisitValidator,
   moveVisitValidator,
@@ -90,7 +93,8 @@ export default class VisitsController {
     const visits = await Visit.query()
       .where('startsAt', '<', to.toJSDate())
       .where('endsAt', '>', from.toJSDate())
-      // Abandoned work leaves the Agenda; the Visits stay in the Job's history
+      // A cancelled Job's Visits leave the Agenda (abandoned work); a closed
+      // Job's stay, as history that no longer moves (ADR 0015)
       .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
       .preload('technicians')
       .preload('job', (job) => job.preload('customer').preload('site'))
@@ -126,6 +130,8 @@ export default class VisitsController {
         status: visit.status,
         survey: visit.survey,
         technicianIds: visit.technicians.map((technician) => technician.id),
+        // Closed Visits and a closed Job's Visits can't move (Scheduling)
+        movable: !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
         job: {
           id: visit.job.id,
           number: visit.job.number,
@@ -163,8 +169,28 @@ export default class VisitsController {
         survey: visit.survey,
         editable:
           !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
+        // Left open when the Job was cancelled: Office marks it done (#153)
+        closableByOffice: closableByOffice(visit.job.status, visit.status),
       },
     })
+  }
+
+  /**
+   * Office marks done a Visit left open when its Job was cancelled (#153):
+   * its Items come off stock and its Charges become billable, as when the
+   * Technician closes it.
+   */
+  async markDone({ params, request, response, session, auth, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    const review = await request.validateUsing(visitCloseValidator)
+    try {
+      await FieldWork.closeOnCancelledJob(visit, auth.getUserOrFail(), notDoneIn(review))
+      session.flash('success', i18n.t('flash.visitMarkedDone'))
+    } catch (error) {
+      if (!(error instanceof FieldWorkRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.fieldWorkRefused.${error.reason}`))
+    }
+    response.redirect().toRoute('jobs.show', { id: visit.jobId })
   }
 
   async update({ params, request, response, session, i18n }: HttpContext) {
@@ -246,7 +272,7 @@ export default class VisitsController {
   async toSchedule({ inertia }: HttpContext) {
     const visits = await Visit.query()
       .where('status', 'needs_return')
-      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      .whereHas('job', (job) => job.whereIn('status', [...ACTIVE_JOB_STATUSES]))
       .whereNotExists((later) =>
         later
           .from('visits as later')

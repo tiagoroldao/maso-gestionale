@@ -70,6 +70,8 @@ export type ScannedRoutes = {
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.close': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.reopen': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
@@ -78,6 +80,7 @@ export type ScannedRoutes = {
     'visits.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.mark_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.correct': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -85,6 +88,8 @@ export type ScannedRoutes = {
     'charges.mark_not_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.set_back_to_bill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'charges.mark_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'charges.mark_not_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -101,6 +106,7 @@ export type ScannedRoutes = {
     'invoices.store': { paramsTuple?: []; params?: {} }
     'invoices.store_advance': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.store_credit_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -113,6 +119,12 @@ export type ScannedRoutes = {
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.create': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.store': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -159,6 +171,7 @@ export type ScannedRoutes = {
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.index': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.update_credit_notes': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.index': { paramsTuple?: []; params?: {} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
@@ -221,6 +234,9 @@ export type ScannedRoutes = {
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.submission_xml': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'submissionId': ParamValue} }
+    'legacy_invoices.create': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -293,6 +309,9 @@ export type ScannedRoutes = {
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.submission_xml': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'submissionId': ParamValue} }
+    'legacy_invoices.create': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -340,11 +359,16 @@ export type ScannedRoutes = {
     'issued_documents.store_replacement': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.store': { paramsTuple?: []; params?: {} }
     'jobs.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.close': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'jobs.reopen': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.mark_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_not_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.mark_billable': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'charges.set_back_to_bill': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'charges.mark_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'charges.mark_not_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.import_lines': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'quotes.send': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -353,11 +377,14 @@ export type ScannedRoutes = {
     'invoices.store': { paramsTuple?: []; params?: {} }
     'invoices.store_advance': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.store_credit_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_payment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.store': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
     'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -384,6 +411,7 @@ export type ScannedRoutes = {
     'visits.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.remove_payment': { paramsTuple: [ParamValue]; params: {'paymentId': ParamValue} }
+    'legacy_invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -408,6 +436,7 @@ export type ScannedRoutes = {
     'document_templates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'vat_rules.update': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update_sdi_prefix': { paramsTuple?: []; params?: {} }
+    'invoice_numbering.update_credit_notes': { paramsTuple?: []; params?: {} }
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'instance.update': { paramsTuple?: []; params?: {} }

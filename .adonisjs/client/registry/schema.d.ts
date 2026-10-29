@@ -865,6 +865,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['cancel']>>>
     }
   }
+  'jobs.close': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/close'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['close']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['close']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['close']>>>
+    }
+  }
+  'jobs.reopen': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/reopen'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['reopen']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['reopen']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/jobs_controller').default['reopen']>>>
+    }
+  }
   'visits.create': {
     methods: ["GET","HEAD"]
     pattern: '/jobs/:id/visits/create'
@@ -969,6 +995,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['destroy']>>>
     }
   }
+  'visits.mark_done': {
+    methods: ["POST"]
+    pattern: '/visits/:id/done'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitCloseValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitCloseValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'charges.store': {
     methods: ["POST"]
     pattern: '/jobs/:id/charges'
@@ -1058,6 +1097,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
+    }
+  }
+  'charges.mark_done': {
+    methods: ["POST"]
+    pattern: '/charges/:id/done'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markDone']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markDone']>>>
+    }
+  }
+  'charges.mark_not_done': {
+    methods: ["POST"]
+    pattern: '/charges/:id/not-done'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotDone']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotDone']>>>
     }
   }
   'quotes.create': {
@@ -1268,6 +1333,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeFromJob']>>>
     }
   }
+  'invoices.store_credit_note': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/credit-notes'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeCreditNote']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeCreditNote']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['storeCreditNote']>>>
+    }
+  }
   'invoices.edit': {
     methods: ["GET","HEAD"]
     pattern: '/invoices/:id/edit'
@@ -1422,6 +1500,84 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/legacy/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/invoice').newLegacyInvoiceValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.store': {
+    methods: ["POST"]
+    pattern: '/invoices/legacy'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/legacy'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['show']>>>
+    }
+  }
+  'legacy_invoices.update': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/legacy'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.destroy': {
+    methods: ["DELETE"]
+    pattern: '/invoices/:id/legacy'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['destroy']>>>
+    }
+  }
+  'legacy_invoices.pdf': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/legacy/pdf'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['pdf']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['pdf']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['pdf']>>>
     }
   }
   'items.index': {
@@ -2020,6 +2176,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateSdiPrefix']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'invoice_numbering.update_credit_notes': {
+    methods: ["PUT"]
+    pattern: '/settings/invoice-numbering/credit-notes'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').creditNoteNumberingValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').creditNoteNumberingValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateCreditNotes']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateCreditNotes']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoice_numbering_controller').default['updateCreditNotes']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'invoice_numbering.update': {

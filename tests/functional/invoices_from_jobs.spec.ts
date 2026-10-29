@@ -14,13 +14,15 @@ import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { confirmUsed } from '#tests/helpers/charges'
 
 /**
  * A Job with an accepted Quote (a boiler at 10%, labour under reverse
  * charge, and a text line), its lines imported onto the Job as Charges
- * unless `imported` is false (ADR 0012).
+ * unless `imported` is false (ADR 0012), and confirmed used unless `used`
+ * is false (ADR 0016).
  */
-async function acceptedJob({ imported = true } = {}) {
+async function acceptedJob({ imported = true, used = true } = {}) {
   const customer = await createCustomer({ name: 'Condominio Verdi' })
   const job = await createJob(customer, { workCategory: 'sale' })
   const item = await createItem({ unit: 'pz' })
@@ -60,6 +62,7 @@ async function acceptedJob({ imported = true } = {}) {
       { lineIds: quote.lines.map((line) => line.id), workerName: 'Ditta Rossi' },
       await createUser('office')
     )
+    if (used) await confirmUsed(job.id)
   }
   return { job, item, reduced, customer, quote }
 }
@@ -182,7 +185,7 @@ test.group('Invoices from Jobs with a Quote', () => {
     page.assertInertiaPropsContains({
       canInvoice: false,
       invoicedSoFar: { amount: '1560.00', of: '1560.00', quoted: '1660.00' },
-      job: { status: 'invoiced' },
+      job: { indicators: { invoiced: true } },
     })
   })
 
@@ -227,7 +230,7 @@ test.group('Invoices from Jobs with a Quote', () => {
     page.assertInertiaPropsContains({ invoicedSoFar: { amount: '100.00', quoted: '1860.00' } })
   })
 
-  test('a Job with a Quote is invoiced again for Charges added later, never once cancelled', async ({
+  test('a Job with a Quote is invoiced again for Charges added later', async ({
     client,
     assert,
   }) => {
@@ -237,7 +240,7 @@ test.group('Invoices from Jobs with a Quote', () => {
     const invoice = await Invoices.fromJob(job)
     await Invoices.finalise(invoice)
     let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: false, job: { status: 'invoiced' } })
+    page.assertInertiaPropsContains({ canInvoice: false, job: { indicators: { invoiced: true } } })
 
     await Charges.add(
       job,
@@ -245,22 +248,40 @@ test.group('Invoices from Jobs with a Quote', () => {
       office
     )
     page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canInvoice: true, job: { status: 'open' } })
+    page.assertInertiaPropsContains({
+      canInvoice: true,
+      job: { status: 'open', indicators: { invoiced: false } },
+    })
     const second = await Invoices.fromJob(job)
     assert.notEqual(second.id, invoice.id)
-
-    const other = await acceptedJob()
-    await client.post(`/jobs/${other.job.id}/cancel`).withCsrfToken().loginAs(office)
-    const cancelled = await client
-      .post(`/jobs/${other.job.id}/invoices`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    cancelled.assertFlashMessage('error', it('flash.jobNotInvoiceable'))
-    assert.lengthOf(await Invoice.query().where('jobId', other.job.id), 0)
-    const cancelledPage = await client.get(`/jobs/${other.job.id}`).withInertia().loginAs(office)
-    cancelledPage.assertInertiaPropsContains({ canInvoice: false, canInvoiceAdvance: false })
   })
+
+  test('a {$self} Job still invoices the work recorded on it (#111)')
+    .with(['closed', 'cancelled'] as const)
+    .run(async ({ client, assert }, status) => {
+      const office = await createUser('office')
+      const { job } = await acceptedJob()
+      await client
+        .post(`/jobs/${job.id}/${status === 'closed' ? 'close' : 'cancel'}`)
+        .withCsrfToken()
+        .loginAs(office)
+      await job.refresh()
+      assert.equal(job.status, status)
+
+      const before = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+      before.assertInertiaPropsContains({ canInvoice: true, canInvoiceAdvance: false })
+      const drafted = await client
+        .post(`/jobs/${job.id}/invoices`)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      drafted.assertFlashMessage('success', it('flash.invoiceCreated'))
+      const invoice = await Invoice.query().where('jobId', job.id).preload('lines').firstOrFail()
+      assert.equal(invoice.status, 'draft')
+      assert.isAbove(invoice.lines.length, 0)
+      await job.refresh()
+      assert.equal(job.status, status)
+    })
 
   test('correcting a rejected Job Invoice moves no stock; labour keeps its unit', async ({
     client,
@@ -300,19 +321,25 @@ test.group('Invoices from Jobs with a Quote', () => {
       .withCsrfToken()
       .loginAs(office)
 
-    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 0)
+    // Only the usage when Office confirmed it used (ADR 0016)
+    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
     await invoice.load('lines', (l) => l.orderBy('position'))
     assert.equal(invoice.lines[1].unit, 'h')
   })
 
-  test("a Job's Invoice takes nothing off stock: its Visits did", async ({ assert }) => {
+  test("a Job's Invoice takes nothing off stock: confirming it used did", async ({ assert }) => {
     await completeCompany()
     const { job, item } = await acceptedJob()
+    const used = await StockMovement.query().where('itemId', item.id)
+    assert.deepEqual(
+      used.map((movement) => [movement.kind, movement.quantity, movement.reference]),
+      [['usage', '-1.000', job.number]]
+    )
     const invoice = await Invoices.fromJob(job)
 
     await Invoices.finalise(invoice)
 
-    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 0)
+    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
   })
 
   test('an invoiced Job keeps its Customer and can not be cancelled', async ({

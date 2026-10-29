@@ -8,21 +8,26 @@ import { splitAmount } from './money.js'
  */
 
 /**
- * How much of an advance issued Invoices have taken back.
+ * How much of an advance is taken back: deducted by issued Invoices, or
+ * credited by its Credit Notes past draft (ADR 0014). Fully deducted once
+ * the two together reach its total. ADVANCE_TAKEN_BACK_SQL counts the
+ * same in SQL.
  */
 export const ADVANCE_STATES = ['not_deducted', 'partly_deducted', 'fully_deducted'] as const
 export type AdvanceState = (typeof ADVANCE_STATES)[number]
 
-export function advanceState(total: string, deducted: string): AdvanceState {
-  if (new Big(deducted).lte(0)) return 'not_deducted'
-  return new Big(deducted).gte(total) ? 'fully_deducted' : 'partly_deducted'
+export function advanceState(total: string, deducted: string, credited = '0'): AdvanceState {
+  const taken = new Big(deducted).plus(credited)
+  if (taken.lte(0)) return 'not_deducted'
+  return taken.gte(total) ? 'fully_deducted' : 'partly_deducted'
 }
 
 /**
- * What is left to take back of an advance, VAT included.
+ * What is left to take back of an advance, VAT included: what later
+ * Invoices can still deduct, and its Credit Notes still credit.
  */
-export function advanceLeft(total: string, deducted: string) {
-  const left = new Big(total).minus(deducted)
+export function advanceLeft(total: string, deducted: string, credited = '0') {
+  const left = new Big(total).minus(deducted).minus(credited)
   return (left.lt(0) ? new Big(0) : left).toFixed(2)
 }
 

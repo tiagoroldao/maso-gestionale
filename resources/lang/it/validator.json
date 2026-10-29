@@ -172,7 +172,18 @@
       "vatKind": "tipo per l'IVA",
       "workerName": "nome",
       "columns": "colonne",
-      "from": "origine"
+      "from": "origine",
+      "jobId": "commessa",
+      "number": "numero",
+      "issuedOn": "data",
+      "dueOn": "scadenza",
+      "taxable": "imponibile",
+      "vat": "IVA",
+      "total": "totale",
+      "advance": "acconto",
+      "vatRows": "righe IVA",
+      "paid": "già pagata",
+      "pdf": "PDF"
     }
   }
 }

@@ -1,5 +1,6 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import Charge from '#models/charge'
 import Visit from '#models/visit'
 import LabourRate from '#models/labour_rate'
 import StockLedger from '#stock/stock_ledger'
@@ -41,19 +42,32 @@ test.group('Field work in the browser', () => {
 
     await page.getByLabel(it('ui.field.hours'), { exact: true }).fill('1,5')
     await page.getByRole('button', { name: it('ui.field.addHours') }).click()
-    await page.getByText('1,5 h').waitFor()
+    await page.getByText('1,5 h', { exact: true }).waitFor()
 
     await page.getByLabel(it('ui.field.addItem')).fill('rac')
     await page.getByRole('option', { name: /RAC-12/ }).click()
     await page.getByLabel(/Quantità/).fill('3')
     await page.getByRole('button', { name: it('ui.field.addItem') }).click()
-    await page.getByText('3 pz').waitFor()
+    await page.getByText('3 pz', { exact: true }).waitFor()
 
+    // Closing reviews them, all ticked: the hours weren't worked after all
+    await page.getByTestId('close-review').getByLabel(/1,5 h/).uncheck()
     await page.getByRole('button', { name: it('ui.visits.statuses.done') }).click()
     await page.getByText(it('ui.field.doneNotice')).waitFor()
 
     await planned.refresh()
     assert.equal(planned.status, 'done')
     assert.equal(await StockLedger.levelOf(item), '7.000')
+    const charges = await Charge.query()
+      .where('visitId', planned.id)
+      .preload('events', (events) => events.orderBy('id'))
+      .orderBy('id')
+    assert.deepEqual(
+      charges.map((charge) => [charge.kind, charge.workState]),
+      [
+        ['labour', 'not_done'],
+        ['item', 'done'],
+      ]
+    )
   })
 })

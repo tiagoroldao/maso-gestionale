@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { isClosedVisit } from '@shared/visits'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Phone } from 'lucide-vue-next'
@@ -12,7 +12,7 @@ import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput } from '@shared/money'
 import { formatDate, t } from '~/i18n'
 
-defineProps<{
+const props = defineProps<{
   visit: {
     id: number
     startsAt: string
@@ -43,7 +43,13 @@ defineProps<{
   currentUserId: number
   team: { id: number; name: string }[]
   labourRates: { id: number; name: string }[]
-  hours: { id: number; technician: string; labourRate: string; hours: string }[]
+  hours: {
+    id: number
+    technician: string
+    labourRate: string
+    hours: string
+    notDone: boolean
+  }[]
   items: {
     id: number
     code: string
@@ -51,6 +57,7 @@ defineProps<{
     unit: string
     quantity: string
     installed: boolean
+    notDone: boolean
   }[]
 }>()
 
@@ -67,6 +74,23 @@ const confirmRemove = () => window.confirm(t('ui.field.removeConfirm'))
 
 const statuses = ['planned', 'in_progress', 'done', 'needs_return'] as const
 const page = usePage()
+
+// Closing reviews every hour and Item recorded, all ticked: unticked ones
+// become not done (ADR 0016)
+const reviewed = computed(() => [
+  ...props.hours.map((hour) => ({
+    id: hour.id,
+    label: `${quantity(hour.hours)} h · ${hour.technician} · ${hour.labourRate}`,
+  })),
+  ...props.items.map((line) => ({
+    id: line.id,
+    label: `${quantity(line.quantity)} ${line.unit} · ${line.code} ${line.description}`,
+  })),
+])
+const unticked = ref<number[]>([])
+function toggle(id: number, ticked: boolean) {
+  unticked.value = ticked ? unticked.value.filter((other) => other !== id) : [...unticked.value, id]
+}
 </script>
 
 <template>
@@ -89,6 +113,26 @@ const page = usePage()
       </template>
 
       <Section :title="t('ui.field.status')">
+        <div v-if="!done" data-testid="close-review">
+          <p class="field__hint" :style="{ margin: 0 }">
+            <strong>{{ t('ui.field.closeTitle') }}</strong> · {{ t('ui.field.closeHint') }}
+          </p>
+          <label
+            v-for="line in reviewed"
+            :key="line.id"
+            :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
+          >
+            <input
+              type="checkbox"
+              :checked="!unticked.includes(line.id)"
+              @change="toggle(line.id, ($event.target as HTMLInputElement).checked)"
+            />
+            {{ line.label }}
+          </label>
+          <p v-if="reviewed.length === 0" class="field__hint">
+            {{ t('ui.field.nothingToReview') }}
+          </p>
+        </div>
         <div class="field-status">
           <Form
             v-for="status in statuses"
@@ -98,6 +142,23 @@ const page = usePage()
             :on-before="confirmDone(status)"
           >
             <input type="hidden" name="status" :value="status" />
+            <template v-if="isClosedVisit(status)">
+              <input
+                v-for="line in reviewed"
+                :key="line.id"
+                type="hidden"
+                name="reviewed[]"
+                :value="line.id"
+              />
+              <template v-for="line in reviewed" :key="line.id">
+                <input
+                  v-if="!unticked.includes(line.id)"
+                  type="hidden"
+                  name="done[]"
+                  :value="line.id"
+                />
+              </template>
+            </template>
             <button
               type="submit"
               class="btn btn--sm"
@@ -207,6 +268,7 @@ const page = usePage()
           <span>
             <strong>{{ quantity(hour.hours) }} h</strong> · {{ hour.technician }} ·
             {{ hour.labourRate }}
+            <span v-if="hour.notDone" class="tag">{{ t('ui.charges.workStates.not_done') }}</span>
           </span>
           <Form
             v-if="!done"
@@ -277,6 +339,7 @@ const page = usePage()
             <strong>{{ quantity(line.quantity) }} {{ line.unit }}</strong> ·
             <span class="mono">{{ line.code }}</span> {{ line.description }}
             <span v-if="line.installed" class="tag">{{ t('ui.field.installedTag') }}</span>
+            <span v-if="line.notDone" class="tag">{{ t('ui.charges.workStates.not_done') }}</span>
           </span>
           <Form
             v-if="!done"

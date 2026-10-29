@@ -113,6 +113,8 @@ export interface ApiDefinition {
     edit: typeof routes['jobs.edit']
     update: typeof routes['jobs.update']
     cancel: typeof routes['jobs.cancel']
+    close: typeof routes['jobs.close']
+    reopen: typeof routes['jobs.reopen']
   }
   visits: {
     create: typeof routes['visits.create']
@@ -123,6 +125,7 @@ export interface ApiDefinition {
     edit: typeof routes['visits.edit']
     update: typeof routes['visits.update']
     destroy: typeof routes['visits.destroy']
+    markDone: typeof routes['visits.mark_done']
   }
   charges: {
     store: typeof routes['charges.store']
@@ -132,6 +135,8 @@ export interface ApiDefinition {
     markNotBillable: typeof routes['charges.mark_not_billable']
     markBillable: typeof routes['charges.mark_billable']
     setBackToBill: typeof routes['charges.set_back_to_bill']
+    markDone: typeof routes['charges.mark_done']
+    markNotDone: typeof routes['charges.mark_not_done']
   }
   quotes: {
     create: typeof routes['quotes.create']
@@ -150,6 +155,7 @@ export interface ApiDefinition {
     store: typeof routes['invoices.store']
     storeAdvance: typeof routes['invoices.store_advance']
     storeFromJob: typeof routes['invoices.store_from_job']
+    storeCreditNote: typeof routes['invoices.store_credit_note']
     edit: typeof routes['invoices.edit']
     update: typeof routes['invoices.update']
     destroy: typeof routes['invoices.destroy']
@@ -162,6 +168,14 @@ export interface ApiDefinition {
     prepareSubmission: typeof routes['invoices.prepare_submission']
     confirmSubmission: typeof routes['invoices.confirm_submission']
     recordOutcome: typeof routes['invoices.record_outcome']
+  }
+  legacyInvoices: {
+    create: typeof routes['legacy_invoices.create']
+    store: typeof routes['legacy_invoices.store']
+    show: typeof routes['legacy_invoices.show']
+    update: typeof routes['legacy_invoices.update']
+    destroy: typeof routes['legacy_invoices.destroy']
+    pdf: typeof routes['legacy_invoices.pdf']
   }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']
@@ -212,6 +226,7 @@ export interface ApiDefinition {
   invoiceNumbering: {
     index: typeof routes['invoice_numbering.index']
     updateSdiPrefix: typeof routes['invoice_numbering.update_sdi_prefix']
+    updateCreditNotes: typeof routes['invoice_numbering.update_credit_notes']
     update: typeof routes['invoice_numbering.update']
   }
   paymentTerms: {

@@ -17,3 +17,4 @@ A Visit planned as a survey (_sopralluogo_) never moves its Job to in progress, 
 - Job statuses lose "quoted" and "accepted"; lists and filters that used them show Quote statuses instead.
 - A Quote's status gains "sent", after which it is frozen.
 - Quotes get a number of their own, shown on the PDF and the Job page.
+- (Refined by ADR 0016: cancelled Visits, like surveys, don't count as work Visits.)

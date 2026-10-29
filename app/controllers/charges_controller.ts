@@ -6,6 +6,7 @@ import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Charges, { ChargeRefusedError } from '#services/charges'
 import { localDateTime } from '#services/dates'
+import { isClosedVisit } from '#shared/visits'
 import {
   chargeBillingValidator,
   itemCorrectionValidator,
@@ -47,6 +48,7 @@ export default class ChargesController {
     const invoice = charge.heldBy ?? charge.billing?.invoice ?? null
     const job = await Job.findOrFail(charge.jobId)
     const visit = charge.visitId ? await Visit.findOrFail(charge.visitId) : null
+    const frozen = await Charges.isFrozen(charge.id)
 
     // Archived rates only for the Charge already using one
     const rates = await LabourRate.query()
@@ -74,6 +76,14 @@ export default class ChargesController {
         id: charge.id,
         kind: charge.kind,
         state: charge.state,
+        workState: charge.workState,
+        // Office switches done and not done once the Visit closed (a Job's
+        // own Charges at any time), while no draft holds it and no issued
+        // Invoice bills it uncredited (ADR 0016)
+        canSetWork:
+          (!visit || isClosedVisit(visit.status)) && charge.state !== 'in_draft' && !frozen,
+        // Its quantity and Item are frozen too
+        frozen,
         visitStartsAt: visit ? localDateTime(visit.startsAt) : null,
         recorded: {
           quantity: charge.quantity,
@@ -114,7 +124,6 @@ export default class ChargesController {
         id: job.id,
         number: job.number,
         title: job.title,
-        cancelled: job.status === 'cancelled',
       },
       labourRates: rates.map((rate) => ({ id: rate.id, name: rate.name })),
       technicians: technicians.map((user) => ({ id: user.id, name: user.fullName ?? user.email })),
@@ -179,12 +188,48 @@ export default class ChargesController {
   }
 
   /**
-   * Runs `work`, turning a refusal into a message on the Charge's page.
+   * Marks the Charge done (on the Job, confirming planned work used) or
+   * not done (ADR 0016), back on the page it was done from: the Charge's,
+   * or the Job's.
+   */
+  async markDone(ctx: HttpContext) {
+    return this.setWorkState(ctx, 'done')
+  }
+
+  async markNotDone(ctx: HttpContext) {
+    return this.setWorkState(ctx, 'not_done')
+  }
+
+  private async setWorkState(
+    { params, response, session, auth, i18n }: HttpContext,
+    work: 'done' | 'not_done'
+  ) {
+    const charge = await Charge.findOrFail(params.id)
+    return this.refusable(
+      charge,
+      { response, session, i18n },
+      async () => {
+        await Charges.setWorkState(
+          charge,
+          work,
+          auth.getUserOrFail(),
+          i18n.t('ui.charges.stockNotDone', { id: charge.id })
+        )
+        session.flash('success', i18n.t(`flash.chargeWork.${work}`))
+      },
+      true
+    )
+  }
+
+  /**
+   * Runs `work`, turning a refusal into a message on the Charge's page (or
+   * the page the request came from).
    */
   private async refusable(
     charge: Charge,
     { response, session, i18n }: Pick<HttpContext, 'response' | 'session' | 'i18n'>,
-    work: () => Promise<unknown>
+    work: () => Promise<unknown>,
+    back = false
   ) {
     try {
       await work()
@@ -192,6 +237,7 @@ export default class ChargesController {
       if (!(error instanceof ChargeRefusedError)) throw error
       session.flash('error', i18n.t(`flash.chargeRefused.${error.reason}`))
     }
+    if (back) return response.redirect().back()
     return response.redirect().toRoute('charges.edit', { id: charge.id })
   }
 }

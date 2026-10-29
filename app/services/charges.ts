@@ -12,22 +12,45 @@ import User from '#models/user'
 import Visit from '#models/visit'
 import VatCode from '#models/vat_code'
 import StockLedger from '#stock/stock_ledger'
-import { CHARGE_DESCRIPTION_MAX, isHeld, type ChargeState } from '#shared/charges'
+import {
+  BILLING_EVENT_KINDS,
+  CHARGE_DESCRIPTION_MAX,
+  isHeld,
+  workState,
+  type ChargeState,
+} from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
-import { CHARGE_STATE_SQL } from '#services/job_status'
+import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
 
 /**
- * An Invoice holds or bills the Charge, so what is billed changes only
- * through billing (ADR 0010); only a billed Charge is set back to bill;
- * its Job was cancelled, which freezes billing; or a correction picked an
- * archived Labour Rate or Item, or a Technician who is inactive or not on
- * the Visit; or it would change the Item of equipment the Charge doesn't
- * own alone.
+ * An Invoice holds or bills the Charge, or Credit Notes credited it, so
+ * what is billed changes only through billing (ADR 0010, 0014); only a
+ * billed or credited Charge is set back to bill; a
+ * new Charge on a closed or cancelled Job, which takes no new work (ADR
+ * 0015); or a correction picked an archived Labour Rate or Item, or a
+ * Technician who is inactive or not on the Visit; or it would change the
+ * Item of equipment the Charge doesn't own alone. Its work state and
+ * recorded quantity are frozen while an issued Invoice bills it and no
+ * Credit Note credited that ('frozen'), its work state while a draft holds
+ * it ('inDraft'), and a Visit's Charges are planned until the Visit closes
+ * ('visitOpen', ADR 0016).
  */
 export class ChargeRefusedError extends Error {
   constructor(
-    readonly reason: 'billed' | 'notBilled' | 'cancelled' | 'archived' | 'worker' | 'installed'
+    readonly reason:
+      | 'billed'
+      | 'credited'
+      | 'notBilled'
+      | 'closed'
+      | 'cancelled'
+      | 'archived'
+      | 'worker'
+      | 'installed'
+      | 'frozen'
+      | 'inDraft'
+      | 'visitOpen'
   ) {
     super(reason)
   }
@@ -63,13 +86,16 @@ type Billing = {
 export default class Charges {
   /**
    * Adds another cost to the Job itself (a call-out, a contractor's day,
-   * materials bought for the Job), priced by Office. Not on a cancelled
-   * Job.
+   * materials bought for the Job), priced by Office: done, since Office
+   * records it after the fact (ADR 0016). Not on a closed or cancelled Job
+   * (ADR 0015).
    */
   static async add(job: Job, input: Required<Billing>, user: User) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', job.id).forShare().firstOrFail()
-      if (locked.status === 'cancelled') throw new ChargeRefusedError('cancelled')
+      if (locked.status === 'closed' || locked.status === 'cancelled') {
+        throw new ChargeRefusedError(locked.status)
+      }
       const charge = await Charge.create(
         {
           jobId: locked.id,
@@ -87,16 +113,81 @@ export default class Charges {
         { chargeId: charge.id, kind: 'recorded', userId: user.id },
         { client: trx }
       )
+      await ChargeEvent.create(
+        { chargeId: charge.id, kind: 'done', userId: user.id },
+        { client: trx }
+      )
       return charge
     })
   }
 
   /**
-   * Corrects what was recorded, at any time. An Item already taken off
+   * Office sets whether the work happened (ADR 0016): a Visit's Charge
+   * once the Visit closed (it is planned until then), switching between
+   * done and not done; a Charge on the Job itself at any time, confirming
+   * planned work used (done) or not. Stock follows: an Item becoming done
+   * leaves stock (a usage dated today, referencing the Job), one done
+   * becoming not done comes back (an adjustment). Refused while a draft
+   * holds the Charge, and while an issued Invoice bills it and no Credit
+   * Note credited that. Like corrections, it plays no part in the Job's
+   * status: a closed or cancelled Job's Charges are still reviewed (#111).
+   */
+  static async setWorkState(
+    charge: Charge,
+    work: 'done' | 'not_done',
+    user: User,
+    stockReason: string
+  ): Promise<void> {
+    await this.whileLocked(charge, async (trx, locked, job) => {
+      const events = await ChargeEvent.query({ client: trx })
+        .where('chargeId', locked.id)
+        .orderBy('id')
+      if (workState(events) === work) return
+      if (locked.visitId) {
+        const visit = await Visit.findOrFail(locked.visitId, { client: trx })
+        if (!CLOSED_VISIT_STATUSES.includes(visit.status)) {
+          throw new ChargeRefusedError('visitOpen')
+        }
+      }
+      if (await this.isFrozen(locked.id, trx)) throw new ChargeRefusedError('frozen')
+      if ((await this.stateOf(trx, locked.id)) === 'in_draft') {
+        throw new ChargeRefusedError('inDraft')
+      }
+
+      if (locked.kind === 'item') {
+        const item = await Item.findOrFail(locked.itemId, { client: trx })
+        const common = {
+          occurredOn: DateTime.now().startOf('day'),
+          reference: job.number,
+          user,
+          client: trx,
+        }
+        if (work === 'done' && !locked.stockMovementId) {
+          const movement = await StockLedger.use(item, { ...common, quantity: locked.quantity })
+          locked.stockMovementId = movement.id
+        } else if (work === 'not_done' && locked.stockMovementId) {
+          await StockLedger.adjust(item, {
+            ...common,
+            quantity: locked.quantity,
+            reason: stockReason,
+          })
+          locked.stockMovementId = null
+        }
+        await locked.save()
+      }
+      await this.addEvent(trx, locked, work, user, null)
+    })
+  }
+
+  /**
+   * Corrects what was recorded, at any time, except the quantity or Item
+   * of a Charge an issued Invoice bills and no Credit Note credited (ADR
+   * 0016: credit it first). An Item already taken off
    * stock moves stock by the difference, with new Stock Movements. While
-   * nothing billed it, its Job isn't cancelled and Office never edited its
-   * billing, what is billed follows: the quantity, the description and,
-   * for a new Labour Rate or Item, its current price.
+   * nothing billed it and Office never edited its billing, what is billed
+   * follows: the quantity, the description and, for a new Labour Rate or
+   * Item, its current price. Its Job's status plays no part: a closed or
+   * cancelled Job's Charges are still billed (#111).
    */
   static async correct(
     charge: Charge,
@@ -105,9 +196,14 @@ export default class Charges {
     stockReason: string
   ): Promise<void> {
     await this.whileLocked(charge, async (trx, locked, job) => {
+      const changesStock =
+        !new Big(input.quantity).eq(locked.quantity) ||
+        (locked.kind === 'item' && input.itemId !== locked.itemId)
+      if (changesStock && (await this.isFrozen(locked.id, trx))) {
+        throw new ChargeRefusedError('frozen')
+      }
       const before = await this.recordedValues(trx, locked)
       const billingFollows =
-        job.status !== 'cancelled' &&
         !isHeld(await this.stateOf(trx, locked.id)) &&
         !(await this.hasEvent(trx, locked.id, 'billing_edited'))
       let repriced = false
@@ -164,20 +260,25 @@ export default class Charges {
   }
 
   /**
-   * Sets a billed Charge back to "to bill" (ADR 0010), to bill it again by
-   * hand: a partial or repeated bill. The Invoice that billed it is
+   * Sets a billed or credited Charge back to "to bill" (ADR 0010, 0014),
+   * to bill it again by hand: a partial or repeated bill, or work credited
+   * and billed anew. The Invoice that billed it, and any Credit Note, are
    * unchanged; what is billed becomes editable again and, if Office never
    * edited it, follows what was recorded (see release).
    */
   static async setBackToBill(charge: Charge, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
-      if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
-      const billed = await ChargeEvent.query({ client: trx })
+    await this.whileLocked(charge, async (trx, locked) => {
+      const latest = await ChargeEvent.query({ client: trx })
         .where('chargeId', locked.id)
-        .whereIn('kind', ['billed', 'unbilled'])
+        .whereIn('kind', [...BILLING_EVENT_KINDS])
         .orderBy('id', 'desc')
         .first()
-      if (billed?.kind !== 'billed') throw new ChargeRefusedError('notBilled')
+      if (!latest || latest.kind === 'unbilled') throw new ChargeRefusedError('notBilled')
+      const billed = await ChargeEvent.query({ client: trx })
+        .where('chargeId', locked.id)
+        .where('kind', 'billed')
+        .orderBy('id', 'desc')
+        .firstOrFail()
       const line = await trx
         .from('invoice_line_charges')
         .where('charge_id', locked.id)
@@ -188,7 +289,7 @@ export default class Charges {
         { client: trx }
       )
       const heldSince = line ? DateTime.fromJSDate(line.created_at) : billed.createdAt
-      await this.rederive(trx, locked, job, heldSince)
+      await this.rederive(trx, locked, heldSince)
     })
   }
 
@@ -214,23 +315,20 @@ export default class Charges {
       .orderBy('id')
       .forUpdate()
     for (const charge of charges) {
-      const job = await Job.findOrFail(charge.jobId, { client: trx })
       const { heldSince } = held.find(({ chargeId }) => chargeId === charge.id)!
-      await this.rederive(trx, charge, job, heldSince)
+      await this.rederive(trx, charge, heldSince)
     }
   }
 
   /**
    * What is billed follows what was recorded again, for a Charge just
-   * released: unless its Job is cancelled or Office edited its billing.
+   * released: unless Office edited its billing.
    */
   private static async rederive(
     trx: TransactionClientContract,
     charge: Charge,
-    job: Job,
     heldSince: DateTime
   ) {
-    if (job.status === 'cancelled') return
     if (await this.hasEvent(trx, charge.id, 'billing_edited')) return
     const corrections = await ChargeEvent.query({ client: trx })
       .where('chargeId', charge.id)
@@ -283,8 +381,8 @@ export default class Charges {
    * Edits what is billed, until an Invoice holds the Charge.
    */
   static async editBilling(charge: Charge, input: Billing, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
-      await this.refuseBillingChange(trx, locked, job)
+    await this.whileLocked(charge, async (trx, locked) => {
+      await this.refuseBillingChange(trx, locked)
       const quotedCode = locked.vatCodeId
         ? await VatCode.findOrFail(locked.vatCodeId, { client: trx })
         : null
@@ -316,8 +414,8 @@ export default class Charges {
    * holds it. Marking it as it already is changes nothing.
    */
   static async setBillable(charge: Charge, billable: boolean, user: User): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
-      await this.refuseBillingChange(trx, locked, job)
+    await this.whileLocked(charge, async (trx, locked) => {
+      await this.refuseBillingChange(trx, locked)
       const notBillable = (await this.stateOf(trx, locked.id)) === 'not_billable'
       if (notBillable !== billable) return
       await this.addEvent(trx, locked, billable ? 'billable' : 'not_billable', user, null)
@@ -326,15 +424,28 @@ export default class Charges {
 
   /**
    * What is billed is frozen while an Invoice holds or bills the Charge,
-   * and on a cancelled Job (what was recorded can still be corrected).
+   * or once Credit Notes credited it (set it back to bill first). A closed
+   * or cancelled Job's Charges are still billed, or marked not billable,
+   * by Office (#111).
    */
-  private static async refuseBillingChange(
-    trx: TransactionClientContract,
-    charge: Charge,
-    job: Job
-  ) {
-    if (job.status === 'cancelled') throw new ChargeRefusedError('cancelled')
-    if (isHeld(await this.stateOf(trx, charge.id))) throw new ChargeRefusedError('billed')
+  private static async refuseBillingChange(trx: TransactionClientContract, charge: Charge) {
+    const state = await this.stateOf(trx, charge.id)
+    if (state === 'credited') throw new ChargeRefusedError('credited')
+    if (isHeld(state)) throw new ChargeRefusedError('billed')
+  }
+
+  /**
+   * An issued Invoice bills the Charge and no Credit Note credited that
+   * (WORK_FROZEN_SQL): its work state and recorded quantity can't change
+   * (ADR 0016). Read in the transaction when given one.
+   */
+  static async isFrozen(chargeId: number, client: TransactionClientContract | typeof db = db) {
+    const row = await client
+      .from('charges')
+      .where('id', chargeId)
+      .select(db.raw(`${WORK_FROZEN_SQL('charges')} AS frozen`))
+      .firstOrFail()
+    return Boolean(row.frozen)
   }
 
   /**

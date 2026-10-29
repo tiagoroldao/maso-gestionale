@@ -11,7 +11,8 @@ import type { TotalsLine } from '#shared/invoice_totals'
  * One line of an Invoice: an Item or free text, priced, with the VAT
  * treatment copied from its VAT Code, and the Charges it bills, if any;
  * or a deduction taking back an Advance Invoice (a negative price,
- * `deductsInvoiceId` set).
+ * `deductsInvoiceId` set). A Credit Note's line credits one line of the
+ * Invoice it credits, by amount (`creditsLineId`).
  */
 export default class InvoiceLine extends InvoiceLineSchema {
   static table = 'invoice_lines'
