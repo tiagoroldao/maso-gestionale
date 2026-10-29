@@ -113,7 +113,8 @@
   "creditNoteRefused": {
     "creditNote": "Una nota di credito non si storna con un'altra nota di credito.",
     "notIssued": "Si può stornare solo una fattura consegnata o non recapitabile: una bozza o una fattura non ancora consegnata no, e una scartata si corregge.",
-    "advanceTakenBack": "Dell'acconto non resta nulla da stornare: è già stato detratto o stornato per intero."
+    "advanceTakenBack": "Dell'acconto non resta nulla da stornare: è già stato detratto o stornato per intero.",
+    "legacy": "Una fattura pregressa è fuori dal flusso SDI: una sua nota di credito si emette con il vecchio gestionale."
   },
   "creditNoteFinalised": "Nota di credito {number} emessa.",
   "creditNoteOverpaid": "La fattura {number} risulta ora pagata in eccesso di {amount}: rimborsa il cliente.",
@@ -179,5 +180,20 @@
   "chargeAdded": "Addebito aggiunto.",
   "documentTemplateArchived": "Modello «{name}» archiviato.",
   "documentTemplateRestored": "Modello «{name}» ripristinato.",
-  "documentTemplateArchivedNoEdit": "Il modello è archiviato: ripristinalo per modificarlo."
+  "documentTemplateArchivedNoEdit": "Il modello è archiviato: ripristinalo per modificarlo.",
+  "legacyInvoiceCreated": "Fattura pregressa registrata.",
+  "legacyInvoiceSaved": "Fattura pregressa salvata.",
+  "legacyInvoiceDeleted": "Fattura pregressa eliminata.",
+  "legacyInvoiceRefused": {
+    "advanceWithoutJob": "Un acconto appartiene a una commessa: scegli la commessa.",
+    "noVatRows": "Per un acconto indica le righe IVA (codice IVA e imponibile), così le fatture successive possono detrarlo.",
+    "duplicateVatRow": "Due righe IVA hanno la stessa aliquota e natura: riuniscile in una.",
+    "rowsTaxable": "La somma degli imponibili delle righe IVA non corrisponde all'imponibile.",
+    "rowsVat": "L'IVA delle righe, calcolata riga per riga, non corrisponde all'IVA indicata.",
+    "advanceTotal": "Il totale di un acconto deve essere l'imponibile più l'IVA.",
+    "customerNotOfJob": "La commessa scelta è di un altro cliente.",
+    "duplicateNumber": "Una fattura pregressa dello stesso anno ha già questo numero.",
+    "paid": "La fattura ha degli incassi: rimuovili prima di modificarla o eliminarla.",
+    "takenBack": "Una fattura detrae questo acconto: togli la detrazione prima di modificarlo o eliminarlo."
+  }
 }

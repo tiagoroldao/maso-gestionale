@@ -253,7 +253,9 @@
     },
     "balance": "Da incassare",
     "overpaid": "Fatture pagate in eccesso, da rimborsare o correggere",
-    "overpaidInvoice": "n. {number} (in eccesso di {amount})"
+    "overpaidInvoice": "n. {number} (in eccesso di {amount})",
+    "invoicesTitle": "Fatture",
+    "noInvoices": "Nessuna fattura emessa."
   },
   "sites": {
     "title": "Immobili",
@@ -889,7 +891,9 @@
     "deleteCreditNoteConfirm": "Eliminare questa bozza di nota di credito?",
     "creditNotesTitle": "Note di credito",
     "newCreditNote": "Crea nota di credito",
-    "credited": "Stornato con note di credito: {amount}."
+    "credited": "Stornato con note di credito: {amount}.",
+    "legacy": "Pregressa",
+    "newLegacy": "Registra fattura pregressa"
   },
   "visits": {
     "title": "Interventi",
@@ -1123,5 +1127,49 @@
     "details": "Dati",
     "pdf": "PDF",
     "replace": "Emetti sostituzione"
+  },
+  "legacyInvoices": {
+    "new": "Registra fattura pregressa",
+    "newTitle": "Nuova fattura pregressa",
+    "newDescription": "Una fattura emessa con il vecchio gestionale: se ne registrano i totali e il PDF originale, fuori dal flusso SDI.",
+    "title": "Fattura pregressa {number}",
+    "description": "Emessa con il vecchio gestionale, fuori dal flusso SDI.",
+    "customer": "Cliente",
+    "job": "Commessa",
+    "noJob": "Nessuna commessa",
+    "number": "Numero",
+    "numberHint": "Come stampato sul PDF.",
+    "issuedOn": "Data",
+    "dueOn": "Scadenza",
+    "dueOnHint": "Se vuota, dalle condizioni di pagamento del cliente.",
+    "amounts": "Totali",
+    "taxable": "Imponibile",
+    "vat": "IVA",
+    "total": "Totale",
+    "advance": "È una fattura di acconto",
+    "advanceHint": "Le fatture successive della commessa la detrarranno: indica le righe IVA del PDF.",
+    "vatRows": "Righe IVA",
+    "vatCode": "Codice IVA",
+    "vatCodeOf": "Codice IVA della riga {position}",
+    "rowTaxable": "Imponibile",
+    "rowTaxableOf": "Imponibile della riga {position}",
+    "rowVat": "Imposta",
+    "addRow": "Aggiungi riga IVA",
+    "removeRow": "Rimuovi riga",
+    "paid": "Già pagata",
+    "paidHint": "Registra un incasso pari al totale.",
+    "paidOn": "Pagata il",
+    "paidOnHint": "Se vuota, la data della fattura.",
+    "pdf": "PDF originale",
+    "pdfReplace": "Sostituisci il PDF",
+    "openPdf": "Apri il PDF ({name})",
+    "create": "Registra",
+    "save": "Salva",
+    "delete": "Elimina",
+    "deleteConfirm": "Eliminare questa fattura pregressa e il suo PDF?",
+    "locked": "Ha incassi o è detratta da una fattura: non si può modificare né eliminare.",
+    "advanceState": "Acconto: {state}, da detrarre {left}.",
+    "invoicesTitle": "Fatture",
+    "noInvoices": "Nessuna fattura emessa."
   }
 }

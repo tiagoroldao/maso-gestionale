@@ -117,6 +117,12 @@ export type ScannedRoutes = {
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.create': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.store': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
@@ -224,6 +230,9 @@ export type ScannedRoutes = {
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.submission_xml': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'submissionId': ParamValue} }
+    'legacy_invoices.create': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -296,6 +305,9 @@ export type ScannedRoutes = {
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.xml': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.submission_xml': { paramsTuple: [ParamValue,ParamValue]; params: {'id': ParamValue,'submissionId': ParamValue} }
+    'legacy_invoices.create': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -365,6 +377,8 @@ export type ScannedRoutes = {
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.confirm_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_outcome': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'legacy_invoices.store': { paramsTuple?: []; params?: {} }
+    'legacy_invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.store': { paramsTuple?: []; params?: {} }
     'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -390,6 +404,7 @@ export type ScannedRoutes = {
     'visits.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.remove_payment': { paramsTuple: [ParamValue]; params: {'paymentId': ParamValue} }
+    'legacy_invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

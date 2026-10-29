@@ -476,6 +476,8 @@ export default class Invoices {
       .where('advance', true)
       .whereNot('status', 'draft')
       .preload('lines', (lines) => lines.orderBy('position'))
+      // A Legacy advance has VAT rows instead of lines (#27)
+      .preload('legacyVatRows', (rows) => rows.orderBy('position'))
       .orderBy('id')
     const ids = advances.map((advance) => advance.id)
     const issuedOthers = (builder: any) =>
@@ -625,9 +627,7 @@ export default class Invoices {
         .filter((row) => !new Big(row.taxable).eq(0))
         .map((row) => {
           // The VAT Code of a line in that row, copied as the advance had it
-          const source = advance.lines.find(
-            (line) => Number(line.vatRate) === Number(row.vatRate) && line.natura === row.natura
-          )!
+          const source = advance.vatTreatment(row.vatRate, row.natura)
           const unitPrice = new Big(row.taxable).neg().toFixed(2)
           return {
             invoiceId: invoice.id,
@@ -1494,10 +1494,10 @@ export default class Invoices {
 
   /**
    * Runs `work` with the Invoice's Job locked, then the Invoice locked and
-   * re-read, refusing unless its status passes `allowed`. A Credit Note
-   * first locks the Invoice it credits, after that Invoice's Job, so
-   * checking what is left to credit sees the other Credit Notes as they
-   * are.
+   * re-read, refusing unless its status passes `allowed` (and always for a
+   * Legacy Invoice). A Credit Note first locks the Invoice it credits,
+   * after that Invoice's Job, so checking what is left to credit sees the
+   * other Credit Notes as they are.
    */
   private static whileIn<T>(
     allowed: (status: InvoiceStatus) => boolean,
@@ -1518,7 +1518,9 @@ export default class Invoices {
         .where('id', invoice.id)
         .forUpdate()
         .firstOrFail()
-      if (!allowed(locked.status)) throw new InvoiceNotEditableError()
+      // A Legacy Invoice has no lines and no lifecycle of its own (#27):
+      // only LegacyInvoices changes it
+      if (!allowed(locked.status) || locked.isLegacy) throw new InvoiceNotEditableError()
       return work(trx, locked)
     })
   }

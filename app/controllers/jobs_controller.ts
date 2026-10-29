@@ -203,6 +203,8 @@ export default class JobsController {
           status: invoice.status,
           total: invoice.totals.total,
           advance: invoice.advance,
+          // A Legacy Invoice the previous software issued (#27)
+          legacy: invoice.isLegacy,
           // An issued advance: how much issued Invoices deducted and Credit
           // Notes credited of it (ADR 0011, 0014)
           deduction: advance
@@ -242,7 +244,8 @@ export default class JobsController {
       // What closing would leave behind, shown as a warning (ADR 0015)
       leftToClose: job.isActive ? await Jobs.leftToClose(job.id) : null,
       // Taxable amounts: what issued Invoices billed (deductions net out the
-      // advances), less what Credit Notes past draft credited (ADR 0014),
+      // advances; a Legacy Invoice's taxable as printed, #27), less what
+      // Credit Notes past draft credited (ADR 0014),
       // against the work recorded, and the sum of the accepted Quotes for
       // comparison only, since they don't bind the bill (ADR 0012, 0013)
       invoicedSoFar: {

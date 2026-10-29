@@ -434,7 +434,7 @@ export class InvoiceSubmissionSchema extends BaseModel {
 }
 
 export class InvoiceSchema extends BaseModel {
-  static $columns = ['advance', 'companySnapshot', 'createdAt', 'creditsInvoiceId', 'customerId', 'customerSnapshot', 'discountPercent', 'documentType', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'notes', 'number', 'paymentMethod', 'series', 'status', 'total', 'updatedAt', 'year'] as const
+  static $columns = ['advance', 'companySnapshot', 'createdAt', 'creditsInvoiceId', 'customerId', 'customerSnapshot', 'discountPercent', 'documentType', 'dueOn', 'finalisedAt', 'id', 'issuedOn', 'jobId', 'legacyNumber', 'notes', 'number', 'paymentMethod', 'pdfName', 'pdfPath', 'series', 'status', 'taxable', 'total', 'updatedAt', 'vat', 'year'] as const
   $columns = InvoiceSchema.$columns
   @column()
   declare advance: boolean
@@ -463,19 +463,29 @@ export class InvoiceSchema extends BaseModel {
   @column()
   declare jobId: number | null
   @column()
+  declare legacyNumber: string | null
+  @column()
   declare notes: string | null
   @column()
   declare number: number | null
   @column()
   declare paymentMethod: string | null
   @column()
+  declare pdfName: string | null
+  @column()
+  declare pdfPath: string | null
+  @column()
   declare series: string | null
   @column()
   declare status: string
   @column()
+  declare taxable: string | null
+  @column()
   declare total: string | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+  @column()
+  declare vat: string | null
   @column()
   declare year: number | null
 }
@@ -627,6 +637,31 @@ export class LabourRateSchema extends BaseModel {
   declare name: string
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
+}
+
+export class LegacyVatRowSchema extends BaseModel {
+  static $columns = ['createdAt', 'id', 'invoiceId', 'legalNote', 'natura', 'position', 'taxable', 'vat', 'vatCodeId', 'vatRate'] as const
+  $columns = LegacyVatRowSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceId: number
+  @column()
+  declare legalNote: string | null
+  @column()
+  declare natura: string | null
+  @column()
+  declare position: number
+  @column()
+  declare taxable: string
+  @column()
+  declare vat: string
+  @column()
+  declare vatCodeId: number
+  @column()
+  declare vatRate: string
 }
 
 export class PaymentTermSchema extends BaseModel {

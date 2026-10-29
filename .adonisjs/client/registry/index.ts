@@ -684,6 +684,42 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"],[0,"submissions"],[0,"outcome"]],
     types: placeholder as Registry['invoices.record_outcome']['types'],
   },
+  'legacy_invoices.create': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/legacy/create',
+    tokens: [[0,"invoices"],[0,"legacy"],[0,"create"]],
+    types: placeholder as Registry['legacy_invoices.create']['types'],
+  },
+  'legacy_invoices.store': {
+    methods: ["POST"],
+    pattern: '/invoices/legacy',
+    tokens: [[0,"invoices"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.store']['types'],
+  },
+  'legacy_invoices.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/legacy',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.show']['types'],
+  },
+  'legacy_invoices.update': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/legacy',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.update']['types'],
+  },
+  'legacy_invoices.destroy': {
+    methods: ["DELETE"],
+    pattern: '/invoices/:id/legacy',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"]],
+    types: placeholder as Registry['legacy_invoices.destroy']['types'],
+  },
+  'legacy_invoices.pdf': {
+    methods: ["GET","HEAD"],
+    pattern: '/invoices/:id/legacy/pdf',
+    tokens: [[0,"invoices"],[1,"id"],[0,"legacy"],[0,"pdf"]],
+    types: placeholder as Registry['legacy_invoices.pdf']['types'],
+  },
   'items.index': {
     methods: ["GET","HEAD"],
     pattern: '/items',

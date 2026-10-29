@@ -35,7 +35,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
-- **#27:** the paid indicator (`jobIndicators`, `JOB_PAID_SQL`) and what closing lists as unpaid (`Jobs.leftToClose`) count a Legacy Invoice's Payments when it belongs to the Job (from #103).
 
 ## Not yet issues
 

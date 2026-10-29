@@ -6,8 +6,12 @@ import type { InvoiceStatus } from './invoice_lifecycle.js'
  * one issued Invoice, partly or fully. It is stored as an Invoice record
  * of its own type, with the same lifecycle. Used by the server and the
  * Office pages alike.
+ *
+ * The Invoice record's types: an Invoice (TD01, or TD02 for an advance), a
+ * Credit Note, or a Legacy Invoice the previous software issued (#27),
+ * entered by hand and outside the SDI flow (shared/legacy_invoices.ts).
  */
-export const DOCUMENT_TYPES = ['invoice', 'credit_note'] as const
+export const DOCUMENT_TYPES = ['invoice', 'credit_note', 'legacy'] as const
 export type DocumentType = (typeof DOCUMENT_TYPES)[number]
 
 /**
@@ -29,11 +33,11 @@ export type NumberingSeries = 'invoice' | 'credit_note'
  * - `advanceTakenBack`: an Advance Invoice with nothing left to take back,
  *   all of it deducted by issued Invoices or credited already (ADR 0014);
  *   checked when the Credit Note is drafted, since it needs what was
- *   deducted.
- * Legacy Invoices (#27) are outside the SDI flow and will be refused here
- * too, once they exist.
+ *   deducted;
+ * - `legacy`: a Legacy Invoice (#27), issued by the previous software and
+ *   outside the SDI flow; a Credit Note for it is the old software's.
  */
-export type CreditRefusal = 'creditNote' | 'notIssued' | 'advanceTakenBack'
+export type CreditRefusal = 'creditNote' | 'notIssued' | 'advanceTakenBack' | 'legacy'
 
 /** SDI delivered it, or reported it not deliverable: either way it is issued */
 export const CREDITABLE_STATUSES: readonly InvoiceStatus[] = ['delivered', 'not_deliverable']
@@ -43,6 +47,7 @@ export function creditRefusal(invoice: {
   status: InvoiceStatus
 }): CreditRefusal | null {
   if (invoice.documentType === 'credit_note') return 'creditNote'
+  if (invoice.documentType === 'legacy') return 'legacy'
   if (!CREDITABLE_STATUSES.includes(invoice.status)) return 'notIssued'
   return null
 }

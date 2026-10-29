@@ -324,6 +324,22 @@ router
         router
           .post('invoices/:id/submissions/outcome', [controllers.Invoices, 'recordOutcome'])
           .where('id', router.matchers.number())
+        // Legacy Invoices (#27): entered by hand, outside the SDI flow
+        router.get('invoices/legacy/create', [controllers.LegacyInvoices, 'create'])
+        router.post('invoices/legacy', [controllers.LegacyInvoices, 'store'])
+        router
+          .get('invoices/:id/legacy', [controllers.LegacyInvoices, 'show'])
+          .where('id', router.matchers.number())
+        // POST, as the form may carry a new PDF
+        router
+          .post('invoices/:id/legacy', [controllers.LegacyInvoices, 'update'])
+          .where('id', router.matchers.number())
+        router
+          .delete('invoices/:id/legacy', [controllers.LegacyInvoices, 'destroy'])
+          .where('id', router.matchers.number())
+        router
+          .get('invoices/:id/legacy/pdf', [controllers.LegacyInvoices, 'pdf'])
+          .where('id', router.matchers.number())
       })
       .use(middleware.can('manageInvoices'))
 
