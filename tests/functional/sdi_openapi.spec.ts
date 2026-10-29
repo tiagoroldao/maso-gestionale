@@ -457,14 +457,20 @@ test.group('SDI receiving callback', (group) => {
     assert.equal(openapi.configurations[1].callbacks[0].event, 'customer-notification')
   })
 
-  test('saving still works when the callback can not be registered', async ({ client, assert }) => {
+  test('saving still works when the callback can not be registered, and says so', async ({
+    client,
+    assert,
+  }) => {
     const superuser = await createUser('superuser')
     // No VAT number in Company settings yet: no fiscal id to register for
     const saved = await save(client, superuser, { sdiMode: 'openapi', openapiToken: 'oat_1' })
+    // The only flash, so no confirmation toast replaces it (#215)
     saved.assertFlashMessage(
-      'error',
+      'warning',
       it('flash.receivingNotRegistered', { detail: it('ui.sdiFailures.noFiscalId') })
     )
+    saved.assertFlashMissing('success')
+    saved.assertFlashMissing('error')
     const settings = await InstanceSettings.findOrFail(1)
     assert.equal(settings.sdiMode, 'openapi')
     assert.lengthOf(openapi.configurations, 0)
