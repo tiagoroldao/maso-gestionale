@@ -792,4 +792,42 @@ test.group('Work state: existing data (migration)', () => {
     const kept = await db.rawQuery(`SELECT to_regclass('charge_work_events_kept') AS kept`)
     assert.isNull(kept.rows[0].kept)
   })
+
+  test('not done, then drafted or billed while rolled back: done again, off stock', async ({
+    assert,
+  }) => {
+    const drafted = await closedVisit()
+    const billed = await closedVisit()
+    for (const setup of [drafted, billed]) {
+      await Charges.setWorkState(setup.valves, 'not_done', setup.office, 'Non usato')
+    }
+    assert.equal(await StockLedger.levelOf(drafted.valve), '10.000')
+
+    // down
+    await keepWorkEvents(db)
+    // Rolled back, a draft takes the valves as any recorded work: what
+    // fromJob did then, here with a "done" event it takes back at once
+    for (const setup of [drafted, billed]) {
+      const done = await ChargeEvent.create({ chargeId: setup.valves.id, kind: 'done' })
+      const draft = await Invoices.fromJob(setup.job)
+      await done.delete()
+      if (setup === billed) await Invoices.finalise(draft)
+    }
+    // up
+    await restoreWorkEvents(db)
+    await migrateWorkStates(db)
+
+    for (const setup of [drafted, billed]) {
+      assert.equal(await workOf(assert, setup.valves), 'done')
+      await setup.valves.refresh()
+      const usage = await StockMovement.findOrFail(setup.valves.stockMovementId)
+      assert.deepEqual(
+        [usage.kind, usage.quantity, usage.occurredOn.toISODate()],
+        ['usage', '-3.000', '2026-10-20']
+      )
+      assert.equal(await StockLedger.levelOf(setup.valve), '7.000')
+      // Its Visit's other Charges came back done, as they were
+      assert.equal(await workOf(assert, setup.hours), 'done')
+    }
+  })
 })

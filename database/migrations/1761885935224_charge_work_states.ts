@@ -128,9 +128,13 @@ export async function keepWorkEvents(db: Pick<QueryClientContract, 'rawQuery'>) 
 
 /**
  * Puts back the work events down() kept, in their order, for the Charges
- * still there. One left planned whose Visit closed since, or that an
- * Invoice billed or a draft took since, is worked out again by
- * migrateWorkStates() instead (up).
+ * still there. Some are worked out again by migrateWorkStates() instead
+ * (up), as what happened since says the work was done:
+ * - one left planned whose Visit closed since, or that an Invoice billed
+ *   or a draft took since;
+ * - one left not done that a draft holds now, or an issued Invoice bills
+ *   (its latest billing "billed" or "uncredited"). One credited, then not
+ *   done, still has "credited" as its latest billing, and stays not done.
  */
 export async function restoreWorkEvents(db: Pick<QueryClientContract, 'rawQuery'>) {
   const found = await db.rawQuery(`SELECT to_regclass('${KEPT}') AS kept`)
@@ -140,9 +144,19 @@ export async function restoreWorkEvents(db: Pick<QueryClientContract, 'rawQuery'
     FROM ${KEPT} k
     JOIN charges c ON c.id = k.charge_id
     LEFT JOIN visits v ON v.id = c.visit_id
-    WHERE (SELECT l.kind FROM ${KEPT} l WHERE l.charge_id = k.charge_id
-        ORDER BY l.id DESC LIMIT 1) <> 'planned'
-      OR (coalesce(v.status NOT IN ('done', 'needs_return'), true)
+    CROSS JOIN LATERAL (SELECT l.kind FROM ${KEPT} l WHERE l.charge_id = k.charge_id
+      ORDER BY l.id DESC LIMIT 1) latest
+    WHERE latest.kind = 'done'
+      OR (latest.kind = 'not_done'
+        AND NOT EXISTS (SELECT 1 FROM invoice_line_charges lc
+          JOIN invoice_lines dl ON dl.id = lc.invoice_line_id
+          JOIN invoices d ON d.id = dl.invoice_id
+          WHERE lc.charge_id = c.id AND d.status = 'draft')
+        AND coalesce((SELECT e.kind FROM charge_events e
+          WHERE e.charge_id = c.id AND e.kind IN ('billed', 'unbilled', 'credited', 'uncredited')
+          ORDER BY e.id DESC LIMIT 1), 'none') NOT IN ('billed', 'uncredited'))
+      OR (latest.kind = 'planned'
+        AND coalesce(v.status NOT IN ('done', 'needs_return'), true)
         AND NOT EXISTS (SELECT 1 FROM charge_events e
           WHERE e.charge_id = c.id AND e.kind = 'billed')
         AND NOT EXISTS (SELECT 1 FROM invoice_line_charges lc WHERE lc.charge_id = c.id))
