@@ -254,8 +254,19 @@
     "duplicate": "Questa fattura è già stata ricevuta.",
     "notForCompany": "La fattura non è intestata all'azienda: il destinatario ha un'altra Partita IVA o Codice Fiscale."
   },
-  "supplierInvoiceHandled": "Fattura segnata come gestita.",
-  "supplierInvoiceToHandle": "Fattura riportata tra quelle da gestire.",
+  "supplierInvoiceLineReceived": "Carico registrato: {quantity} {unit} di {code}.",
+  "supplierInvoiceLineUnits": "La riga è in {lineUnit}, l'articolo in {unit}: controlla la quantità caricata.",
+  "supplierInvoiceLineBelowMarkup": "Il prezzo di vendita di {code} è ora sotto il ricarico della categoria ({markup} %): rivedi il prezzo.",
+  "supplierInvoiceLineNotStock": "Riga segnata come non di magazzino.",
+  "supplierInvoiceLineUndone": "Riga riportata tra quelle da gestire.",
+  "supplierInvoiceLineRefused": {
+    "handled": "La riga è già stata gestita: annullala prima di cambiarla.",
+    "notHandled": "La riga è ancora da gestire.",
+    "archivedItem": "L'articolo è archiviato: scegline un altro o ripristinalo.",
+    "creditNote": "Le righe di una nota di credito non entrano in magazzino.",
+    "currency": "Una fattura in valuta estera non si carica da qui: registra il carico dalla pagina dell'articolo.",
+    "negativeTotal": "Una riga con importo negativo non entra in magazzino."
+  },
   "supplierCreated": "Fornitore creato.",
   "supplierSaved": "Fornitore salvato.",
   "supplierExists": "Esiste già un fornitore con questa Partita IVA.",

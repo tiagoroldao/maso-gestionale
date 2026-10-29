@@ -147,7 +147,7 @@ A business the company buys from, known by its VAT number; created by Office, or
 _Avoid_: Vendor, provider
 
 **Supplier Invoice** (_Fattura passiva_):
-An electronic invoice received from a Supplier, either through the SDI intermediary or uploaded by Office as the XML or signed (.p7m) file SDI delivered, kept with its original file in an inbox until Office has handled it; used to record purchases of Items. The same invoice (by the Supplier's VAT number, number and date, or by SDI identifier) is received only once.
+An electronic invoice received from a Supplier, either through the SDI intermediary or uploaded by Office as the XML or signed (.p7m) file SDI delivered, kept with its original file in an inbox until Office has handled it: each of its lines received into stock onto an Item (a receipt at the line's unit cost after discounts) or marked not stock (_non di magazzino_: shipping, services, untracked consumables). The same invoice (by the Supplier's VAT number, number and date, or by SDI identifier) is received only once.
 _Avoid_: Purchase invoice, incoming invoice
 
 **Legacy Invoice**:

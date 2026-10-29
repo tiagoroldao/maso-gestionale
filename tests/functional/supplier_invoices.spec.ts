@@ -394,35 +394,6 @@ test.group('Supplier Invoices', (group) => {
     assert.lengthOf(await storedFiles(), 2)
   })
 
-  test('Office marks one handled, and sets it back to handle', async ({ client, assert }) => {
-    const office = await createUser('office')
-    await upload(client, office)
-    const invoice = await SupplierInvoice.firstOrFail()
-
-    const handled = await client
-      .post(`/supplier-invoices/${invoice.id}/handled`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    handled.assertHeader('location', `/supplier-invoices/${invoice.id}`)
-    handled.assertFlashMessage('success', it('flash.supplierInvoiceHandled'))
-    await invoice.refresh()
-    assert.equal(invoice.status, 'handled')
-    assert.equal(invoice.handledBy, office.id)
-    assert.isNotNull(invoice.handledAt)
-
-    const back = await client
-      .post(`/supplier-invoices/${invoice.id}/to-handle`)
-      .withCsrfToken()
-      .loginAs(office)
-      .redirects(0)
-    back.assertFlashMessage('success', it('flash.supplierInvoiceToHandle'))
-    await invoice.refresh()
-    assert.equal(invoice.status, 'to_handle')
-    assert.isNull(invoice.handledBy)
-    assert.isNull(invoice.handledAt)
-  })
-
   test('Office adds a Supplier by hand; its invoices then come to it', async ({
     client,
     assert,
@@ -511,8 +482,6 @@ test.group('Supplier Invoices', (group) => {
       ['post', '/supplier-invoices'],
       ['get', `/supplier-invoices/${invoice.id}`],
       ['get', `/supplier-invoices/${invoice.id}/file`],
-      ['post', `/supplier-invoices/${invoice.id}/handled`],
-      ['post', `/supplier-invoices/${invoice.id}/to-handle`],
       ['get', '/suppliers'],
       ['get', '/suppliers/create'],
       ['post', '/suppliers'],
@@ -567,13 +536,5 @@ test.group('Supplier Invoices', (group) => {
     }
     const uploaded = await upload(client, admin, xmlUpload({ number: 'A-1' }))
     uploaded.assertFlashMessage('success', it('flash.supplierInvoiceUploaded', { count: 1 }))
-    const handled = await client
-      .post(`/supplier-invoices/${invoice.id}/handled`)
-      .withCsrfToken()
-      .loginAs(admin)
-      .redirects(0)
-    handled.assertStatus(302)
-    await invoice.refresh()
-    assert.equal(invoice.handledBy, admin.id)
   })
 })

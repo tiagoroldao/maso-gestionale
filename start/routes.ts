@@ -422,11 +422,18 @@ router
         router
           .get('supplier-invoices/:id/file', [controllers.SupplierInvoices, 'file'])
           .where('id', router.matchers.number())
+        // Handling its lines (#199)
         router
-          .post('supplier-invoices/:id/handled', [controllers.SupplierInvoices, 'markHandled'])
+          .post('supplier-invoice-lines/:id/receipt', [controllers.SupplierInvoiceLines, 'receive'])
           .where('id', router.matchers.number())
         router
-          .post('supplier-invoices/:id/to-handle', [controllers.SupplierInvoices, 'markToHandle'])
+          .post('supplier-invoice-lines/:id/not-stock', [
+            controllers.SupplierInvoiceLines,
+            'markNotStock',
+          ])
+          .where('id', router.matchers.number())
+        router
+          .post('supplier-invoice-lines/:id/undo', [controllers.SupplierInvoiceLines, 'undo'])
           .where('id', router.matchers.number())
         router.get('suppliers', [controllers.Suppliers, 'index'])
         router.get('suppliers/create', [controllers.Suppliers, 'create'])

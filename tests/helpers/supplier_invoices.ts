@@ -44,3 +44,56 @@ export function supplierInvoiceXml(
     .replace(FIXTURE.supplierName, changes.supplierName ?? FIXTURE.supplierName)
     .replace(FIXTURE.buyerVat, changes.buyerVat ?? FIXTURE.buyerVat)
 }
+
+/** A line written into a fixture invoice (DettaglioLinee) */
+export type FixtureLine = {
+  code?: string
+  description: string
+  quantity?: string
+  unit?: string
+  unitPrice: string
+  /** A percentage discount (ScontoMaggiorazione SC), already applied to `total` */
+  discountPercent?: string
+  total: string
+}
+
+/**
+ * The fixture's XML with other lines (its VAT summary unchanged), and
+ * optionally another document type or currency.
+ */
+export function supplierInvoiceXmlWithLines(
+  lines: FixtureLine[],
+  changes: Parameters<typeof supplierInvoiceXml>[0] & {
+    documentType?: string
+    currency?: string
+  } = {}
+) {
+  const details = lines
+    .map((line, index) =>
+      [
+        '<DettaglioLinee>',
+        `<NumeroLinea>${index + 1}</NumeroLinea>`,
+        line.code
+          ? `<CodiceArticolo><CodiceTipo>FORN</CodiceTipo><CodiceValore>${line.code}</CodiceValore></CodiceArticolo>`
+          : '',
+        `<Descrizione>${line.description}</Descrizione>`,
+        line.quantity ? `<Quantita>${line.quantity}</Quantita>` : '',
+        line.unit ? `<UnitaMisura>${line.unit}</UnitaMisura>` : '',
+        `<PrezzoUnitario>${line.unitPrice}</PrezzoUnitario>`,
+        line.discountPercent
+          ? `<ScontoMaggiorazione><Tipo>SC</Tipo><Percentuale>${line.discountPercent}</Percentuale></ScontoMaggiorazione>`
+          : '',
+        `<PrezzoTotale>${line.total}</PrezzoTotale>`,
+        '<AliquotaIVA>22.00</AliquotaIVA>',
+        '</DettaglioLinee>',
+      ].join('')
+    )
+    .join('\n')
+  return supplierInvoiceXml(changes)
+    .replace(/<DettaglioLinee>[\s\S]*<\/DettaglioLinee>/, details)
+    .replace(
+      '<TipoDocumento>TD01</TipoDocumento>',
+      `<TipoDocumento>${changes.documentType ?? 'TD01'}</TipoDocumento>`
+    )
+    .replace('<Divisa>EUR</Divisa>', `<Divisa>${changes.currency ?? 'EUR'}</Divisa>`)
+}
