@@ -5,7 +5,7 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 ## Steps
 
 1. **Branch** from a fresh `origin/main`: `git fetch && git checkout -b <feat|fix|chore>/<issue>-<slug> origin/main`.
-2. **Build** the slice end to end (migration, model, validator, controller, page, catalogue strings, tests). Vocabulary from `GLOSSARY.md`; every visible word in `resources/lang/it/*.json`. Pages stay within "UI scope" in `CODING_STANDARDS.md`: functional only, no UX work (ADR 0009).
+2. **Build** the slice end to end (migration, model, validator, controller, page, catalogue strings, tests). Vocabulary from `GLOSSARY.md`; every visible word in `resources/lang/it/*.json`. Pages follow "UI scope" in `CODING_STANDARDS.md` (ADR 0009, ADR 0020).
 3. **Regenerate** after route, controller or migration changes: `npm run codegen` (needs migrations applied to the dev or scratch database). Commit `.adonisjs/` and `database/schema.ts` with the change; CI fails on stale generated files.
 4. **Check** locally: `npm run lint`, `npm run typecheck`, then `node ace test --files <touched specs>` while iterating and the full `node ace test` once before pushing.
 5. **Push and open the PR** (`Closes #N`). Wait for the CI run whose `headSha` is the pushed commit; fix until green.
