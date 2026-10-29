@@ -378,6 +378,39 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     assert.include(checked.stdout, 'The `fiscal_id` filter is ignored')
   })
 
+  test('--cleanup removes nothing when the probe lists no array', async ({ assert }) => {
+    for (const probe of [{ success: true }, { data: null, success: true }]) {
+      const openapi = fakeSandbox({ configured: true }).on(
+        'GET',
+        '/api_configurations',
+        (request) =>
+          request.query.get('fiscal_id') === '00000000000'
+            ? { status: 200, body: probe }
+            : {
+                status: 200,
+                body: {
+                  data: [
+                    {
+                      id: '000000000000000000000000',
+                      callback: { event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL },
+                    },
+                  ],
+                },
+              }
+      )
+
+      const { exitCode, stdout } = await run(openapi, ['--cleanup'])
+
+      assert.equal(exitCode, 1, JSON.stringify(probe))
+      assert.include(stdout, 'The `fiscal_id` filter is unconfirmed: nothing was removed')
+      assert.include(stdout, '`fiscal_id` filter: unconfirmed (the probe answered 200')
+      assert.notInclude(
+        openapi.requests.map((request) => request.method),
+        'DELETE'
+      )
+    }
+  })
+
   test('--cleanup removes nothing listed as another fiscal id', async ({ assert }) => {
     const openapi = fakeSandbox({
       configuration: {

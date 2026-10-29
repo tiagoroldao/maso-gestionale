@@ -647,7 +647,9 @@ export class SdiSandboxCheck {
   /**
    * Whether `GET /api_configurations` honours its `fiscal_id` filter: asked
    * for a fiscal id no one holds, it must list nothing. The read carries no
-   * fiscal id, so this is the only way to tell.
+   * fiscal id, so this is the only way to tell. Honoured only for a 200
+   * whose `data` is an empty array: any other answer proves nothing. It
+   * assumes the filter treats every fiscal id the same way.
    */
   private async probeFilter(): Promise<'honoured' | 'ignored' | 'unconfirmed'> {
     const nobody = this.options.fiscalId === NOBODY ? '99999999999' : NOBODY
@@ -655,12 +657,14 @@ export class SdiSandboxCheck {
       'GET',
       `/api_configurations?${new URLSearchParams({ fiscal_id: nobody })}`
     )
-    const listed = asArray(read.body?.data).length
-    const result = read.status !== 200 ? 'unconfirmed' : listed ? 'ignored' : 'honoured'
+    const data = read.body?.data
+    const listed = Array.isArray(data) ? data.length : 0
+    const result =
+      read.status !== 200 || !Array.isArray(data) ? 'unconfirmed' : listed ? 'ignored' : 'honoured'
     this.note(
       `\`fiscal_id\` filter: ${
         result === 'unconfirmed'
-          ? `unconfirmed (the probe answered ${read.status})`
+          ? `unconfirmed (the probe answered ${read.status}, \`data\` ${kind(data)})`
           : `${result} (fiscal id ${nobody}, which no one holds, lists ${listed} item(s))`
       }`
     )
