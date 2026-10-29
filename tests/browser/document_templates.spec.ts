@@ -47,4 +47,36 @@ test.group('Document Templates in the browser', () => {
       attrs: { key: 'field.pressure', label: 'Pressione di prova' },
     })
   })
+
+  test('a refused table column names the input its error is about', async ({
+    browserContext,
+    visit,
+  }) => {
+    await browserContext.loginAs(await createUser('admin'))
+
+    const page = await visit('/settings/document-templates/new')
+    await page.getByLabel(it('ui.documentTemplates.name')).fill('Verbale di misura')
+    await page.getByRole('button', { name: it('ui.documentTemplates.addField') }).click()
+    await page.getByLabel(it('ui.documentTemplates.fieldKeyOf', { position: 1 })).fill('readings')
+    await page.getByLabel(it('ui.documentTemplates.fieldLabelOf', { position: 1 })).fill('Misure')
+    await page
+      .getByLabel(it('ui.documentTemplates.fieldTypeOf', { position: 1 }))
+      .selectOption({ label: it('ui.documentTemplates.fieldTypes.table') })
+    await page.getByRole('button', { name: it('ui.documentTemplates.addColumn') }).click()
+    // The column's label only: its code is missing
+    await page
+      .getByLabel(it('ui.documentTemplates.columnLabelOf', { column: 1, position: 1 }))
+      .fill('Pressione')
+    await page.getByRole('button', { name: it('ui.documentTemplates.save') }).click()
+
+    await page
+      .getByText(
+        it('ui.common.fieldError', {
+          field: it('ui.documentTemplates.columnKey'),
+          message: it('validator.shared.messages.required'),
+        }),
+        { exact: true }
+      )
+      .waitFor()
+  })
 })

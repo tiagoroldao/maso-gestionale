@@ -47,6 +47,24 @@ const describe = (rule: Rule) => ({
   workCategory: t(`ui.jobs.workCategories.${rule.workCategory}`),
   residential: rule.residential ? t('ui.vatRules.residential') : t('ui.vatRules.notResidential'),
 })
+
+/**
+ * The first error, above the table: a rule's code error names its rule,
+ * since the cell it sits under may be far down.
+ */
+const firstError = (errors: Record<string, string>) => {
+  const [key, message] = Object.entries(errors)[0]
+  const index = /^rules\.(\d+)\.vatCodeId$/.exec(key)?.[1]
+  const rule = index === undefined ? undefined : props.rules[Number(index)]
+  if (!rule) return message
+  return t('ui.common.fieldError', {
+    field: t('ui.vatRules.rule', {
+      kind: t(`ui.vatRules.lineKinds.${rule.lineKind}`),
+      ...describe(rule),
+    }),
+    message,
+  })
+}
 </script>
 
 <template>
@@ -55,7 +73,7 @@ const describe = (rule: Rule) => ({
       <Section :title="t('ui.vatRules.title')" :description="t('ui.vatRules.description')">
         <Form v-slot="{ processing, errors }" route="vat_rules.update">
           <p v-if="Object.keys(errors).length" class="field__error" role="alert">
-            {{ Object.values(errors)[0] }}
+            {{ firstError(errors) }}
           </p>
           <table class="table">
             <thead>

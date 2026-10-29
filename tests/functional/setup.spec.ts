@@ -61,7 +61,6 @@ test.group('First-run setup', () => {
     response.assertFlashMessage('inputErrorsBag', {
       adminEmail: [
         it('validator.shared.messages.notSameAs', {
-          field: it('validator.shared.fields.adminEmail'),
           otherField: it('validator.shared.fields.superuserEmail'),
         }),
       ],

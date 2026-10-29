@@ -45,10 +45,20 @@ defineProps<{
                   <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
                     {{ t('ui.common.save') }}
                   </button>
-                  <span v-if="errors.name" class="field__error">{{ errors.name }}</span>
-                  <span v-if="errors.hourlyPrice" class="field__error">{{
-                    errors.hourlyPrice
-                  }}</span>
+                  <!-- Away from their inputs, so naming them -->
+                  <span v-if="errors.name" class="field__error">
+                    {{
+                      t('ui.common.fieldError', { field: t('ui.rates.name'), message: errors.name })
+                    }}
+                  </span>
+                  <span v-if="errors.hourlyPrice" class="field__error">
+                    {{
+                      t('ui.common.fieldError', {
+                        field: t('ui.rates.hourlyPrice'),
+                        message: errors.hourlyPrice,
+                      })
+                    }}
+                  </span>
                 </Form>
               </td>
               <td class="table__actions">

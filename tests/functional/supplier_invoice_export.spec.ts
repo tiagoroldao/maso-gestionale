@@ -321,13 +321,9 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
     const backwards = await exportPeriod(client, office, '2026-10-31', '2026-10-01')
     backwards.assertStatus(302)
     backwards.assertHeader('location', '/supplier-invoices')
+    // Naming "Dal" as the page shows it (#226)
     assert.deepEqual(backwards.flashMessage('inputErrorsBag'), {
-      issuedTo: [
-        it('validator.shared.messages.date.afterOrSameAs', {
-          field: it('validator.shared.fields.issuedTo'),
-          otherField: it('validator.shared.fields.issuedFrom'),
-        }),
-      ],
+      issuedTo: [it('validator.shared.messages.issuedTo.date.afterOrSameAs')],
     })
 
     const missing = await client
@@ -337,14 +333,8 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
       .redirects(0)
     missing.assertStatus(302)
     assert.deepEqual(missing.flashMessage('inputErrorsBag'), {
-      issuedFrom: [
-        it('validator.shared.messages.required', {
-          field: it('validator.shared.fields.issuedFrom'),
-        }),
-      ],
-      issuedTo: [
-        it('validator.shared.messages.required', { field: it('validator.shared.fields.issuedTo') }),
-      ],
+      issuedFrom: [it('validator.shared.messages.required')],
+      issuedTo: [it('validator.shared.messages.required')],
     })
   })
 

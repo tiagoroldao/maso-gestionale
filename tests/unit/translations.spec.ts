@@ -432,12 +432,40 @@ test.group('Translations', () => {
       'Missing validation message: email.madeUpRule'
     )
 
-    // A message naming a field the catalogue doesn't
-    const noField = vine.create({ notInTheCatalogue: vine.string() })
+    // A message naming another field the catalogue doesn't
+    const noField = vine.create({
+      notInTheCatalogue: vine.string(),
+      confirmation: vine.string().sameAs('notInTheCatalogue'),
+    })
     await assert.rejects(
-      () => noField.validate({}, { messagesProvider }),
+      () => noField.validate({ notInTheCatalogue: 'a', confirmation: 'b' }, { messagesProvider }),
       'Missing validation field name: notInTheCatalogue'
     )
+  })
+
+  test('a validation message never names its own field', async ({ assert }) => {
+    // It shows under that field (#226); a field the catalogue has no label
+    // for is fine, since no message shows it
+    const messages: Record<string, string> = JSON.parse(
+      await readFile(app.makePath('resources/lang/it/validator.json'), 'utf8')
+    ).shared.messages
+    assert.deepEqual(
+      Object.keys(messages).filter((key) => messages[key].includes('{field}')),
+      []
+    )
+
+    const validator = vine.create({ notInTheCatalogue: vine.string() })
+    const [error] = await validator.tryValidate(
+      {},
+      { messagesProvider: validationMessages(i18nManager.locale('it')) }
+    )
+    assert.deepEqual(error?.messages, [
+      {
+        field: 'notInTheCatalogue',
+        message: i18nManager.locale('it').t('validator.shared.messages.required'),
+        rule: 'required',
+      },
+    ])
   })
 
   test('a refused sameAs leaves the validator comparing the same field', async ({ assert }) => {

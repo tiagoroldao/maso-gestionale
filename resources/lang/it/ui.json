@@ -12,7 +12,8 @@
     "logout": "Esci",
     "lightTheme": "Passa al tema chiaro",
     "darkTheme": "Passa al tema scuro",
-    "paginationLabel": "Paginazione"
+    "paginationLabel": "Paginazione",
+    "fieldError": "{field}: {message}"
   },
   "nav": {
     "dashboard": "Bacheca",
@@ -668,6 +669,10 @@
     "columnLabelOf": "Etichetta della colonna {column} del campo {position}",
     "columnTypeOf": "Tipo della colonna {column} del campo {position}",
     "columnFromOf": "Origine della colonna {column} del campo {position}",
+    "columnKey": "Codice",
+    "columnLabel": "Etichetta",
+    "columnType": "Tipo",
+    "columnFrom": "Origine",
     "columnTypes": {
       "text": "Testo",
       "number": "Numero",
@@ -737,6 +742,7 @@
     "save": "Salva regole",
     "archived": "(archiviato)",
     "codeFor": "{kind}: {customerType}, {workCategory}, {residential}",
+    "rule": "{kind} ({customerType}, {workCategory}, {residential})",
     "lineKinds": {
       "labour": "Manodopera",
       "material": "Materiale",

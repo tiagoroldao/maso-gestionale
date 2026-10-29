@@ -19,6 +19,14 @@ type VatCode = {
 defineProps<{ vatCodes: VatCode[]; legalNoteMax: number }>()
 
 const rowStyle = { display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }
+
+// A row's errors show after its inputs, with the field each is about
+const rowLabels = {
+  name: t('ui.vatCodes.name'),
+  rate: t('ui.vatCodes.rate'),
+  natura: t('ui.vatCodes.natura'),
+  legalNote: t('ui.vatCodes.legalNote'),
+}
 </script>
 
 <template>
@@ -80,8 +88,11 @@ const rowStyle = { display: 'flex', gap: '8px', alignItems: 'flex-start', flexWr
                   <span v-if="code.legalNoteTooLong" class="field__error">
                     {{ t('ui.vatCodes.legalNoteTooLong', { max: legalNoteMax }) }}
                   </span>
-                  <span v-for="field in ['name', 'rate', 'natura', 'legalNote']" :key="field">
-                    <span v-if="errors[field]" class="field__error">{{ errors[field] }}</span>
+                  <!-- Away from their inputs, so naming them -->
+                  <span v-for="(label, field) in rowLabels" :key="field">
+                    <span v-if="errors[field]" class="field__error">
+                      {{ t('ui.common.fieldError', { field: label, message: errors[field] }) }}
+                    </span>
                   </span>
                 </Form>
               </td>

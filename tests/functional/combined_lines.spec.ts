@@ -245,7 +245,7 @@ test.group('Combining alike Charges on drafts', () => {
     const { office, job } = await longJob()
     const response = await draft(client, job, office, { combine: 'true', upTo: 'domani' })
     assert.deepEqual(response.flashMessage('inputErrorsBag'), {
-      upTo: [it('validator.shared.messages.date', { field: 'fino al' })],
+      upTo: [it('validator.shared.messages.date')],
     })
     assert.lengthOf(await Invoice.query().where('jobId', job.id), 0)
   })

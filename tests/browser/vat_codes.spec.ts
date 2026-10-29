@@ -27,4 +27,31 @@ test.group('VAT Codes in the browser', () => {
     assert.equal(code.natura, 'N6.1')
     assert.equal(code.legalNote, 'Art. 74 DPR 633/1972')
   })
+
+  test('a refused row edit names the field, its error being away from the input', async ({
+    browserContext,
+    visit,
+  }) => {
+    await browserContext.loginAs(await createUser('admin'))
+    const code = await VatCode.create({ name: 'Aliquota di prova', rate: '22' })
+
+    const page = await visit('/settings/vat-codes')
+    await page.getByLabel(it('ui.vatCodes.nameOf', { name: code.name })).fill('')
+    await page
+      .getByRole('row')
+      .filter({ has: page.getByLabel(it('ui.vatCodes.nameOf', { name: code.name })) })
+      .getByRole('button', { name: it('ui.common.save') })
+      .click()
+
+    await page
+      .getByText(
+        it('ui.common.fieldError', {
+          field: it('ui.vatCodes.name'),
+          message: it('validator.shared.messages.required'),
+        }),
+        { exact: true }
+      )
+      .first()
+      .waitFor()
+  })
 })

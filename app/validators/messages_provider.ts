@@ -7,15 +7,20 @@ const PREFIX = 'validator.shared'
 /**
  * Validation messages from the catalogue (`validator.shared`).
  *
+ * A message shows under its own field, so it never names it (#226): only
+ * `{otherField}`, the other field a rule compares with (`sameAs`), is
+ * named, by its label in `validator.shared.fields`. Pages that show an
+ * error away from its field put the field's label beside it.
+ *
  * The provider gets a copy of the rule's options: it translates
  * `otherField` in place, and VineJS builds those options once per
  * validator, so after one refusal `sameAs` would compare against the
  * Italian label and refuse every later submission.
  *
- * Under test a message, or a field name it shows, missing from the
- * catalogue throws: otherwise VineJS falls back to its English message or
- * the raw field name, and a test comparing against the catalogue can't
- * tell (#207).
+ * Under test a message missing from the catalogue, one naming its own
+ * field, or another field's name missing from it, throws: otherwise VineJS
+ * falls back to its English message or the raw field name, and a test
+ * comparing against the catalogue can't tell (#207).
  */
 export function validationMessages(
   i18n: I18n,
@@ -43,14 +48,15 @@ function assertInCatalogue(
   if (!resolved) {
     throw new Error(`Missing validation message: ${field.wildCardPath}.${rule}`)
   }
-  const shown = { field: field.name, otherField: meta?.otherField }
-  for (const [placeholder, name] of Object.entries(shown)) {
-    if (
-      name !== undefined &&
-      resolved.message.includes(`{${placeholder}}`) &&
-      !i18n.hasMessage(`${PREFIX}.fields.${name}`)
-    ) {
-      throw new Error(`Missing validation field name: ${name}`)
-    }
+  if (resolved.message.includes('{field}')) {
+    throw new Error(`Validation message names its own field: ${field.wildCardPath}.${rule}`)
+  }
+  const otherField = meta?.otherField
+  if (
+    otherField !== undefined &&
+    resolved.message.includes('{otherField}') &&
+    !i18n.hasMessage(`${PREFIX}.fields.${otherField}`)
+  ) {
+    throw new Error(`Missing validation field name: ${otherField}`)
   }
 }

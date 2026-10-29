@@ -383,10 +383,14 @@ test.group('Quotes', () => {
       ],
     })
 
-    assert.properties(response.flashMessage('inputErrorsBag'), [
-      'lines.0.itemId',
-      'lines.1.labourRateId',
-      'lines.2.quantity',
+    const errors = response.flashMessage('inputErrorsBag')
+    assert.properties(errors, ['lines.0.itemId', 'lines.1.labourRateId', 'lines.2.quantity'])
+    // Shown under the line's description, so saying what is no longer there (#226)
+    assert.deepEqual(errors['lines.0.itemId'], [
+      it('validator.shared.messages.lines.*.itemId.database.exists'),
+    ])
+    assert.deepEqual(errors['lines.1.labourRateId'], [
+      it('validator.shared.messages.lines.*.labourRateId.database.exists'),
     ])
   })
 

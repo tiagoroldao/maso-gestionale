@@ -56,9 +56,22 @@ const percent = (value: string) => amountForInput(value).replace(/,00$/, '')
                   <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
                     {{ t('ui.common.save') }}
                   </button>
-                  <span v-if="errors.name" class="field__error">{{ errors.name }}</span>
+                  <!-- Away from their inputs, so naming them -->
+                  <span v-if="errors.name" class="field__error">
+                    {{
+                      t('ui.common.fieldError', {
+                        field: t('ui.categories.name'),
+                        message: errors.name,
+                      })
+                    }}
+                  </span>
                   <span v-if="errors.markupPercent" class="field__error">
-                    {{ errors.markupPercent }}
+                    {{
+                      t('ui.common.fieldError', {
+                        field: t('ui.categories.markup'),
+                        message: errors.markupPercent,
+                      })
+                    }}
                   </span>
                 </Form>
               </td>

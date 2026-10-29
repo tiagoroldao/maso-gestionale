@@ -124,7 +124,7 @@ test.group('Payments', () => {
     for (const amount of ['0', '-0,00']) {
       const zero = await pay(client, invoice, office, amount)
       assert.deepEqual(zero.flashMessage('inputErrorsBag'), {
-        amount: [it('validator.shared.messages.amount.nonZero', { field: 'importo' })],
+        amount: [it('validator.shared.messages.amount.nonZero')],
       })
     }
     assert.lengthOf(await Payment.all(), 0)
