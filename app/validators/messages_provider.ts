@@ -5,36 +5,52 @@ import type { FieldContext, MessagesProviderContact } from '@vinejs/vine/types'
 const PREFIX = 'validator.shared'
 
 /**
- * Validation messages from the catalogue (`validator.shared`). Under test a
- * message, or a field name it shows, missing from the catalogue throws:
- * otherwise VineJS falls back to its English message or the raw field name,
- * and a test comparing against the catalogue can't tell (#207).
+ * Validation messages from the catalogue (`validator.shared`).
+ *
+ * The provider gets a copy of the rule's options: it translates
+ * `otherField` in place, and VineJS builds those options once per
+ * validator, so after one refusal `sameAs` would compare against the
+ * Italian label and refuse every later submission.
+ *
+ * Under test a message, or a field name it shows, missing from the
+ * catalogue throws: otherwise VineJS falls back to its English message or
+ * the raw field name, and a test comparing against the catalogue can't
+ * tell (#207).
  */
-export function validationMessages(i18n: I18n): MessagesProviderContact {
+export function validationMessages(
+  i18n: I18n,
+  { strict = app.inTest }: { strict?: boolean } = {}
+): MessagesProviderContact {
   const provider = i18n.createMessagesProvider(PREFIX)
-  if (!app.inTest) return provider
 
   return {
     getMessage(defaultMessage, rule, field: FieldContext, meta?: Record<string, any>) {
-      const resolved =
-        i18n.resolveIdentifier(`${PREFIX}.messages.${field.wildCardPath}.${rule}`) ??
-        i18n.resolveIdentifier(`${PREFIX}.messages.${rule}`)
-      if (!resolved) {
-        throw new Error(`Missing validation message: ${field.wildCardPath}.${rule}`)
-      }
-      const shown = { field: field.name, otherField: meta?.otherField }
-      for (const [placeholder, name] of Object.entries(shown)) {
-        if (
-          name !== undefined &&
-          resolved.message.includes(`{${placeholder}}`) &&
-          !i18n.hasMessage(`${PREFIX}.fields.${name}`)
-        ) {
-          throw new Error(`Missing validation field name: ${name}`)
-        }
-      }
-      // A copy: the provider translates `otherField` in place, and VineJS
-      // hands the same object to every report of the rule
+      if (strict) assertInCatalogue(i18n, rule, field, meta)
       return provider.getMessage(defaultMessage, rule, field, meta && { ...meta })
     },
+  }
+}
+
+function assertInCatalogue(
+  i18n: I18n,
+  rule: string,
+  field: FieldContext,
+  meta?: Record<string, any>
+) {
+  const resolved =
+    i18n.resolveIdentifier(`${PREFIX}.messages.${field.wildCardPath}.${rule}`) ??
+    i18n.resolveIdentifier(`${PREFIX}.messages.${rule}`)
+  if (!resolved) {
+    throw new Error(`Missing validation message: ${field.wildCardPath}.${rule}`)
+  }
+  const shown = { field: field.name, otherField: meta?.otherField }
+  for (const [placeholder, name] of Object.entries(shown)) {
+    if (
+      name !== undefined &&
+      resolved.message.includes(`{${placeholder}}`) &&
+      !i18n.hasMessage(`${PREFIX}.fields.${name}`)
+    ) {
+      throw new Error(`Missing validation field name: ${name}`)
+    }
   }
 }
