@@ -46,6 +46,18 @@ From Openapi's official documentation and OpenAPI spec (console.openapi.com/apis
 - **Archiving received invoices (spec only, #214):** `POST /supplier_invoice_imports_legal_storage` ("Import a supplier invoice that was already received from SDI. The invoice will be sent to the legal storage") takes JSON `{ invoice, metadata }` or `{ invoice, invoice_file_name, sdi_id }`, with `invoice` and `metadata` in base64. It answers 201 with `uuid`, one per invoice in the file. `POST /supplier_invoice_imports` is the same without archiving. Not checked in the sandbox: no live calls were made for #214 (#204).
 - **Pricing (console, 2026-10-29):** `POST /invoices` €0.070 (from €0.022 with a subscription), €0.105 with legal storage (`POST /invoices_legal_storage`; the OpenAPI spec carries no prices, so the Instance settings hint quotes this list); `GET /invoices_download` €0.001. `GET /invoices` and `GET /invoices_notifications` have 1000 free calls a day each, so the poller only asks about Submissions still waiting.
 
+## Still to confirm
+
+Open on #204, and checked by `node ace sdi:sandbox-check` (#219, see `docs/openapi-sandbox-check.md`), whose report is pasted there:
+
+- that a queued sent file is found by its date plus the number in its `payload` (`findSent`), so an unknown send is settled rather than sent twice (#204's headline question; check 3);
+- how `GET /api_configurations` reads callbacks back: `callback` or `callbacks`, an array or an object, and whether its `fiscal_id` filter is honoured (check 2);
+- that `POST /invoices_legal_storage` answers like `POST /invoices`, that its files are listed for `findSent` and have notices, and how `legally_stored` and `preserved_document` show (check 4);
+- that a received invoice stays listable when its `supplier-invoice` callback can't be delivered, option (a) (check 5);
+- that `GET /invoices` honours `invoiceDate[after|before]` and `createdAt[after]`, and in which order it lists (check 6);
+- whether a simulated notice is ever stored for polling (check 7);
+- how `POST /supplier_invoice_imports_legal_storage` answers for a received file, and whether it takes a .p7m as it is (check 8).
+
 ## Considered Options
 
 - **Invoicetronic** (ADR 0004): replaced by the business's choice of Openapi, for now.

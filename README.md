@@ -72,6 +72,8 @@ The `app` container runs pending migrations on start-up and then serves on port 
 
 The `backup` container (the same image) takes the nightly encrypted off-site backup at `BACKUP_TIME` (01:30 by default), once the Superuser has set the bucket and the passphrase in Instance settings; `node ace backup:run` takes one now. Restoring: [docs/restore.md](docs/restore.md).
 
+`node ace sdi:sandbox-check` checks Openapi's sandbox against the app's assumptions and prints a Markdown report: [docs/openapi-sandbox-check.md](docs/openapi-sandbox-check.md).
+
 ## Releases
 
 Pushing a version tag publishes the app image to GitHub Container Registry and creates a GitHub release listing the changes since the previous tag:

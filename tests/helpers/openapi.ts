@@ -46,17 +46,24 @@ export class FakeOpenapi {
   /**
    * Answers `api_configurations` as Openapi keeps them: one configuration
    * per fiscal id, each POST replacing it. The POSTs are in `requests`.
+   * By default the read ignores the `fiscal_id` filter and carries
+   * `fiscal_id` on each item; `honoursFilter` lists nothing for another
+   * fiscal id, and `withFiscalId: false` leaves it out, as the spec's
+   * ApiConfiguration-read does.
    */
   keepsApiConfigurations(
     initial: { fiscal_id: string; callbacks: Record<string, unknown>[] } | null = null,
-    shape: ReadShape = 'callback'
+    shape: ReadShape = 'callback',
+    options: { honoursFilter?: boolean; withFiscalId?: boolean } = {}
   ) {
+    const { honoursFilter = false, withFiscalId = true } = options
     let stored = initial
     // Read back in one of the shapes the spec shows, with Openapi's own
     // read-only fields (ids, provider_uuid)
-    this.on('GET', '/api_configurations', () => {
+    this.on('GET', '/api_configurations', (request) => {
       const none = recorded('apiConfigurationsNone')
-      if (stored) {
+      const filter = request.query.get('fiscal_id')
+      if (stored && !(honoursFilter && filter && filter !== stored.fiscal_id)) {
         const read = stored.callbacks.map((callback, index) => ({
           ...callback,
           id: `00000000000000000000010${index}`,
@@ -64,7 +71,7 @@ export class FakeOpenapi {
         }))
         const item = (index: number) => ({
           id: `00000000000000000000000${index}`,
-          fiscal_id: stored!.fiscal_id,
+          ...(withFiscalId ? { fiscal_id: stored!.fiscal_id } : {}),
         })
         none.body.data =
           shape === 'callbacksArray'
