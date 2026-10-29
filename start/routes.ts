@@ -414,6 +414,8 @@ router
       .group(() => {
         router.get('supplier-invoices', [controllers.SupplierInvoices, 'index'])
         router.post('supplier-invoices', [controllers.SupplierInvoices, 'store'])
+        // A period's invoices for the commercialista (#200)
+        router.get('supplier-invoices/export', [controllers.SupplierInvoices, 'export'])
         router
           .get('supplier-invoices/:id', [controllers.SupplierInvoices, 'show'])
           .where('id', router.matchers.number())

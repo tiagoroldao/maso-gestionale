@@ -11,6 +11,7 @@ import {
   SUPPLIER_INVOICE_SOURCES,
   SUPPLIER_INVOICE_STATUSES,
 } from '#shared/supplier_invoices'
+import { EXPORT_COLUMNS } from '#services/supplier_invoice_export'
 
 async function catalogue() {
   const directory = app.makePath('resources/lang/it')
@@ -74,6 +75,10 @@ test.group('Translations', () => {
       ...ALL_PAYMENT_METHODS.map((method) => `ui.supplierInvoices.paymentMethods.${method}`),
       ...['unreadable', 'unsupported', 'signature', 'duplicate', 'notForCompany'].map(
         (reason) => `flash.supplierInvoiceRefused.${reason}`
+      ),
+      ...EXPORT_COLUMNS.map((column) => `documents.supplierInvoiceExport.columns.${column}`),
+      ...SUPPLIER_INVOICE_SOURCES.map(
+        (source) => `documents.supplierInvoiceExport.receivedVia.${source}`
       ),
     ]
 

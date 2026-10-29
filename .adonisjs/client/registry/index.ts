@@ -876,6 +876,12 @@ const routes = {
     tokens: [[0,"supplier-invoices"]],
     types: placeholder as Registry['supplier_invoices.store']['types'],
   },
+  'supplier_invoices.export': {
+    methods: ["GET","HEAD"],
+    pattern: '/supplier-invoices/export',
+    tokens: [[0,"supplier-invoices"],[0,"export"]],
+    types: placeholder as Registry['supplier_invoices.export']['types'],
+  },
   'supplier_invoices.show': {
     methods: ["GET","HEAD"],
     pattern: '/supplier-invoices/:id',

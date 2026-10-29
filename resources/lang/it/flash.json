@@ -258,5 +258,6 @@
   "supplierInvoiceToHandle": "Fattura riportata tra quelle da gestire.",
   "supplierCreated": "Fornitore creato.",
   "supplierSaved": "Fornitore salvato.",
-  "supplierExists": "Esiste già un fornitore con questa Partita IVA."
+  "supplierExists": "Esiste già un fornitore con questa Partita IVA.",
+  "supplierInvoiceExportEmpty": "Nessuna fattura passiva con data nel periodo scelto."
 }

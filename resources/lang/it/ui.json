@@ -1460,7 +1460,12 @@
       "MP21": "SEPA Direct Debit B2B",
       "MP22": "Trattenuta su somme già riscosse",
       "MP23": "PagoPA"
-    }
+    },
+    "export": "Esporta per il commercialista",
+    "exportHint": "Un file zip con i file originali (XML o .p7m), una copia PDF di ogni fattura e un indice CSV, per data della fattura.",
+    "exportFrom": "Dal",
+    "exportTo": "Al",
+    "exportSubmit": "Esporta lo zip"
   },
   "suppliers": {
     "title": "Fornitori",
