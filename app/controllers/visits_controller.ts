@@ -89,12 +89,7 @@ async function planPage<D, P>(job: Job, draft: D, preview: P) {
   }
 }
 
-/**
- * A repeat asked for (#177): the form's values to start from, and the dates
- * it falls on with their public holidays and booked Technicians. All dates
- * are ticked at first; after a refused confirmation, those Office kept,
- * with the reason.
- */
+/** The dates a repeat falls on, as listed to Office */
 function datesOf(input: Infer<typeof repeatVisitValidator>) {
   return repeatedDates({
     from: input.date.toISODate()!,
@@ -105,6 +100,12 @@ function datesOf(input: Infer<typeof repeatVisitValidator>) {
   })
 }
 
+/**
+ * A repeat asked for (#177): the form's values to start from, and the dates
+ * it falls on with their public holidays and booked Technicians. All dates
+ * are ticked at first; after a refused confirmation, those Office kept,
+ * with the reason.
+ */
 async function repeatPlan(
   input: Infer<typeof repeatVisitValidator>,
   confirmation: { kept: string[]; refusal: string } | null = null
