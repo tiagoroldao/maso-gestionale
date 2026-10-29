@@ -75,6 +75,7 @@ export type ScannedRoutes = {
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.repeat_dates': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.repeated_form': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store_repeated': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
@@ -223,6 +224,7 @@ export type ScannedRoutes = {
     'jobs.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.repeated_form': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'visits.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -298,6 +300,7 @@ export type ScannedRoutes = {
     'jobs.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.repeated_form': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'visits.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

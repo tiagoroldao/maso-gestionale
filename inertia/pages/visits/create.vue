@@ -306,7 +306,7 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
 
       <Form
         v-if="preview"
-        v-slot="{ processing, errors }"
+        v-slot="{ processing }"
         route="visits.store_repeated"
         :params="{ id: job.id }"
       >
@@ -373,7 +373,6 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
             <p v-if="preview.truncated" class="field__hint">
               {{ t('ui.visits.truncated', { max: maxRepeated }) }}
             </p>
-            <span v-if="errors.dates" class="field__error">{{ errors.dates }}</span>
             <p v-if="preview.refusal" class="field__error" data-testid="repeat-refusal">
               {{ preview.refusal }}
             </p>

@@ -202,6 +202,9 @@ router
           .post('jobs/:id/visits', [controllers.Visits, 'store'])
           .where('id', router.matchers.number())
         router
+          .get('jobs/:id/visits/repeated', [controllers.Visits, 'repeatedForm'])
+          .where('id', router.matchers.number())
+        router
           .post('jobs/:id/visits/repeated', [controllers.Visits, 'storeRepeated'])
           .where('id', router.matchers.number())
         router.get('agenda', [controllers.Visits, 'schedule'])

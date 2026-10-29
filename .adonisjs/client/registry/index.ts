@@ -432,6 +432,12 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"visits"]],
     types: placeholder as Registry['visits.store']['types'],
   },
+  'visits.repeated_form': {
+    methods: ["GET","HEAD"],
+    pattern: '/jobs/:id/visits/repeated',
+    tokens: [[0,"jobs"],[1,"id"],[0,"visits"],[0,"repeated"]],
+    types: placeholder as Registry['visits.repeated_form']['types'],
+  },
   'visits.store_repeated': {
     methods: ["POST"],
     pattern: '/jobs/:id/visits/repeated',

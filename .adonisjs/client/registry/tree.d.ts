@@ -120,6 +120,7 @@ export interface ApiDefinition {
     create: typeof routes['visits.create']
     repeatDates: typeof routes['visits.repeat_dates']
     store: typeof routes['visits.store']
+    repeatedForm: typeof routes['visits.repeated_form']
     storeRepeated: typeof routes['visits.store_repeated']
     schedule: typeof routes['visits.schedule']
     toSchedule: typeof routes['visits.to_schedule']
