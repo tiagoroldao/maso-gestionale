@@ -296,7 +296,8 @@ export class OpenapiSdiGateway implements SdiGateway {
    * POST /supplier_invoice_imports_legal_storage: imports a Supplier
    * Invoice already received from SDI some other way (Office's upload)
    * into legal archiving (#214, ADR 0019). Openapi takes it only when its
-   * account archives (`apply_legal_storage`): without, it answers 403. The spec takes the invoice XML in base64 (a .p7m is sent as its
+   * account archives (`apply_legal_storage`): without, it answers 403.
+   * The spec takes the invoice XML in base64 (a .p7m is sent as its
    * extracted XML), with SDI's file name and identifier in place of the
    * metadata file, and answers its uuid, or an array of uuids for a file
    * with several invoices. The answer is read as the spec's `{ uuid }` or

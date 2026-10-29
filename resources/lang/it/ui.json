@@ -97,7 +97,7 @@
     },
     "legalStorageReadAt": "Impostazione letta da Openapi il {at}.",
     "legalStorageActiveHint": "Openapi conserva a norma le fatture inviate e le fatture passive che riceve, a pagamento: circa 0,105 € per fattura inviata invece di 0,070 € (listino di ottobre 2026). Le fatture passive caricate a mano gli vengono inviate dall'app, al costo del listino di Openapi. L'accesso alla piattaforma di conservazione si attiva presso Openapi, fuori dall'app.",
-    "legalStorageSetup": "Si attiva presso Openapi, fuori dall'app: la conservazione a norma si sceglie quando si crea la configurazione della Partita IVA (Business Registry Configuration, opzione «apply_legal_storage») e non si può cambiare dopo. Per una configurazione già creata, chiedi a Openapi come attivarla; l'app se ne accorge al controllo successivo.",
+    "legalStorageSetup": "Si attiva presso Openapi, fuori dall'app: la conservazione a norma si sceglie quando si crea la configurazione della Partita IVA (Business Registry Configuration, opzione «apply_legal_storage») e non si può cambiare dopo. Per una configurazione già creata, chiedi a Openapi come attivarla; l'app se ne accorge entro un giorno, o subito salvando queste impostazioni.",
     "legalArchivingElsewhere": "Né le fatture inviate né le fatture passive ricevute vengono conservate a norma dall'app o dall'intermediario: provvedi per entrambe in altro modo, per esempio con il servizio gratuito dell'Agenzia delle Entrate.",
     "archiveExisting": "Archivia le fatture passive caricate a mano già presenti",
     "archiveExistingHint": "{count, plural, one {# fattura passiva caricata a mano non è stata inviata} other {# fatture passive caricate a mano non sono state inviate}} alla conservazione a norma.",
@@ -1544,7 +1544,7 @@
       "sending": "In invio all'intermediario",
       "requested": "Richiesta all'intermediario il {at}",
       "failed": "Invio non riuscito ({at}): {detail}",
-      "automatic": "Conservata dall'intermediario alla ricezione ({at}), con la conservazione a norma attiva presso di lui"
+      "automatic": "Conservata dall'intermediario alla ricezione ({at})"
     },
     "legalArchivingIds": "Identificativi presso l'intermediario",
     "legalArchivingNone": "Non inviata alla conservazione a norma tramite l'intermediario.",

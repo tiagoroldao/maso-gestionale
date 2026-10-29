@@ -19,8 +19,9 @@ import type {
  * (#199, SupplierInvoiceLines). `spreadDiscounts` says whether the
  * discounts on the whole invoice lower its lines' default costs (#210).
  * `legalArchiving` follows its file's legal archiving through the SDI
- * intermediary (#214, SupplierInvoiceArchiving), with the intermediary's
- * ids once requested.
+ * intermediary (#214, SupplierInvoiceArchiving): an upload's import, with
+ * the intermediary's ids once requested, or `automatic` for a file the
+ * intermediary archived on receipt (#224).
  */
 export default class SupplierInvoice extends SupplierInvoiceSchema {
   static table = 'supplier_invoices'
