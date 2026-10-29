@@ -13,6 +13,7 @@ import Submissions, {
 import type { PollFailure, PollStep } from '#shared/sdi_failures'
 import { supplierInvoiceIntake } from '#services/supplier_invoice_intake'
 import SupplierInvoiceArchiving from '#services/supplier_invoice_archiving'
+import LegalStorage from '#services/legal_storage'
 import type { SdiGateway } from '#services/sdi_gateway'
 
 /** Received files are listed again from a day before the newest one, in case of late arrivals */
@@ -42,10 +43,11 @@ export function isPollDue(settings: InstanceSettings, now = DateTime.now()) {
 }
 
 /**
- * Polling the intermediary, the source of truth (ADR 0019): it settles
- * sends whose result is unknown, records SDI's outcomes on Submissions,
- * fetches received Supplier Invoices for the intake, and sends to legal
- * archiving the Supplier Invoices waiting for it (#214). With no
+ * Polling the intermediary, the source of truth (ADR 0019): it reads
+ * whether the intermediary's account archives (#224), settles sends whose
+ * result is unknown, records SDI's outcomes on Submissions, fetches
+ * received Supplier Invoices for the intake, and sends to legal archiving
+ * the uploaded Supplier Invoices waiting for it (#214). With no
  * connection it does nothing. Only the poller (`sdi:poll`) runs it; a
  * webhook only asks for an earlier poll.
  */
@@ -56,6 +58,7 @@ export default class SdiPolling {
 
     const failures: PollFailure[] = []
     await this.register(gateway, failures)
+    await this.readLegalStorage(gateway, failures)
     const settled = await this.settleSends(gateway, failures)
     const outcomes = await this.outcomes(gateway, failures)
     const received = await this.receive(gateway, failures)
@@ -92,6 +95,16 @@ export default class SdiPolling {
       await SdiReceiving.ensure(gateway, callback)
       this.registered = key
     })
+  }
+
+  /**
+   * Reads the intermediary's account setting for legal archiving, when
+   * never read or read more than a day ago, before anything is received
+   * or archived by it. A failed read keeps the last one.
+   */
+  private static async readLegalStorage(gateway: SdiGateway, failures: PollFailure[]) {
+    if (!LegalStorage.isDue(await InstanceSettings.current())) return
+    await attempt(failures, 'legalStorage', null, () => LegalStorage.refresh(gateway))
   }
 
   /**
@@ -210,9 +223,9 @@ export default class SdiPolling {
   }
 
   /**
-   * Sends to legal archiving the Supplier Invoices waiting for it (#214):
-   * queued (by the intake or the Superuser's one-off action) or failed
-   * before. Only with the setting on and an intermediary that can.
+   * Sends to legal archiving the uploaded Supplier Invoices waiting for it
+   * (#214): queued (by the intake or the Superuser's one-off action) or
+   * failed before. Only when the intermediary's account archives (#224).
    */
   private static async archive(failures: PollFailure[]) {
     const gateway = await attempt(failures, 'archive', null, () =>

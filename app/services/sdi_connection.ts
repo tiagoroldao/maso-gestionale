@@ -1,7 +1,6 @@
 import InstanceSettings from '#models/instance_settings'
 import { OpenapiSdiGateway } from '#services/openapi_sdi_gateway'
 import { ManualSdiGateway, type SdiGateway } from '#services/sdi_gateway'
-import type { SdiMode } from '#shared/instance'
 
 export const manualGateway = new ManualSdiGateway()
 
@@ -17,15 +16,6 @@ export function gatewayFor(settings: InstanceSettings): SdiGateway {
   const token = settings.token
   if (!token) return manualGateway
   return new OpenapiSdiGateway({ token, environment: settings.sdiEnvironment })
-}
-
-/**
- * Whether the intermediary a mode selects offers legal archiving
- * (conservazione a norma, ADR 0019): the Instance setting is offered,
- * and kept on, only then.
- */
-export function supportsLegalArchiving(mode: SdiMode): boolean {
-  return mode === 'openapi' ? OpenapiSdiGateway.legalArchiving : ManualSdiGateway.legalArchiving
 }
 
 /**

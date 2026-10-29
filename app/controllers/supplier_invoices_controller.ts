@@ -136,7 +136,7 @@ export default class SupplierInvoicesController {
     })
     const today = todayIso()
     const issuedOn = invoice.issuedOn.toISODate()!
-    // Whether it can be sent to legal archiving now: the setting is on (#214)
+    // Whether it can be sent to legal archiving now: the account archives (#224)
     const archivingOffered = (await SupplierInvoiceArchiving.gateway()) !== null
 
     return inertia.render('supplier_invoices/show', {
@@ -167,7 +167,7 @@ export default class SupplierInvoicesController {
             }
           : null,
         archivingOffered,
-        // Office can send it now: waiting, with the setting on (#214)
+        // Office can send it now: waiting, with the account archiving (#224)
         archivingRetryable: archivingOffered && isArchivingWaiting(invoice.legalArchiving),
         // The discount on the whole invoice, and whether it can be spread over its lines
         discount,

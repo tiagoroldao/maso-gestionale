@@ -23,7 +23,7 @@ import {
   TABLE_COLUMN_TYPES,
 } from '#shared/document_templates'
 import { HOLIDAYS } from '#shared/holidays'
-import { SDI_ENVIRONMENTS, SDI_MODES } from '#shared/instance'
+import { LEGAL_STORAGE_STATUSES, SDI_ENVIRONMENTS, SDI_MODES } from '#shared/instance'
 import { INVOICE_STAGES, INVOICE_STATUSES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
 import { ORGANISE_BY, SECTION_KINDS } from '#shared/invoice_sections'
 import { JOB_FILTERS, JOB_STATUSES, WORK_CATEGORIES, type JobIndicators } from '#shared/jobs'
@@ -106,6 +106,7 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
   'ui.instance.pollSteps': POLL_STEPS,
   'ui.instance.sdiModes': SDI_MODES,
   'ui.instance.sdiEnvironments': SDI_ENVIRONMENTS,
+  'ui.instance.legalStorage': LEGAL_STORAGE_STATUSES,
   'ui.sdiFailures': SDI_FAILURE_CODES,
   'ui.invoices.organiseOptions': ORGANISE_BY,
   'ui.invoices.outcomes': SUBMISSION_OUTCOMES,

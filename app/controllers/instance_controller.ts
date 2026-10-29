@@ -5,7 +5,8 @@ import { adminPasswordValidator, instanceSettingsValidator } from '#validators/i
 import SdiReceivedFile from '#models/sdi_received_file'
 import { sdiWebhookUrl } from '#shared/instance'
 import { isSdiFailureCode, type PollFailure } from '#shared/sdi_failures'
-import SdiConnection, { supportsLegalArchiving } from '#services/sdi_connection'
+import SdiConnection from '#services/sdi_connection'
+import LegalStorage from '#services/legal_storage'
 import SdiReceiving from '#services/sdi_receiving'
 import SupplierInvoiceArchiving, {
   ArchivingRefusedError,
@@ -29,9 +30,9 @@ export default class InstanceController {
       settings: {
         sdiMode: settings.sdiMode,
         sdiEnvironment: settings.sdiEnvironment,
-        // Offered only when the saved intermediary archives (#205)
-        legalArchivingOffered: supportsLegalArchiving(settings.sdiMode),
-        legalArchiving: settings.sdiLegalArchiving,
+        // The intermediary's account setting, as read: never switched here (#224)
+        legalStorage: LegalStorage.status(await SdiConnection.gateway(), settings),
+        legalStorageReadAt: settings.sdiLegalStorageReadAt?.toISO() ?? null,
         // Whether a usable secret is stored, never the secret: one
         // encrypted under another APP_KEY (after a restore) reads as null,
         // and the page says it must be entered again
@@ -48,7 +49,7 @@ export default class InstanceController {
         pollFailures: pollFailures(settings.sdiPollFailure),
         // Supplier Invoice files received and not yet taken by the intake (#198)
         receivedWaiting: Number(waiting?.$extras.total ?? 0),
-        // Supplier Invoices stored before legal archiving was on, for the
+        // Uploaded Supplier Invoices never sent to legal archiving, for the
         // one-off action that queues them (#214): a count, no business data
         receivedNotArchived: await SupplierInvoiceArchiving.neverQueued(),
       },
@@ -93,20 +94,20 @@ export default class InstanceController {
       return response.redirect().back()
     }
 
-    // Legal archiving stays on only with an intermediary that offers it;
-    // switching to one that doesn't turns it off, with a warning (#205)
-    const archivingOffered = supportsLegalArchiving(data.sdiMode)
-    const wantsArchiving = data.sdiLegalArchiving ?? false
+    // Another account (mode, environment or token): its legal archiving
+    // setting is read again (#224)
+    const otherAccount =
+      data.sdiMode !== settings.sdiMode ||
+      data.sdiEnvironment !== settings.sdiEnvironment ||
+      Boolean(data.openapiToken) ||
+      Boolean(data.clearToken)
     // One toast shows at a time: a warning says "saved" too, and replaces
     // the plain confirmation (#215)
     let warning: string | null = null
-    if (!archivingOffered && (wantsArchiving || settings.sdiLegalArchiving)) {
-      warning = i18n.t('flash.legalArchivingOff')
-    }
     settings.merge({
       sdiMode: data.sdiMode,
       sdiEnvironment: data.sdiEnvironment,
-      sdiLegalArchiving: archivingOffered && wantsArchiving,
+      ...(otherAccount ? { sdiLegalStorage: null, sdiLegalStorageReadAt: null } : {}),
       pollingMinutes: data.pollingMinutes,
       webhookEnabled: data.webhookEnabled ?? false,
       publicUrl: data.publicUrl ?? null,
@@ -118,16 +119,27 @@ export default class InstanceController {
     await settings.save()
 
     // Openapi receives Supplier Invoices only with a callback registered
-    // (ADR 0019); the poller retries if this fails. Only in Openapi mode,
-    // so never alongside the archiving warning above.
+    // (ADR 0019), and its account says whether it archives (#224); the
+    // poller retries either if it fails. Only in Openapi mode.
     if (settings.sdiMode === 'openapi') {
-      try {
-        await SdiReceiving.ensure(await SdiConnection.gateway())
-      } catch (error) {
+      const gateway = await SdiConnection.gateway()
+      const failure = (key: string, error: unknown) => {
         const detail = error instanceof Error ? error.message : String(error)
-        warning = i18n.t('flash.receivingNotRegistered', {
+        return i18n.t(key, {
           detail: isSdiFailureCode(detail) ? i18n.t(`ui.sdiFailures.${detail}`) : detail,
         })
+      }
+      try {
+        await SdiReceiving.ensure(gateway)
+      } catch (error) {
+        warning = failure('flash.receivingNotRegistered', error)
+      }
+      if (gateway.automatic) {
+        try {
+          await LegalStorage.refresh(gateway)
+        } catch (error) {
+          warning ??= failure('flash.legalStorageNotRead', error)
+        }
       }
     }
     if (warning) session.flash('warning', warning)
@@ -136,8 +148,8 @@ export default class InstanceController {
   }
 
   /**
-   * The one-off action (#214): queues for legal archiving every Supplier
-   * Invoice stored before the setting was on; the next poll sends them.
+   * The one-off action (#214): queues for legal archiving every uploaded
+   * Supplier Invoice never sent to it; the next poll sends them.
    */
   async archiveSupplierInvoices({ response, session, i18n }: HttpContext) {
     try {

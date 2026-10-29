@@ -122,7 +122,7 @@ export type SandboxCheckOptions = {
   p7mPath: string | null
   /**
    * With `setup`: a second fiscal id, registered with
-   * `apply_legal_storage`, for checks 9 to 11
+   * `apply_legal_storage`, for checks 9 to 12
    */
   legalStorageFiscalId?: string | null
   /** A line about what is being done, for the person waiting */
@@ -164,7 +164,7 @@ export class SdiSandboxCheck {
   private callbackUrl: string | null = null
   /** `apply_legal_storage` on the fiscal id's Business Registry Configuration, as read */
   private legalStorageFlag: unknown = undefined
-  /** Whether the legal-storage registration is ready for checks 9 to 11 */
+  /** Whether the legal-storage registration is ready for checks 9 to 12 */
   private legalStorageReady = false
 
   constructor(options: SandboxCheckOptions) {
@@ -186,7 +186,7 @@ export class SdiSandboxCheck {
   }
 
   /**
-   * Runs the set-up (if asked) and checks 1 to 8, then 9 to 11 with a
+   * Runs the set-up (if asked) and checks 1 to 8, then 9 to 12 with a
    * legal-storage fiscal id; the Markdown report.
    */
   async run() {
@@ -218,6 +218,10 @@ export class SdiSandboxCheck {
       )
       await this.check('11. A received invoice is archived for a legal-storage registration', () =>
         this.legalReceived(legal)
+      )
+      await this.check(
+        '12. Check 8 for a legal-storage registration: import an uploaded file',
+        () => this.legalImport(legal)
       )
     }
     return this.report([
@@ -284,6 +288,7 @@ export class SdiSandboxCheck {
   private async setupLegalStorage(fiscalId: string) {
     if (!(await this.ensureRegistration(fiscalId, true))) return 'FAIL'
     await this.ensureCallback(fiscalId)
+    await this.readByGateway(fiscalId)
     this.note(DELETING_REGISTRATIONS)
     this.legalStorageReady = true
     return this.pass()
@@ -355,7 +360,20 @@ export class SdiSandboxCheck {
         ? `A Business Registry Configuration exists for ${this.options.fiscalId}, \`apply_legal_storage\`: ${show(this.legalStorageFlag)}`
         : `No Business Registry Configuration for ${this.options.fiscalId}: run with \`--setup\``
     )
+    if (configured) await this.readByGateway(this.options.fiscalId)
     return this.pass()
+  }
+
+  /** The account setting as the app reads it (#224), noted */
+  private async readByGateway(fiscalId: string) {
+    try {
+      const flag = await this.gateway.readLegalStorage(fiscalId)
+      this.note(`\`readLegalStorage\` reads ${fiscalId} as ${flag ? 'archiving' : 'not archiving'}`)
+    } catch (error) {
+      this.note(
+        `\`readLegalStorage\` couldn't read ${fiscalId}: ${error instanceof SdiFailure ? `\`${error.code}\`` : error instanceof Error ? error.message : String(error)}`
+      )
+    }
   }
 
   private async apiConfigurations() {
@@ -573,6 +591,8 @@ export class SdiSandboxCheck {
     const { ref, file } = this.received
     const signed = isSigned(file.content)
     let accepted = false
+    // Known (ADR 0019): without `apply_legal_storage`, imports are refused with a 403
+    let refusedForTheFlag = false
     try {
       const { remoteIds } = await this.gateway.archiveReceived({
         fileName: file.fileName,
@@ -584,15 +604,9 @@ export class SdiSandboxCheck {
         `${file.fileName} (${signed ? 'XML extracted from the .p7m' : 'XML'}) through \`archiveReceived\`: accepted, ${remoteIds.length} uuid(s) read`
       )
     } catch (error) {
-      const why =
-        error instanceof OpenapiError
-          ? String(error.status)
-          : error instanceof SdiFailure
-            ? `\`${error.code}\`: no uuid read in the answer`
-            : error instanceof Error
-              ? error.message
-              : String(error)
-      this.note(`${file.fileName} through \`archiveReceived\`: refused (${why})`)
+      this.note(`${file.fileName} through \`archiveReceived\`: refused (${importRefusal(error)})`)
+      refusedForTheFlag =
+        this.legalStorageFlag !== true && error instanceof OpenapiError && error.status === 403
     }
 
     if (signed) {
@@ -606,6 +620,11 @@ export class SdiSandboxCheck {
       )
     } else {
       this.note('No .p7m tried as it is: pass one with `--p7m`')
+    }
+    if (refusedForTheFlag) {
+      return this.skip(
+        `Imports need \`apply_legal_storage\` on the Business Registry Configuration (ADR 0019), here ${show(this.legalStorageFlag)}: check 12 tries a registration with it (\`--legal-storage-fiscal-id\`)`
+      )
     }
     return accepted ? this.pass() : this.fail('The received file was refused')
   }
@@ -685,6 +704,35 @@ export class SdiSandboxCheck {
       `Listed by \`GET /invoices?type=1\` after ${listing.attempts} attempt(s), ${listing.seconds}s`
     )
     return this.archived(row.uuid, 'Archived on receipt')
+  }
+
+  /**
+   * Check 12: check 8 for a registration with `apply_legal_storage`. The
+   * app imports only Office's uploads, which never went through Openapi
+   * (#224, ADR 0019), so the file is one Openapi never saw: a test
+   * FatturaPA from the supplier to the fiscal id, under an invented SDI id
+   */
+  private async legalImport(fiscalId: string) {
+    if (!this.legalStorageReady) return this.skip('The legal-storage registration is not ready')
+    const number = `F${this.stamp}/U`
+    const progressive = `U${this.stamp.slice(-4)}`
+    const fileName = fatturaFileName(OTHER_PARTY_VAT, progressive)
+    try {
+      const { remoteIds } = await this.gateway.archiveReceived({
+        fileName,
+        xml: Buffer.from(this.fattura(fiscalId, number, progressive, 'received')),
+        sdiId: `8${this.stamp}`,
+      })
+      this.note(
+        `Invoice ${number} to ${fiscalId}, never through Openapi, through \`archiveReceived\`: accepted, ${remoteIds.length} uuid(s) read`
+      )
+    } catch (error) {
+      this.note(
+        `Invoice ${number} to ${fiscalId} through \`archiveReceived\`: refused (${importRefusal(error)})`
+      )
+      return this.fail('The uploaded file was refused')
+    }
+    return this.pass()
   }
 
   /**
@@ -977,7 +1025,17 @@ export class SdiSandboxCheck {
   // Test documents
 
   /** A FatturaPA file from the app's own builder, from the fiscal id to an invented customer */
-  private fattura(fiscalId: string, number: string, progressive: string) {
+  /**
+   * A test FatturaPA: sent from the fiscal id, or received by it from the
+   * invented supplier
+   */
+  private fattura(
+    fiscalId: string,
+    number: string,
+    progressive: string,
+    direction: 'sent' | 'received' = 'sent'
+  ) {
+    const received = direction === 'received'
     const line = {
       quantity: '1',
       unitPrice: '100',
@@ -994,8 +1052,8 @@ export class SdiSandboxCheck {
       paymentMethod: null,
       credits: null,
       company: {
-        name: 'Maso sandbox check',
-        vatNumber: fiscalId,
+        name: received ? 'Fornitore di prova' : 'Maso sandbox check',
+        vatNumber: received ? OTHER_PARTY_VAT : fiscalId,
         taxCode: null,
         taxRegime: 'RF01',
         street: 'Via di Qua',
@@ -1009,10 +1067,10 @@ export class SdiSandboxCheck {
       },
       customer: {
         type: 'company',
-        name: 'Cliente di prova',
+        name: received ? 'Maso sandbox check' : 'Cliente di prova',
         firstName: null,
         lastName: null,
-        vatNumber: OTHER_PARTY_VAT,
+        vatNumber: received ? fiscalId : OTHER_PARTY_VAT,
         taxCode: null,
         sdiCode: '0000000',
         pec: null,
@@ -1234,4 +1292,15 @@ function describeRow(row: Listed, fiscalId: string) {
   const code = row.recipient?.business_vat_number_code
   const recipient = !code ? 'absent' : code === fiscalId ? 'our fiscal id' : 'another fiscal id'
   return `created ${row.created_at ?? 'absent'}, \`marking\` ${show(row.marking)}, \`downloaded\` ${show(row.downloaded)}, \`downloaded_at\` ${row.downloaded_at ? 'set' : 'absent'}, recipient ${recipient}`
+}
+
+/** Why an import was refused, for the report */
+function importRefusal(error: unknown) {
+  return error instanceof OpenapiError
+    ? String(error.status)
+    : error instanceof SdiFailure
+      ? `\`${error.code}\`: no uuid read in the answer`
+      : error instanceof Error
+        ? error.message
+        : String(error)
 }

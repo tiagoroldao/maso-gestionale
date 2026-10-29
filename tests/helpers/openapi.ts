@@ -115,6 +115,25 @@ export class FakeOpenapi {
     return this
   }
 
+  /**
+   * Answers the fiscal id's Business Registry Configuration, with
+   * `apply_legal_storage` as given (read each time, so a test can change
+   * it), in the shape the sandbox answered (ADR 0019)
+   */
+  registers(fiscalId: string, applyLegalStorage: boolean | (() => boolean)) {
+    return this.on('GET', `/business_registry_configurations/${fiscalId}`, () => ({
+      status: 200,
+      body: {
+        data: {
+          fiscal_id: fiscalId,
+          apply_legal_storage:
+            typeof applyLegalStorage === 'function' ? applyLegalStorage() : applyLegalStorage,
+        },
+        success: true,
+      },
+    }))
+  }
+
   /** The POSTs that replaced the callback configuration */
   get configurations() {
     return this.requests

@@ -57,7 +57,7 @@ export default class SdiSandboxCheckCommand extends BaseCommand {
   @flags.string({
     flagName: 'legal-storage-fiscal-id',
     description:
-      'With --setup: a second, invented fiscal id to register with apply_legal_storage, for checks 9 to 11',
+      'With --setup: a second, invented fiscal id to register with apply_legal_storage, for checks 9 to 12',
   })
   declare legalStorageFiscalId?: string
 

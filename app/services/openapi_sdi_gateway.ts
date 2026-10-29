@@ -101,6 +101,9 @@ function readCallbacks(configuration: ApiConfiguration): Callback[] {
     })
 }
 
+/** A Business Registry Configuration, as read */
+type RegistryConfiguration = { fiscal_id?: string; apply_legal_storage?: unknown }
+
 /** What an import answers: a uuid, or one per invoice in the file */
 type ImportAnswer = { uuid?: string | string[] | null }
 
@@ -119,19 +122,8 @@ type InvoiceRead = {
  * offline catches up on its next poll.
  */
 export class OpenapiSdiGateway implements SdiGateway {
-  /**
-   * Openapi archives what it sends, as a paid option per file, through
-   * `POST /invoices_legal_storage` (ADR 0019)
-   */
-  static readonly legalArchiving = true
   readonly channel = 'openapi'
   readonly automatic = true
-  readonly legalArchiving = OpenapiSdiGateway.legalArchiving
-  /**
-   * It archives received Supplier Invoices too, as imports, through
-   * `POST /supplier_invoice_imports_legal_storage` (#214)
-   */
-  readonly receivedArchiving = true
   readonly baseUrl: string
   private readonly token: string
   private readonly fetch: Fetch
@@ -145,9 +137,11 @@ export class OpenapiSdiGateway implements SdiGateway {
   /**
    * POST /invoices with our own FatturaPA XML, or POST
    * /invoices_legal_storage to have Openapi also hand it to legal
-   * archiving. Openapi answers the file's uuid and queues it for SDI. A
-   * 4xx means it took nothing (invalid file, no credit, token refused);
-   * anything else leaves it unknown.
+   * archiving. Openapi takes only the one its account setting allows
+   * (`apply_legal_storage`), refusing the other with a 412 (sandbox, ADR
+   * 0019). It answers the file's uuid and queues it for SDI. A 4xx means
+   * it took nothing (invalid file, no credit, token refused, the other
+   * endpoint); anything else leaves it unknown.
    */
   async submit(file: SdiFile, options: SubmitOptions = { legalArchiving: false }) {
     let response: Response
@@ -279,9 +273,30 @@ export class OpenapiSdiGateway implements SdiGateway {
   }
 
   /**
+   * GET /business_registry_configurations/{fiscal_id}: whether the
+   * account's Business Registry Configuration has `apply_legal_storage`,
+   * which Openapi sets only when the configuration is created (ADR 0019).
+   * The configuration is read as `{ data: { … } }`, or as a list of one.
+   */
+  async readLegalStorage(fiscalId: string) {
+    const response = await this.request(
+      'GET',
+      `/business_registry_configurations/${encodeURIComponent(fiscalId)}`
+    )
+    const body = (await response.json()) as {
+      data?: RegistryConfiguration | RegistryConfiguration[] | null
+    }
+    const configuration = Array.isArray(body.data) ? body.data[0] : body.data
+    const flag = configuration?.apply_legal_storage
+    if (typeof flag !== 'boolean') throw new SdiFailure('legalStorageUnread')
+    return flag
+  }
+
+  /**
    * POST /supplier_invoice_imports_legal_storage: imports a Supplier
-   * Invoice already received from SDI into legal archiving (#214, ADR
-   * 0019). The spec takes the invoice XML in base64 (a .p7m is sent as its
+   * Invoice already received from SDI some other way (Office's upload)
+   * into legal archiving (#214, ADR 0019). Openapi takes it only when its
+   * account archives (`apply_legal_storage`): without, it answers 403. The spec takes the invoice XML in base64 (a .p7m is sent as its
    * extracted XML), with SDI's file name and identifier in place of the
    * metadata file, and answers its uuid, or an array of uuids for a file
    * with several invoices. The answer is read as the spec's `{ uuid }` or

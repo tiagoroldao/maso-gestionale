@@ -16,3 +16,12 @@ export const SDI_WEBHOOK_PATH = '/sdi/webhook'
 export function sdiWebhookUrl(publicUrl: string) {
   return `${publicUrl.replace(/\/+$/, '')}${SDI_WEBHOOK_PATH}`
 }
+
+/**
+ * Legal archiving (conservazione a norma) at the intermediary, as the
+ * Instance page shows it (ADR 0019): an account setting the app reads,
+ * never switches. `manual` without an intermediary, `unknown` until it
+ * is read, then `active` or `inactive`.
+ */
+export const LEGAL_STORAGE_STATUSES = ['manual', 'unknown', 'active', 'inactive'] as const
+export type LegalStorageStatus = (typeof LEGAL_STORAGE_STATUSES)[number]
