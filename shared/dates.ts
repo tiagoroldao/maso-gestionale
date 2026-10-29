@@ -28,3 +28,22 @@ export function todayIso(now = new Date()) {
   const part = (type: string) => parts.find((p) => p.type === type)!.value
   return `${part('year')}-${part('month')}-${part('day')}`
 }
+
+/**
+ * A moment (an ISO timestamp) as the business reads it in Europe/Rome:
+ * "28/10/2026 01:30".
+ */
+export function formatDateTime(iso: string | null | undefined) {
+  if (!iso) return ''
+  const parts = new Intl.DateTimeFormat('en', {
+    timeZone: TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(new Date(iso))
+  const part = (type: string) => parts.find((p) => p.type === type)!.value
+  return `${part('day')}/${part('month')}/${part('year')} ${part('hour')}:${part('minute')}`
+}

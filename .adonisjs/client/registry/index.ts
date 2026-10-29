@@ -1056,6 +1056,18 @@ const routes = {
     tokens: [[0,"instance"]],
     types: placeholder as Registry['instance.update']['types'],
   },
+  'instance.backups': {
+    methods: ["PUT"],
+    pattern: '/instance/backups',
+    tokens: [[0,"instance"],[0,"backups"]],
+    types: placeholder as Registry['instance.backups']['types'],
+  },
+  'instance.backups.run': {
+    methods: ["POST"],
+    pattern: '/instance/backups/run',
+    tokens: [[0,"instance"],[0,"backups"],[0,"run"]],
+    types: placeholder as Registry['instance.backups.run']['types'],
+  },
   'instance.admin_password': {
     methods: ["PUT"],
     pattern: '/instance/admins/:id/password',
