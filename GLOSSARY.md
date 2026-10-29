@@ -85,7 +85,7 @@ An Item of a kind listed by law (boilers, air conditioners, sanitaryware, window
 _Avoid_: Major item, main component
 
 **Category** (_Categoria_):
-A grouping of Items that carries a suggested markup, used only to propose a resale price.
+A grouping of Items that carries a suggested markup, used to propose a resale price and, when Office chooses, to organise an Invoice's Sections.
 _Avoid_: Family, type, group
 
 **Item Document**:
@@ -108,7 +108,11 @@ _Avoid_: Bill, receipt
 
 **Combined line** (_Riga accorpata_):
 A draft Invoice line billing several alike Charges (hours of one Labour Rate, or one Groupable Item, at one price and VAT Code), with their quantities added up (ADR 0017). Drafting combines by default; "fold consumables" (_accorpa i materiali di consumo_) further lumps every Groupable Item line into one.
-_Avoid_: Grouped line (groups are an Invoice's sections, #184), merged line
+_Avoid_: Grouped line (groups are an Invoice's Sections), merged line
+
+**Section** (_Sezione_):
+A heading over some of an Invoice's or Credit Note's lines on its PDF, with its subtotal if Office chooses; one level only, and lines outside any sit at the top. A draft from a Job is organised into Sections by kind, by Visit or by Item category, or not at all; the FatturaPA XML has none, its lines flat in the same order (ADR 0018).
+_Avoid_: Group, chapter, block
 
 **VAT Code** (_Codice IVA_):
 The VAT treatment of an Invoice or Quote line (and an Item's default): a rate, or no VAT together with the reason (exempt, out of scope, reverse charge) the tax agency requires.

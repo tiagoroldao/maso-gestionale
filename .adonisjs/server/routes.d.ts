@@ -115,6 +115,7 @@ export type ScannedRoutes = {
     'invoices.store_credit_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.organise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.pdf': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -391,6 +392,7 @@ export type ScannedRoutes = {
     'invoices.store_advance': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store_from_job': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.store_credit_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'invoices.organise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.finalise': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.record_payment': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.prepare_submission': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

@@ -2,7 +2,7 @@
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
-import { ArrowDown, ArrowUp, FileText, Merge, Trash2 } from 'lucide-vue-next'
+import { ArrowDown, ArrowUp, FileText, GripVertical, Merge, Trash2 } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
@@ -17,7 +17,7 @@ import {
   isDeletable,
   type InvoiceStatus,
 } from '@shared/invoice_lifecycle'
-import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
+import { amountForInput, parseAmount, parseQuantity, sumAmounts } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
 import {
   keptVatTreatment,
@@ -27,12 +27,15 @@ import {
   type LineKind,
 } from '@shared/vat'
 import { consumableFolds } from '@shared/combined_lines'
+import { DEFAULT_ORGANISE_BY, ORGANISE_BY, inSectionOrder } from '@shared/invoice_sections'
 import type { DocumentType } from '@shared/credit_notes'
 
 type Line = {
   key: number
   // The saved line's id, kept across saves; null for a new line
   id: number | null
+  // The key of the section it sits in; null outside any (ADR 0018)
+  sectionKey: number | null
   itemId: number | null
   description: string
   quantity: string
@@ -55,6 +58,9 @@ type Line = {
   natura: string | null
   savedVatCodeId: number | null
 }
+
+// A heading over lines on the PDF (ADR 0018)
+type InvoiceSection = { key: number; id: number | null; title: string; showSubtotal: boolean }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
 
@@ -81,8 +87,10 @@ const props = defineProps<{
     } | null
     discountPercent: string
     notes: string | null
+    sections: { id: number; title: string; showSubtotal: boolean }[]
     lines: {
       id: number
+      sectionId: number | null
       itemId: number | null
       description: string
       quantity: string
@@ -100,6 +108,8 @@ const props = defineProps<{
     }[]
   }
   editable: boolean
+  // A draft from a Job, which can be organised again (ADR 0018)
+  organisable: boolean
   // An Invoice's Credit Notes; null on a Credit Note
   creditNotes:
     { id: number; number: string | null; status: InvoiceStatus; total: string | null }[] | null
@@ -152,10 +162,18 @@ const errors = computed(() => (page.props.errors ?? {}) as Record<string, string
 let nextKey = 0
 const trim = (value: string) => amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
 
-function linesFromProps(): Line[] {
+function sectionsFromProps(): InvoiceSection[] {
+  return props.invoice.sections.map((section) => ({ key: nextKey++, ...section }))
+}
+
+function linesFromProps(from: InvoiceSection[]): Line[] {
+  const keyOf = new Map(
+    props.invoice.sections.map((section, index) => [section.id, from[index].key])
+  )
   return props.invoice.lines.map((line) => ({
     key: nextKey++,
     id: line.id,
+    sectionKey: line.sectionId ? (keyOf.get(line.sectionId) ?? null) : null,
     itemId: line.itemId,
     description: line.description,
     quantity: trim(line.quantity),
@@ -179,7 +197,8 @@ const creditNote = computed(() => props.invoice.documentType === 'credit_note')
 // Invoice (no lines) they are free, at a VAT Code Office picks (#27)
 const fixedLines = computed(() => creditNote.value && !props.invoice.credits?.legacy)
 
-const lines = reactive<Line[]>(linesFromProps())
+const sections = reactive<InvoiceSection[]>(sectionsFromProps())
+const lines = reactive<Line[]>(linesFromProps(sections))
 const discountPercent = ref(
   Number(props.invoice.discountPercent) ? trim(props.invoice.discountPercent) : ''
 )
@@ -198,7 +217,11 @@ const snapshot = () =>
   JSON.stringify({
     discountPercent: discountPercent.value,
     notes: notes.value,
-    lines: lines.map(({ key: _key, savedVatCodeId: _saved, ...line }) => line),
+    sections: sections.map(({ key: _key, ...section }) => section),
+    lines: lines.map(({ key: _key, savedVatCodeId: _saved, sectionKey, ...line }) => ({
+      ...line,
+      section: sections.findIndex((section) => section.key === sectionKey),
+    })),
     deductions: deductionAmounts,
   })
 const saved = ref(snapshot())
@@ -209,7 +232,8 @@ watch(
   () => props.invoice,
   () => {
     if (Object.keys(errors.value).length) return
-    lines.splice(0, lines.length, ...linesFromProps())
+    sections.splice(0, sections.length, ...sectionsFromProps())
+    lines.splice(0, lines.length, ...linesFromProps(sections))
     discountPercent.value = Number(props.invoice.discountPercent)
       ? trim(props.invoice.discountPercent)
       : ''
@@ -272,10 +296,14 @@ const totals = computed(() =>
   )
 )
 
+// New lines go at the end of the last section, near where they are added
+const lastSectionKey = () => sections[sections.length - 1]?.key ?? null
+
 function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }) {
-  lines.push({
+  addLine({
     key: nextKey++,
     id: null,
+    sectionKey: lastSectionKey(),
     itemId: item.id,
     description: item.description,
     quantity: '1',
@@ -295,9 +323,10 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
 }
 
 function addFreeLine() {
-  lines.push({
+  addLine({
     key: nextKey++,
     id: null,
+    sectionKey: lastSectionKey(),
     itemId: null,
     description: '',
     quantity: '1',
@@ -316,9 +345,151 @@ function addFreeLine() {
   })
 }
 
-function move(index: number, offset: number) {
-  const [line] = lines.splice(index, 1)
-  lines.splice(index + offset, 0, line)
+const isDeduction = (line: Line) => line.deductsInvoiceId !== null
+
+/**
+ * Puts the lines back in the order they are saved in (as the server
+ * numbers them, inSectionOrder()): outside any section first, then each
+ * section's in turn, deductions last.
+ */
+function reorder() {
+  const rank = new Map(sections.map((section, index) => [section.key, index]))
+  const ordered = inSectionOrder(
+    [...lines],
+    (line) => (line.sectionKey === null ? null : (rank.get(line.sectionKey) ?? null)),
+    isDeduction
+  )
+  lines.splice(0, lines.length, ...ordered)
+}
+
+function addLine(line: Line) {
+  lines.push(line)
+  reorder()
+}
+
+// The groups of lines as shown: outside any section, then each section
+const groupKeys = () => [null, ...sections.map((section) => section.key)]
+const membersOf = (sectionKey: number | null) =>
+  lines.filter((line) => !isDeduction(line) && line.sectionKey === sectionKey)
+
+/**
+ * The line one place up or down; past the first or last of its section,
+ * it moves into the section before (as its last line) or after (as its
+ * first).
+ */
+function moveLine(line: Line, offset: -1 | 1) {
+  const own = membersOf(line.sectionKey)
+  const other = own[own.indexOf(line) + offset]
+  if (other) {
+    const [at, to] = [lines.indexOf(line), lines.indexOf(other)]
+    lines.splice(at, 1, other)
+    lines.splice(to, 1, line)
+    return
+  }
+  const groups = groupKeys()
+  const next = groups[groups.indexOf(line.sectionKey) + offset]
+  if (next === undefined) return
+  line.sectionKey = next
+  reorder()
+}
+
+function canMove(line: Line, offset: -1 | 1) {
+  const own = membersOf(line.sectionKey)
+  const groups = groupKeys()
+  return (
+    own[own.indexOf(line) + offset] !== undefined ||
+    groups[groups.indexOf(line.sectionKey) + offset] !== undefined
+  )
+}
+
+function removeLine(line: Line) {
+  lines.splice(lines.indexOf(line), 1)
+}
+
+function addSection() {
+  sections.push({
+    key: nextKey++,
+    id: null,
+    title: t('ui.invoices.newSection'),
+    showSubtotal: true,
+  })
+}
+
+function moveSection(index: number, offset: -1 | 1) {
+  const [section] = sections.splice(index, 1)
+  sections.splice(index + offset, 0, section)
+  reorder()
+}
+
+/**
+ * Removes a section; its lines stay, outside any section (at the top).
+ */
+function removeSection(index: number) {
+  const [section] = sections.splice(index, 1)
+  for (const line of lines) if (line.sectionKey === section.key) line.sectionKey = null
+  reorder()
+}
+
+/**
+ * A section's subtotal as the PDF shows it: its lines' amounts added up,
+ * before VAT and the global discount (the complete ones).
+ */
+function subtotalOf(sectionKey: number) {
+  return sumAmounts(membersOf(sectionKey).flatMap((line) => amountOf(line) ?? []))
+}
+
+// Drag and drop (ADR 0018); the arrows do the same from the keyboard
+const dragged = ref<{ line: Line } | { section: InvoiceSection } | null>(null)
+
+/**
+ * A line or section dropped on a line: a line takes its place in that
+ * line's section (after it when dragged down, before it when dragged up);
+ * a section goes where that line's section is.
+ */
+function dropOnLine(target: Line) {
+  const drag = dragged.value
+  dragged.value = null
+  // Deductions stay last, outside any section
+  if (!drag || isDeduction(target)) return
+  if ('section' in drag) {
+    const at = sections.findIndex((section) => section.key === target.sectionKey)
+    if (at >= 0) placeSection(drag.section, at)
+    return
+  }
+  const { line } = drag
+  if (line === target) return
+  const down = lines.indexOf(line) < lines.indexOf(target)
+  lines.splice(lines.indexOf(line), 1)
+  lines.splice(lines.indexOf(target) + (down ? 1 : 0), 0, line)
+  line.sectionKey = target.sectionKey
+  reorder()
+}
+
+/**
+ * Dropped on a section's heading (null: "outside sections"): a line
+ * becomes that section's first; a section takes that place.
+ */
+function dropOnSection(sectionKey: number | null) {
+  const drag = dragged.value
+  dragged.value = null
+  if (!drag) return
+  if ('section' in drag) {
+    const at = sections.findIndex((section) => section.key === sectionKey)
+    placeSection(drag.section, Math.max(at, 0))
+    return
+  }
+  const { line } = drag
+  const first = membersOf(sectionKey).find((other) => other !== line)
+  lines.splice(lines.indexOf(line), 1)
+  lines.splice(first ? lines.indexOf(first) : 0, 0, line)
+  line.sectionKey = sectionKey
+  reorder()
+}
+
+function placeSection(section: InvoiceSection, at: number) {
+  sections.splice(sections.indexOf(section), 1)
+  sections.splice(at, 0, section)
+  reorder()
 }
 
 /**
@@ -328,6 +499,7 @@ function move(index: number, offset: number) {
 function canMergeUp(index: number) {
   const [above, line] = [lines[index - 1], lines[index]]
   return Boolean(
+    above?.sectionKey === line.sectionKey &&
     above?.chargeIds.length &&
     line.chargeIds.length &&
     above.vatCodeId === line.vatCodeId &&
@@ -357,7 +529,8 @@ function mergeUp(index: number) {
 
 /**
  * "Fold consumables" (ADR 0017): the lines of Groupable Items, by VAT
- * treatment and kind (a significant good stays apart, as for mergeUp).
+ * treatment and kind (a significant good stays apart, as for mergeUp),
+ * within each section (ADR 0018).
  */
 const folds = computed(() =>
   consumableFolds(
@@ -366,7 +539,7 @@ const folds = computed(() =>
       return {
         // Lines billing Charges only: a sale's Item lines take it off stock
         groupable: line.groupable && line.itemId !== null && line.chargeIds.length > 0,
-        vatKey: `${line.vatCodeId}|${values?.vatRate}|${values?.natura}|${line.significantGood}`,
+        vatKey: `${line.sectionKey}|${line.vatCodeId}|${values?.vatRate}|${values?.natura}|${line.significantGood}`,
         amount: amountOf(line),
       }
     })
@@ -404,8 +577,16 @@ function save() {
     {
       ...(discountPercent.value && { discountPercent: discountPercent.value }),
       notes: notes.value,
+      sections: sections.map((section) => ({
+        ...(section.id && { id: section.id }),
+        title: section.title,
+        showSubtotal: section.showSubtotal,
+      })),
       lines: lines.map((line) => ({
         ...(line.id && { id: line.id }),
+        ...(line.sectionKey !== null && {
+          section: sections.findIndex((section) => section.key === line.sectionKey),
+        }),
         ...(line.itemId && { itemId: line.itemId }),
         description: line.description,
         ...(line.unit && { unit: line.unit }),
@@ -432,7 +613,47 @@ function save() {
   )
 }
 
-const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
+const lineError = (line: Line, field: string) =>
+  errors.value[`lines.${lines.indexOf(line)}.${field}`]
+const sectionError = (index: number) => errors.value[`sections.${index}.title`]
+
+// Organising again (ADR 0018): by kind and combined unless chosen otherwise
+const organiseBy = ref(DEFAULT_ORGANISE_BY)
+const organiseCombine = ref(true)
+const confirmOrganise = () => window.confirm(t('ui.invoices.organiseConfirm'))
+
+/**
+ * The lines table's rows: lines outside any section (under a heading to
+ * drop lines on, once there are sections), then each section's heading,
+ * lines and subtotal, then deduction lines. A line's position is its
+ * place among the lines as saved.
+ */
+type Row = { key: string } & (
+  | { type: 'outside' }
+  | { type: 'section'; section: InvoiceSection; index: number }
+  | { type: 'subtotal'; section: InvoiceSection }
+  | { type: 'line'; line: Line; position: number }
+)
+const rows = computed<Row[]>(() => {
+  const lineRow = (line: Line): Row => ({
+    key: `line-${line.key}`,
+    type: 'line',
+    line,
+    position: lines.indexOf(line) + 1,
+  })
+  return [
+    ...(props.editable && sections.length ? [{ key: 'outside', type: 'outside' as const }] : []),
+    ...membersOf(null).map(lineRow),
+    ...sections.flatMap((section, index): Row[] => [
+      { key: `section-${section.key}`, type: 'section', section, index },
+      ...membersOf(section.key).map(lineRow),
+      ...(section.showSubtotal
+        ? [{ key: `subtotal-${section.key}`, type: 'subtotal' as const, section }]
+        : []),
+    ]),
+    ...lines.filter(isDeduction).map(lineRow),
+  ]
+})
 const deductionError = computed(
   () => Object.entries(errors.value).find(([key]) => key.startsWith('deductions'))?.[1]
 )
@@ -563,149 +784,294 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             </tr>
           </thead>
           <tbody>
-            <tr v-for="(line, index) in lines" :key="line.key">
-              <td>
-                <span class="field__hint">
-                  {{ line.itemId ? t('ui.invoices.itemLine') : t('ui.invoices.freeLine') }}
-                  <template v-if="line.chargeIds.length">
-                    · {{ t('ui.invoices.billsCharges', { count: line.chargeIds.length }) }}
+            <template v-for="row in rows" :key="row.key">
+              <!-- Where lines outside any section are dropped -->
+              <tr
+                v-if="row.type === 'outside'"
+                data-testid="outside-sections"
+                @dragover.prevent
+                @drop.prevent="dropOnSection(null)"
+              >
+                <td colspan="7" class="field__hint">{{ t('ui.invoices.outsideSections') }}</td>
+              </tr>
+              <tr
+                v-else-if="row.type === 'section'"
+                data-testid="invoice-section"
+                @dragover.prevent
+                @drop.prevent="dropOnSection(row.section.key)"
+              >
+                <td colspan="5">
+                  <template v-if="editable">
+                    <div :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+                      <span
+                        draggable="true"
+                        class="iconbtn"
+                        :aria-hidden="true"
+                        :style="{ cursor: 'grab' }"
+                        @dragstart="dragged = { section: row.section }"
+                        @dragend="dragged = null"
+                      >
+                        <GripVertical :size="14" />
+                      </span>
+                      <input
+                        v-model="row.section.title"
+                        class="field__input"
+                        :aria-label="t('ui.invoices.sectionTitleOf', { position: row.index + 1 })"
+                      />
+                      <label :style="{ display: 'flex', gap: '4px', whiteSpace: 'nowrap' }">
+                        <input v-model="row.section.showSubtotal" type="checkbox" />
+                        {{ t('ui.invoices.showSubtotal') }}
+                      </label>
+                    </div>
+                    <span v-if="sectionError(row.index)" class="field__error">
+                      {{ sectionError(row.index) }}
+                    </span>
                   </template>
-                </span>
-                <input
-                  v-model="line.description"
-                  class="field__input"
-                  :disabled="!editable || line.deductsInvoiceId !== null"
-                  :aria-label="t('ui.invoices.descriptionOf', { position: index + 1 })"
-                />
-                <span v-if="lineError(index, 'description')" class="field__error">
-                  {{ lineError(index, 'description') }}
-                </span>
-                <span v-if="lineError(index, 'itemId')" class="field__error">
-                  {{ lineError(index, 'itemId') }}
-                </span>
-              </td>
-              <td>
-                <input
-                  v-model="line.quantity"
-                  inputmode="decimal"
-                  class="field__input"
-                  :disabled="!editable || line.deductsInvoiceId !== null"
-                  :aria-label="t('ui.invoices.quantityOf', { position: index + 1 })"
-                />
-                <span class="field__hint">{{ line.unit }}</span>
-                <span v-if="lineError(index, 'quantity')" class="field__error">
-                  {{ lineError(index, 'quantity') }}
-                </span>
-              </td>
-              <td>
-                <input
-                  v-model="line.unitPrice"
-                  inputmode="decimal"
-                  class="field__input"
-                  :disabled="!editable || line.deductsInvoiceId !== null"
-                  :aria-label="t('ui.invoices.unitPriceOf', { position: index + 1 })"
-                />
-                <span v-if="lineError(index, 'unitPrice')" class="field__error">
-                  {{ lineError(index, 'unitPrice') }}
-                </span>
-              </td>
-              <td>
-                <input
-                  v-model="line.discountPercent"
-                  inputmode="decimal"
-                  class="field__input"
-                  :disabled="!editable || line.deductsInvoiceId !== null"
-                  :aria-label="t('ui.invoices.lineDiscountOf', { position: index + 1 })"
-                />
-                <span v-if="lineError(index, 'discountPercent')" class="field__error">
-                  {{ lineError(index, 'discountPercent') }}
-                </span>
-              </td>
-              <td>
-                <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
-                <span v-if="fixedLines" data-testid="credited-vat">
-                  {{ codes.get(line.vatCodeId)?.name ?? '' }}
-                  ({{ vatLabel({ vatRate: line.vatRate ?? '0', natura: line.natura }) }})
-                </span>
-                <select
-                  v-else
-                  v-model="line.vatCodeId"
-                  class="field__input"
-                  :disabled="!editable || line.deductsInvoiceId !== null"
-                  :aria-label="t('ui.invoices.vatCodeOf', { position: index + 1 })"
-                >
-                  <option v-for="code in vatCodes" :key="code.id" :value="code.id">
-                    {{ code.name }}
-                  </option>
-                </select>
-                <span v-if="lineError(index, 'vatCodeId')" class="field__error">
-                  {{ lineError(index, 'vatCodeId') }}
-                </span>
-                <span v-if="splitWarning(line)" class="field__hint" data-testid="split-warning">
-                  {{ t('ui.invoices.significantGoodSplit') }}
-                </span>
-              </td>
-              <td :style="{ textAlign: 'right' }">
-                {{ amountOf(line) ? formatMoney(amountOf(line)!) : '' }}
-              </td>
-              <!-- A Credit Note's deduction line is kept or removed whole (ADR 0014) -->
-              <td v-if="editable && creditNote && line.deductsInvoiceId !== null">
-                <button
-                  type="button"
-                  class="iconbtn"
-                  :aria-label="t('ui.invoices.removeLine')"
-                  @click="lines.splice(index, 1)"
-                >
-                  <Trash2 :size="14" />
-                </button>
-              </td>
-              <td v-else-if="editable && line.deductsInvoiceId !== null" />
-              <td v-else-if="editable" class="table__actions">
-                <button
-                  type="button"
-                  class="iconbtn"
-                  :disabled="index === 0"
-                  :aria-label="t('ui.invoices.moveUp')"
-                  @click="move(index, -1)"
-                >
-                  <ArrowUp :size="14" />
-                </button>
-                <button
-                  type="button"
-                  class="iconbtn"
-                  :disabled="index === lines.length - 1"
-                  :aria-label="t('ui.invoices.moveDown')"
-                  @click="move(index, 1)"
-                >
-                  <ArrowDown :size="14" />
-                </button>
-                <button
-                  v-if="canMergeUp(index)"
-                  type="button"
-                  class="iconbtn"
-                  :aria-label="t('ui.invoices.mergeUp')"
-                  :title="t('ui.invoices.mergeUp')"
-                  @click="mergeUp(index)"
-                >
-                  <Merge :size="14" />
-                </button>
-                <button
-                  type="button"
-                  class="iconbtn"
-                  :aria-label="t('ui.invoices.removeLine')"
-                  @click="lines.splice(index, 1)"
-                >
-                  <Trash2 :size="14" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="lines.length === 0">
+                  <strong v-else>{{ row.section.title }}</strong>
+                </td>
+                <td />
+                <td v-if="editable" class="table__actions">
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :disabled="row.index === 0"
+                    :aria-label="t('ui.invoices.moveSectionUp')"
+                    @click="moveSection(row.index, -1)"
+                  >
+                    <ArrowUp :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :disabled="row.index === sections.length - 1"
+                    :aria-label="t('ui.invoices.moveSectionDown')"
+                    @click="moveSection(row.index, 1)"
+                  >
+                    <ArrowDown :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :aria-label="t('ui.invoices.removeSection')"
+                    :title="t('ui.invoices.removeSectionHint')"
+                    @click="removeSection(row.index)"
+                  >
+                    <Trash2 :size="14" />
+                  </button>
+                </td>
+              </tr>
+              <tr v-else-if="row.type === 'subtotal'" data-testid="section-subtotal">
+                <td colspan="5" :style="{ textAlign: 'right' }">
+                  {{ t('ui.invoices.sectionSubtotalOf', { title: row.section.title }) }}
+                </td>
+                <td :style="{ textAlign: 'right' }">
+                  <strong>{{ formatMoney(subtotalOf(row.section.key)) }}</strong>
+                </td>
+                <td v-if="editable" />
+              </tr>
+              <tr
+                v-else-if="row.type === 'line'"
+                @dragover.prevent
+                @drop.prevent="dropOnLine(row.line)"
+              >
+                <td>
+                  <span class="field__hint">
+                    {{ row.line.itemId ? t('ui.invoices.itemLine') : t('ui.invoices.freeLine') }}
+                    <template v-if="row.line.chargeIds.length">
+                      · {{ t('ui.invoices.billsCharges', { count: row.line.chargeIds.length }) }}
+                    </template>
+                  </span>
+                  <input
+                    v-model="row.line.description"
+                    class="field__input"
+                    :disabled="!editable || row.line.deductsInvoiceId !== null"
+                    :aria-label="t('ui.invoices.descriptionOf', { position: row.position })"
+                  />
+                  <span v-if="lineError(row.line, 'description')" class="field__error">
+                    {{ lineError(row.line, 'description') }}
+                  </span>
+                  <span v-if="lineError(row.line, 'itemId')" class="field__error">
+                    {{ lineError(row.line, 'itemId') }}
+                  </span>
+                </td>
+                <td>
+                  <input
+                    v-model="row.line.quantity"
+                    inputmode="decimal"
+                    class="field__input"
+                    :disabled="!editable || row.line.deductsInvoiceId !== null"
+                    :aria-label="t('ui.invoices.quantityOf', { position: row.position })"
+                  />
+                  <span class="field__hint">{{ row.line.unit }}</span>
+                  <span v-if="lineError(row.line, 'quantity')" class="field__error">
+                    {{ lineError(row.line, 'quantity') }}
+                  </span>
+                </td>
+                <td>
+                  <input
+                    v-model="row.line.unitPrice"
+                    inputmode="decimal"
+                    class="field__input"
+                    :disabled="!editable || row.line.deductsInvoiceId !== null"
+                    :aria-label="t('ui.invoices.unitPriceOf', { position: row.position })"
+                  />
+                  <span v-if="lineError(row.line, 'unitPrice')" class="field__error">
+                    {{ lineError(row.line, 'unitPrice') }}
+                  </span>
+                </td>
+                <td>
+                  <input
+                    v-model="row.line.discountPercent"
+                    inputmode="decimal"
+                    class="field__input"
+                    :disabled="!editable || row.line.deductsInvoiceId !== null"
+                    :aria-label="t('ui.invoices.lineDiscountOf', { position: row.position })"
+                  />
+                  <span v-if="lineError(row.line, 'discountPercent')" class="field__error">
+                    {{ lineError(row.line, 'discountPercent') }}
+                  </span>
+                </td>
+                <td>
+                  <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
+                  <span v-if="fixedLines" data-testid="credited-vat">
+                    {{ codes.get(row.line.vatCodeId)?.name ?? '' }}
+                    ({{ vatLabel({ vatRate: row.line.vatRate ?? '0', natura: row.line.natura }) }})
+                  </span>
+                  <select
+                    v-else
+                    v-model="row.line.vatCodeId"
+                    class="field__input"
+                    :disabled="!editable || row.line.deductsInvoiceId !== null"
+                    :aria-label="t('ui.invoices.vatCodeOf', { position: row.position })"
+                  >
+                    <option v-for="code in vatCodes" :key="code.id" :value="code.id">
+                      {{ code.name }}
+                    </option>
+                  </select>
+                  <span v-if="lineError(row.line, 'vatCodeId')" class="field__error">
+                    {{ lineError(row.line, 'vatCodeId') }}
+                  </span>
+                  <span
+                    v-if="splitWarning(row.line)"
+                    class="field__hint"
+                    data-testid="split-warning"
+                  >
+                    {{ t('ui.invoices.significantGoodSplit') }}
+                  </span>
+                </td>
+                <td :style="{ textAlign: 'right' }">
+                  {{ amountOf(row.line) ? formatMoney(amountOf(row.line)!) : '' }}
+                </td>
+                <!-- A Credit Note's deduction line is kept or removed whole (ADR 0014) -->
+                <td v-if="editable && creditNote && row.line.deductsInvoiceId !== null">
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :aria-label="t('ui.invoices.removeLine')"
+                    @click="removeLine(row.line)"
+                  >
+                    <Trash2 :size="14" />
+                  </button>
+                </td>
+                <td v-else-if="editable && row.line.deductsInvoiceId !== null" />
+                <td v-else-if="editable" class="table__actions">
+                  <span
+                    draggable="true"
+                    class="iconbtn"
+                    :aria-hidden="true"
+                    :style="{ cursor: 'grab' }"
+                    @dragstart="dragged = { line: row.line }"
+                    @dragend="dragged = null"
+                  >
+                    <GripVertical :size="14" />
+                  </span>
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :disabled="!canMove(row.line, -1)"
+                    :aria-label="t('ui.invoices.moveUp')"
+                    @click="moveLine(row.line, -1)"
+                  >
+                    <ArrowUp :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :disabled="!canMove(row.line, 1)"
+                    :aria-label="t('ui.invoices.moveDown')"
+                    @click="moveLine(row.line, 1)"
+                  >
+                    <ArrowDown :size="14" />
+                  </button>
+                  <button
+                    v-if="canMergeUp(row.position - 1)"
+                    type="button"
+                    class="iconbtn"
+                    :aria-label="t('ui.invoices.mergeUp')"
+                    :title="t('ui.invoices.mergeUp')"
+                    @click="mergeUp(row.position - 1)"
+                  >
+                    <Merge :size="14" />
+                  </button>
+                  <button
+                    type="button"
+                    class="iconbtn"
+                    :aria-label="t('ui.invoices.removeLine')"
+                    @click="removeLine(row.line)"
+                  >
+                    <Trash2 :size="14" />
+                  </button>
+                </td>
+              </tr>
+            </template>
+            <tr v-if="lines.length === 0 && sections.length === 0">
               <td colspan="7" :style="{ color: 'var(--subtle)' }">
                 {{ t('ui.invoices.noLines') }}
               </td>
             </tr>
           </tbody>
         </table>
+        <p v-if="editable">
+          <button type="button" class="btn btn--secondary btn--sm" @click="addSection">
+            {{ t('ui.invoices.addSection') }}
+          </button>
+          <span class="field__hint">{{ t('ui.invoices.dragHint') }}</span>
+        </p>
+      </Section>
+
+      <!-- Organising again replaces the sections (ADR 0018) -->
+      <Section
+        v-if="editable && organisable"
+        :title="t('ui.invoices.sectionsTitle')"
+        :description="t('ui.invoices.organiseByHint')"
+      >
+        <Form route="invoices.organise" :params="{ id: invoice.id }" :on-before="confirmOrganise">
+          <input type="hidden" name="combine" :value="organiseCombine ? 'true' : 'false'" />
+          <div class="field">
+            <label class="field__label" for="organise-by">{{ t('ui.invoices.organiseBy') }}</label>
+            <select
+              id="organise-by"
+              v-model="organiseBy"
+              name="organiseBy"
+              class="field__input"
+              :style="{ maxWidth: '360px' }"
+            >
+              <option v-for="option in ORGANISE_BY" :key="option" :value="option">
+                {{ t(`ui.invoices.organiseOptions.${option}`) }}
+              </option>
+            </select>
+          </div>
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input v-model="organiseCombine" type="checkbox" />
+              {{ t('ui.invoices.combineCharges') }}
+            </label>
+          </div>
+          <button type="submit" class="btn btn--secondary btn--sm" :disabled="dirty">
+            {{ t('ui.invoices.organise') }}
+          </button>
+          <span v-if="dirty" class="field__hint">{{ t('ui.invoices.organiseUnsaved') }}</span>
+        </Form>
       </Section>
 
       <Section

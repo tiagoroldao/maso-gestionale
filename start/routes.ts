@@ -316,6 +316,9 @@ router
           .put('invoices/:id', [controllers.Invoices, 'update'])
           .where('id', router.matchers.number())
         router
+          .post('invoices/:id/organise', [controllers.Invoices, 'organise'])
+          .where('id', router.matchers.number())
+        router
           .delete('invoices/:id', [controllers.Invoices, 'destroy'])
           .where('id', router.matchers.number())
         router

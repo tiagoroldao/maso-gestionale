@@ -672,6 +672,12 @@ const routes = {
     tokens: [[0,"invoices"],[1,"id"]],
     types: placeholder as Registry['invoices.update']['types'],
   },
+  'invoices.organise': {
+    methods: ["POST"],
+    pattern: '/invoices/:id/organise',
+    tokens: [[0,"invoices"],[1,"id"],[0,"organise"]],
+    types: placeholder as Registry['invoices.organise']['types'],
+  },
   'invoices.destroy': {
     methods: ["DELETE"],
     pattern: '/invoices/:id',

@@ -1450,6 +1450,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'invoices.organise': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/organise'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').invoiceOrganiseValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').invoiceOrganiseValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['organise']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['organise']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['organise']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'invoices.destroy': {
     methods: ["DELETE"]
     pattern: '/invoices/:id'

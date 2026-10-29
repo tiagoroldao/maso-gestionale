@@ -4,7 +4,7 @@ A draft Invoice from a Job made one line per Charge, so a long Job gave 100+ lin
 
 Items that aren't Groupable keep a line each because a line is what a Credit Note credits: its Charges are credited only when the line is credited in full (ADR 0014). A boiler returned out of three on one line could only be credited in part, leaving all three billed; on lines of their own, the one returned is credited and its Charge with it. Its own line also names the piece by its serial number, which the Customer and the warranty need.
 
-Combining applies within each section of an Invoice once Invoices have sections (#184); until then a draft has one section, the same as organising by none. When organised by Visit, each day's hours combine within that day only.
+Combining applies within each section of an Invoice (ADR 0018, #184): a draft is organised into sections first, by kind unless Office chooses otherwise, then alike Charges combine within each section only. When organised by Visit, each Visit's hours combine within it only.
 
 ## Considered Options
 
@@ -15,7 +15,7 @@ Combining applies within each section of an Invoice once Invoices have sections 
 
 ## Consequences
 
-- The rule lives in `shared/combined_lines.ts` (`combineCharges`, `consumableFolds`), so #184 applies it per section.
+- The rule lives in `shared/combined_lines.ts` (`combineCharges`, `consumableFolds`), applied per section (ADR 0018); folding consumables folds within each section too.
 - Whether an Item is Groupable is read from the Item when drafting, not recorded on its Charges: changing the flag changes the next draft, never an existing one.
 - Combined lines bill exactly their Charges: each Charge's billed amount is its share of the line (as for merged lines), and finalising, releasing and crediting work as before.
 - A draft that leaves work out with "up to" doesn't bill everything outstanding, so it starts without taking advances back (ADR 0011).

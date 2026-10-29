@@ -377,7 +377,7 @@ export class InvoiceLineChargeSchema extends BaseModel {
 }
 
 export class InvoiceLineSchema extends BaseModel {
-  static $columns = ['creditsLineId', 'deductsInvoiceId', 'description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
+  static $columns = ['creditsLineId', 'deductsInvoiceId', 'description', 'discountPercent', 'id', 'invoiceId', 'itemId', 'legalNote', 'lineTotal', 'natura', 'position', 'quantity', 'sectionId', 'unit', 'unitPrice', 'vatCodeId', 'vatRate'] as const
   $columns = InvoiceLineSchema.$columns
   @column()
   declare creditsLineId: number | null
@@ -404,6 +404,8 @@ export class InvoiceLineSchema extends BaseModel {
   @column()
   declare quantity: string
   @column()
+  declare sectionId: number | null
+  @column()
   declare unit: string | null
   @column()
   declare unitPrice: string
@@ -411,6 +413,21 @@ export class InvoiceLineSchema extends BaseModel {
   declare vatCodeId: number
   @column()
   declare vatRate: string
+}
+
+export class InvoiceSectionSchema extends BaseModel {
+  static $columns = ['id', 'invoiceId', 'position', 'showSubtotal', 'title'] as const
+  $columns = InvoiceSectionSchema.$columns
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare invoiceId: number
+  @column()
+  declare position: number
+  @column()
+  declare showSubtotal: boolean
+  @column()
+  declare title: string
 }
 
 export class InvoiceSequenceSchema extends BaseModel {

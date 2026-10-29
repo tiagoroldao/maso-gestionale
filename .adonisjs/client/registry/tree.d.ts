@@ -166,6 +166,7 @@ export interface ApiDefinition {
     storeCreditNote: typeof routes['invoices.store_credit_note']
     edit: typeof routes['invoices.edit']
     update: typeof routes['invoices.update']
+    organise: typeof routes['invoices.organise']
     destroy: typeof routes['invoices.destroy']
     finalise: typeof routes['invoices.finalise']
     pdf: typeof routes['invoices.pdf']
