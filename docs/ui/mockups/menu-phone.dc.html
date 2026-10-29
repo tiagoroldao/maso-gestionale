@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Carbonio · Menu su telefono</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Montserrat:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.r{--paper:#fafafa;--card:#ffffff;--line:#e2e2e5;--side:#0b0b0c;--sidefg:#c9cacd;--sideon:#1c1c1f;--brand:#ff3030;font-family:Inter,system-ui,sans-serif;color:#0b0b0c;background:var(--paper)}
+.r.dark{--paper:#0e0e10;--card:#151518;--line:#2a2b30;--side:#000000;--sidefg:#a9abb0;--sideon:#1a1a1d;--brand:#ff4545}
+.nav{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 14px;border-radius:3px;font-size:16px;color:var(--sidefg);text-decoration:none}
+.nav.on{color:#ffffff;background:var(--sideon);font-weight:600}
+.nav.on::after{content:'';margin-left:auto;width:7px;height:12px;background:var(--brand);transform:skewY(-40deg)}
+</style>
+</helmet>
+<div class="{{rootClass}}" style="width: 390px; height: 844px; position: relative; overflow: hidden;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+    <div style="background: var(--side); padding: 60px 16px 18px; display: flex; flex-direction: column; gap: 8px; color: #ffffff;">
+      <div style="font-family: Montserrat, Inter, sans-serif; font-size: 22px; font-weight: 700;">Sostituzione caldaia</div>
+      <div style="font-size: 13px; color: #c9cacd;">C-2026-0142 · A consuntivo</div>
+    </div>
+    <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="height: 120px; background: var(--card); border: 1px solid var(--line); border-radius: 3px;"></div>
+      <div style="height: 160px; background: var(--card); border: 1px solid var(--line); border-radius: 3px;"></div>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.55);"></div>
+
+  <nav aria-label="Navigazione principale" style="position: absolute; top: 0; right: 0; bottom: 0; width: 312px; box-sizing: border-box; background: var(--side); box-shadow: -10px 0 30px rgba(0, 0, 0, 0.35); padding: 4px 14px 16px; display: flex; flex-direction: column; gap: 18px; overflow-y: auto;">
+    <div style="display: flex; align-items: center; justify-content: space-between; padding-left: 10px;">
+      <svg viewBox="0 0 437 258" width="40" height="24" role="img" aria-label="Maso Hightechnology"><polygon points="0,2 130,132 197,66 197,127 130,193 44,108 44,258 0,258" style="fill: #ffffff"></polygon><polygon points="220,100 220,48 260,2 260,54" style="fill: var(--brand)"></polygon><rect x="392" y="0" width="45" height="258" style="fill: #ffffff"></rect><rect x="262" y="96" width="130" height="44" style="fill: #ffffff"></rect><polygon points="220,258 220,180 262,140 262,258" style="fill: #ffffff"></polygon></svg>
+      <button type="button" aria-label="Chiudi menu" style="display: grid; place-items: center; width: 44px; height: 44px; margin-right: -2px; border: 0; background: transparent; color: #ffffff; cursor: pointer;"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+    </div>
+    <label style="display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; border-radius: 3px; background: var(--sideon); color: #a9abb0; font-size: 14px;">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>
+      <input aria-label="Cerca" placeholder="Cerca…" style="border: 0; outline: 0; background: transparent; font: inherit; color: #ffffff; width: 100%;">
+    </label>
+    <sc-for list="{{nav}}" as="g" hint-placeholder-count="4">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="font-family: Montserrat, Inter, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.2em; color: #8d9096; padding: 0 14px 6px;">{{g.label}}</div>
+        <sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+          <a href="#" class="nav {{i.cls}}">{{i.name}}</a>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px; border-top: 1px solid #222326; color: #ffffff;">
+      <div aria-hidden="true" style="width: 32px; height: 32px; border-radius: 3px; background: #26272b; display: grid; place-items: center; font-size: 12px; font-weight: 600;">GM</div>
+      <div style="display: flex; flex-direction: column; flex: 1;"><span style="font-size: 14px; font-weight: 500;">Giulia M.</span><span style="font-size: 12px; color: #a9abb0;">Ufficio</span></div>
+      <a href="#" style="font-size: 13px; color: #c9cacd;">Esci</a>
+    </div>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const group = (label, names) => ({ label, items: names.map((name) => ({ name, cls: name === 'Commesse' ? 'on' : '' })) });
+    return {
+      rootClass: this.props.dark ? 'r dark' : 'r',
+      nav: [
+        group('LAVORO', ['Agenda', 'Commesse', 'Interventi']),
+        group('FATTURAZIONE', ['Preventivi', 'Fatture', 'Fatture passive']),
+        group('MAGAZZINO', ['Articoli', 'Giacenze', 'Fornitori']),
+        group('ANAGRAFICHE', ['Clienti', 'Impostazioni'])
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
