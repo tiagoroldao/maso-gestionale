@@ -29,10 +29,11 @@ import CreditNoteNumbering, { NUMBERING_LOCK_KEY } from '#services/credit_note_n
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { lineTotal, splitAmount, sumAmounts } from '#shared/money'
-import { advanceLeft, deductionRows } from '#shared/advances'
+import { advanceLeft, belowTakenRow, deductionRows } from '#shared/advances'
 import { CLOSED_VISIT_STATUSES, OPEN_VISIT_STATUSES } from '#shared/visits'
 import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
+import { keptVatTreatment } from '#shared/vat'
 import {
   legacyCreditRefusal,
   legacyRowVat,
@@ -69,7 +70,9 @@ export class InvoiceNotEditableError extends Error {}
  * lines, the company details an invoice must carry are missing from
  * Company settings, its total is below zero, it takes back more of an
  * advance than is left, an advance corrected below what issued
- * Invoices already took back of it, or an advance for a Job since closed.
+ * Invoices already took back of it, in total (`belowDeducted`) or at one
+ * of its VAT rows (`belowDeductedRow`), or an advance for a Job since
+ * closed.
  * A Credit Note can't credit more than is left of its Invoice's total
  * after its other Credit Notes, nor of an advance more than is left to
  * take back (`creditTooLarge`); each of its lines credits a line of that
@@ -88,6 +91,7 @@ export class InvoiceNotFinalisableError extends Error {
       | 'negativeTotal'
       | 'deductionTooLarge'
       | 'belowDeducted'
+      | 'belowDeductedRow'
       | 'jobClosed'
       | 'creditTooLarge'
       | 'uncreditedLine'
@@ -1114,7 +1118,7 @@ export default class Invoices {
         // keeps the treatment it was written with until its code changes,
         // so editing the code in settings doesn't change drafts (ADR 0008)
         const stored = line.id ? byId.get(line.id) : undefined
-        const source = creditedLine ?? (stored?.vatCodeId === line.vatCodeId ? stored : null)
+        const source = creditedLine ?? keptVatTreatment(stored, line.vatCodeId)
         const code = source
           ? {
               id: source.vatCodeId,
@@ -1221,6 +1225,12 @@ export default class Invoices {
           )
           if (total.lt(taken.rows[0].taken)) {
             throw new InvoiceNotFinalisableError('belowDeducted')
+          }
+          // Nor any of its VAT rows, which the deductions take back by row
+          const own = await this.advancesOf(trx, locked.jobId!)
+          const entry = own.find((other) => other.advance.id === locked.id)
+          if (entry && belowTakenRow(entry.advance.totals.summary, entry.taken)) {
+            throw new InvoiceNotFinalisableError('belowDeductedRow')
           }
         }
         // Payments are recorded with this Invoice locked: the sum is current.

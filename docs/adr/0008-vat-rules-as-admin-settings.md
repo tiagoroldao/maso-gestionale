@@ -9,6 +9,6 @@ Which VAT applies to a plumbing invoice depends on the Customer, the building an
 
 ## Consequences
 
-- Invoice lines copy the code's rate and Natura when they're written, so editing or archiving a code never changes an issued invoice. Codes are archived, never deleted.
+- Invoice lines copy the code's rate and Natura when they're written, so editing or archiving a code never changes an issued invoice. Codes are archived, never deleted. A draft's kept line isn't rewritten either until its VAT Code is changed on it (#94); a new line takes the code as it is then.
 - The facts the defaults need are recorded where they belong: a residential flag on the Site, a Work Category on the Job, a significant-good flag on the Item, and an _Ente / associazione_ Customer type.
 - Mechanisms not yet needed (withholding tax for condominiums, split payment for public bodies, the automatic _beni significativi_ split, stamp duty) are `proposal` issues (#56–#61). Until then Office handles those cases by hand with the right VAT Codes and notes.

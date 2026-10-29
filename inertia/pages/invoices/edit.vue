@@ -19,7 +19,7 @@ import {
 } from '@shared/invoice_lifecycle'
 import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
-import { lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
+import { keptVatTreatment, lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
 import type { DocumentType } from '@shared/credit_notes'
 
 type Line = {
@@ -40,9 +40,11 @@ type Line = {
   chargeIds: number[]
   // On a Credit Note, the credited Invoice's line it credits
   creditsLineId: number | null
-  // The VAT the line was saved with: a Credit Note line keeps its Invoice's
+  // The VAT the line was saved with, and its code then: a Credit Note line
+  // keeps its Invoice's, and a kept line keeps it until its code changes
   vatRate: string | null
   natura: string | null
+  savedVatCodeId: number | null
 }
 
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
@@ -149,6 +151,7 @@ function linesFromProps(): Line[] {
     creditsLineId: line.creditsLineId,
     vatRate: line.vatRate,
     natura: line.natura,
+    savedVatCodeId: line.vatCodeId,
   }))
 }
 
@@ -176,7 +179,7 @@ const snapshot = () =>
   JSON.stringify({
     discountPercent: discountPercent.value,
     notes: notes.value,
-    lines: lines.map(({ key: _key, ...line }) => line),
+    lines: lines.map(({ key: _key, savedVatCodeId: _saved, ...line }) => line),
     deductions: deductionAmounts,
   })
 const saved = ref(snapshot())
@@ -216,11 +219,14 @@ function totalsLine(line: Line): TotalsLine | null {
   const quantity = parseQuantity(line.quantity)
   const price = parseAmount(line.unitPrice)
   const discount = line.discountPercent ? parseAmount(line.discountPercent) : null
-  // A Credit Note line keeps the VAT its Invoice charged
-  const code =
-    fixedLines.value && line.vatRate !== null
-      ? { rate: line.vatRate, natura: line.natura }
-      : codes.value.get(line.vatCodeId)
+  // A Credit Note line keeps the VAT its Invoice charged; a kept line, the
+  // VAT it was saved with until its code changes (as the server does)
+  const asSaved =
+    line.vatRate !== null && line.savedVatCodeId !== null
+      ? { vatCodeId: line.savedVatCodeId, rate: line.vatRate, natura: line.natura }
+      : null
+  const kept = fixedLines.value ? asSaved : keptVatTreatment(asSaved, line.vatCodeId)
+  const code = kept ?? codes.value.get(line.vatCodeId)
   if (!quantity || !price || !code || (line.discountPercent && !discount)) return null
   return {
     quantity: quantity.toFixed(),
@@ -268,6 +274,7 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
     creditsLineId: null,
     vatRate: null,
     natura: null,
+    savedVatCodeId: null,
   })
 }
 
@@ -288,6 +295,7 @@ function addFreeLine() {
     creditsLineId: null,
     vatRate: null,
     natura: null,
+    savedVatCodeId: null,
   })
 }
 
