@@ -65,8 +65,22 @@ export default class StockLedger {
    * the most recent receipt (by date, then entry order), makes it the Item's
    * purchase price. A backdated delivery note never replaces a newer cost.
    * The resale price is never touched.
+   *
+   * Receiving a Supplier Invoice line (#210) says what Office chose
+   * instead: `purchasePrice` 'set' makes the cost the purchase price even
+   * if a newer receipt exists, 'keep' leaves the price as it is. The
+   * receipt then remembers its line (`supplierInvoiceLineId`), so it
+   * never counts as received by hand.
    */
-  static async receive(item: Item, input: Common & { quantity: string; unitCost?: string | null }) {
+  static async receive(
+    item: Item,
+    input: Common & {
+      quantity: string
+      unitCost?: string | null
+      purchasePrice?: 'ifNewest' | 'set' | 'keep'
+      supplierInvoiceLineId?: number
+    }
+  ) {
     const quantity = new Big(input.quantity)
     if (quantity.lte(0)) throw new RangeError('A receipt must add a positive quantity')
 
@@ -83,12 +97,14 @@ export default class StockLedger {
           occurredOn: input.occurredOn,
           reference: input.reference ?? null,
           createdBy: input.user?.id ?? null,
+          supplierInvoiceLineId: input.supplierInvoiceLineId ?? null,
         },
         { client: trx }
       )
 
-      if (created.unitCost) {
-        if (!(await this.hasNewerCostedReceipt(created, trx))) {
+      const rule = input.purchasePrice ?? 'ifNewest'
+      if (created.unitCost && rule !== 'keep') {
+        if (rule === 'set' || !(await this.hasNewerCostedReceipt(created, trx))) {
           await Item.query({ client: trx })
             .where('id', item.id)
             .update({ purchase_price: created.unitCost, updated_at: new Date() })
@@ -120,6 +136,22 @@ export default class StockLedger {
       })
       .first()
     return newer !== null
+  }
+
+  /**
+   * The date of each Item's newest receipt with a cost, as an ISO date,
+   * by Item id; Items with none are left out.
+   */
+  static async newestCostDates(itemIds: number[], client?: TransactionClientContract) {
+    if (!itemIds.length) return new Map<number, string>()
+    const rows: { item_id: number; newest: string }[] = await (client ?? db)
+      .from('stock_movements')
+      .whereIn('item_id', itemIds)
+      .where('kind', 'receipt')
+      .whereNotNull('unit_cost')
+      .groupBy('item_id')
+      .select('item_id', db.raw(`to_char(max(occurred_on), 'YYYY-MM-DD') AS newest`))
+    return new Map(rows.map((row) => [row.item_id, row.newest]))
   }
 
   /**

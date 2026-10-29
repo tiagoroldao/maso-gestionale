@@ -1,18 +1,21 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
-import type Item from '#models/item'
+import Item from '#models/item'
 import SupplierInvoice from '#models/supplier_invoice'
 import SupplierInvoiceLines from '#services/supplier_invoice_lines'
 import SupplierInvoices, { SupplierInvoiceRefusedError } from '#services/supplier_invoices'
 import SupplierInvoiceExport from '#services/supplier_invoice_export'
+import StockLedger from '#stock/stock_ledger'
 import { lineReceiptRefusal } from '#shared/supplier_invoices'
 import { storagePath } from '#services/storage'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { TIME_ZONE, todayIso } from '#shared/dates'
 import {
   pageValidator,
+  spreadDiscountsValidator,
   supplierInvoiceExportValidator,
+  supplierInvoicePageValidator,
   supplierInvoiceUploadValidator,
 } from '#validators/supplier'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -80,11 +83,16 @@ export default class SupplierInvoicesController {
 
   /**
    * The invoice as read, and its lines to handle (#199): each received
-   * (onto which Item, how much, at what cost), marked not stock, or still
-   * to handle with the Item suggested for it and, when it can only be
-   * marked not stock, why.
+   * (onto which Item, how much, at what cost), already received (#210),
+   * marked not stock, or still to handle. A line to handle comes with the
+   * Item suggested for it, or the one Office picked (`pick[lineId]` in the
+   * query string), and for that Item the date of its newest receipt with
+   * a cost and its recent receipts received by hand (for "già ricevuto"
+   * and its hint); its default amount (the discount spread when the
+   * invoice says so); and, when it can only be marked not stock, why.
    */
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, request, inertia }: HttpContext) {
+    const { pick = {} } = await supplierInvoicePageValidator.validate(request.qs())
     const invoice = await SupplierInvoice.query()
       .where('id', params.id)
       .preload('supplier')
@@ -93,6 +101,27 @@ export default class SupplierInvoicesController {
       )
       .firstOrFail()
     const suggestions = await SupplierInvoiceLines.suggestions(invoice, invoice.lines)
+    const open = invoice.lines.filter((line) => line.outcome === null)
+    const pickedIds = open.flatMap((line) => (pick[line.id] ? [pick[line.id]] : []))
+    const picked = pickedIds.length
+      ? await Item.query()
+          .withScopes((scopes) => scopes.active())
+          .whereIn('id', pickedIds)
+      : []
+    const candidates = new Map(
+      open.flatMap((line) => {
+        const item =
+          picked.find((each) => each.id === pick[line.id]) ?? suggestions.get(line.id) ?? null
+        return item ? [[line.id, item] as const] : []
+      })
+    )
+    const candidateIds = [...new Set([...candidates.values()].map((item) => item.id))]
+    const newestCost = await StockLedger.newestCostDates(candidateIds)
+    const manualReceipts = await SupplierInvoiceLines.manualReceipts(invoice, candidateIds)
+    const { discount, spreadable, amounts } = SupplierInvoiceLines.defaultAmounts(
+      invoice,
+      invoice.lines
+    )
     const pickable = (item: Item) => ({
       id: item.id,
       code: item.code,
@@ -119,29 +148,65 @@ export default class SupplierInvoicesController {
         fileName: invoice.fileName,
         supplier: { id: invoice.supplier.id, name: invoice.supplier.name },
         details: invoice.details,
-        lines: invoice.lines.map((line) => ({
-          id: line.id,
-          lineNumber: line.lineNumber,
-          code: line.code,
-          description: line.description,
-          quantity: line.quantity,
-          unit: line.unit,
-          unitPrice: line.unitPrice,
-          total: line.total,
-          vatRate: line.vatRate,
-          natura: line.natura,
-          outcome: line.outcome,
-          item: line.item ? pickable(line.item) : null,
-          receipt: line.stockMovement
-            ? { quantity: line.stockMovement.quantity, unitCost: line.stockMovement.unitCost }
-            : null,
-          suggestion: suggestions.has(line.id) ? pickable(suggestions.get(line.id)!) : null,
-          refusal: line.outcome === null ? lineReceiptRefusal(invoice, line) : null,
-        })),
+        spreadDiscounts: invoice.spreadDiscounts,
+        // The discount on the whole invoice, and whether it can be spread over its lines
+        discount,
+        spreadable,
+        lines: invoice.lines.map((line) => {
+          const candidate = candidates.get(line.id) ?? null
+          return {
+            id: line.id,
+            lineNumber: line.lineNumber,
+            code: line.code,
+            description: line.description,
+            quantity: line.quantity,
+            unit: line.unit,
+            unitPrice: line.unitPrice,
+            total: line.total,
+            vatRate: line.vatRate,
+            natura: line.natura,
+            outcome: line.outcome,
+            item: line.item ? pickable(line.item) : null,
+            receipt: line.stockMovement
+              ? {
+                  quantity: line.stockMovement.quantity,
+                  unitCost: line.stockMovement.unitCost,
+                  occurredOn: line.stockMovement.occurredOn.toISODate()!,
+                }
+              : null,
+            // The cost confirmed for a line already received
+            unitCost: line.unitCost,
+            suggestion: suggestions.has(line.id) ? pickable(suggestions.get(line.id)!) : null,
+            candidate: candidate
+              ? { ...pickable(candidate), newestCostOn: newestCost.get(candidate.id) ?? null }
+              : null,
+            manualReceipts: candidate ? (manualReceipts.get(candidate.id) ?? []) : [],
+            defaultAmount: amounts.get(line.id)!,
+            refusal: line.outcome === null ? lineReceiptRefusal(invoice, line) : null,
+          }
+        }),
       },
+      picks: Object.fromEntries(
+        open.flatMap((line) => (pick[line.id] ? [[String(line.id), pick[line.id]]] : []))
+      ),
       // The day goods are received on, unless Office changes it: the invoice's
       receiveOn: issuedOn < today ? issuedOn : today,
     })
+  }
+
+  /**
+   * Whether the invoice's discounts are spread over its lines' default
+   * costs (#210).
+   */
+  async spreadDiscounts({ params, request, response, session, i18n }: HttpContext) {
+    const invoice = await SupplierInvoice.findOrFail(params.id)
+    const { spreadDiscounts } = await request.validateUsing(spreadDiscountsValidator)
+    await SupplierInvoiceLines.spreadDiscounts(invoice, spreadDiscounts)
+    session.flash(
+      'success',
+      i18n.t(spreadDiscounts ? 'flash.supplierInvoiceSpread' : 'flash.supplierInvoiceNotSpread')
+    )
+    return response.redirect().toRoute('supplier_invoices.show', { id: invoice.id })
   }
 
   /**

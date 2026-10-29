@@ -82,6 +82,16 @@ export type ReceivedPayment = {
   iban: string | null
 }
 
+/** A delivery note the invoice cites (DatiDDT) */
+export type ReceivedDeliveryNote = { number: string; date: string }
+
+/**
+ * A discount (SC) or surcharge (MG) on the whole document
+ * (ScontoMaggiorazione in DatiGeneraliDocumento): a percentage, an
+ * amount, or both (the amount then prevails).
+ */
+export type ReceivedDiscount = { type: 'SC' | 'MG'; percent: string | null; amount: string | null }
+
 /** One invoice of the file (a FatturaElettronicaBody) */
 export type ReceivedInvoice = {
   documentType: string
@@ -92,6 +102,8 @@ export type ReceivedInvoice = {
   vat: string
   total: string
   notes: string[]
+  deliveryNotes: ReceivedDeliveryNote[]
+  discounts: ReceivedDiscount[]
   lines: ReceivedLine[]
   summary: ReceivedVatRow[]
   payments: ReceivedPayment[]
@@ -172,6 +184,8 @@ const REPEATED = new Set([
   'DettaglioPagamento',
   'CodiceArticolo',
   'Causale',
+  'DatiDDT',
+  'ScontoMaggiorazione',
 ])
 
 const parser = new XMLParser({
@@ -375,7 +389,8 @@ function buyerOf(buyer: Element): ReceivedBuyer {
 }
 
 function invoiceOf(body: Element): ReceivedInvoice {
-  const general = element(element(body, 'DatiGenerali'), 'DatiGeneraliDocumento')
+  const generalData = element(body, 'DatiGenerali')
+  const general = element(generalData, 'DatiGeneraliDocumento')
   const goods = element(body, 'DatiBeniServizi')
   const lines = elements(goods, 'DettaglioLinee').map(lineOf)
   const summary = elements(goods, 'DatiRiepilogo').map(vatRowOf)
@@ -397,12 +412,40 @@ function invoiceOf(body: Element): ReceivedInvoice {
     notes: ((general.Causale as unknown[] | undefined) ?? [])
       .map((value) => String(value).trim())
       .filter(Boolean),
+    deliveryNotes: elements(generalData, 'DatiDDT').flatMap(deliveryNoteOf),
+    discounts: elements(general, 'ScontoMaggiorazione').flatMap(discountOf),
     lines,
     summary,
     payments: elements(body, 'DatiPagamento').flatMap((terms) =>
       elements(terms, 'DettaglioPagamento').map(paymentOf)
     ),
   }
+}
+
+/** A delivery note, or none when its number or date is missing or unreadable */
+function deliveryNoteOf(note: Element): ReceivedDeliveryNote[] {
+  const number = text(note, 'NumeroDDT')
+  const day = text(note, 'DataDDT')?.slice(0, 10)
+  if (!number || !day || !/^\d{4}-\d{2}-\d{2}$/.test(day) || !DateTime.fromISO(day).isValid) {
+    return []
+  }
+  return [{ number: number.slice(0, 20), date: day }]
+}
+
+/** A discount or surcharge, or none when it says neither how much nor what */
+function discountOf(discount: Element): ReceivedDiscount[] {
+  const type = text(discount, 'Tipo')
+  const percent = text(discount, 'Percentuale')
+  const amount = text(discount, 'Importo')
+  if (type !== 'SC' && type !== 'MG') return []
+  if (!percent && !amount) return []
+  return [
+    {
+      type,
+      percent: percent ? decimal(percent, 'Percentuale') : null,
+      amount: amount ? new Big(decimal(amount, 'Importo')).abs().toString() : null,
+    },
+  ]
 }
 
 function lineOf(line: Element): ReceivedLine {

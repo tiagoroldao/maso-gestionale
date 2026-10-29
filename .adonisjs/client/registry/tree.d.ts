@@ -199,9 +199,11 @@ export interface ApiDefinition {
     export: typeof routes['supplier_invoices.export']
     show: typeof routes['supplier_invoices.show']
     file: typeof routes['supplier_invoices.file']
+    spreadDiscounts: typeof routes['supplier_invoices.spread_discounts']
   }
   supplierInvoiceLines: {
     receive: typeof routes['supplier_invoice_lines.receive']
+    markAlreadyReceived: typeof routes['supplier_invoice_lines.mark_already_received']
     markNotStock: typeof routes['supplier_invoice_lines.mark_not_stock']
     undo: typeof routes['supplier_invoice_lines.undo']
   }

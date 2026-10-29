@@ -1,10 +1,11 @@
 /**
  * Supplier Invoices (#198): received from suppliers, uploaded by Office or
  * delivered by the SDI intermediary (#92), and dealt with in an inbox,
- * their lines received into stock or marked not stock (#199).
+ * their lines received into stock or marked not stock (#199), or already
+ * received by hand (#210).
  */
 import Big from 'big.js'
-import { UNIT_PRICE_DECIMALS } from './money.js'
+import { UNIT_PRICE_DECIMALS, splitAmount } from './money.js'
 
 /**
  * An inbox entry is to handle until every line has an outcome
@@ -84,15 +85,23 @@ export type SupplierInvoiceDetails = {
   }[]
   payments: { method: string; dueOn: string | null; amount: string; iban: string | null }[]
   notes: string[]
+  /** The delivery notes the invoice cites (DatiDDT), #210 */
+  deliveryNotes: { number: string; date: string }[]
+  /**
+   * Discounts (SC) and surcharges (MG) on the whole document
+   * (ScontoMaggiorazione in DatiGeneraliDocumento), #210
+   */
+  discounts: { type: 'SC' | 'MG'; percent: string | null; amount: string | null }[]
 }
 
 /**
- * What became of a Supplier Invoice line (#199): received into stock onto
- * an Item, or marked not stock (shipping, services, untracked
- * consumables). A line with neither is still to handle; the invoice is
- * handled once none is.
+ * What became of a Supplier Invoice line: received into stock onto an
+ * Item (#199); already received by hand onto an Item, so stock doesn't
+ * move, optionally linked to that earlier receipt (#210); or marked not
+ * stock (shipping, services, untracked consumables). A line with none is
+ * still to handle; the invoice is handled once none is.
  */
-export const LINE_OUTCOMES = ['received', 'not_stock'] as const
+export const LINE_OUTCOMES = ['received', 'already_received', 'not_stock'] as const
 export type LineOutcome = (typeof LINE_OUTCOMES)[number]
 
 /**
@@ -127,6 +136,81 @@ export function receiptUnitCost(lineTotal: string, quantity: string) {
     .div(quantity)
     .round(UNIT_PRICE_DECIMALS, Big.roundHalfUp)
     .toFixed(UNIT_PRICE_DECIMALS)
+}
+
+/**
+ * The discount on the whole invoice, to spread over its lines (#210), as
+ * a 2-decimal amount taken off (negative when surcharges outweigh it):
+ * its negative lines (a discount or rebate written as a line), plus each
+ * document-level discount (SC) less each surcharge (MG), by its amount,
+ * or else by its percentage of the lines' total, half-up to the cent.
+ */
+export function invoiceDiscount(
+  discounts: SupplierInvoiceDetails['discounts'],
+  lines: { total: string }[]
+) {
+  const linesTotal = lines.reduce((sum, line) => sum.plus(line.total), new Big(0))
+  let discount = lines.reduce(
+    (sum, line) => (new Big(line.total).lt(0) ? sum.minus(line.total) : sum),
+    new Big(0)
+  )
+  for (const entry of discounts) {
+    const amount =
+      entry.amount !== null
+        ? new Big(entry.amount)
+        : linesTotal.times(entry.percent!).div(100).round(2, Big.roundHalfUp)
+    discount = entry.type === 'SC' ? discount.plus(amount) : discount.minus(amount)
+  }
+  return discount.round(2, Big.roundHalfUp).toFixed(2)
+}
+
+/**
+ * The amount each line is received at by default (#210): its own amount
+ * (PrezzoTotale, after its own discounts), less its part of the
+ * invoice's discount (invoiceDiscount()) when `spread` is on.
+ *
+ * The discount is split over the lines that can still be received or
+ * already are: positive, not refused (lineReceiptRefusal()) and not
+ * marked not stock. Each part is in proportion to the line's amount,
+ * rounded to the cent, and the parts add up to the discount exactly: the
+ * cents lost to rounding go to the largest remainders (splitAmount()).
+ * Nothing is spread (`spreadable` false) when no line can take it, or
+ * when it is more than those lines' total (a cost below zero).
+ */
+export function defaultLineAmounts(
+  invoice: { documentType: string; currency: string; spread: boolean },
+  discounts: SupplierInvoiceDetails['discounts'],
+  lines: { id: number; total: string; outcome: LineOutcome | null }[]
+) {
+  const discount = invoiceDiscount(discounts, lines)
+  const pool = lines.filter(
+    (line) =>
+      line.outcome !== 'not_stock' &&
+      new Big(line.total).gt(0) &&
+      lineReceiptRefusal(invoice, line) === null
+  )
+  const poolTotal = pool.reduce((sum, line) => sum.plus(line.total), new Big(0))
+  const spreadable = pool.length > 0 && poolTotal.gte(discount)
+  const amounts = new Map(lines.map((line) => [line.id, new Big(line.total).toString()]))
+  if (invoice.spread && spreadable && !new Big(discount).eq(0)) {
+    const parts = splitAmount(
+      discount,
+      pool.map((line) => line.total)
+    )
+    pool.forEach((line, index) => {
+      amounts.set(line.id, new Big(line.total).minus(parts[index]).toString())
+    })
+  }
+  return { discount, spreadable, amounts }
+}
+
+/**
+ * Whether an Item has a receipt with a cost dated after `on` (its newest,
+ * `newestCostOn`, as ISO dates): then a cost recorded on `on` isn't the
+ * newest, and the purchase price switch starts off (#210).
+ */
+export function newerCostExists(newestCostOn: string | null, on: string) {
+  return newestCostOn !== null && newestCostOn > on
 }
 
 /**

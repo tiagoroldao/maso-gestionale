@@ -54,12 +54,20 @@ function receive(
   client: ApiClient,
   user: User,
   line: SupplierInvoiceLine,
-  form: { itemId: number; quantity: string; occurredOn?: string }
+  form: {
+    itemId: number
+    quantity: string
+    occurredOn?: string
+    unitCost?: string
+    updatePurchasePrice?: 'true' | 'false'
+  }
 ) {
   return post(client, user, `/supplier-invoice-lines/${line.id}/receipt`, {
     itemId: String(form.itemId),
     quantity: form.quantity,
     occurredOn: form.occurredOn ?? today(),
+    ...(form.unitCost !== undefined && { unitCost: form.unitCost }),
+    ...(form.updatePurchasePrice && { updatePurchasePrice: form.updatePurchasePrice }),
   })
 }
 
@@ -80,8 +88,19 @@ async function pageLines(client: ApiClient, user: User, invoice: SupplierInvoice
           id: number
           outcome: string | null
           item: { id: number } | null
-          receipt: { quantity: string; unitCost: string | null } | null
+          receipt: { quantity: string; unitCost: string | null; occurredOn: string } | null
+          unitCost: string | null
           suggestion: { id: number } | null
+          candidate: { id: number; newestCostOn: string | null } | null
+          manualReceipts: {
+            id: number
+            occurredOn: string
+            quantity: string
+            unitCost: string | null
+            reference: string | null
+            newerCost: boolean
+          }[]
+          defaultAmount: string
           refusal: string | null
         }[]
       }
@@ -216,7 +235,7 @@ test.group('Supplier Invoice lines', (group) => {
     assert.deepInclude(received, {
       outcome: 'received',
       item: { id: item.id, code: item.code, description: item.description, unit: 'pz' },
-      receipt: { quantity: '10.000', unitCost: '5.2500' },
+      receipt: { quantity: '10.000', unitCost: '5.2500', occurredOn: receivedOn },
       suggestion: null,
     })
 
@@ -648,5 +667,501 @@ test.group('Supplier Invoice lines', (group) => {
     marked.assertFlashMessage('success', it('flash.supplierInvoiceLineNotStock'))
     const [byAdmin] = await SupplierInvoiceLine.query().where('id', lines[0].id)
     assert.equal(byAdmin.handledBy, admin.id)
+  })
+})
+
+function alreadyReceived(
+  client: ApiClient,
+  user: User,
+  line: SupplierInvoiceLine,
+  form: Record<string, string | number>
+) {
+  return post(
+    client,
+    user,
+    `/supplier-invoice-lines/${line.id}/already-received`,
+    Object.fromEntries(Object.entries(form).map(([key, value]) => [key, String(value)]))
+  )
+}
+
+const spreadDiscounts = (client: ApiClient, user: User, invoice: SupplierInvoice, on: boolean) =>
+  client
+    .put(`/supplier-invoices/${invoice.id}/spread-discounts`)
+    .form({ spreadDiscounts: on ? 'true' : 'false' })
+    .header('referer', '/')
+    .withCsrfToken()
+    .loginAs(user)
+    .redirects(0)
+
+/** The invoice page's props, with Items picked for some lines (`pick`, by line id) */
+async function invoicePage(
+  client: ApiClient,
+  user: User,
+  invoice: SupplierInvoice,
+  pick: Record<number, number> = {}
+) {
+  const qs = Object.entries(pick)
+    .map(([line, item]) => `pick[${line}]=${item}`)
+    .join('&')
+  const response = await client
+    .get(`/supplier-invoices/${invoice.id}${qs ? `?${qs}` : ''}`)
+    .withInertia()
+    .loginAs(user)
+  response.assertInertiaComponent('supplier_invoices/show')
+  return response.inertiaProps as {
+    invoice: {
+      spreadDiscounts: boolean
+      discount: string
+      spreadable: boolean
+      lines: Awaited<ReturnType<typeof pageLines>>
+    }
+  }
+}
+
+const daysAgo = (days: number) => DateTime.now().minus({ days })
+
+test.group('Supplier Invoice lines: already received, and the costs confirmed (#210)', (group) => {
+  group.each.setup(async () => {
+    await completeCompany()
+  })
+  group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
+
+  test('already received onto a receipt by hand: no movement, its cost; undone as it was', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const item = await createItem({ supplierCode: 'VLV-034', purchasePrice: '4.8' })
+    // Received by hand from the delivery note, without a cost
+    const byHand = await StockLedger.receive(item, {
+      quantity: '10',
+      occurredOn: daysAgo(3),
+      reference: 'DDT 812',
+    })
+    const { invoice, lines } = await invoiceWith(office)
+
+    // The suggested Item's receipt by hand is offered, and hinted at
+    let [valve] = await pageLines(client, office, invoice)
+    assert.equal(valve.candidate?.id, item.id)
+    assert.isNull(valve.candidate?.newestCostOn)
+    assert.deepEqual(valve.manualReceipts, [
+      {
+        id: byHand.id,
+        occurredOn: daysAgo(3).toISODate()!,
+        quantity: '10.000',
+        unitCost: null,
+        reference: 'DDT 812',
+        newerCost: false,
+      },
+    ])
+    assert.equal(valve.defaultAmount, '52.5')
+
+    const marked = await alreadyReceived(client, office, lines[0], {
+      itemId: item.id,
+      receiptId: byHand.id,
+      quantity: '10',
+    })
+    marked.assertHeader('location', `/supplier-invoices/${invoice.id}`)
+    marked.assertFlashMessage(
+      'success',
+      it('flash.supplierInvoiceLineAlreadyReceived', { code: item.code })
+    )
+
+    // Stock doesn't move; the receipt takes the invoice's cost, and so does the price
+    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
+    const stock = await StockLedger.quantitiesOf(item)
+    assert.equal(stock.inStock, '10.000')
+    await Promise.all([byHand.refresh(), item.refresh()])
+    assert.equal(byHand.unitCost, '5.2500')
+    assert.equal(item.purchasePrice, '5.2500')
+    assert.equal(item.supplierId, invoice.supplierId)
+    const [line] = await SupplierInvoiceLine.query().where('id', lines[0].id)
+    assert.deepInclude(line.serialize(), {
+      outcome: 'already_received',
+      itemId: item.id,
+      stockMovementId: byHand.id,
+      unitCost: '5.2500',
+      setReceiptCost: true,
+      previousPurchasePrice: '4.8000',
+      setSupplierCode: false,
+      handledBy: office.id,
+    })
+    ;[valve] = await pageLines(client, office, invoice)
+    assert.deepInclude(valve, {
+      outcome: 'already_received',
+      unitCost: '5.2500',
+      receipt: { quantity: '10.000', unitCost: '5.2500', occurredOn: daysAgo(3).toISODate()! },
+    })
+    // Linked, it is no longer offered to another line
+    const other = await invoicePage(client, office, invoice, { [lines[1].id]: item.id })
+    assert.equal(other.invoice.lines[1].candidate?.id, item.id)
+    assert.deepEqual(other.invoice.lines[1].manualReceipts, [])
+
+    // Undone: no adjustment, the receipt without a cost again, the Item as it was
+    const undone = await undo(client, office, lines[0])
+    undone.assertFlashMessage('success', it('flash.supplierInvoiceLineUndone'))
+    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
+    await Promise.all([byHand.refresh(), item.refresh(), line.refresh()])
+    assert.isNull(byHand.unitCost)
+    assert.equal(item.purchasePrice, '4.8000')
+    assert.isNull(item.supplierId)
+    assert.equal(item.supplierCode, 'VLV-034')
+    assert.deepInclude(line.serialize(), {
+      outcome: null,
+      itemId: null,
+      stockMovementId: null,
+      unitCost: null,
+      setReceiptCost: false,
+      previousPurchasePrice: null,
+    })
+    ;[valve] = await pageLines(client, office, invoice)
+    assert.deepEqual(
+      valve.manualReceipts.map((receipt) => receipt.id),
+      [byHand.id]
+    )
+  })
+
+  test('already received: a receipt’s own cost stays; without a receipt; what can’t be linked', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const valve = await createItem({ purchasePrice: '4' })
+    const fittings = await createItem({ purchasePrice: '90' })
+    const other = await createItem()
+    const costed = await StockLedger.receive(valve, {
+      quantity: '10',
+      unitCost: '6',
+      occurredOn: daysAgo(2),
+    })
+    const { invoice, lines } = await invoiceWith(office)
+
+    // A receipt with its own cost keeps it; the line keeps Office's; the price stays if asked
+    await alreadyReceived(client, office, lines[0], {
+      itemId: valve.id,
+      receiptId: costed.id,
+      quantity: '10',
+      unitCost: '5,1',
+      updatePurchasePrice: 'false',
+    })
+    await Promise.all([costed.refresh(), valve.refresh()])
+    assert.equal(costed.unitCost, '6.0000')
+    assert.equal(valve.purchasePrice, '6.0000')
+    const [first] = await SupplierInvoiceLine.query().where('id', lines[0].id)
+    assert.deepInclude(first.serialize(), {
+      unitCost: '5.1000',
+      setReceiptCost: false,
+      previousPurchasePrice: null,
+    })
+
+    // Without a receipt: the line's own amount, and the price follows (no newer cost)
+    await alreadyReceived(client, office, lines[1], { itemId: fittings.id, quantity: '1' })
+    await fittings.refresh()
+    assert.equal(fittings.purchasePrice, '97.5000')
+    const [second] = await SupplierInvoiceLine.query().where('id', lines[1].id)
+    assert.isNull(second.stockMovementId)
+    assert.equal(second.unitCost, '97.5000')
+    await invoice.refresh()
+    assert.equal(invoice.status, 'handled')
+    assert.lengthOf(await StockMovement.query().where('itemId', fittings.id), 0)
+
+    // What can't be linked: another Item's receipt, one from a line (even undone), one linked
+    const fresh = await invoiceWith(office, supplierInvoiceXml({ number: 'FV-2' }))
+    const othersReceipt = await StockLedger.receive(other, {
+      quantity: '1',
+      occurredOn: daysAgo(1),
+    })
+    const third = await invoiceWith(office, supplierInvoiceXml({ number: 'FV-3' }))
+    await receive(client, office, third.lines[0], { itemId: valve.id, quantity: '10' })
+    await undo(client, office, third.lines[0])
+    const [fromLine] = await StockMovement.query()
+      .where('itemId', valve.id)
+      .where('kind', 'receipt')
+      .whereNotNull('supplierInvoiceLineId')
+    for (const receiptId of [othersReceipt.id, fromLine.id, costed.id]) {
+      const refused = await alreadyReceived(client, office, fresh.lines[0], {
+        itemId: valve.id,
+        receiptId,
+        quantity: '10',
+      })
+      refused.assertFlashMessage('error', it('flash.supplierInvoiceLineRefused.receiptNotLinkable'))
+    }
+    const [untouched] = await SupplierInvoiceLine.query().where('id', fresh.lines[0].id)
+    assert.isNull(untouched.outcome)
+
+    // Lines that can't be received can't be already received either
+    const credit = await invoiceWith(
+      office,
+      supplierInvoiceXmlWithLines(
+        [{ description: 'Valvola', quantity: '1.00', unitPrice: '5.00', total: '5.00' }],
+        { number: 'NC-1', documentType: 'TD04' }
+      )
+    )
+    const creditRefused = await alreadyReceived(client, office, credit.lines[0], {
+      itemId: valve.id,
+      quantity: '1',
+    })
+    creditRefused.assertFlashMessage('error', it('flash.supplierInvoiceLineRefused.creditNote'))
+  })
+
+  test('the hint: receipts by hand since the delivery notes, else the last 30 days', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const item = await createItem({ supplierCode: 'VLV-034' })
+    const picked = await createItem()
+    const old = await StockLedger.receive(item, { quantity: '2', occurredOn: daysAgo(40) })
+    const recent = await StockLedger.receive(item, { quantity: '5', occurredOn: daysAgo(10) })
+    const pickedReceipt = await StockLedger.receive(picked, {
+      quantity: '1',
+      occurredOn: daysAgo(1),
+    })
+    // Received from another invoice's line: not by hand
+    const earlier = await invoiceWith(office, supplierInvoiceXml({ number: 'FV-0' }))
+    await receive(client, office, earlier.lines[0], {
+      itemId: item.id,
+      quantity: '1',
+      occurredOn: daysAgo(5).toISODate()!,
+    })
+
+    // No delivery notes: the last 30 days
+    const plain = await invoiceWith(office)
+    const [line] = await pageLines(client, office, plain.invoice)
+    assert.deepEqual(
+      line.manualReceipts.map((receipt) => receipt.id),
+      [recent.id]
+    )
+    // The newer receipt from the line has a cost
+    assert.isTrue(line.manualReceipts[0].newerCost)
+    assert.equal(line.candidate?.newestCostOn, daysAgo(5).toISODate())
+
+    // Since the earliest delivery note the invoice cites
+    const cited = await invoiceWith(
+      office,
+      supplierInvoiceXml({
+        number: 'FV-DDT',
+        deliveryNotes: [
+          { number: '7', date: daysAgo(20).toISODate()! },
+          { number: '6', date: daysAgo(45).toISODate()! },
+        ],
+      })
+    )
+    const [citedLine] = await pageLines(client, office, cited.invoice)
+    assert.deepEqual(
+      citedLine.manualReceipts.map((receipt) => receipt.id),
+      [recent.id, old.id]
+    )
+
+    // An Item Office picks comes with its own
+    const withPick = await invoicePage(client, office, plain.invoice, {
+      [plain.lines[0].id]: picked.id,
+    })
+    assert.equal(withPick.invoice.lines[0].candidate?.id, picked.id)
+    assert.equal(withPick.invoice.lines[0].suggestion?.id, item.id)
+    assert.deepEqual(
+      withPick.invoice.lines[0].manualReceipts.map((receipt) => receipt.id),
+      [pickedReceipt.id]
+    )
+  })
+
+  test('spreading the invoice’s discounts: off by default, the default costs follow', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const { invoice, lines } = await invoiceWith(
+      office,
+      supplierInvoiceXmlWithLines(
+        [
+          { description: 'Valvola', quantity: '10.00', unitPrice: '10.00', total: '100.00' },
+          { description: 'Raccordi', quantity: '1.00', unitPrice: '50.00', total: '50.00' },
+          { description: 'Trasporto', quantity: '1.00', unitPrice: '12.00', total: '12.00' },
+          { description: 'Abbuono', unitPrice: '-10.00', total: '-10.00' },
+        ],
+        // 5% of the lines' 152.00
+        { discounts: [{ type: 'SC', percent: '5.00' }] }
+      )
+    )
+    const valve = await createItem()
+    const fittings = await createItem()
+    await markNotStock(client, office, lines[2])
+    await markNotStock(client, office, lines[3])
+
+    let shown = await invoicePage(client, office, invoice)
+    assert.deepInclude(shown.invoice, {
+      spreadDiscounts: false,
+      discount: '17.60',
+      spreadable: true,
+    })
+    assert.deepEqual(
+      shown.invoice.lines.map((line) => line.defaultAmount),
+      ['100', '50', '12', '-10']
+    )
+
+    // On: 17.60 over 100 and 50 is 11.733… and 5.866…: 11.73 and 5.87, adding up exactly
+    const on = await spreadDiscounts(client, office, invoice, true)
+    on.assertHeader('location', `/supplier-invoices/${invoice.id}`)
+    on.assertFlashMessage('success', it('flash.supplierInvoiceSpread'))
+    shown = await invoicePage(client, office, invoice)
+    assert.isTrue(shown.invoice.spreadDiscounts)
+    assert.deepEqual(
+      shown.invoice.lines.map((line) => line.defaultAmount),
+      ['88.27', '44.13', '12', '-10']
+    )
+
+    // Received at the default: the spread cost; Office's own cost when given
+    await receive(client, office, lines[0], { itemId: valve.id, quantity: '10' })
+    await receive(client, office, lines[1], {
+      itemId: fittings.id,
+      quantity: '1',
+      unitCost: '44',
+    })
+    const [valveReceipt] = await StockMovement.query().where('itemId', valve.id)
+    const [fittingsReceipt] = await StockMovement.query().where('itemId', fittings.id)
+    assert.equal(valveReceipt.unitCost, '8.8270')
+    assert.equal(fittingsReceipt.unitCost, '44.0000')
+
+    // Off again: the default costs are the lines' own; what was recorded stays
+    const off = await spreadDiscounts(client, office, invoice, false)
+    off.assertFlashMessage('success', it('flash.supplierInvoiceNotSpread'))
+    await invoice.refresh()
+    assert.isFalse(invoice.spreadDiscounts)
+    await valveReceipt.refresh()
+    assert.equal(valveReceipt.unitCost, '8.8270')
+  })
+
+  test('the cost Office confirms, and the purchase price switch', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const newer = await createItem({ purchasePrice: '4' })
+    const forced = await createItem({ purchasePrice: '4' })
+    const kept = await createItem({ purchasePrice: '4' })
+    const category = await createCategory({ markupPercent: '35' })
+    const cheap = await createItem({
+      categoryId: category.id,
+      purchasePrice: '4',
+      resalePrice: '6',
+    })
+    for (const item of [newer, forced]) {
+      await StockLedger.receive(item, { quantity: '1', unitCost: '7', occurredOn: daysAgo(1) })
+    }
+    const first = await invoiceWith(office)
+    const second = await invoiceWith(office, supplierInvoiceXml({ number: 'FV-2' }))
+
+    // A newer receipt has a cost: the page knows, and by default the price stays
+    const [line] = await pageLines(client, office, first.invoice)
+    assert.isNull(line.candidate)
+    const picked = await invoicePage(client, office, first.invoice, {
+      [first.lines[0].id]: newer.id,
+    })
+    assert.equal(picked.invoice.lines[0].candidate?.newestCostOn, daysAgo(1).toISODate())
+    await receive(client, office, first.lines[0], {
+      itemId: newer.id,
+      quantity: '10',
+      occurredOn: daysAgo(5).toISODate()!,
+      unitCost: '5,5',
+    })
+    await newer.refresh()
+    assert.equal(newer.purchasePrice, '7.0000')
+    const [recorded] = await StockMovement.query()
+      .where('itemId', newer.id)
+      .where('supplierInvoiceLineId', first.lines[0].id)
+    assert.equal(recorded.unitCost, '5.5000')
+
+    // Switched on, it becomes the price all the same
+    await receive(client, office, second.lines[0], {
+      itemId: forced.id,
+      quantity: '10',
+      occurredOn: daysAgo(5).toISODate()!,
+      updatePurchasePrice: 'true',
+    })
+    await forced.refresh()
+    assert.equal(forced.purchasePrice, '5.2500')
+
+    // Switched off, it doesn't, even as the newest
+    await receive(client, office, first.lines[1], {
+      itemId: kept.id,
+      quantity: '1',
+      updatePurchasePrice: 'false',
+    })
+    await kept.refresh()
+    assert.equal(kept.purchasePrice, '4.0000')
+    const [keptLine] = await SupplierInvoiceLine.query().where('id', first.lines[1].id)
+    assert.isNull(keptLine.previousPurchasePrice)
+
+    // The markup warning applies to a line already received too: 97.50 × 1.35 > 6
+    const warned = await alreadyReceived(client, office, second.lines[1], {
+      itemId: cheap.id,
+      quantity: '1',
+    })
+    warned.assertFlashMessage(
+      'warning',
+      it('flash.supplierInvoiceLineBelowMarkup', { code: cheap.code, markup: '35' })
+    )
+    await cheap.refresh()
+    assert.equal(cheap.purchasePrice, '97.5000')
+    assert.equal(cheap.resalePrice, '6.0000')
+
+    // A cost of zero records none; one that isn't an amount is refused
+    const third = await invoiceWith(office, supplierInvoiceXml({ number: 'FV-3' }))
+    const free = await receive(client, office, third.lines[0], {
+      itemId: kept.id,
+      quantity: '10',
+      unitCost: '0',
+    })
+    free.assertFlashMessage(
+      'success',
+      it('flash.supplierInvoiceLineReceived', { quantity: '10', unit: 'pz', code: kept.code })
+    )
+    const [freeReceipt] = await StockMovement.query().where(
+      'supplierInvoiceLineId',
+      third.lines[0].id
+    )
+    assert.isNull(freeReceipt.unitCost)
+    const badCost = await receive(client, office, third.lines[1], {
+      itemId: kept.id,
+      quantity: '1',
+      unitCost: '1.234,5',
+    })
+    assert.deepEqual(badCost.flashMessage('inputErrorsBag').unitCost, [
+      it('validator.shared.messages.amount', { field: 'costo unitario' }),
+    ])
+  })
+
+  test('Technicians and the Superuser are refused already received and the spread; Admins use them', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const { invoice, lines } = await invoiceWith(office)
+    const item = await createItem()
+
+    for (const role of ['technician', 'superuser'] as const) {
+      const user = await createUser(role)
+      for (const response of [
+        await alreadyReceived(client, user, lines[0], { itemId: item.id, quantity: '10' }),
+        await spreadDiscounts(client, user, invoice, true),
+      ]) {
+        response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      }
+    }
+    const [line] = await SupplierInvoiceLine.query().where('id', lines[0].id)
+    assert.isNull(line.outcome)
+    await invoice.refresh()
+    assert.isFalse(invoice.spreadDiscounts)
+
+    const admin = await createUser('admin')
+    const marked = await alreadyReceived(client, admin, lines[0], {
+      itemId: item.id,
+      quantity: '10',
+    })
+    marked.assertFlashMessage(
+      'success',
+      it('flash.supplierInvoiceLineAlreadyReceived', { code: item.code })
+    )
+    const spread = await spreadDiscounts(client, admin, invoice, true)
+    spread.assertFlashMessage('success', it('flash.supplierInvoiceSpread'))
+    await invoice.refresh()
+    assert.isTrue(invoice.spreadDiscounts)
   })
 })

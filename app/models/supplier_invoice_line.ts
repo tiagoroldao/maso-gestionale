@@ -9,7 +9,9 @@ import type { LineOutcome } from '#shared/supplier_invoices'
 /**
  * One line of a Supplier Invoice, as the supplier wrote it (DettaglioLinee),
  * and what Office made of it (#199): received onto an Item, with its
- * receipt Stock Movement, or marked not stock; null while to handle.
+ * receipt Stock Movement; already received by hand onto an Item, maybe
+ * linked to that earlier receipt, with the cost Office confirmed (#210);
+ * or marked not stock. Null while to handle.
  */
 export default class SupplierInvoiceLine extends SupplierInvoiceLineSchema {
   static table = 'supplier_invoice_lines'

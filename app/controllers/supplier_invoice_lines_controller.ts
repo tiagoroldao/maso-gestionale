@@ -1,14 +1,15 @@
 import SupplierInvoiceLine from '#models/supplier_invoice_line'
 import SupplierInvoiceLines, { LineRefusedError } from '#services/supplier_invoice_lines'
-import { receiveLineValidator } from '#validators/supplier'
+import { alreadyReceivedLineValidator, receiveLineValidator } from '#validators/supplier'
 import { amountForInput } from '#shared/money'
 import { formatQuantity } from '#shared/stock'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
  * Handling a Supplier Invoice's lines (#199), for Admin and Office:
- * receiving one into stock onto an Item, marking it not stock, and
- * undoing either. Each returns to the invoice's page.
+ * receiving one into stock onto an Item, marking it already received by
+ * hand (#210) or not stock, and undoing any of them. Each returns to the
+ * invoice's page.
  */
 export default class SupplierInvoiceLinesController {
   async receive({ params, request, response, session, i18n, auth }: HttpContext) {
@@ -51,6 +52,38 @@ export default class SupplierInvoiceLinesController {
           }),
       ].filter((warning): warning is string => Boolean(warning))
       if (warnings.length) session.flash('warning', warnings.join(' '))
+    } catch (error) {
+      if (!(error instanceof LineRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.supplierInvoiceLineRefused.${error.reason}`))
+    }
+    return response.redirect().toRoute('supplier_invoices.show', { id: line.supplierInvoiceId })
+  }
+
+  /**
+   * Marks a line already received by hand onto an Item (#210), optionally
+   * linked to that earlier receipt: stock doesn't move.
+   */
+  async markAlreadyReceived({ params, request, response, session, i18n, auth }: HttpContext) {
+    const line = await SupplierInvoiceLine.findOrFail(params.id)
+    const data = await request.validateUsing(alreadyReceivedLineValidator)
+    try {
+      const marked = await SupplierInvoiceLines.markAlreadyReceived(line, {
+        ...data,
+        user: auth.getUserOrFail(),
+      })
+      session.flash(
+        'success',
+        i18n.t('flash.supplierInvoiceLineAlreadyReceived', { code: marked.item.code })
+      )
+      if (marked.belowMarkup !== null) {
+        session.flash(
+          'warning',
+          i18n.t('flash.supplierInvoiceLineBelowMarkup', {
+            code: marked.item.code,
+            markup: amountForInput(marked.belowMarkup).replace(/,00$/, ''),
+          })
+        )
+      }
     } catch (error) {
       if (!(error instanceof LineRefusedError)) throw error
       session.flash('error', i18n.t(`flash.supplierInvoiceLineRefused.${error.reason}`))

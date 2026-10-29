@@ -894,11 +894,23 @@ const routes = {
     tokens: [[0,"supplier-invoices"],[1,"id"],[0,"file"]],
     types: placeholder as Registry['supplier_invoices.file']['types'],
   },
+  'supplier_invoices.spread_discounts': {
+    methods: ["PUT"],
+    pattern: '/supplier-invoices/:id/spread-discounts',
+    tokens: [[0,"supplier-invoices"],[1,"id"],[0,"spread-discounts"]],
+    types: placeholder as Registry['supplier_invoices.spread_discounts']['types'],
+  },
   'supplier_invoice_lines.receive': {
     methods: ["POST"],
     pattern: '/supplier-invoice-lines/:id/receipt',
     tokens: [[0,"supplier-invoice-lines"],[1,"id"],[0,"receipt"]],
     types: placeholder as Registry['supplier_invoice_lines.receive']['types'],
+  },
+  'supplier_invoice_lines.mark_already_received': {
+    methods: ["POST"],
+    pattern: '/supplier-invoice-lines/:id/already-received',
+    tokens: [[0,"supplier-invoice-lines"],[1,"id"],[0,"already-received"]],
+    types: placeholder as Registry['supplier_invoice_lines.mark_already_received']['types'],
   },
   'supplier_invoice_lines.mark_not_stock': {
     methods: ["POST"],

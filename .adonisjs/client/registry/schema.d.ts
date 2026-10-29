@@ -1912,10 +1912,10 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/supplier').supplierInvoicePageValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'supplier_invoices.file': {
@@ -1931,6 +1931,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['file']>>>
     }
   }
+  'supplier_invoices.spread_discounts': {
+    methods: ["PUT"]
+    pattern: '/supplier-invoices/:id/spread-discounts'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').spreadDiscountsValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').spreadDiscountsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['spreadDiscounts']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['spreadDiscounts']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['spreadDiscounts']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'supplier_invoice_lines.receive': {
     methods: ["POST"]
     pattern: '/supplier-invoice-lines/:id/receipt'
@@ -1942,6 +1955,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['receive']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['receive']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['receive']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'supplier_invoice_lines.mark_already_received': {
+    methods: ["POST"]
+    pattern: '/supplier-invoice-lines/:id/already-received'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').alreadyReceivedLineValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').alreadyReceivedLineValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['markAlreadyReceived']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['markAlreadyReceived']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['markAlreadyReceived']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'supplier_invoice_lines.mark_not_stock': {

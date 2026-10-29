@@ -4,6 +4,8 @@ import db from '@adonisjs/lucid/services/db'
 import { isValidVatNumber } from '#fiscal/italian_ids'
 import { taxCodeRule } from '#validators/rules/italian_ids'
 import { quantityRule } from '#validators/rules/quantity'
+import { amountRule } from '#validators/rules/amount'
+import { UNIT_PRICE_DECIMALS } from '#shared/money'
 
 /**
  * A Supplier's VAT number: an Italian Partita IVA when the country is
@@ -98,14 +100,52 @@ export const supplierInvoiceUploadValidator = vine.create({
 })
 
 /**
+ * The cost Office confirms for a line (#210): the unit cost in euro, with
+ * the 4 decimals unit prices keep (left out: the line's default), and
+ * whether it becomes the Item's purchase price (left out: only when no
+ * newer receipt has a cost).
+ */
+const confirmedCost = {
+  unitCost: vine
+    .string()
+    .use(amountRule({ decimals: UNIT_PRICE_DECIMALS, max: '9999999999' }))
+    .optional(),
+  updatePurchasePrice: vine.boolean().optional(),
+}
+
+/**
  * A Supplier Invoice line received onto an Item (#199): the quantity in
- * the Item's unit, with the 3 decimals stock keeps, and the day the goods
- * came in.
+ * the Item's unit, with the 3 decimals stock keeps, the day the goods
+ * came in, and the cost confirmed (#210).
  */
 export const receiveLineValidator = vine.create({
   itemId: vine.number().exists({ table: 'items', column: 'id' }),
   quantity: vine.string().use(quantityRule({ allowNegative: false })),
   occurredOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
+  ...confirmedCost,
+})
+
+/**
+ * A Supplier Invoice line already received by hand onto an Item (#210):
+ * optionally the earlier receipt, the quantity in the Item's unit (for
+ * the default cost) and the cost confirmed.
+ */
+export const alreadyReceivedLineValidator = vine.create({
+  itemId: vine.number().exists({ table: 'items', column: 'id' }),
+  receiptId: vine.number().withoutDecimals().positive().optional(),
+  quantity: vine.string().use(quantityRule({ allowNegative: false })),
+  ...confirmedCost,
+})
+
+/** Whether a Supplier Invoice spreads its discounts over its lines' costs (#210) */
+export const spreadDiscountsValidator = vine.create({ spreadDiscounts: vine.boolean() })
+
+/**
+ * The invoice page's Items picked for lines still to handle, by line id
+ * (`pick[12]=34`), instead of the suggested ones (#210)
+ */
+export const supplierInvoicePageValidator = vine.create({
+  pick: vine.record(vine.number().withoutDecimals().positive()).optional(),
 })
 
 /** The period of Supplier Invoices to export, by invoice date, both days included */
