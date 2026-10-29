@@ -2,7 +2,7 @@ import type { DateTime } from 'luxon'
 import type { VisitStatus } from '#models/visit'
 import type { JobIndicators } from '#shared/jobs'
 import { isSettled } from '#shared/payment_status'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CLOSED_VISIT_STATUSES, isCancelledVisit, isWorkVisit } from '#shared/visits'
 import { BILLING_EVENT_KINDS, WORK_EVENT_KINDS } from '#shared/charges'
 
 type InvoiceSummary = { status: string; total: string | null; credited: string; paid: string }
@@ -11,7 +11,8 @@ type VisitSummary = { status: VisitStatus; startsAt: DateTime; survey: boolean }
 
 /**
  * A Visit is finished when it is done, or when it needed another visit and
- * a later Visit exists for the Job.
+ * a later Visit exists for the Job (among `visits`, from which the caller
+ * leaves cancelled ones out).
  */
 function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
   if (visit.status === 'done') return true
@@ -24,7 +25,8 @@ function isFinished(visit: VisitSummary, visits: VisitSummary[]) {
  * same in SQL:
  * - work complete: the Job has a work Visit and every Visit is finished,
  *   Surveys included, so nothing is left to do or to plan. A Job with only
- *   Surveys has had no work (ADR 0013);
+ *   Surveys has had no work (ADR 0013). Cancelled Visits don't count at
+ *   all (ADR 0016): neither as work nor as a follow-up;
  * - invoiced: an Invoice is past draft and nothing is left to bill
  *   (`billingOpen`, from BILLING_OPEN_SQL), every advance taken back;
  * - paid: an Invoice is past draft and every one is settled: nothing owed,
@@ -35,10 +37,10 @@ export function jobIndicators(
   invoices: InvoiceSummary[],
   billingOpen: boolean
 ): JobIndicators {
+  const counted = visits.filter((visit) => !isCancelledVisit(visit.status))
   const issued = invoices.filter((invoice) => invoice.status !== 'draft' && invoice.total)
   return {
-    workComplete:
-      visits.some((visit) => !visit.survey) && visits.every((visit) => isFinished(visit, visits)),
+    workComplete: counted.some(isWorkVisit) && counted.every((visit) => isFinished(visit, counted)),
     invoiced: issued.length > 0 && !billingOpen,
     paid:
       issued.length > 0 &&
@@ -146,11 +148,13 @@ export const WORK_FROZEN_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice
         AND cn.status IN ('delivered', 'not_deliverable')), false))`
 
 /**
- * The SQL equivalent of isVisitBilled() for the Visit `alias`.
+ * The SQL equivalent of isVisitBilled() for the Visit `alias`: closed or
+ * cancelled (its Charges then all not done), with nothing outstanding.
  */
+const SETTLED_VISIT_STATUSES = [...CLOSED_VISIT_STATUSES, 'cancelled']
 export const VISIT_BILLED_SQL = (
   alias: string
-) => `(${alias}.status IN (${CLOSED_VISIT_STATUSES.map((status) => `'${status}'`).join(', ')})
+) => `(${alias}.status IN (${SETTLED_VISIT_STATUSES.map((status) => `'${status}'`).join(', ')})
   AND NOT EXISTS (SELECT 1 FROM charges vc
     WHERE vc.visit_id = ${alias}.id AND ${OUTSTANDING_SQL('vc')}))`
 
@@ -202,17 +206,27 @@ export const BILLING_OPEN_SQL = `(
 
 /**
  * The Visit `alias` isn't finished (isFinished()): planned or under way,
- * or needing another visit with none planned after it.
+ * or needing another visit with none planned after it (a cancelled one is
+ * no follow-up). A cancelled Visit is never to do.
  */
 export const VISIT_TO_DO_SQL = (alias: string) => `(${alias}.status IN ('planned', 'in_progress')
   OR (${alias}.status = 'needs_return' AND NOT EXISTS (SELECT 1 FROM visits later
-    WHERE later.job_id = ${alias}.job_id AND later.starts_at > ${alias}.starts_at)))`
+    WHERE later.job_id = ${alias}.job_id AND later.starts_at > ${alias}.starts_at
+      AND later.status <> 'cancelled')))`
+
+/**
+ * The Visit `alias` counts as work for its Job (isWorkVisit()): neither a
+ * Survey nor cancelled.
+ */
+export const WORK_VISIT_SQL = (alias: string) =>
+  `(NOT ${alias}.survey AND ${alias}.status <> 'cancelled')`
 
 /**
  * The indicators of jobIndicators() as SQL conditions, for the Jobs list's
  * filters: work complete, invoiced, paid, and all three (ready to close).
  */
-export const WORK_COMPLETE_SQL = `(EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND NOT v.survey)
+export const WORK_COMPLETE_SQL = `(EXISTS (SELECT 1 FROM visits v
+    WHERE v.job_id = jobs.id AND ${WORK_VISIT_SQL('v')})
   AND NOT EXISTS (SELECT 1 FROM visits v WHERE v.job_id = jobs.id AND ${VISIT_TO_DO_SQL('v')}))`
 export const INVOICED_SQL = `(${ISSUED_SQL} AND NOT ${BILLING_OPEN_SQL})`
 export const JOB_PAID_SQL = `(${ISSUED_SQL} AND NOT ${UNSETTLED_SQL})`

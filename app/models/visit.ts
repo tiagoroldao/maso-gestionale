@@ -8,8 +8,19 @@ import VisitNote from '#models/visit_note'
 import VisitPhoto from '#models/visit_photo'
 import Charge from '#models/charge'
 
-export const VISIT_STATUSES = ['planned', 'in_progress', 'done', 'needs_return'] as const
+/**
+ * The statuses a Technician sets in the field: under way, then closed
+ * (done, or needing another visit).
+ */
+export const FIELD_VISIT_STATUSES = ['planned', 'in_progress', 'done', 'needs_return'] as const
+
+/**
+ * Every Visit status: the field's, and cancelled, which only Office sets
+ * (#157).
+ */
+export const VISIT_STATUSES = [...FIELD_VISIT_STATUSES, 'cancelled'] as const
 export type VisitStatus = (typeof VISIT_STATUSES)[number]
+export type FieldVisitStatus = (typeof FIELD_VISIT_STATUSES)[number]
 
 /**
  * A single scheduled trip by one or more Technicians to a Site as part of

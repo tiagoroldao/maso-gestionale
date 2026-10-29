@@ -12,7 +12,7 @@ import type { ChargeState, WorkState } from '@shared/charges'
 import type { AdvanceState } from '@shared/advances'
 import { LINE_KINDS } from '@shared/vat'
 import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
-import { isClosedVisit } from '@shared/visits'
+import { isOpenVisit } from '@shared/visits'
 import { computed, ref } from 'vue'
 import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 
@@ -112,7 +112,7 @@ const left = computed(() =>
 const visitTime = (visit: { startsAt: string; endsAt: string }) =>
   `${formatDate(visit.startsAt)} ${visit.startsAt.slice(11, 16)}–${visit.endsAt.slice(11, 16)}`
 function confirmCancel() {
-  const open = props.visits.filter((visit) => !isClosedVisit(visit.status))
+  const open = props.visits.filter((visit) => isOpenVisit(visit.status))
   return confirm(
     open.length
       ? t('ui.jobs.cancelConfirmOpenVisits', {

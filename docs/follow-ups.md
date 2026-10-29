@@ -22,8 +22,8 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #157  | Cancelled Visits (ADR 0016)                                                               | —                                                 |
 | #158  | Committed stock (ADR 0016)                                                                | —                                                 |
+| #162  | Installed Equipment when an installed Item's Charge is marked not done                    | The business (`needs-human`)                      |
 
 ## Added to existing issues
 

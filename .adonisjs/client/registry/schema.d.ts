@@ -1008,6 +1008,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'visits.cancel': {
+    methods: ["POST"]
+    pattern: '/visits/:id/cancel'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['cancel']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['cancel']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['cancel']>>>
+    }
+  }
+  'visits.restore': {
+    methods: ["POST"]
+    pattern: '/visits/:id/restore'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['restore']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['restore']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['restore']>>>
+    }
+  }
   'charges.store': {
     methods: ["POST"]
     pattern: '/jobs/:id/charges'

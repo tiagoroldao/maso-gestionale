@@ -942,8 +942,10 @@ export class VisitTechnicianSchema extends BaseModel {
 }
 
 export class VisitSchema extends BaseModel {
-  static $columns = ['createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startsAt', 'status', 'survey', 'updatedAt'] as const
+  static $columns = ['cancelledAt', 'createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startsAt', 'status', 'survey', 'updatedAt'] as const
   $columns = VisitSchema.$columns
+  @column.dateTime()
+  declare cancelledAt: DateTime | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column.dateTime()

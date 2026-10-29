@@ -15,7 +15,7 @@ import VatCode from '#models/vat_code'
 import Visit from '#models/visit'
 import { companyDetailsFrom } from '#documents/document_renderer'
 import { lineTotal } from '#shared/money'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { isOpenVisit } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { quoteNumber } from '#shared/quotes'
 
@@ -252,7 +252,8 @@ export default class Quotes {
             .first()
         : null
       if (input.visitId && !visit) throw new QuoteImportRefusedError('done')
-      if (visit && CLOSED_VISIT_STATUSES.includes(visit.status)) {
+      // Only onto a Visit still to happen: not closed, nor cancelled (#157)
+      if (visit && !isOpenVisit(visit.status)) {
         throw new QuoteImportRefusedError('done')
       }
       const locked = await Job.query({ client: trx })

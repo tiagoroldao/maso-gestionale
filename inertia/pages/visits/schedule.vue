@@ -31,6 +31,7 @@ const props = defineProps<{
     id: number
     startsAt: string
     endsAt: string
+    status: string
     survey: boolean
     job: { number: string; customer: string }
   }[]
@@ -141,8 +142,8 @@ const dragging = ref<{
 } | null>(null)
 
 /**
- * Closed Visits (done, or needing another visit) and a closed Job's Visits
- * can't move: the server refuses them too.
+ * Closed Visits (done, or needing another visit), cancelled ones and a
+ * closed Job's Visits can't move: the server refuses them too.
  */
 function isOpen(visit: CalendarVisit) {
   return visit.movable
@@ -263,6 +264,9 @@ const weekday = (iso: string) =>
               · {{ visit.job.number }} · {{ visit.job.customer }}
             </Link>
             <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
+            <span v-if="visit.status === 'cancelled'" class="tag">{{
+              t('ui.visits.statuses.cancelled')
+            }}</span>
           </li>
         </ul>
       </section>
@@ -310,6 +314,9 @@ const weekday = (iso: string) =>
               <span>{{ visit.job.customer }}</span>
               <span v-if="visit.job.site" class="field__hint">{{ visit.job.site }}</span>
               <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
+              <span v-if="visit.status === 'cancelled'" class="tag">{{
+                t('ui.visits.statuses.cancelled')
+              }}</span>
             </div>
           </div>
         </div>
@@ -356,6 +363,9 @@ const weekday = (iso: string) =>
                 }}</Link>
                 <span>{{ visit.job.customer }}</span>
                 <span v-if="visit.survey" class="tag">{{ t('ui.visits.survey') }}</span>
+                <span v-if="visit.status === 'cancelled'" class="tag">{{
+                  t('ui.visits.statuses.cancelled')
+                }}</span>
               </div>
             </td>
           </tr>

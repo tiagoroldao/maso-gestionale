@@ -1,6 +1,6 @@
 import Big from 'big.js'
 import Job from '#models/job'
-import { closableByOffice, hasBillableWork, isClosedVisit } from '#shared/visits'
+import { closableByOffice, hasBillableWork, isCancelledVisit } from '#shared/visits'
 import { isDraftable, isVisitBilled, type ChargeState } from '#shared/charges'
 import Jobs, {
   JobClosedError,
@@ -304,12 +304,16 @@ export default class JobsController {
         survey: visit.survey,
         // Left open when the Job was cancelled: Office marks it done (#153)
         closableByOffice: closableByOffice(job.status, visit.status),
-        billed: isVisitBilled(
-          isClosedVisit(visit.status),
-          charges
-            .filter((charge) => charge.visitId === visit.id)
-            .map((charge) => ({ state: charge.state, work: charge.workState }))
-        ),
+        // A cancelled Visit has nothing to bill, but nothing was billed
+        // either: its status says enough
+        billed:
+          !isCancelledVisit(visit.status) &&
+          isVisitBilled(
+            visit.status,
+            charges
+              .filter((charge) => charge.visitId === visit.id)
+              .map((charge) => ({ state: charge.state, work: charge.workState }))
+          ),
         // Its Charges, for the review when Office closes it (ADR 0016)
         charges: charges
           .filter((charge) => charge.visitId === visit.id)

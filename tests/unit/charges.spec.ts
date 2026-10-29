@@ -48,14 +48,22 @@ test.group('Charge state', () => {
   test('a Visit is billed once closed with nothing outstanding', ({ assert }) => {
     const done = (...states: ChargeState[]) =>
       states.map((state) => ({ state, work: 'done' as const }))
-    assert.isTrue(isVisitBilled(true, done('billed', 'not_billable')))
-    assert.isTrue(isVisitBilled(true, done('billed', 'credited')))
-    assert.isTrue(isVisitBilled(true, []))
-    assert.isFalse(isVisitBilled(true, done('billed', 'in_draft')))
-    assert.isFalse(isVisitBilled(true, done('to_bill')))
-    assert.isFalse(isVisitBilled(false, done('billed')))
+    assert.isTrue(isVisitBilled('done', done('billed', 'not_billable')))
+    assert.isTrue(isVisitBilled('needs_return', done('billed', 'credited')))
+    assert.isTrue(isVisitBilled('done', []))
+    assert.isFalse(isVisitBilled('done', done('billed', 'in_draft')))
+    assert.isFalse(isVisitBilled('done', done('to_bill')))
+    assert.isFalse(isVisitBilled('planned', done('billed')))
+    assert.isFalse(isVisitBilled('in_progress', []))
     // Work not done is never outstanding (ADR 0016)
-    assert.isTrue(isVisitBilled(true, [...done('billed'), { state: 'to_bill', work: 'not_done' }]))
+    assert.isTrue(
+      isVisitBilled('done', [...done('billed'), { state: 'to_bill', work: 'not_done' }])
+    )
+  })
+
+  test('a cancelled Visit leaves nothing to bill (#157)', ({ assert }) => {
+    assert.isTrue(isVisitBilled('cancelled', []))
+    assert.isTrue(isVisitBilled('cancelled', [{ state: 'to_bill', work: 'not_done' }]))
   })
 })
 

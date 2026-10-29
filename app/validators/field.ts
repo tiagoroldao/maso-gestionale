@@ -1,5 +1,5 @@
 import vine from '@vinejs/vine'
-import { VISIT_STATUSES } from '#models/visit'
+import { FIELD_VISIT_STATUSES } from '#models/visit'
 import { quantityRule } from '#validators/rules/quantity'
 
 /**
@@ -14,7 +14,7 @@ const closeReview = {
 }
 
 export const visitStatusValidator = vine.create({
-  status: vine.enum(VISIT_STATUSES),
+  status: vine.enum(FIELD_VISIT_STATUSES),
   ...closeReview,
 })
 

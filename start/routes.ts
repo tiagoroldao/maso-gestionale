@@ -216,6 +216,12 @@ router
           .post('visits/:id/done', [controllers.Visits, 'markDone'])
           .where('id', router.matchers.number())
         router
+          .post('visits/:id/cancel', [controllers.Visits, 'cancel'])
+          .where('id', router.matchers.number())
+        router
+          .post('visits/:id/restore', [controllers.Visits, 'restore'])
+          .where('id', router.matchers.number())
+        router
           .post('jobs/:id/charges', [controllers.Charges, 'store'])
           .where('id', router.matchers.number())
         router

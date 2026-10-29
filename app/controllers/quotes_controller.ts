@@ -13,7 +13,7 @@ import { quoteDocument } from '#documents/quote_document'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { quoteImportValidator, quoteValidator } from '#validators/quote'
 import { localDateTime } from '#services/dates'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { OPEN_VISIT_STATUSES } from '#shared/visits'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -82,7 +82,7 @@ export default class QuotesController {
     const visits = importable
       ? await Visit.query()
           .where('jobId', job.id)
-          .whereNotIn('status', [...CLOSED_VISIT_STATUSES])
+          .whereIn('status', [...OPEN_VISIT_STATUSES])
           .preload('technicians')
           .orderBy('startsAt')
       : []

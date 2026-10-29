@@ -18,8 +18,11 @@ const props = defineProps<{
     technicianIds: number[]
     notes: string | null
     survey: boolean
+    status: string
     editable: boolean
     closableByOffice: boolean
+    cancellable: boolean
+    restorable: boolean
   } | null
 }>()
 
@@ -30,6 +33,7 @@ const durations = [...new Set([30, 60, 90, 120, 180, 240, 480, durationMinutes])
 )
 const confirmDelete = () => window.confirm(t('ui.visits.deleteConfirm'))
 const confirmDone = () => window.confirm(t('ui.visits.markDoneConfirm'))
+const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
 </script>
 
 <template>
@@ -47,6 +51,14 @@ const confirmDone = () => window.confirm(t('ui.visits.markDoneConfirm'))
         <Form route="visits.mark_done" :params="{ id: visit.id }" :on-before="confirmDone">
           <button type="submit" class="btn btn--secondary btn--sm">
             {{ t('ui.visits.markDone') }}
+          </button>
+        </Form>
+      </Section>
+      <Section v-else-if="visit?.status === 'cancelled'">
+        <p class="field__hint">{{ t('ui.visits.cancelledHint') }}</p>
+        <Form v-if="visit.restorable" route="visits.restore" :params="{ id: visit.id }">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.visits.restore') }}
           </button>
         </Form>
       </Section>
@@ -164,6 +176,13 @@ const confirmDone = () => window.confirm(t('ui.visits.markDoneConfirm'))
           </button>
         </Form>
         <span class="field__hint">{{ t('ui.visits.deleteHint') }}</span>
+      </Section>
+      <Section v-if="visit?.cancellable">
+        <Form route="visits.cancel" :params="{ id: visit.id }" :on-before="confirmCancel">
+          <button type="submit" class="btn btn--ghost btn--sm">
+            {{ t('ui.visits.cancel') }}
+          </button>
+        </Form>
       </Section>
     </Page>
   </AppLayout>
