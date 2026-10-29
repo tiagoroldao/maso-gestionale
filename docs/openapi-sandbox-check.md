@@ -15,7 +15,7 @@ node ace sdi:sandbox-check --cleanup                     # remove the callback c
 
 - **Sandbox only.** The host is `https://test.sdi.openapi.it`, hard-coded; anything else is refused. The token and the `Authorization` header are never printed.
 - **`--setup`** creates the Business Registry Configuration for `--fiscal-id` (default `02903752463`, the one already in the sandbox) if missing, and registers the `supplier-invoice` callback, to `https://invalid.invalid/sdi/webhook` unless `--callback-url` says otherwise. Each callback write replaces the whole configuration; other events' callbacks are kept.
-- **`--cleanup`** only removes the callback configuration for the fiscal id, and runs no checks. It removes nothing, and fails, when Openapi lists more than one configuration or one for another fiscal id: the `fiscal_id` filter may be ignored, and the rest could be other accounts' configurations.
+- **`--cleanup`** only removes the callback configuration for the fiscal id, and runs no checks. A configuration as read doesn't say whose it is, so it first probes the `fiscal_id` filter with `00000000000`, a fiscal id no one holds: unless that lists nothing, it removes nothing and fails, since what it listed could be other fiscal ids' configurations. It also removes nothing listed as another fiscal id's. Several items for the fiscal id are expected (one per event callback) and are all removed.
 - Without either, the command changes no set-up: it reads, sends two test invoices, and simulates a received invoice and notices, as the checks below say.
 - `--wait` is how long, in seconds, to wait for Openapi to list or store something (120 by default). `--p7m <file>` also tries importing a signed file in check 8 (e.g. `tests/fixtures/supplier_invoice.xml.p7m`, whose buyer is not the sandbox's fiscal id).
 
@@ -24,7 +24,7 @@ The report is Markdown on stdout, ready to paste as a comment on #204; progress 
 ## The checks
 
 1. **The token works:** `GET /business_registry_configurations`, and whether one exists for the fiscal id.
-2. **`GET /api_configurations` shape:** `callback` or `callbacks`, an array or an object, per item, and whether the `fiscal_id` filter is honoured (it fails if an item is for another fiscal id).
+2. **`GET /api_configurations` shape:** `callback` or `callbacks`, an array or an object, per item, and whether the `fiscal_id` filter is honoured, probed with `00000000000`, a fiscal id no one holds, which must list nothing (it fails if the filter is ignored).
 3. **Send and find:** a test FatturaPA (from the app's builder) through `POST /invoices`, then found by its date and number as `findSent` does (#204's headline question). It notes how many attempts and seconds that took, and the file's `marking` when first found, so a file found while still queued shows as such.
 4. **Send with legal storage:** the same through `POST /invoices_legal_storage`; its `legally_stored` and `preserved_document`, its notices, and a simulated `legal-storage-receipt`.
 5. **Receive:** `POST /simulate/supplier-invoice`, then `GET /invoices?type=1` until it is listed, and its download. With an undeliverable callback URL (the placeholder) this answers option (a): listable although the callback can't be delivered. The report says so, and flags a run whose callback may be deliverable, since that run doesn't answer it.

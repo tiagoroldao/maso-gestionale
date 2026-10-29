@@ -17,6 +17,9 @@ export const SANDBOX_FISCAL_ID = '02903752463'
 /** The customer and supplier of the test documents: invented, checksum-valid */
 const OTHER_PARTY_VAT = '11111111115'
 
+/** A fiscal id no one can hold, to probe the `fiscal_id` filter */
+const NOBODY = '00000000000'
+
 /** How often a check asks again while it waits for Openapi */
 const POLL_INTERVAL_MS = 5_000
 
@@ -161,10 +164,12 @@ export class SdiSandboxCheck {
       const read = await this.raw('GET', `/api_configurations?${this.fiscalQuery()}`)
       if (read.status !== 200) return this.fail(`Couldn't read the configuration (${read.status})`)
       const items = asArray(read.body?.data) as { id?: string; fiscal_id?: string }[]
-      // If Openapi ignored the filter, these could be other fiscal ids' configurations
-      if (items.length > 1) {
+      // The read carries no fiscal id (ApiConfiguration-read): if Openapi
+      // ignored the filter, these could be other fiscal ids' configurations
+      const probe = await this.probeFilter()
+      if (probe !== 'honoured') {
         return this.fail(
-          `${items.length} configurations listed for one fiscal id: the \`fiscal_id\` filter may be ignored, so nothing was removed`
+          `The \`fiscal_id\` filter is ${probe === 'ignored' ? 'ignored' : 'unconfirmed'}: nothing was removed`
         )
       }
       if (items.some((item) => item?.fiscal_id && item.fiscal_id !== this.options.fiscalId)) {
@@ -249,21 +254,12 @@ export class SdiSandboxCheck {
     this.note(
       `\`data\` is ${Array.isArray(read.body?.data) ? 'an array' : typeof read.body?.data}, ${items.length} item(s)`
     )
-    if (!items.length) return this.skip('No configuration to read: run with `--setup`')
-
-    const fiscalIds = items
-      .map((item) => item.fiscal_id)
-      .filter((fiscalId): fiscalId is string => typeof fiscalId === 'string')
-    const others = fiscalIds.filter((fiscalId) => fiscalId !== this.options.fiscalId).length
-    this.note(
-      `\`fiscal_id\` filter: ${
-        !fiscalIds.length
-          ? "can't tell (no item carries `fiscal_id`)"
-          : others
-            ? `NOT honoured (${others} item(s) for another fiscal id)`
-            : 'honoured (every item is for this fiscal id)'
-      }`
-    )
+    const probe = await this.probeFilter()
+    if (!items.length) {
+      return probe === 'ignored'
+        ? this.fail('The `fiscal_id` filter is ignored')
+        : this.skip('No configuration to read: run with `--setup`')
+    }
 
     let unknown = 0
     for (const [index, item] of items.entries()) {
@@ -281,7 +277,8 @@ export class SdiSandboxCheck {
       if (receiving?.url) this.callbackUrl = receiving.url
     }
     this.note(`\`supplier-invoice\` callback: ${this.callbackUrl ?? 'none'}`)
-    if (others) return this.fail('The `fiscal_id` filter is ignored')
+    if (probe === 'ignored') return this.fail('The `fiscal_id` filter is ignored')
+    if (probe === 'unconfirmed') return this.fail("The `fiscal_id` filter couldn't be probed")
     return unknown
       ? this.fail(`${unknown} item(s) in a shape the gateway doesn't read`)
       : this.pass()
@@ -645,6 +642,29 @@ export class SdiSandboxCheck {
       }
       await sleep(Math.min(POLL_INTERVAL_MS, left))
     }
+  }
+
+  /**
+   * Whether `GET /api_configurations` honours its `fiscal_id` filter: asked
+   * for a fiscal id no one holds, it must list nothing. The read carries no
+   * fiscal id, so this is the only way to tell.
+   */
+  private async probeFilter(): Promise<'honoured' | 'ignored' | 'unconfirmed'> {
+    const nobody = this.options.fiscalId === NOBODY ? '99999999999' : NOBODY
+    const read = await this.raw(
+      'GET',
+      `/api_configurations?${new URLSearchParams({ fiscal_id: nobody })}`
+    )
+    const listed = asArray(read.body?.data).length
+    const result = read.status !== 200 ? 'unconfirmed' : listed ? 'ignored' : 'honoured'
+    this.note(
+      `\`fiscal_id\` filter: ${
+        result === 'unconfirmed'
+          ? `unconfirmed (the probe answered ${read.status})`
+          : `${result} (fiscal id ${nobody}, which no one holds, lists ${listed} item(s))`
+      }`
+    )
+    return result
   }
 
   private fiscalQuery() {

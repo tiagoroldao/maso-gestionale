@@ -38,6 +38,8 @@ function fakeSandbox(
     endlessPages?: boolean
     /** The callback configuration kept, when not the placeholder for our fiscal id */
     configuration?: { fiscal_id: string; callbacks: Record<string, unknown>[] }
+    /** Lists every configuration whatever the `fiscal_id` asked, without `fiscal_id` (the spec's read) */
+    ignoresFiscalIdFilter?: boolean
   } = {}
 ) {
   const {
@@ -53,7 +55,11 @@ function fakeSandbox(
             fiscal_id: SANDBOX_FISCAL_ID,
             callbacks: [{ event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL }],
           }
-        : null)
+        : null),
+    'callback',
+    options.ignoresFiscalIdFilter
+      ? { honoursFilter: false, withFiscalId: false }
+      : { honoursFilter: true }
   )
   const registries: string[] = configured ? [SANDBOX_FISCAL_ID] : []
   const invoices: Stored[] = []
@@ -239,7 +245,10 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     }
     assert.include(stdout, '**9 PASS, 0 FAIL, 0 SKIP, 0 INCONCLUSIVE**')
     assert.include(stdout, 'Found by `findSent` after 1 attempt(s), 0s; `marking` then: "sent"')
-    assert.include(stdout, '`fiscal_id` filter: honoured')
+    assert.include(
+      stdout,
+      '`fiscal_id` filter: honoured (fiscal id 00000000000, which no one holds, lists 0 item(s))'
+    )
     assert.include(
       stdout,
       `The \`supplier-invoice\` callback (${PLACEHOLDER_CALLBACK_URL}) can't be delivered, so this answers option (a)`
@@ -324,53 +333,75 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
 
     assert.equal(exitCode, 0)
     assert.deepEqual(
-      openapi.requests.map((request) => `${request.method} ${request.path}`),
-      ['GET /api_configurations', 'DELETE /api_configurations/000000000000000000000000']
+      openapi.requests.map(
+        (request) => `${request.method} ${request.path} ${request.query.get('fiscal_id') ?? ''}`
+      ),
+      [
+        `GET /api_configurations ${SANDBOX_FISCAL_ID}`,
+        // The filter probed with a fiscal id no one holds before removing
+        'GET /api_configurations 00000000000',
+        'DELETE /api_configurations/000000000000000000000000 ',
+      ]
     )
     assert.include(stdout, '| Cleanup: callback configuration removed | PASS |')
     assert.include(stdout, '`DELETE /api_configurations/{id}` → 200')
     assert.notInclude(stdout, '000000000000000000000000')
   })
 
-  test('--cleanup removes nothing when the fiscal id filter may be ignored', async ({ assert }) => {
-    // Two configurations listed for one fiscal id
-    const two = fakeSandbox({
-      configuration: {
-        fiscal_id: SANDBOX_FISCAL_ID,
-        callbacks: [
-          { event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL },
-          { event: 'customer-notification', url: PLACEHOLDER_CALLBACK_URL },
-        ],
-      },
-    })
-    const listed = await run(two, ['--cleanup'])
-    assert.equal(listed.exitCode, 1)
-    assert.include(listed.stdout, '2 configurations listed for one fiscal id')
-
-    // One configuration, another fiscal id's
-    const other = fakeSandbox({
+  test('--cleanup removes nothing when the fiscal id filter is ignored', async ({ assert }) => {
+    // The account's one configuration is another fiscal id's, and the read
+    // doesn't say whose it is (ApiConfiguration-read has no fiscal_id)
+    const openapi = fakeSandbox({
+      ignoresFiscalIdFilter: true,
       configuration: {
         fiscal_id: '00000000018',
         callbacks: [{ event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL }],
       },
     })
-    const foreign = await run(other, ['--cleanup'])
-    assert.equal(foreign.exitCode, 1)
-    assert.include(foreign.stdout, 'belongs to another fiscal id: nothing was removed')
 
-    for (const openapi of [two, other]) {
-      assert.notInclude(
-        openapi.requests.map((request) => request.method),
-        'DELETE'
-      )
-    }
+    const cleanup = await run(openapi, ['--cleanup'])
+
+    assert.equal(cleanup.exitCode, 1)
+    assert.include(cleanup.stdout, 'The `fiscal_id` filter is ignored: nothing was removed')
+    assert.include(
+      cleanup.stdout,
+      '`fiscal_id` filter: ignored (fiscal id 00000000000, which no one holds, lists 1 item(s))'
+    )
+    assert.notInclude(
+      openapi.requests.map((request) => request.method),
+      'DELETE'
+    )
 
     // Check 2 records the filter as ignored
-    const checked = await run(other, [])
+    const checked = await run(openapi, [])
     assert.include(checked.stdout, '| 2. `GET /api_configurations` shape | FAIL |')
-    assert.include(
-      checked.stdout,
-      '`fiscal_id` filter: NOT honoured (1 item(s) for another fiscal id)'
+    assert.include(checked.stdout, 'The `fiscal_id` filter is ignored')
+  })
+
+  test('--cleanup removes nothing listed as another fiscal id', async ({ assert }) => {
+    const openapi = fakeSandbox({
+      configuration: {
+        fiscal_id: '00000000018',
+        callbacks: [{ event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL }],
+      },
+    })
+    // Honoured for the probe, yet answering another fiscal id's for ours
+    const configuration = openapi.on('GET', '/api_configurations', (request) =>
+      request.query.get('fiscal_id') === '00000000000'
+        ? { status: 200, body: { data: [], success: true } }
+        : {
+            status: 200,
+            body: { data: [{ id: '000000000000000000000000', fiscal_id: '00000000018' }] },
+          }
+    )
+
+    const { exitCode, stdout } = await run(configuration, ['--cleanup'])
+
+    assert.equal(exitCode, 1)
+    assert.include(stdout, 'belongs to another fiscal id: nothing was removed')
+    assert.notInclude(
+      openapi.requests.map((request) => request.method),
+      'DELETE'
     )
   })
 
@@ -447,5 +478,6 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     assert.notInclude(stdout, TOKEN)
     assert.notInclude(stdout, encodeURIComponent(TOKEN))
     assert.notInclude(stderr, TOKEN)
+    assert.notInclude(stderr, encodeURIComponent(TOKEN))
   })
 })
