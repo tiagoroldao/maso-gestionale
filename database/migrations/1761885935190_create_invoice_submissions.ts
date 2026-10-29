@@ -14,7 +14,9 @@ export default class extends BaseSchema {
     this.schema.raw(
       "ALTER TABLE company_settings ADD CONSTRAINT company_settings_sdi_file_prefix_check CHECK (sdi_file_prefix ~ '^[A-Z]$')"
     )
-    this.schema.raw('CREATE SEQUENCE sdi_progressive_seq')
+    // IF NOT EXISTS: migration:fresh drops tables but not sequences, so a
+    // reset dev database still has it (and keeps counting, which is safe)
+    this.schema.raw('CREATE SEQUENCE IF NOT EXISTS sdi_progressive_seq')
 
     this.schema.createTable('invoice_submissions', (table) => {
       table.increments('id').notNullable()
@@ -59,7 +61,7 @@ export default class extends BaseSchema {
 
   async down() {
     this.schema.dropTable('invoice_submissions')
-    this.schema.raw('DROP SEQUENCE sdi_progressive_seq')
+    this.schema.raw('DROP SEQUENCE IF EXISTS sdi_progressive_seq')
     this.schema.raw(
       'ALTER TABLE company_settings DROP CONSTRAINT company_settings_sdi_file_prefix_check'
     )

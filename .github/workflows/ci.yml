@@ -81,6 +81,9 @@ jobs:
       - name: Generated files are up to date
         run: |
           node ace migration:run --force
+          # dev:reset must keep working: fresh drops tables but leaves
+          # sequences and functions, so their migrations must be idempotent
+          node ace migration:fresh --force
           npm run codegen
           git config --global --add safe.directory "$GITHUB_WORKSPACE"
           if [ -n "$(git status --porcelain -- .adonisjs database/schema.ts)" ]; then

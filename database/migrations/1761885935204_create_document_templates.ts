@@ -33,7 +33,7 @@ export default class extends BaseSchema {
       table.unique(['document_template_id', 'version'])
     })
     this.schema.raw(`
-      CREATE FUNCTION document_template_versions_frozen() RETURNS trigger AS $$
+      CREATE OR REPLACE FUNCTION document_template_versions_frozen() RETURNS trigger AS $$
       BEGIN
         RAISE EXCEPTION 'Document Template versions can not be changed';
       END;
@@ -46,7 +46,7 @@ export default class extends BaseSchema {
 
   async down() {
     this.schema.dropTable('document_template_versions')
-    this.schema.raw('DROP FUNCTION document_template_versions_frozen()')
+    this.schema.raw('DROP FUNCTION IF EXISTS document_template_versions_frozen()')
     this.schema.dropTable('document_templates')
   }
 }
