@@ -172,7 +172,7 @@ A numbered, frozen PDF produced from a Document Template for one Customer, with 
 _Avoid_: Certificate, generated document, printout
 
 **Work Report** (_Rapportino_):
-An Issued Document giving a Job's closed Visits day by day (date, Technicians, hours per Labour Rate, Items used, and notes and prices if Office chooses), over the whole Job or a period; it comes from a Document Template with a work report field.
+An Issued Document giving a Job's closed Visits day by day (date, Technicians, hours per Labour Rate, Items used, and notes and prices if Office chooses), then the Job's other costs (its done Charges on no Visit) unless Office leaves them out, over the whole Job or a period; it comes from a Document Template with a work report field.
 _Avoid_: Timesheet, Visit report
 
 ## People

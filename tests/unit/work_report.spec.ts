@@ -17,7 +17,9 @@ const labels: WorkReportLabels = {
   amount: 'Importo',
   notes: 'Note',
   notBilled: 'Non addebitato',
+  jobCharges: 'Altre voci',
   total: 'Totale',
+  visitsTotal: 'Totale interventi',
 }
 
 const hours = (quantity: string, overrides: Partial<WorkReportCharge> = {}): WorkReportCharge => ({
@@ -43,17 +45,20 @@ const valves = (quantity: string, overrides: Partial<WorkReportCharge> = {}) =>
 test.group('Work report table (#180)', () => {
   test('a row per line of each Visit, day and Technicians on its first', ({ assert }) => {
     const table = workReportTable(
-      [
-        {
-          day: '2026-10-20',
-          technicians: ['Anna', 'Bruno'],
-          // Two people's hours at one Labour Rate make one line
-          charges: [hours('2'), valves('3'), hours('1.5')],
-          notes: ['Valvola sostituita'],
-        },
-        { day: '2026-10-22', technicians: ['Anna'], charges: [], notes: [] },
-      ],
-      { prices: false, notes: false },
+      {
+        visits: [
+          {
+            day: '2026-10-20',
+            technicians: ['Anna', 'Bruno'],
+            // Two people's hours at one Labour Rate make one line
+            charges: [hours('2'), valves('3'), hours('1.5')],
+            notes: ['Valvola sostituita'],
+          },
+          { day: '2026-10-22', technicians: ['Anna'], charges: [], notes: [] },
+        ],
+        jobCharges: [],
+      },
+      { prices: false, notes: false, jobCharges: true },
       labels
     )
 
@@ -72,20 +77,23 @@ test.group('Work report table (#180)', () => {
     assert,
   }) => {
     const table = workReportTable(
-      [
-        {
-          day: '2026-10-20',
-          technicians: ['Anna'],
-          charges: [
-            hours('2'),
-            hours('1', { amount: null }),
-            hours('1', { unitPrice: '50.0000', amount: '50.00' }),
-            valves('2'),
-          ],
-          notes: ['Valvola sostituita', 'Impianto in pressione'],
-        },
-      ],
-      { prices: true, notes: true },
+      {
+        visits: [
+          {
+            day: '2026-10-20',
+            technicians: ['Anna'],
+            charges: [
+              hours('2'),
+              hours('1', { amount: null }),
+              hours('1', { unitPrice: '50.0000', amount: '50.00' }),
+              valves('2'),
+            ],
+            notes: ['Valvola sostituita', 'Impianto in pressione'],
+          },
+        ],
+        jobCharges: [],
+      },
+      { prices: true, notes: true, jobCharges: true },
       labels
     )
 
@@ -110,17 +118,21 @@ test.group('Work report table (#180)', () => {
   test('with prices a line shows the quantity billed, without them the one recorded', ({
     assert,
   }) => {
-    const visits = [
-      {
-        day: '2026-10-20',
-        technicians: ['Anna'],
-        // 3 hours recorded, 2 billed
-        charges: [hours('2', { billQuantity: '1', amount: '40.00' }), hours('1')],
-        notes: [],
-      },
-    ]
+    const report = {
+      visits: [
+        {
+          day: '2026-10-20',
+          technicians: ['Anna'],
+          // 3 hours recorded, 2 billed
+          charges: [hours('2', { billQuantity: '1', amount: '40.00' }), hours('1')],
+          notes: [],
+        },
+      ],
+      jobCharges: [],
+    }
+    const options = { notes: false, jobCharges: true }
 
-    assert.deepEqual(workReportTable(visits, { prices: true, notes: false }, labels).rows[0], [
+    assert.deepEqual(workReportTable(report, { ...options, prices: true }, labels).rows[0], [
       '20/10/2026',
       'Anna',
       'Idraulico',
@@ -128,7 +140,7 @@ test.group('Work report table (#180)', () => {
       formatMoney('40'),
       formatMoney('80'),
     ])
-    assert.deepEqual(workReportTable(visits, { prices: false, notes: false }, labels).rows[0], [
+    assert.deepEqual(workReportTable(report, { ...options, prices: false }, labels).rows[0], [
       '20/10/2026',
       'Anna',
       'Idraulico',
@@ -137,24 +149,94 @@ test.group('Work report table (#180)', () => {
   })
 
   test('an empty report prints its headers, and a zero total with prices', ({ assert }) => {
-    assert.deepEqual(workReportTable([], { prices: true, notes: true }, labels).rows, [
+    const empty = { visits: [], jobCharges: [] }
+    const options = { notes: true, jobCharges: true }
+    assert.deepEqual(workReportTable(empty, { ...options, prices: true }, labels).rows, [
       ['', '', 'Totale', '', '', formatMoney('0')],
     ])
-    assert.deepEqual(workReportTable([], { prices: false, notes: true }, labels).rows, [])
+    assert.deepEqual(workReportTable(empty, { ...options, prices: false }, labels).rows, [])
+  })
+})
+
+test.group("Work report: the Job's other costs (#192)", () => {
+  const callOut = (overrides: Partial<WorkReportCharge> = {}) =>
+    hours('1', {
+      group: 'other:call-out',
+      description: 'Uscita',
+      unit: '',
+      unitPrice: '30.0000',
+      amount: '30.00',
+      ...overrides,
+    })
+  const report = {
+    visits: [{ day: '2026-10-20', technicians: ['Anna'], charges: [hours('2')], notes: [] }],
+    jobCharges: [callOut(), valves('2'), callOut({ amount: null })],
+  }
+
+  test('with prices: a section after the days, in the total', ({ assert }) => {
+    const table = workReportTable(report, { prices: true, notes: false, jobCharges: true }, labels)
+
+    assert.deepEqual(table.rows, [
+      ['20/10/2026', 'Anna', 'Idraulico', '2 h', formatMoney('40'), formatMoney('80')],
+      ['', '', 'Altre voci', '', '', ''],
+      ['', '', 'Uscita', '1', formatMoney('30'), formatMoney('30')],
+      ['', '', 'Valvola', '2 pz', formatMoney('7.5'), formatMoney('15')],
+      ['', '', 'Uscita', '1', formatMoney('30'), 'Non addebitato'],
+      ['', '', 'Totale', '', '', formatMoney('125')],
+    ])
+  })
+
+  test('without prices: the quantities recorded, no total', ({ assert }) => {
+    const table = workReportTable(report, { prices: false, notes: false, jobCharges: true }, labels)
+
+    assert.deepEqual(table.rows, [
+      ['20/10/2026', 'Anna', 'Idraulico', '2 h'],
+      ['', '', 'Altre voci', ''],
+      // Without prices, billed or not makes one line
+      ['', '', 'Uscita', '2'],
+      ['', '', 'Valvola', '2 pz'],
+    ])
+  })
+
+  test('left out: no section, and the total reads as the Visits only', ({ assert }) => {
+    const table = workReportTable(report, { prices: true, notes: false, jobCharges: false }, labels)
+
+    assert.deepEqual(table.rows, [
+      ['20/10/2026', 'Anna', 'Idraulico', '2 h', formatMoney('40'), formatMoney('80')],
+      ['', '', 'Totale interventi', '', '', formatMoney('80')],
+    ])
+  })
+
+  test('no heading when the Job has no other costs', ({ assert }) => {
+    const table = workReportTable(
+      { ...report, jobCharges: [] },
+      { prices: false, notes: false, jobCharges: true },
+      labels
+    )
+
+    assert.deepEqual(table.rows, [['20/10/2026', 'Anna', 'Idraulico', '2 h']])
   })
 })
 
 test.group('Work report options (#180)', () => {
   test('dates are ISO days or open, choices booleans', ({ assert }) => {
     assert.deepEqual(
-      parseWorkReportOptions({ from: '2026-10-01', to: '', prices: true, notes: false }),
-      { from: '2026-10-01', to: null, prices: true, notes: false }
+      parseWorkReportOptions({
+        from: '2026-10-01',
+        to: '',
+        prices: true,
+        notes: false,
+        jobCharges: true,
+      }),
+      { from: '2026-10-01', to: null, prices: true, notes: false, jobCharges: true }
     )
+    // Issued before #192: no other costs
     assert.deepEqual(parseWorkReportOptions({ from: null, prices: false, notes: false }), {
       from: null,
       to: null,
       prices: false,
       notes: false,
+      jobCharges: false,
     })
     for (const refused of [
       null,
@@ -164,6 +246,7 @@ test.group('Work report options (#180)', () => {
       { from: '01/10/2026', to: null, prices: false, notes: false },
       { from: null, to: null, prices: 'yes', notes: false },
       { from: null, to: null, prices: false },
+      { from: null, to: null, prices: false, notes: false, jobCharges: 'yes' },
     ]) {
       assert.isNull(parseWorkReportOptions(refused), JSON.stringify(refused))
     }

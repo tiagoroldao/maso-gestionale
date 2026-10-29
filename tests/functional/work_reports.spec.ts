@@ -3,6 +3,7 @@ import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import i18nManager from '@adonisjs/i18n/services/main'
 import Charge from '#models/charge'
+import ChargeEvent from '#models/charge_event'
 import DocumentTemplate from '#models/document_template'
 import IssuedDocument from '#models/issued_document'
 import type Job from '#models/job'
@@ -24,6 +25,7 @@ import type { TemplateNode } from '#shared/document_templates'
 import { completeCompany } from '#tests/helpers/company'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem } from '#tests/helpers/items'
+import { markDone } from '#tests/helpers/charges'
 import { createJob } from '#tests/helpers/jobs'
 import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
@@ -133,7 +135,7 @@ function issue(
     .loginAs(office)
 }
 
-const whole = { from: '', to: '', prices: false, notes: false }
+const whole = { from: '', to: '', prices: false, notes: false, jobCharges: false }
 
 test.group('Work report for a Job (#180)', (group) => {
   group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
@@ -189,7 +191,7 @@ test.group('Work report for a Job (#180)', (group) => {
 
     const response = await issue({ client, office }, template, customer.id, {
       commessa: job.id,
-      rapportino: { from: iso(4), to: iso(1), prices: true, notes: true },
+      rapportino: { from: iso(4), to: iso(1), prices: true, notes: true, jobCharges: true },
     })
 
     response.assertStatus(200)
@@ -222,7 +224,7 @@ test.group('Work report for a Job (#180)', (group) => {
 
     const first = await issue({ client, office }, template, customer.id, {
       commessa: job.id,
-      rapportino: { from: '', to: iso(10), prices: true, notes: true },
+      rapportino: { from: '', to: iso(10), prices: true, notes: true, jobCharges: true },
     })
     const firstDay = await IssuedDocument.findOrFail(first.body().id)
     assert.equal(firstDay.number, `${DateTime.now().year}/0002`)
@@ -258,7 +260,7 @@ test.group('Work report for a Job (#180)', (group) => {
       { quantity: '1', unitPrice: annas.unitPrice, description: annas.description },
       office
     )
-    const period = { from: iso(10), to: iso(10), notes: false }
+    const period = { from: iso(10), to: iso(10), notes: false, jobCharges: true }
 
     const priced = await issue({ client, office }, template, customer.id, {
       commessa: job.id,
@@ -370,7 +372,7 @@ test.group('Work report for a Job (#180)', (group) => {
 
   test('a replacement starts from the original options', async ({ client, assert }) => {
     const { office, customer, job, template } = await longJob()
-    const options = { from: iso(4), to: '', prices: true, notes: false }
+    const options = { from: iso(4), to: '', prices: true, notes: false, jobCharges: false }
     const response = await issue({ client, office }, template, customer.id, {
       commessa: job.id,
       rapportino: options,
@@ -447,5 +449,178 @@ test.group('Work report for a Job (#180)', (group) => {
       'fields.0.type': [it('validator.shared.messages.templateFields.workReportNeedsJob')],
     })
     assert.lengthOf(await addedTemplates(), 0)
+  })
+})
+
+/**
+ * The long Job's own Charges besides its call-out (Office's, done today,
+ * 30): 2 valves from the Quote, confirmed used six days ago; a disposal
+ * Office won't bill, today; and, not reported, 2 hours from the Quote still
+ * planned and a valve not used after all.
+ */
+async function jobCharges(job: Job, office: User) {
+  const valve = await createItem({ description: 'Valvola', unit: 'pz', resalePrice: '7.5' })
+  const plumber = await LabourRate.findByOrFail('name', 'Idraulico')
+  const onJob = (attributes: Partial<Charge>) =>
+    Charge.create({
+      jobId: job.id,
+      description: 'Da preventivo',
+      billQuantity: attributes.quantity,
+      ...attributes,
+    })
+  const valves = await onJob({ kind: 'item', itemId: valve.id, quantity: '2', unitPrice: '7.5' })
+  await ChargeEvent.create({
+    chargeId: valves.id,
+    kind: 'done',
+    createdAt: daysAgo(6).set({ hour: 12 }),
+  })
+  const disposal = await Charges.add(
+    job,
+    { description: 'Smaltimento', quantity: '1', unitPrice: '20', unit: null, vatKind: 'labour' },
+    office
+  )
+  await Charges.setBillable(disposal, false, office)
+  await onJob({
+    kind: 'labour',
+    labourRateId: plumber.id,
+    workerName: 'Ditta Rossi',
+    quantity: '2',
+    unitPrice: '40',
+  })
+  const unused = await markDone(
+    await onJob({ kind: 'item', itemId: valve.id, quantity: '1', unitPrice: '7.5' })
+  )
+  await ChargeEvent.create({ chargeId: unused.id, kind: 'not_done' })
+}
+
+test.group("Work report: the Job's other costs (#192)", (group) => {
+  group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
+
+  const days = [
+    [shown(10), 'Anna Neri, Bruno Blu, Carlo Ditta', 'Idraulico', '3 h'],
+    ['', '', 'Valvola', '3 pz'],
+    ['', '', 'Elettricista', '1 h'],
+    [shown(3), 'Anna Neri', 'Idraulico', '1 h'],
+  ]
+
+  test('with prices: its done Charges on no Visit after the days, in the total', async ({
+    client,
+    assert,
+  }) => {
+    const { office, customer, job, template } = await longJob()
+    await jobCharges(job, office)
+
+    const response = await issue({ client, office }, template, customer.id, {
+      commessa: job.id,
+      rapportino: { ...whole, prices: true, jobCharges: true },
+    })
+
+    response.assertStatus(200)
+    const document = await IssuedDocument.findOrFail(response.body().id)
+    assert.deepEqual(document.tables.rapportino.rows.slice(4), [
+      ['', '', it('documents.workReport.jobCharges'), '', '', ''],
+      ['', '', 'Uscita', '1', formatMoney('30'), formatMoney('30')],
+      ['', '', 'Valvola', '2 pz', formatMoney('7.5'), formatMoney('15')],
+      ['', '', 'Smaltimento', '1', formatMoney('20'), it('documents.workReport.notBilled')],
+      // The days' 192.5 and the Job's 45
+      ['', '', it('documents.workReport.total'), '', '', formatMoney('237.5')],
+    ])
+  })
+
+  test('without prices: the quantities recorded, no total', async ({ client, assert }) => {
+    const { office, customer, job, template } = await longJob()
+    await jobCharges(job, office)
+
+    const response = await issue({ client, office }, template, customer.id, {
+      commessa: job.id,
+      rapportino: { ...whole, jobCharges: true },
+    })
+
+    const document = await IssuedDocument.findOrFail(response.body().id)
+    assert.deepEqual(document.tables.rapportino.rows, [
+      ...days,
+      ['', '', it('documents.workReport.jobCharges'), ''],
+      ['', '', 'Uscita', '1'],
+      ['', '', 'Valvola', '2 pz'],
+      ['', '', 'Smaltimento', '1'],
+    ])
+  })
+
+  test('left out: only the days, and the total reads as theirs', async ({ client, assert }) => {
+    const { office, customer, job, template } = await longJob()
+    await jobCharges(job, office)
+
+    const response = await issue({ client, office }, template, customer.id, {
+      commessa: job.id,
+      rapportino: { ...whole, prices: true, jobCharges: false },
+    })
+
+    const document = await IssuedDocument.findOrFail(response.body().id)
+    const rows = document.tables.rapportino.rows
+    assert.deepEqual(
+      rows.slice(0, -1).map((row: string[]) => row.slice(0, 4)),
+      days
+    )
+    assert.deepEqual(rows.at(-1), [
+      '',
+      '',
+      it('documents.workReport.visitsTotal'),
+      '',
+      '',
+      formatMoney('192.5'),
+    ])
+  })
+
+  test('a period takes the Job Charges that became done in it', async ({ client, assert }) => {
+    const { office, customer, job, template } = await longJob()
+    await jobCharges(job, office)
+    const report = async (from: string, to: string) => {
+      const response = await issue({ client, office }, template, customer.id, {
+        commessa: job.id,
+        rapportino: { ...whole, from, to, jobCharges: true },
+      })
+      const document = await IssuedDocument.findOrFail(response.body().id)
+      return document.tables.rapportino.rows
+    }
+
+    // The valves, confirmed used six days ago, with the day three days ago
+    assert.deepEqual(await report(iso(7), iso(1)), [
+      [shown(3), 'Anna Neri', 'Idraulico', '1 h'],
+      ['', '', it('documents.workReport.jobCharges'), ''],
+      ['', '', 'Valvola', '2 pz'],
+    ])
+    // Today's call-out and disposal, on no day
+    assert.deepEqual(await report(iso(0), ''), [
+      ['', '', it('documents.workReport.jobCharges'), ''],
+      ['', '', 'Uscita', '1'],
+      ['', '', 'Smaltimento', '1'],
+    ])
+  })
+
+  test("a replacement keeps the original's choice", async ({ client, assert }) => {
+    const { office, customer, job, template } = await longJob()
+    const replacing = async (rapportino: Record<string, unknown>) => {
+      const response = await issue({ client, office }, template, customer.id, {
+        commessa: job.id,
+        rapportino,
+      })
+      const page = await client
+        .get(`/issued-documents/${response.body().id}/replace`)
+        .withInertia()
+        .loginAs(office)
+      return page.inertiaProps.prefill.rapportino
+    }
+
+    const options = { from: null, to: null, prices: true, notes: false }
+    assert.deepEqual(await replacing({ ...options, jobCharges: true }), {
+      ...options,
+      jobCharges: true,
+    })
+    assert.deepEqual(await replacing({ ...options, jobCharges: false }), {
+      ...options,
+      jobCharges: false,
+    })
+    // Issued before #192, without the choice: it had no other costs
+    assert.deepEqual(await replacing(options), { ...options, jobCharges: false })
   })
 })
