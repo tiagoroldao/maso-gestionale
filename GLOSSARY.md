@@ -126,6 +126,10 @@ _Avoid_: Issued invoice, confirmed invoice
 The sending of a Finalised Invoice to SDI, either through the intermediary (Openapi, ADR 0019) or as a manually confirmed upload of its XML. Through the intermediary it is _sending_ until the intermediary has the file, and its SDI Notice arrives by polling.
 _Avoid_: Upload, transmission, export
 
+**Legal archiving** (_Conservazione a norma_):
+The legally required long-term storage of electronic invoices. The app keeps each file as sent but doesn't archive it; when the Superuser switches it on and the SDI intermediary offers it, each Submission asks the intermediary to archive its file (ADR 0019), otherwise the business archives elsewhere (e.g. the Agenzia delle Entrate's free service).
+_Avoid_: Storage, backup, preservation
+
 **SDI Notice** (_Notifica SDI_):
 SDI's answer to a Submission (delivered, not deliverable, or rejected), dated and carrying SDI's identifier for the file; a Rejection's resubmission deadline counts from its date.
 _Avoid_: Receipt, response

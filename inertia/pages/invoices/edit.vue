@@ -129,6 +129,7 @@ const props = defineProps<{
     sdiId: string | null
     outcomeNotes: string | null
     hasFile: boolean
+    legalArchiving: boolean
   }[]
   openSubmission: {
     id: number
@@ -1276,6 +1277,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               <th>{{ t('ui.invoices.file') }}</th>
               <th>{{ t('ui.invoices.uploadedOn') }}</th>
               <th>{{ t('ui.invoices.outcome') }}</th>
+              <th>{{ t('ui.invoices.legalArchiving') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -1304,6 +1306,11 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
                     {{ submission.outcomeNotes }}
                   </span>
                 </template>
+              </td>
+              <td>
+                <template v-if="submission.legalArchiving">{{
+                  t('ui.invoices.legalArchivingRequested')
+                }}</template>
               </td>
             </tr>
           </tbody>

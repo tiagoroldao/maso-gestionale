@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import CompanySettings from '#models/company_settings'
+import InstanceSettings from '#models/instance_settings'
 import Invoice from '#models/invoice'
 import InvoiceSubmission, { type SubmissionOutcome } from '#models/invoice_submission'
 import type User from '#models/user'
@@ -72,6 +73,10 @@ const OUTCOME_EVENTS: Record<SubmissionOutcome, InvoiceEvent> = {
  * A send whose result is unknown (the process stopped, the connection
  * dropped) stays "sending" until the poller finds the file at the
  * intermediary or concludes it never arrived.
+ *
+ * With legal archiving on in Instance settings, and offered by the
+ * intermediary, the file is sent with archiving requested, and the
+ * Submission records it (#205).
  */
 export default class Submissions {
   /**
@@ -126,6 +131,7 @@ export default class Submissions {
     user: User | null = null
   ): Promise<'sent' | 'uploaded'> {
     const current = await SdiConnection.gateway()
+    const { sdiLegalArchiving } = await InstanceSettings.current()
     const sending = await this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
       // Already confirmed (a double click): nothing more to do
@@ -136,7 +142,7 @@ export default class Submissions {
       const xml = await this.xml(locked, open, discountLabel)
 
       if (!gateway.automatic) {
-        // Kept as sent: legal archiving happens outside the app (ADR 0019)
+        // Kept as sent: legal archiving is up to the business (ADR 0019)
         open.merge({
           channel: gateway.channel,
           xml,
@@ -150,15 +156,22 @@ export default class Submissions {
         return null
       }
 
+      const legalArchiving = sdiLegalArchiving && gateway.legalArchiving
       open.merge({
         channel: gateway.channel,
         xml,
         sendingAt: DateTime.now(),
         submittedBy: user?.id ?? null,
         sendFailure: null,
+        legalArchiving,
       })
       await open.save()
-      return { gateway, submissionId: open.id, file: { fileName: open.fileName, xml } }
+      return {
+        gateway,
+        submissionId: open.id,
+        file: { fileName: open.fileName, xml },
+        legalArchiving,
+      }
     })
     if (!sending) return 'uploaded'
     await this.send(invoice, sending)
@@ -170,11 +183,16 @@ export default class Submissions {
    */
   private static async send(
     invoice: Invoice,
-    { gateway, submissionId, file }: { gateway: SdiGateway; submissionId: number; file: SdiFile }
+    {
+      gateway,
+      submissionId,
+      file,
+      legalArchiving,
+    }: { gateway: SdiGateway; submissionId: number; file: SdiFile; legalArchiving: boolean }
   ) {
     let remoteId: string | null
     try {
-      const sent = await gateway.submit(file)
+      const sent = await gateway.submit(file, { legalArchiving })
       remoteId = sent.remoteId
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
@@ -210,7 +228,13 @@ export default class Submissions {
    */
   static async unsent(invoice: Invoice, submissionId: number, failure: string) {
     await this.whileSending(invoice, submissionId, async (submission) => {
-      submission.merge({ sendingAt: null, xml: null, submittedBy: null, sendFailure: failure })
+      submission.merge({
+        sendingAt: null,
+        xml: null,
+        submittedBy: null,
+        sendFailure: failure,
+        legalArchiving: false,
+      })
       await submission.save()
     })
   }
