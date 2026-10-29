@@ -4,6 +4,7 @@ import DocumentTemplate from '#models/document_template'
 import DocumentTemplateVersion from '#models/document_template_version'
 import { createUser } from '#tests/helpers/users'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { addedTemplates, addedVersions } from '#tests/helpers/document_templates'
 
 const fields = [
   { key: 'model', label: 'Modello', type: 'text', required: true },
@@ -131,7 +132,7 @@ test.group('Document Templates', () => {
         body: [it('validator.shared.messages.templateBody')],
       })
     }
-    assert.lengthOf(await DocumentTemplate.all(), 0)
+    assert.lengthOf(await addedTemplates(), 0)
   })
 
   test('fields need a valid, unique key, and choices for a list', async ({ client, assert }) => {
@@ -169,7 +170,7 @@ test.group('Document Templates', () => {
       .loginAs(admin)
       .redirects(0)
     assert.properties(duplicate.flashMessage('inputErrorsBag'), ['fields'])
-    assert.lengthOf(await DocumentTemplate.all(), 0)
+    assert.lengthOf(await addedTemplates(), 0)
   })
 
   test('the preview fills the Base Layout with sample data, escaped', async ({
@@ -228,8 +229,8 @@ test.group('Document Templates', () => {
         denied.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
       }
     }
-    assert.lengthOf(await DocumentTemplateVersion.all(), 0)
-    assert.lengthOf(await DocumentTemplate.all(), 1)
+    assert.lengthOf(await addedVersions(), 0)
+    assert.lengthOf(await addedTemplates(), 1)
     await template.refresh()
     assert.isNull(template.archivedAt)
   })

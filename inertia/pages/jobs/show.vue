@@ -15,6 +15,7 @@ import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
 import { isOpenVisit } from '@shared/visits'
 import { computed, ref } from 'vue'
 import JobIndicatorTags from '~/components/job_indicator_tags.vue'
+import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
 
 const confirm = (message: string) => window.confirm(message)
 type WorkTotals = { planned: string; done: string; notDone: string }
@@ -72,6 +73,10 @@ const props = defineProps<{
     cancelled: number
     next: { startsAt: string; endsAt: string } | null
   }
+  // Templates to issue the Job's work report from, and the Job's Issued
+  // Documents (#180)
+  workReportTemplates: { id: number; name: string }[]
+  issuedDocuments: IssuedDocumentRow[]
   // Hours and Items across the Visits and the Job, by work state (#178)
   summary: {
     hours: (SummaryRow & {
@@ -635,6 +640,21 @@ function confirmCancel() {
         >
           {{ t('ui.legacyInvoices.new') }}
         </Link>
+      </Section>
+
+      <Section :title="t('ui.issuedDocuments.title')" data-testid="job-documents">
+        <IssuedDocumentList :documents="issuedDocuments" :show-customer="false" />
+        <div v-if="job.customer && workReportTemplates.length">
+          <Link
+            v-for="template in workReportTemplates"
+            :key="template.id"
+            route="issued_documents.create"
+            :qs="{ templateId: template.id, customerId: job.customer.id, jobId: job.id }"
+            class="btn btn--secondary btn--sm"
+          >
+            {{ t('ui.jobs.issueWorkReport', { name: template.name }) }}
+          </Link>
+        </div>
       </Section>
 
       <Section v-if="active" :title="t('ui.jobs.closeSection')">

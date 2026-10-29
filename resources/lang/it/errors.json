@@ -18,7 +18,9 @@
     "tableNumber": "Riga {row}: inserisci un numero, ad esempio 12,5",
     "tableDate": "Riga {row}: inserisci una data valida",
     "jobSite": "La commessa è di un altro immobile",
-    "archivedItem": "L'articolo è archiviato e non è stato usato nella commessa scelta"
+    "archivedItem": "L'articolo è archiviato e non è stato usato nella commessa scelta",
+    "workReportNeedsJob": "Scegli prima la commessa",
+    "workReportPeriod": "La data di inizio è successiva a quella di fine"
   },
   "issuedDocuments": {
     "templateArchived": "Il modello è archiviato: non si possono emettere documenti.",

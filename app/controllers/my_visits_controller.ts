@@ -79,9 +79,11 @@ export default class MyVisitsController {
       .from('visit_serviced_equipment')
       .where('visit_id', visit.id)
       .select('installed_equipment_id')
-    // The Site's Issued Documents still in force (replaced ones are not)
+    // The Site's Issued Documents still in force (replaced ones are not),
+    // work reports aside (#180)
     const issued = job.site
       ? await IssuedDocument.query()
+          .withScopes((scopes) => scopes.forTechnicians())
           .where('siteId', job.site.id)
           .whereNull('replacedById')
           .preload('version')

@@ -2,9 +2,11 @@
 /**
  * Fills a Document Template's fields for a Customer: a value per field,
  * with Sites, Installed Equipment and Jobs offered as the server scopes
- * them, and "load from Job" for Item and table fields. `input()` gives
- * what the server checks and prints (services/template_data.ts). It can
- * start with a Customer and values (a replacement's original).
+ * them, "load from Job" for Item and table fields, and a work report's
+ * period and choices (#180), which the server fills from the Job.
+ * `input()` gives what the server checks and prints
+ * (services/template_data.ts). It can start with a Customer and values (a
+ * replacement's original).
  */
 import { computed, reactive, ref, watch } from 'vue'
 import CustomerPicker, { type PickedCustomer } from '~/components/customer_picker.vue'
@@ -13,9 +15,12 @@ import SitePicker from '~/components/site_picker.vue'
 import { urlFor } from '~/client'
 import { t } from '~/i18n'
 import type { TemplateField, TemplatePrefill } from '@shared/document_templates'
+import type { WorkReportOptions } from '@shared/work_report'
 
 type Choice = { id: number; label: string }
 type ItemUsed = { id: number; code: string; description: string; unit: string; quantity: string }
+// A work report's options as the inputs hold them: an open end is ''
+type ReportInput = { from: string; to: string; prices: boolean; notes: boolean }
 
 const props = defineProps<{
   fields: TemplateField[]
@@ -33,6 +38,12 @@ const checks = store<boolean>()
 const chosen = store<Choice | null>()
 const lists = store<Choice[]>()
 const rows = store<string[][]>()
+const reports = store<ReportInput>()
+for (const field of props.fields) {
+  if (field.type === 'work_report') {
+    reports[field.key] = { from: '', to: '', prices: false, notes: false }
+  }
+}
 
 const siteField = computed(() => props.fields.find((field) => field.type === 'site'))
 const jobField = computed(() => props.fields.find((field) => field.type === 'job'))
@@ -150,6 +161,8 @@ function value(field: TemplateField): unknown {
       return (lists[field.key] ?? []).map((item) => item.id)
     case 'table':
       return rows[field.key] ?? []
+    case 'work_report':
+      return reports[field.key]
     default:
       return texts[field.key] ?? ''
   }
@@ -177,7 +190,10 @@ function start() {
     else if (['site', 'job', 'item'].includes(field.type)) chosen[field.key] = initial as Choice
     else if (field.type === 'items') lists[field.key] = initial as Choice[]
     else if (field.type === 'table') rows[field.key] = initial as string[][]
-    else if (field.type === 'boolean') checks[field.key] = initial as boolean
+    else if (field.type === 'work_report') {
+      const report = initial as WorkReportOptions
+      reports[field.key] = { ...report, from: report.from ?? '', to: report.to ?? '' }
+    } else if (field.type === 'boolean') checks[field.key] = initial as boolean
     else texts[field.key] = initial as string
   }
 }
@@ -331,6 +347,42 @@ defineExpose({ input })
         <button type="button" class="btn btn--secondary btn--sm" @click="addRow(field)">
           {{ t('ui.documentTemplates.fill.addRow') }}
         </button>
+      </div>
+
+      <div v-else-if="field.type === 'work_report'" class="field">
+        <span class="field__label">{{ field.label }}</span>
+        <p v-if="!job" class="field__hint">{{ t('ui.documentTemplates.fill.noJobYet') }}</p>
+        <div class="field">
+          <label class="field__label" :for="`fill-${field.key}-from`">
+            {{ t('ui.documentTemplates.fill.workReportFrom') }}
+          </label>
+          <input
+            :id="`fill-${field.key}-from`"
+            v-model="reports[field.key].from"
+            class="field__input"
+            type="date"
+          />
+        </div>
+        <div class="field">
+          <label class="field__label" :for="`fill-${field.key}-to`">
+            {{ t('ui.documentTemplates.fill.workReportTo') }}
+          </label>
+          <input
+            :id="`fill-${field.key}-to`"
+            v-model="reports[field.key].to"
+            class="field__input"
+            type="date"
+          />
+        </div>
+        <p class="field__hint">{{ t('ui.documentTemplates.fill.workReportPeriodHint') }}</p>
+        <label>
+          <input v-model="reports[field.key].prices" type="checkbox" />
+          {{ t('ui.documentTemplates.fill.workReportPrices') }}
+        </label>
+        <label>
+          <input v-model="reports[field.key].notes" type="checkbox" />
+          {{ t('ui.documentTemplates.fill.workReportNotes') }}
+        </label>
       </div>
 
       <div v-else-if="field.type === 'boolean'" class="field">

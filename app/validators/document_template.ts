@@ -25,8 +25,9 @@ const templateBody = vine.createRule((value: unknown, _, field: FieldContext) =>
 
 /**
  * A document has one Site and one Job, which other fields depend on: at
- * most one field of each, and Installed Equipment only with a Site field
- * to choose it from. Reported on the field that breaks the rule.
+ * most one field of each, Installed Equipment only with a Site field to
+ * choose it from, and a work report only with a Job field to report on.
+ * Reported on the field that breaks the rule.
  */
 const entityFieldRules = vine.createRule((value: unknown, _, field: FieldContext) => {
   const fields: unknown[] = Array.isArray(field.data?.fields) ? field.data.fields : []
@@ -37,6 +38,9 @@ const entityFieldRules = vine.createRule((value: unknown, _, field: FieldContext
   }
   if (value === 'equipment' && !types.includes('site')) {
     field.report('Equipment needs a site field', 'templateFields.equipmentNeedsSite', field)
+  }
+  if (value === 'work_report' && !types.includes('job')) {
+    field.report('A work report needs a job field', 'templateFields.workReportNeedsJob', field)
   }
 })
 

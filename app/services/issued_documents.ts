@@ -23,6 +23,7 @@ import TemplateData from '#services/template_data'
 import { formatDate } from '#shared/dates'
 import { own, type TemplateField, type TemplatePrefill } from '#shared/document_templates'
 import { ADVISORY_LOCKS } from '#services/advisory_locks'
+import { parseWorkReportOptions } from '#shared/work_report'
 
 /**
  * Why an Issued Document can't be issued: its template was archived, or
@@ -188,11 +189,11 @@ export default class IssuedDocuments {
   }
 
   /**
-   * Issued Documents matching `where` (a Customer, Site or Installed
-   * Equipment), newest first, as history rows.
+   * Issued Documents matching `where` (a Customer, Site, Installed
+   * Equipment or Job), newest first, as history rows.
    */
   static async history(
-    where: Partial<Record<'customerId' | 'siteId' | 'installedEquipmentId', number>>
+    where: Partial<Record<'customerId' | 'siteId' | 'installedEquipmentId' | 'jobId', number>>
   ): Promise<IssuedDocumentRow[]> {
     const query = IssuedDocument.query()
       .preload('version')
@@ -211,6 +212,23 @@ export default class IssuedDocuments {
       customer: document.customer.displayName,
       replaced: document.replacedById !== null,
     }))
+  }
+
+  /**
+   * The templates Office can issue a Job's work report from (#180): those
+   * not archived whose current version has a work report field, by name.
+   */
+  static async workReportTemplates(): Promise<{ id: number; name: string }[]> {
+    return db
+      .from('document_templates as t')
+      .join('document_template_versions as v', 'v.document_template_id', 't.id')
+      .whereNull('t.archived_at')
+      .whereRaw(
+        'v.version = (SELECT max(version) FROM document_template_versions WHERE document_template_id = t.id)'
+      )
+      .whereRaw(`v.fields @> '[{"type": "work_report"}]'::jsonb`)
+      .orderBy('v.name')
+      .select('t.id', 'v.name')
   }
 
   private static async storedPdf(path: string) {
@@ -299,6 +317,8 @@ export default class IssuedDocuments {
         if (!rows.every((row) => Array.isArray(row) && row.length === width)) return null
         return rows.map((row) => row.map((cell) => cell ?? ''))
       }
+      case 'work_report':
+        return parseWorkReportOptions(value)
       case 'boolean':
         return typeof value === 'boolean' ? value : null
       default:

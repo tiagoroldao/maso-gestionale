@@ -1,3 +1,5 @@
+import type { WorkReportOptions } from './work_report.js'
+
 /**
  * Document Templates (#29, #30): the body is a TipTap (ProseMirror) document
  * stored as JSON, never as HTML. It is checked against an allow-list of
@@ -19,8 +21,17 @@ export const FIELD_TYPES = [
   'item',
   'items',
   'table',
+  'work_report',
 ] as const
 export type FieldType = (typeof FIELD_TYPES)[number]
+
+/**
+ * The fields printed as a table in the body (a fieldTable): a table Office
+ * fills in, or a Job's work report (#180), filled from the Job.
+ */
+export function isTableField(type: unknown) {
+  return type === 'table' || type === 'work_report'
+}
 
 export const TABLE_COLUMN_TYPES = ['text', 'number', 'date'] as const
 export type TableColumnType = (typeof TABLE_COLUMN_TYPES)[number]
@@ -57,10 +68,15 @@ export type TemplateField = {
 /**
  * A field's value as the filling form starts with it (a replacement is
  * prefilled from its original): text as typed, a chosen record with its
- * label, a list of Items, or a table's rows.
+ * label, a list of Items, a table's rows, or a work report's options.
  */
 export type TemplatePrefill =
-  string | boolean | { id: number; label: string } | { id: number; label: string }[] | string[][]
+  | string
+  | boolean
+  | { id: number; label: string }
+  | { id: number; label: string }[]
+  | string[][]
+  | WorkReportOptions
 
 export const FIELD_KEY_PATTERN = /^[a-z][a-z0-9_]{0,39}$/
 
@@ -145,7 +161,8 @@ const NODE_KEYS = new Set(['type', 'attrs', 'content', 'marks', 'text'])
 
 /**
  * The placeholders of one field: `field.<key>`, then one per property of
- * an entity field. A table field has none: its rows go in a fieldTable.
+ * an entity field. A table field has none: its rows go in a fieldTable. A
+ * work report's rows go there too; `field.<key>` prints its period.
  */
 export function fieldPlaceholders(field: Pick<TemplateField, 'key' | 'type'>) {
   if (field.type === 'table') return []
@@ -172,7 +189,7 @@ export function placeholderKeys(fields: Pick<TemplateField, 'key' | 'type'>[]) {
  * The fields a template may repeat as a table in its body.
  */
 export function tableKeys(fields: Pick<TemplateField, 'key' | 'type'>[]) {
-  return fields.filter((field) => field.type === 'table').map((field) => field.key)
+  return fields.filter((field) => isTableField(field.type)).map((field) => field.key)
 }
 
 /**
@@ -335,11 +352,12 @@ const SAMPLE_ITEMS = [
 ]
 
 /**
- * Placeholder values for the live preview: sample data for every field.
+ * Placeholder values for the live preview: sample data for every field,
+ * `workReportPeriod` for a work report's period.
  */
 export function sampleValues(
   fields: TemplateField[],
-  context: { companyName: string; today: string }
+  context: { companyName: string; today: string; workReportPeriod: string }
 ): Record<string, string> {
   const sample: Record<string, (field: TemplateField) => string> = {
     text: () => 'Testo di esempio',
@@ -348,6 +366,7 @@ export function sampleValues(
     date: () => context.today,
     boolean: () => 'Sì',
     choice: (field) => field.options?.[0] ?? '',
+    work_report: () => context.workReportPeriod,
   }
   const valuesOf = (field: TemplateField): [string, string][] => {
     if (!isEntityFieldType(field.type)) {
@@ -368,17 +387,19 @@ export function sampleValues(
 }
 
 /**
- * Sample rows for each table field of the live preview.
+ * Sample rows for each table field of the live preview, and a sample work
+ * report printed with `workReport`'s words.
  */
 export function sampleTables(
   fields: TemplateField[],
-  context: { today: string }
+  context: { today: string; workReport: TableData }
 ): Record<string, TableData> {
   const sample = { text: 'Testo di esempio', number: '123', date: context.today }
   return Object.fromEntries(
     fields
-      .filter((field) => field.type === 'table')
+      .filter((field) => isTableField(field.type))
       .map((field) => {
+        if (field.type === 'work_report') return [field.key, context.workReport]
         const columns = field.columns ?? []
         return [
           field.key,

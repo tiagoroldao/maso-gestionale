@@ -12,6 +12,8 @@ import { formatDate, todayIso } from '#shared/dates'
 import { parseAmount } from '#shared/money'
 import { own, type TableData, type TemplateField } from '#shared/document_templates'
 import { WORK_STATE_SQL } from '#services/job_status'
+import WorkReports from '#services/work_reports'
+import { parseWorkReportOptions } from '#shared/work_report'
 
 /**
  * Values that don't fit their fields, as messages by field key.
@@ -54,9 +56,15 @@ export type ResolveOptions = {
 /**
  * The order fields are checked in: the Site first (Installed Equipment is
  * chosen from it and a Job must be at it), then the Job (archived Items are
- * allowed only when used on it), Installed Equipment last.
+ * allowed only when used on it, and a work report is the Job's),
+ * Installed Equipment and work reports last.
  */
-const CHECK_ORDER: Partial<Record<string, number>> = { site: 0, job: 1, equipment: 3 }
+const CHECK_ORDER: Partial<Record<string, number>> = {
+  site: 0,
+  job: 1,
+  equipment: 3,
+  work_report: 3,
+}
 const checkOrder = (field: TemplateField) => CHECK_ORDER[field.type] ?? 2
 
 const MAX_TEXT = { text: 500, long_text: 5000, cell: 500 }
@@ -113,6 +121,7 @@ export default class TemplateData {
     const ordered = [...fields].sort((a, b) => checkOrder(a) - checkOrder(b))
     const records: ChosenRecords = { siteId: null, equipmentId: null, jobId: null }
     let site: Site | null = null
+    let job: Job | null = null
     // Archived Items are chosen only when the Job used them, or the original
     // of a replacement already had them
     const archivedAllowed = new Set(options.archivedItemIds ?? [])
@@ -188,19 +197,42 @@ export default class TemplateData {
           break
         }
         case 'job': {
-          const job = isId(value) ? await Job.find(value) : null
-          if (!job || job.customerId !== customer.id) {
+          const found = isId(value) ? await Job.find(value) : null
+          if (!found || found.customerId !== customer.id) {
             fail(field, 'job')
             break
           }
           // A Job at another Site would pair its work with the wrong place
-          if (site && job.siteId !== null && job.siteId !== site.id) {
+          if (site && found.siteId !== null && found.siteId !== site.id) {
             fail(field, 'jobSite')
             break
           }
-          records.jobId = job.id
-          for (const used of await this.itemsUsed(job)) archivedAllowed.add(used.id)
-          set(field, `${job.number} – ${job.title}`, { number: job.number, title: job.title })
+          job = found
+          records.jobId = found.id
+          for (const used of await this.itemsUsed(found)) archivedAllowed.add(used.id)
+          set(field, `${found.number} – ${found.title}`, {
+            number: found.number,
+            title: found.title,
+          })
+          break
+        }
+        case 'work_report': {
+          const chosen = parseWorkReportOptions(value)
+          if (!chosen) {
+            fail(field, 'invalid')
+            break
+          }
+          if (chosen.from && chosen.to && chosen.from > chosen.to) {
+            fail(field, 'workReportPeriod')
+            break
+          }
+          if (!job) {
+            fail(field, 'workReportNeedsJob')
+            break
+          }
+          const report = await WorkReports.resolve(job, chosen, i18n)
+          tables[field.key] = report.table
+          set(field, report.period)
           break
         }
         case 'item': {

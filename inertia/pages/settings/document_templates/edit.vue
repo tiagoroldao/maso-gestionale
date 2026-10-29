@@ -15,6 +15,7 @@ import {
   TABLE_COLUMN_SOURCES,
   TABLE_COLUMN_TYPES,
   fieldPlaceholders,
+  isTableField,
   type FieldType,
   type TableColumn,
   type TemplateField,
@@ -107,7 +108,8 @@ const placeholders = computed(() => [
     }))
   ),
 ])
-const tables = computed(() => namedFields.value.filter((field) => field.type === 'table'))
+// Table fields and work reports, each printed as a table
+const tables = computed(() => namedFields.value.filter((field) => isTableField(field.type)))
 const chosen = ref('')
 const chosenTable = ref('')
 
