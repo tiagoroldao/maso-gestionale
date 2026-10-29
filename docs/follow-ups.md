@@ -33,6 +33,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
+- **#169:** the #168 equipment warnings (`removed`, `elsewhere`, `noSite`) also reach a Technician at the field close, but their advice ("correggilo / aggiungilo a mano nella scheda dell'immobile") is meant for Office: give the Technician a variant that says to tell the office ("avvisa l'ufficio") in the UX pass (from the #170 review; not yet commented on #169).
 - **#34:** the update's backup is `docker compose run --rm backup backup:run` (non-zero exit on failure), taken before pulling the new image (not yet commented on #34).
 
 ## Not yet issues

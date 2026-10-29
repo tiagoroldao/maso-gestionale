@@ -9,8 +9,8 @@ import { formatQuantity, type StockQuantities } from '#shared/stock'
  * the warning names each Item short. With `before` (their quantities
  * before the change), only an Item the change took lower counts, so a
  * correction to an Item already short doesn't warn again. Other
- * `warnings` about the same change (equipment left as it was, #162) go
- * before the stock one.
+ * `warnings` about the same change (installed equipment left as it was,
+ * #162, or changed since it was recorded, #168) go before the stock one.
  */
 export async function flashWithStockWarning(
   { session, i18n }: Pick<HttpContext, 'session' | 'i18n'>,

@@ -133,8 +133,9 @@ export default class Charges {
    * does (#162); becoming not done leaves the equipment as it is. Either
    * way it returns what Office is warned about the equipment (#168).
    * Refused while a draft holds the Charge, and while an issued Invoice
-   * bills it and no Credit Note credited that. Like corrections, it plays no part in the Job's
-   * status: a closed or cancelled Job's Charges are still reviewed (#111).
+   * bills it and no Credit Note credited that. Like corrections, it plays
+   * no part in the Job's status: a closed or cancelled Job's Charges are
+   * still reviewed (#111).
    */
   static async setWorkState(
     charge: Charge,
