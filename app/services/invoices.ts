@@ -30,7 +30,7 @@ import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { lineTotal, splitAmount, sumAmounts } from '#shared/money'
 import { advanceLeft, deductionRows } from '#shared/advances'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CLOSED_VISIT_STATUSES, OPEN_VISIT_STATUSES } from '#shared/visits'
 import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
 import {
@@ -962,7 +962,7 @@ export default class Invoices {
       const moreWork =
         (await Visit.query({ client: trx })
           .where('jobId', locked.id)
-          .whereIn('status', ['planned', 'in_progress'])
+          .whereIn('status', [...OPEN_VISIT_STATUSES])
           .first()) ||
         (await trx
           .from('charges')

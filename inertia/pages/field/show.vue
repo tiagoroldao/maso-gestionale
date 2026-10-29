@@ -261,7 +261,10 @@ function toggle(id: number, ticked: boolean) {
         </ul>
       </Section>
 
-      <p v-if="done" class="field__hint">{{ t('ui.field.doneNotice') }}</p>
+      <p v-if="visit.status === 'cancelled'" class="field__hint">
+        {{ t('ui.visits.cancelledHint') }}
+      </p>
+      <p v-else-if="done" class="field__hint">{{ t('ui.field.doneNotice') }}</p>
 
       <Section :title="t('ui.field.hoursTitle')">
         <div v-for="hour in hours" :key="hour.id" class="field-note">

@@ -126,6 +126,8 @@ export interface ApiDefinition {
     update: typeof routes['visits.update']
     destroy: typeof routes['visits.destroy']
     markDone: typeof routes['visits.mark_done']
+    cancel: typeof routes['visits.cancel']
+    restore: typeof routes['visits.restore']
   }
   charges: {
     store: typeof routes['charges.store']

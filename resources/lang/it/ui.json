@@ -948,7 +948,8 @@
       "planned": "Pianificato",
       "in_progress": "In corso",
       "done": "Completato",
-      "needs_return": "Da ripianificare"
+      "needs_return": "Da ripianificare",
+      "cancelled": "Annullato"
     },
     "hours": "{hours, plural, one {# ora} other {# ore}}",
     "editTitle": "Modifica intervento – commessa {number}",
@@ -958,6 +959,10 @@
     "deleteConfirm": "Eliminare questo intervento?",
     "deleteHint": "Solo per interventi pianificati per errore: non è possibile se ha ore, materiali, foto o note.",
     "closedHint": "L'intervento è chiuso e non si può più modificare.",
+    "cancelledHint": "L'intervento è annullato: non si può modificare finché non viene ripristinato.",
+    "cancel": "Annulla intervento",
+    "cancelConfirm": "Annullare l'intervento? Resta in agenda come annullato, sparisce dagli elenchi dei tecnici e i suoi addebiti diventano non eseguiti. Si può ripristinare.",
+    "restore": "Ripristina intervento",
     "frozenHint": "La commessa è annullata e l'intervento è rimasto aperto: se il lavoro è stato fatto, segnalo come completato.",
     "markDone": "Segna come completato",
     "markDoneConfirm": "Segnare l'intervento come completato? È definitivo: gli addebiti spuntati diventano eseguiti (i materiali vengono scaricati dal magazzino e il lavoro diventa fatturabile), quelli non spuntati non eseguiti.",

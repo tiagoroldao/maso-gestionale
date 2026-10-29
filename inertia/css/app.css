@@ -1033,7 +1033,8 @@ input {
   position: static;
   margin-bottom: 4px;
 }
-.agenda__visit--done {
+.agenda__visit--done,
+.agenda__visit--cancelled {
   opacity: 0.6;
 }
 .agenda__visit--needs_return {

@@ -1,3 +1,5 @@
+import { isCancelledVisit, isClosedVisit } from './visits.js'
+
 /**
  * Charges (ADR 0010): what a Job can be billed for, with a history. Used
  * by the server and the Office pages alike.
@@ -128,9 +130,11 @@ export function isDraftable(state: ChargeState, work: WorkState) {
 }
 
 /**
- * A Visit is billed once it is closed and none of its Charges are
- * outstanding.
+ * A Visit is billed once it is closed, or cancelled (its Charges then not
+ * done, #157), and none of its Charges are outstanding. VISIT_BILLED_SQL
+ * says the same in SQL.
  */
-export function isVisitBilled(closed: boolean, charges: { state: ChargeState; work: WorkState }[]) {
-  return closed && !charges.some((charge) => isOutstanding(charge.state, charge.work))
+export function isVisitBilled(status: string, charges: { state: ChargeState; work: WorkState }[]) {
+  const settled = isClosedVisit(status) || isCancelledVisit(status)
+  return settled && !charges.some((charge) => isOutstanding(charge.state, charge.work))
 }

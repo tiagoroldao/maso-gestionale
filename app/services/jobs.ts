@@ -5,12 +5,13 @@ import Job from '#models/job'
 import { nextJobSequence } from '#services/job_numbers'
 import Archiving from '#services/archiving'
 import type { WorkCategory } from '#shared/jobs'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { OPEN_VISIT_STATUSES } from '#shared/visits'
 import {
   ADVANCE_TAKEN_BACK_SQL,
   OUTSTANDING_SQL,
   OWED_SQL,
   VISIT_TO_DO_SQL,
+  WORK_VISIT_SQL,
 } from '#services/job_status'
 
 /**
@@ -126,14 +127,15 @@ export default class Jobs {
   }
 
   /**
-   * How many of the Job's Visits are still open (planned or under way):
-   * cancelling leaves them frozen until Office marks them done (#153).
+   * How many of the Job's Visits are still open (planned or under way, not
+   * cancelled): cancelling leaves them frozen until Office marks them done
+   * (#153).
    */
   private static async openVisits(trx: TransactionClientContract, jobId: number) {
     const row = await trx
       .from('visits')
       .where('job_id', jobId)
-      .whereNotIn('status', [...CLOSED_VISIT_STATUSES])
+      .whereIn('status', [...OPEN_VISIT_STATUSES])
       .count('* as count')
       .first()
     return Number(row?.count ?? 0)
@@ -162,7 +164,8 @@ export default class Jobs {
 
   /**
    * Reopens a closed Job when more work turns up: open or in progress by
-   * its Visits, as Scheduling sets it (ADR 0013). Reopening an active Job
+   * its work Visits, as Scheduling sets it (ADR 0013; a cancelled Visit
+   * isn't work, ADR 0016). Reopening an active Job
    * changes nothing; a cancelled one is refused, and so is one whose
    * Customer or Site is archived (restore it first). The Customer and Site
    * are share-locked after the Job, so an archiving at the same moment
@@ -175,9 +178,9 @@ export default class Jobs {
       if (locked.status !== 'closed') return locked
       await Archiving.lockActive(trx, locked)
       const working = await trx
-        .from('visits')
-        .where('job_id', locked.id)
-        .where('survey', false)
+        .from('visits as v')
+        .where('v.job_id', locked.id)
+        .whereRaw(WORK_VISIT_SQL('v'))
         .first()
       locked.status = working ? 'in_progress' : 'open'
       locked.closedAt = null

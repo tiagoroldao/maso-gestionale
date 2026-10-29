@@ -50,6 +50,20 @@ test.group('Job indicators: work complete', () => {
   })
 })
 
+test.group('Job indicators: cancelled Visits (#157)', () => {
+  test('a cancelled Visit is neither work nor a follow-up', ({ assert }) => {
+    // Its only work Visit cancelled: no work, whatever its Surveys
+    assert.isFalse(workComplete(visits('cancelled')))
+    assert.isFalse(workComplete([...surveys('done'), ...visits('cancelled')]))
+    // Never left to do: the rest decides
+    assert.isTrue(workComplete(visits('done', 'cancelled')))
+    assert.isTrue(workComplete(visits('cancelled', 'done')))
+    // A cancelled follow-up doesn't finish a Visit needing another one
+    assert.isFalse(workComplete(visits('needs_return', 'cancelled')))
+    assert.isTrue(workComplete(visits('needs_return', 'cancelled', 'done')))
+  })
+})
+
 test.group('Job indicators: invoiced and paid', () => {
   const issued = (paid: string, credited = '0') => ({
     status: 'finalised',

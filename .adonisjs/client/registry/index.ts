@@ -468,6 +468,18 @@ const routes = {
     tokens: [[0,"visits"],[1,"id"],[0,"done"]],
     types: placeholder as Registry['visits.mark_done']['types'],
   },
+  'visits.cancel': {
+    methods: ["POST"],
+    pattern: '/visits/:id/cancel',
+    tokens: [[0,"visits"],[1,"id"],[0,"cancel"]],
+    types: placeholder as Registry['visits.cancel']['types'],
+  },
+  'visits.restore': {
+    methods: ["POST"],
+    pattern: '/visits/:id/restore',
+    tokens: [[0,"visits"],[1,"id"],[0,"restore"]],
+    types: placeholder as Registry['visits.restore']['types'],
+  },
   'charges.store': {
     methods: ["POST"],
     pattern: '/jobs/:id/charges',

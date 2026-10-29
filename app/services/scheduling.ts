@@ -1,17 +1,32 @@
-import type { DateTime } from 'luxon'
+import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Job from '#models/job'
+import type User from '#models/user'
 import Visit from '#models/visit'
-import { CLOSED_VISIT_STATUSES } from '#services/field_work'
+import Charges from '#services/charges'
+import { WORK_VISIT_SQL } from '#services/job_status'
+import { isCancelledVisit, isOpenVisit } from '#shared/visits'
 
 export class JobNotSchedulableError extends Error {}
 
 /**
  * The Visit changed since the page was loaded (another user moved it), or
- * can no longer move (closed, or its Job was closed or cancelled).
+ * can no longer move (closed or cancelled, or its Job was closed or
+ * cancelled).
  */
 export class VisitNotMovableError extends Error {}
+
+/**
+ * The Visit can't be cancelled or restored (#157): its Job is closed or
+ * cancelled (ADR 0015), or the Visit isn't planned or under way (to
+ * cancel) or isn't cancelled (to restore).
+ */
+export class VisitCancelRefusedError extends Error {
+  constructor(readonly reason: 'closed' | 'cancelled' | 'notOpen' | 'notCancelled') {
+    super(reason)
+  }
+}
 
 /**
  * The Visit has recorded work (hours, Items, photos or notes): it is part
@@ -38,20 +53,23 @@ export default class Scheduling {
   }
 
   /**
-   * Whether the Job has any work Visit, past or to come: Surveys don't
-   * count (ADR 0013).
+   * Whether the Job has any work Visit, past or to come (isWorkVisit()):
+   * Surveys and cancelled Visits don't count (ADR 0013, 0016).
    */
   private static async hasWorkVisits(trx: TransactionClientContract, jobId: number) {
-    return Boolean(await trx.from('visits').where('job_id', jobId).where('survey', false).first())
+    return Boolean(
+      await trx.from('visits as v').where('v.job_id', jobId).whereRaw(WORK_VISIT_SQL('v')).first()
+    )
   }
 
   /**
    * Sets the Job's status from its work (ADR 0013): open until a work
-   * Visit is planned (Surveys don't count), then in progress, back to open
-   * if none is left. Its Quotes play no part; a closed or cancelled Job
+   * Visit is planned (Surveys and cancelled Visits don't count), then in
+   * progress, back to open if none is left. Its Quotes play no part; a closed or cancelled Job
    * stays so.
    * Called after any change to the Job's Visits that could matter
-   * (planning, editing, deleting); the caller holds the Job's update lock.
+   * (planning, editing, deleting, cancelling, restoring); the caller holds
+   * the Job's update lock.
    */
   private static async followWork(trx: TransactionClientContract, job: Job) {
     if (!job.isActive) return
@@ -142,8 +160,8 @@ export default class Scheduling {
   /**
    * Locks the Visit, then its Job (the order field work uses): shared by
    * default, for update when the caller may change the Job's status
-   * (update, destroy). Refuses a closed Visit or one whose Job was closed
-   * or cancelled.
+   * (update, destroy). Refuses a closed or cancelled Visit, or one whose
+   * Job was closed or cancelled.
    */
   private static async lockOpenVisit(
     trx: TransactionClientContract,
@@ -157,10 +175,67 @@ export default class Scheduling {
       .firstOrFail()
     const query = Job.query({ client: trx }).where('id', locked.jobId)
     const job = await (jobLock === 'update' ? query.forUpdate() : query.forShare()).firstOrFail()
-    if (CLOSED_VISIT_STATUSES.includes(locked.status) || !job.isActive) {
+    if (!isOpenVisit(locked.status) || !job.isActive) {
       throw new VisitNotMovableError()
     }
     return locked
+  }
+
+  /**
+   * Cancels a Visit that won't happen (#157, ADR 0016): it keeps its
+   * record, read-only, and each of its Charges becomes not done. Only a
+   * planned or ongoing Visit, on a Job that takes new work; refused while a
+   * draft holds any of its Charges or an issued Invoice bills one (credit
+   * it first). A cancelled Visit isn't work, so a Job left without any is
+   * open again. Locks the Visit, then its Job, then its Charges.
+   */
+  static async cancel(visit: Visit, user: User) {
+    await this.whileCancelling(visit, async (trx, locked, job) => {
+      if (!isOpenVisit(locked.status)) throw new VisitCancelRefusedError('notOpen')
+      await Charges.followVisit(trx, locked, 'not_done', user)
+      locked.merge({ status: 'cancelled', cancelledAt: DateTime.now() })
+      await locked.useTransaction(trx).save()
+      await this.followWork(trx, job)
+    })
+  }
+
+  /**
+   * Restores a cancelled Visit, planned again (#157): its Charges are
+   * planned again too. Only on a Job that takes new work.
+   */
+  static async restore(visit: Visit, user: User) {
+    await this.whileCancelling(visit, async (trx, locked, job) => {
+      if (!isCancelledVisit(locked.status)) throw new VisitCancelRefusedError('notCancelled')
+      await Charges.followVisit(trx, locked, 'planned', user)
+      locked.merge({ status: 'planned', cancelledAt: null })
+      await locked.useTransaction(trx).save()
+      await this.followWork(trx, job)
+    })
+  }
+
+  /**
+   * Runs `work` with the Visit locked, then its Job locked for update (its
+   * status may follow), refusing a closed or cancelled Job (ADR 0015).
+   */
+  private static whileCancelling(
+    visit: Visit,
+    work: (trx: TransactionClientContract, locked: Visit, job: Job) => Promise<void>
+  ) {
+    return db.transaction(async (trx) => {
+      const locked = await Visit.query({ client: trx })
+        .where('id', visit.id)
+        .forUpdate()
+        .firstOrFail()
+      const job = await Job.query({ client: trx })
+        .where('id', locked.jobId)
+        .forUpdate()
+        .firstOrFail()
+      if (job.status === 'closed' || job.status === 'cancelled') {
+        throw new VisitCancelRefusedError(job.status)
+      }
+      await work(trx, locked, job)
+      visit.status = locked.status
+    })
   }
 
   /**

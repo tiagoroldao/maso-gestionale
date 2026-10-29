@@ -6,12 +6,19 @@ import Charge from '#models/charge'
 import Scheduling, {
   JobNotSchedulableError,
   TechnicianHasHoursError,
+  VisitCancelRefusedError,
   VisitHasWorkError,
   VisitNotMovableError,
 } from '#services/scheduling'
 import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import { ChargeRefusedError } from '#services/charges'
 import { notDoneIn, visitCloseValidator } from '#validators/field'
-import { CLOSED_VISIT_STATUSES, closableByOffice } from '#shared/visits'
+import {
+  cancellableByOffice,
+  closableByOffice,
+  isOpenVisit,
+  restorableByOffice,
+} from '#shared/visits'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
   editVisitValidator,
@@ -97,7 +104,8 @@ export default class VisitsController {
       .where('startsAt', '<', to.toJSDate())
       .where('endsAt', '>', from.toJSDate())
       // A cancelled Job's Visits leave the Agenda (abandoned work); a closed
-      // Job's stay, as history that no longer moves (ADR 0015)
+      // Job's stay, as history that no longer moves (ADR 0015), and so do
+      // cancelled Visits, shown as such (#157)
       .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
       .preload('technicians')
       .preload('job', (job) => job.preload('customer').preload('site'))
@@ -123,6 +131,7 @@ export default class VisitsController {
           id: visit.id,
           startsAt: localDateTime(visit.startsAt),
           endsAt: localDateTime(visit.endsAt),
+          status: visit.status,
           survey: visit.survey,
           job: { number: visit.job.number, customer: visit.job.customer.displayName },
         })),
@@ -133,8 +142,9 @@ export default class VisitsController {
         status: visit.status,
         survey: visit.survey,
         technicianIds: visit.technicians.map((technician) => technician.id),
-        // Closed Visits and a closed Job's Visits can't move (Scheduling)
-        movable: !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
+        // Closed or cancelled Visits and a closed Job's Visits can't move
+        // (Scheduling)
+        movable: isOpenVisit(visit.status) && Scheduling.canSchedule(visit.job),
         job: {
           id: visit.job.id,
           number: visit.job.number,
@@ -170,12 +180,64 @@ export default class VisitsController {
         technicianIds: ids,
         notes: visit.notes,
         survey: visit.survey,
-        editable:
-          !CLOSED_VISIT_STATUSES.includes(visit.status) && Scheduling.canSchedule(visit.job),
+        status: visit.status,
+        editable: isOpenVisit(visit.status) && Scheduling.canSchedule(visit.job),
         // Left open when the Job was cancelled: Office marks it done (#153)
         closableByOffice: closableByOffice(visit.job.status, visit.status),
+        // Office cancels a Visit that won't happen, and restores it (#157)
+        cancellable: cancellableByOffice(visit.job.isActive, visit.status),
+        restorable: restorableByOffice(visit.job.isActive, visit.status),
       },
     })
+  }
+
+  /**
+   * Cancels a Visit that won't happen (#157): its Charges become not done,
+   * and it stays on the Agenda, read-only.
+   */
+  async cancel({ params, response, session, auth, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    await this.refusable({ session, i18n }, async () => {
+      await Scheduling.cancel(visit, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.visitCancelled'))
+    })
+    response.redirect().toRoute('jobs.show', { id: visit.jobId })
+  }
+
+  /**
+   * Restores a cancelled Visit, planned again with its Charges (#157).
+   */
+  async restore({ params, response, session, auth, i18n }: HttpContext) {
+    const visit = await Visit.findOrFail(params.id)
+    await this.refusable({ session, i18n }, async () => {
+      await Scheduling.restore(visit, auth.getUserOrFail())
+      session.flash('success', i18n.t('flash.visitRestored'))
+    })
+    response.redirect().toRoute('jobs.show', { id: visit.jobId })
+  }
+
+  /**
+   * Runs `work`, turning a refusal to cancel or restore (the Job's or the
+   * Visit's status, or a Charge in a draft or billed) into a message.
+   */
+  private async refusable(
+    { session, i18n }: Pick<HttpContext, 'session' | 'i18n'>,
+    work: () => Promise<void>
+  ) {
+    try {
+      await work()
+    } catch (error) {
+      if (error instanceof VisitCancelRefusedError) {
+        session.flash('error', i18n.t(`flash.visitCancelRefused.${error.reason}`))
+      } else if (
+        error instanceof ChargeRefusedError &&
+        (error.reason === 'inDraft' || error.reason === 'frozen')
+      ) {
+        session.flash('error', i18n.t(`flash.visitCancelRefused.${error.reason}`))
+      } else {
+        throw error
+      }
+    }
   }
 
   /**
@@ -291,6 +353,8 @@ export default class VisitsController {
           .from('visits as later')
           .whereColumn('later.job_id', 'visits.job_id')
           .whereColumn('later.starts_at', '>', 'visits.starts_at')
+          // A cancelled follow-up doesn't count (#157)
+          .whereNot('later.status', 'cancelled')
       )
       .preload('technicians')
       // One note per Visit: a plain limit would apply across the whole list

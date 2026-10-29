@@ -21,7 +21,7 @@ import {
 } from '#shared/charges'
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { isCancelledVisit, isClosedVisit } from '#shared/visits'
 import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
 
 /**
@@ -35,7 +35,9 @@ import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
  * recorded quantity are frozen while an issued Invoice bills it and no
  * Credit Note credited that ('frozen'), its work state while a draft holds
  * it ('inDraft'), and a Visit's Charges are planned until the Visit closes
- * ('visitOpen', ADR 0016).
+ * ('visitOpen', ADR 0016) and not done while it is cancelled
+ * ('visitCancelled', #157). Cancelling a Visit is refused for the same
+ * reasons ('inDraft', 'frozen') when any of its Charges has one.
  */
 export class ChargeRefusedError extends Error {
   constructor(
@@ -51,6 +53,7 @@ export class ChargeRefusedError extends Error {
       | 'frozen'
       | 'inDraft'
       | 'visitOpen'
+      | 'visitCancelled'
   ) {
     super(reason)
   }
@@ -145,9 +148,9 @@ export default class Charges {
       if (workState(events) === work) return
       if (locked.visitId) {
         const visit = await Visit.findOrFail(locked.visitId, { client: trx })
-        if (!CLOSED_VISIT_STATUSES.includes(visit.status)) {
-          throw new ChargeRefusedError('visitOpen')
-        }
+        // A cancelled Visit's Charges are not done until it is restored (#157)
+        if (isCancelledVisit(visit.status)) throw new ChargeRefusedError('visitCancelled')
+        if (!isClosedVisit(visit.status)) throw new ChargeRefusedError('visitOpen')
       }
       if (await this.isFrozen(locked.id, trx)) throw new ChargeRefusedError('frozen')
       if ((await this.stateOf(trx, locked.id)) === 'in_draft') {
@@ -177,6 +180,40 @@ export default class Charges {
       }
       await this.addEvent(trx, locked, work, user, null)
     })
+  }
+
+  /**
+   * A Visit cancelled or restored (#157, ADR 0016): each of its Charges
+   * becomes not done, or planned again, as an event in its history. Runs
+   * inside the caller's transaction with the Visit, then its Job, locked;
+   * the Charges are locked here, after them. Cancelling is refused while a
+   * draft holds any of them ('inDraft'), or an issued Invoice bills one and
+   * no Credit Note credited that ('frozen'). Stock doesn't move: an open
+   * Visit's Charges are planned, none off stock, and a not done one never
+   * touches it.
+   */
+  static async followVisit(
+    trx: TransactionClientContract,
+    visit: Visit,
+    work: 'not_done' | 'planned',
+    user: User
+  ): Promise<void> {
+    const charges = await Charge.query({ client: trx })
+      .where('visitId', visit.id)
+      .preload('events', (events) => events.orderBy('id'))
+      .orderBy('id')
+      .forUpdate()
+    if (work === 'not_done') {
+      for (const charge of charges) {
+        if (await this.isFrozen(charge.id, trx)) throw new ChargeRefusedError('frozen')
+        if ((await this.stateOf(trx, charge.id)) === 'in_draft') {
+          throw new ChargeRefusedError('inDraft')
+        }
+      }
+    }
+    for (const charge of charges) {
+      if (charge.workState !== work) await this.addEvent(trx, charge, work, user, null)
+    }
   }
 
   /**

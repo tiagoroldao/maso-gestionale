@@ -4,18 +4,19 @@ import Item from '#models/item'
 import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
-import Visit, { type VisitStatus } from '#models/visit'
+import Visit, { type FieldVisitStatus } from '#models/visit'
 import Charge from '#models/charge'
 import ChargeEvent from '#models/charge_event'
 import InstalledEquipment from '#models/installed_equipment'
 import StockLedger from '#stock/stock_ledger'
-import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { CLOSED_VISIT_STATUSES, isCancelledVisit } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 
 export { CLOSED_VISIT_STATUSES } from '#shared/visits'
 
 /**
- * The Visit is closed (its hours, Items and stock are final), its Job was
+ * The Visit is closed (its hours, Items and stock are final) or cancelled
+ * (read-only until Office restores it, #157), its Job was
  * closed or cancelled (or, for Office closing a frozen Visit, isn't
  * cancelled), or the request doesn't fit it (a Technician not on
  * the Visit, an install without a Site, a Charge Office already reviewed).
@@ -24,6 +25,7 @@ export class FieldWorkRefusedError extends Error {
   constructor(
     readonly reason:
       | 'done'
+      | 'visitCancelled'
       | 'closed'
       | 'cancelled'
       | 'notCancelled'
@@ -52,13 +54,18 @@ export default class FieldWork {
   /**
    * Runs `work` (adding a note or photo) while the Visit's Job is active.
    * Notes and photos may still go on a closed Visit (a follow-up remark, a
-   * forgotten picture), but not once its Job is closed or cancelled; the
-   * Job is share-locked so neither can slip in between check and write.
+   * forgotten picture), but not on a cancelled one, nor once its Job is
+   * closed or cancelled; the Visit and Job are share-locked so none can
+   * slip in between check and write.
    */
   static whileJobActive<T>(visit: Visit, work: (trx: TransactionClientContract) => Promise<T>) {
     return db.transaction(async (trx) => {
       // Visit first, then its Job: the order every other path uses
-      await Visit.query({ client: trx }).where('id', visit.id).forShare().firstOrFail()
+      const locked = await Visit.query({ client: trx })
+        .where('id', visit.id)
+        .forShare()
+        .firstOrFail()
+      if (isCancelledVisit(locked.status)) throw new FieldWorkRefusedError('visitCancelled')
       await this.lockActiveJob(trx, visit.jobId)
       return work(trx)
     })
@@ -292,7 +299,12 @@ export default class FieldWork {
    * (unticked in the review), which become not done and never touch
    * stock. A closed Visit's status no longer changes.
    */
-  static async setStatus(visit: Visit, status: VisitStatus, user: User, notDone: number[] = []) {
+  static async setStatus(
+    visit: Visit,
+    status: FieldVisitStatus,
+    user: User,
+    notDone: number[] = []
+  ) {
     await this.whileOpen(visit, (trx, locked) =>
       this.changeStatus(trx, locked, status, user, notDone)
     )
@@ -332,7 +344,7 @@ export default class FieldWork {
   private static async changeStatus(
     trx: TransactionClientContract,
     locked: Visit,
-    status: VisitStatus,
+    status: FieldVisitStatus,
     user: User,
     notDone: number[]
   ) {
@@ -385,7 +397,8 @@ export default class FieldWork {
   }
 
   /**
-   * Locks and re-reads the Visit, refusing if it is already closed.
+   * Locks and re-reads the Visit, refusing if it is already closed, or
+   * cancelled (#157).
    */
   private static async lockOpenVisit(trx: TransactionClientContract, visit: Visit) {
     const locked = await Visit.query({ client: trx })
@@ -393,12 +406,13 @@ export default class FieldWork {
       .forUpdate()
       .firstOrFail()
     if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
+    if (isCancelledVisit(locked.status)) throw new FieldWorkRefusedError('visitCancelled')
     return locked
   }
 
   /**
    * Runs `work` with the Visit locked and re-read, refusing if it is
-   * already closed or its Job is closed or cancelled.
+   * already closed or cancelled, or its Job is closed or cancelled.
    */
   private static whileOpen<T>(
     visit: Visit,
