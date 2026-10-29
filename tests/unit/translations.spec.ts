@@ -308,7 +308,7 @@ async function catalogue() {
   return keys
 }
 
-/** The .vue and .ts files under `directories`. */
+/** The .vue, .ts and .edge files under `directories`. */
 async function sources(directories: string[]): Promise<string[]> {
   const files = await Promise.all(
     directories.map(async (directory) => {
@@ -317,7 +317,7 @@ async function sources(directories: string[]): Promise<string[]> {
         entries.map((entry) => {
           const path = join(directory, entry.name)
           if (entry.isDirectory()) return sources([path])
-          return /\.(vue|ts)$/.test(entry.name) ? [path] : []
+          return /\.(vue|ts|edge)$/.test(entry.name) ? [path] : []
         })
       )
     })
@@ -325,9 +325,10 @@ async function sources(directories: string[]): Promise<string[]> {
   return files.flat(2)
 }
 
-/** The pages and the modules they share with the server; the server. */
+/** The pages and the modules they share with the server; the server, and its views. */
 const PAGES = ['inertia', 'shared']
-const SERVER = ['app', 'start']
+const SERVER = ['app', 'start', 'commands', 'providers']
+const VIEWS = ['resources/views']
 
 async function matchesInSources(pattern: RegExp, directories = PAGES) {
   const found: { key: string; text: string; file: string }[] = []
@@ -341,12 +342,15 @@ async function matchesInSources(pattern: RegExp, directories = PAGES) {
 }
 
 test.group('Translations', () => {
-  test('every key written in the pages exists in the catalogue', async ({ assert }) => {
+  test('every key written in the pages, the server and its views exists in the catalogue', async ({
+    assert,
+  }) => {
     const keys = await catalogue()
     // Any key in a string, passed to t() or kept for it ('ui.x' or `ui.x`); a
     // double-quoted one is a Vue attribute, an expression ("errors.email")
     const written = await matchesInSources(
-      /(?:\bt\(\s*)?(['`])((?:documents|errors|flash|ui|validator)\.[a-zA-Z0-9_.]*[a-zA-Z0-9_])\1/g
+      /(?:\bt\(\s*)?(['`])((?:documents|errors|flash|ui|validator)\.[a-zA-Z0-9_.]*[a-zA-Z0-9_])\1/g,
+      [...PAGES, ...SERVER, ...VIEWS]
     )
     // A comment may name a group of keys (`ui.sdiFailures`); t() never takes one
     const groups = new Set(

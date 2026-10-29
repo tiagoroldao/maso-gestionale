@@ -545,8 +545,10 @@ export default class VisitsController {
   }
 
   async move({ params, request, response, session, i18n }: HttpContext) {
-    const visit = await Visit.findOrFail(params.id)
-    const data = await request.validateUsing(moveVisitValidator)
+    const visit = await Visit.query().where('id', params.id).preload('technicians').firstOrFail()
+    const data = await request.validateUsing(moveVisitValidator, {
+      meta: { technicianIds: visit.technicians.map((technician) => technician.id) },
+    })
 
     try {
       await Scheduling.move(visit, {

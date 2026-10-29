@@ -44,13 +44,19 @@ function isIsoDate(value: string) {
 
 /**
  * The options as filled in, or null when they aren't options: dates as
- * ISO days (empty for an open end), the choices as booleans. A report
- * issued before #192 has no `jobCharges` and printed no other costs, so
- * its replacement starts without them too.
+ * ISO days (empty for an open end), the choices as booleans, every one
+ * given. Only a report already `issued` may lack `jobCharges`: one issued
+ * before #192 printed no other costs, so its replacement starts without
+ * them too.
  */
-export function parseWorkReportOptions(value: unknown): WorkReportOptions | null {
+export function parseWorkReportOptions(
+  value: unknown,
+  { issued = false } = {}
+): WorkReportOptions | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
-  const { from, to, prices, notes, jobCharges = false } = value as Record<string, unknown>
+  const fields = value as Record<string, unknown>
+  const { from, to, prices, notes } = fields
+  const jobCharges = issued && !('jobCharges' in fields) ? false : fields.jobCharges
   const day = (end: unknown) =>
     end === null || end === undefined || end === ''
       ? null
@@ -133,10 +139,10 @@ const quantityFormat = new Intl.NumberFormat('it-IT', {
 type Line = WorkReportCharge & { amounts: (string | null)[] }
 
 /**
- * A Visit's Charges as lines, in the order first recorded: hours summed
- * per Labour Rate (whoever worked them) and quantities per Item, recorded
- * and billed alike; with prices, also apart by unit price and whether
- * they bill.
+ * A Visit's Charges, or the Job's own (#192), as lines, in the order first
+ * recorded: hours summed per Labour Rate (whoever worked them), quantities
+ * per Item, and other costs per description and unit, recorded and billed
+ * alike; with prices, also apart by unit price and whether they bill.
  */
 function linesOf(charges: WorkReportCharge[], prices: boolean): Line[] {
   const lines = new Map<string, Line>()

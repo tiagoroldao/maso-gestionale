@@ -169,12 +169,16 @@ test.group('Visits left open on a cancelled Job (#153)', () => {
     }
     assert.lengthOf(await StockMovement.all(), 0)
 
-    // Offered only on the cancelled Job's open Visits
+    // Offered only on the cancelled Job's open Visits, on the Job page or the Visit's
     for (const job of [cancelled, active, closed]) {
       const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
       for (const row of page.inertiaProps.visits as { closableByOffice: boolean }[]) {
         assert.isFalse(row.closableByOffice)
       }
+    }
+    for (const visit of [returning, working, frozen]) {
+      const page = await client.get(`/visits/${visit.id}/edit`).withInertia().loginAs(office)
+      page.assertInertiaPropsContains({ visit: { closableByOffice: false } })
     }
   })
 

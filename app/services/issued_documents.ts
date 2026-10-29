@@ -318,7 +318,7 @@ export default class IssuedDocuments {
         return rows.map((row) => row.map((cell) => cell ?? ''))
       }
       case 'work_report':
-        return parseWorkReportOptions(value)
+        return parseWorkReportOptions(value, { issued: true })
       case 'boolean':
         return typeof value === 'boolean' ? value : null
       default:

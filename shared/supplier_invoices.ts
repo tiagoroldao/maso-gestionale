@@ -176,6 +176,12 @@ export function invoiceDiscount(
  * cents lost to rounding go to the largest remainders (splitAmount()).
  * Nothing is spread (`spreadable` false) when no line can take it, or
  * when it is more than those lines' total (a cost below zero).
+ *
+ * The shares follow the lines as they are now: marking a line not stock,
+ * or undoing that, moves the discount among the others, while costs
+ * already confirmed keep the share they had. So the confirmed costs need
+ * not add up to the invoice less its discount; they are defaults Office
+ * confirms one line at a time, not a split kept for the invoice.
  */
 export function defaultLineAmounts(
   invoice: { documentType: string; currency: string; spread: boolean },

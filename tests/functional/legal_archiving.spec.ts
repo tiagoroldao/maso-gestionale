@@ -4,6 +4,7 @@ import type User from '#models/user'
 import InstanceSettings from '#models/instance_settings'
 import InvoiceSubmission from '#models/invoice_submission'
 import Invoices from '#services/invoices'
+import Submissions from '#services/submissions'
 import { FakeSdiGateway, SdiSendRefusedError } from '#services/sdi_gateway'
 import SdiConnection, { supportsLegalArchiving } from '#services/sdi_connection'
 import { FakeOpenapi, recorded } from '#tests/helpers/openapi'
@@ -138,6 +139,39 @@ test.group('Legal archiving through the intermediary: sending', (group) => {
       gateway.submitted.map((file) => file.legalArchiving),
       [true]
     )
+  })
+
+  test('an uncertain send keeps archiving when settled as sent, and drops it when not found', async ({
+    client,
+    assert,
+  }) => {
+    gateway.legalArchiving = true
+    await archivingSetting(true)
+    const office = await createUser('office')
+    await completeCompany()
+    const settled = async (arrived: boolean) => {
+      const invoice = await finalised()
+      gateway.failNext = new Error('timeout')
+      await send(client, office, invoice.id)
+      const submission = await InvoiceSubmission.query()
+        .where('invoiceId', invoice.id)
+        .preload('invoice')
+        .firstOrFail()
+      // Sending, with archiving asked for, and the result unknown
+      assert.isTrue(submission.legalArchiving)
+      assert.isNull(submission.submittedAt)
+      // The intermediary did get it (and archives it), or never did
+      if (arrived)
+        gateway.submitted.push({ fileName: submission.fileName, xml: '', legalArchiving: true })
+
+      await Submissions.settle(gateway, submission)
+      await submission.refresh()
+      return [submission.legalArchiving, Boolean(submission.submittedAt)]
+    }
+
+    assert.deepEqual(await settled(true), [true, true])
+    gateway.submitted.length = 0
+    assert.deepEqual(await settled(false), [false, false])
   })
 })
 
