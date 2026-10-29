@@ -198,6 +198,9 @@ router
         router
           .post('jobs/:id/visits', [controllers.Visits, 'store'])
           .where('id', router.matchers.number())
+        router
+          .post('jobs/:id/visits/repeated', [controllers.Visits, 'storeRepeated'])
+          .where('id', router.matchers.number())
         router.get('agenda', [controllers.Visits, 'schedule'])
         router.get('agenda/to-schedule', [controllers.Visits, 'toSchedule'])
         router

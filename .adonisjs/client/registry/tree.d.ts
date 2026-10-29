@@ -119,6 +119,7 @@ export interface ApiDefinition {
   visits: {
     create: typeof routes['visits.create']
     store: typeof routes['visits.store']
+    storeRepeated: typeof routes['visits.store_repeated']
     schedule: typeof routes['visits.schedule']
     toSchedule: typeof routes['visits.to_schedule']
     move: typeof routes['visits.move']

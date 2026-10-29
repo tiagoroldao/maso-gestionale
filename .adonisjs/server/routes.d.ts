@@ -74,6 +74,7 @@ export type ScannedRoutes = {
     'jobs.reopen': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.create': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.store_repeated': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.schedule': { paramsTuple?: []; params?: {} }
     'visits.to_schedule': { paramsTuple?: []; params?: {} }
     'visits.move': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -364,6 +365,7 @@ export type ScannedRoutes = {
     'jobs.close': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'jobs.reopen': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'visits.store_repeated': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.mark_done': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.cancel': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'visits.restore': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

@@ -260,27 +260,72 @@ export default class Scheduling {
       survey?: boolean
     }
   ) {
+    const [visit] = await this.planMany(job, [input], input)
+    return visit
+  }
+
+  /**
+   * Plans several Visits at once, all or none (#177): the same Technicians,
+   * notes and kind at each time given. Each is an ordinary Visit, edited,
+   * moved or cancelled on its own; nothing links them.
+   */
+  static async planMany(
+    job: Job,
+    times: { startsAt: DateTime; endsAt: DateTime }[],
+    input: { technicianIds: number[]; notes?: string | null; survey?: boolean }
+  ) {
     return db.transaction(async (trx) => {
       // Locked and re-read, so a concurrent cancel can't be overwritten
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
       job.merge({ status: locked.status })
       if (!this.canSchedule(job)) throw new JobNotSchedulableError()
 
-      const visit = await Visit.create(
-        {
-          jobId: job.id,
-          startsAt: input.startsAt,
-          endsAt: input.endsAt,
-          status: 'planned',
-          notes: input.notes ?? null,
-          survey: input.survey ?? false,
-        },
-        { client: trx }
-      )
-      await visit.related('technicians').attach(input.technicianIds)
+      const visits: Visit[] = []
+      for (const { startsAt, endsAt } of times) {
+        const visit = await Visit.create(
+          {
+            jobId: job.id,
+            startsAt,
+            endsAt,
+            status: 'planned',
+            notes: input.notes ?? null,
+            survey: input.survey ?? false,
+          },
+          { client: trx }
+        )
+        await visit.related('technicians').attach(input.technicianIds)
+        visits.push(visit)
+      }
 
       await this.followWork(trx, job)
-      return visit
+      return visits
+    })
+  }
+
+  /**
+   * For each time, the Technicians among `technicianIds` already on
+   * another Visit overlapping it (#177), by name: a warning while
+   * planning, never a refusal. Cancelled Visits, and a cancelled Job's,
+   * take no one's time.
+   */
+  static async clashes(technicianIds: number[], times: { startsAt: DateTime; endsAt: DateTime }[]) {
+    if (!technicianIds.length || !times.length) return times.map((): string[] => [])
+    const from = DateTime.min(...times.map((time) => time.startsAt))!
+    const to = DateTime.max(...times.map((time) => time.endsAt))!
+    const visits = await Visit.query()
+      .where('startsAt', '<', to.toJSDate())
+      .where('endsAt', '>', from.toJSDate())
+      .whereNot('status', 'cancelled')
+      .whereHas('job', (job) => job.whereNot('status', 'cancelled'))
+      .whereHas('technicians', (technicians) => technicians.whereIn('users.id', technicianIds))
+      .preload('technicians')
+    return times.map(({ startsAt, endsAt }) => {
+      const names = visits
+        .filter((visit) => visit.startsAt < endsAt && visit.endsAt > startsAt)
+        .flatMap((visit) => visit.technicians)
+        .filter((technician) => technicianIds.includes(technician.id))
+        .map((technician) => technician.fullName ?? technician.email)
+      return [...new Set(names)].sort()
     })
   }
 
