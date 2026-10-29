@@ -6,6 +6,7 @@ import DocumentRenderer from '#documents/document_renderer'
 import DocumentTemplates, { TemplateArchivedError } from '#services/document_templates'
 import TemplateData, { TemplateDataError } from '#services/template_data'
 import { isUniqueViolation } from '#services/database_errors'
+import WorkReports from '#services/work_reports'
 import { formatDate, todayIso } from '#shared/dates'
 import {
   renderTemplateBody,
@@ -13,6 +14,7 @@ import {
   sampleValues,
   type TemplateNode,
 } from '#shared/document_templates'
+import { sampleWorkReport } from '#shared/work_report'
 import {
   documentTemplateFillValidator,
   documentTemplatePreviewValidator,
@@ -131,11 +133,15 @@ export default class DocumentTemplatesController {
    * The editor's unsaved template filled with sample data, as the Base
    * Layout prints it: HTML for the page's sandboxed preview frame.
    */
-  async preview({ request }: HttpContext) {
+  async preview({ request, i18n }: HttpContext) {
     const data = await request.validateUsing(documentTemplatePreviewValidator)
     const settings = await CompanySettings.current()
     const today = formatDate(todayIso())
-    const values = sampleValues(data.fields, { companyName: settings.name ?? '', today })
+    const values = sampleValues(data.fields, {
+      companyName: settings.name ?? '',
+      today,
+      workReportPeriod: WorkReports.period({ from: todayIso(), to: todayIso() }, i18n),
+    })
     const html = await new DocumentRenderer().renderHtml({
       title: data.name ?? '',
       recipient: {
@@ -145,7 +151,10 @@ export default class DocumentTemplatesController {
       bodyHtml: renderTemplateBody(
         data.body as TemplateNode,
         values,
-        sampleTables(data.fields, { today })
+        sampleTables(data.fields, {
+          today,
+          workReport: sampleWorkReport(WorkReports.labels(i18n), todayIso()),
+        })
       ),
     })
     return { html }

@@ -175,6 +175,10 @@ _Avoid_: Form, model, certificate template
 A numbered, frozen PDF produced from a Document Template for one Customer, with all chosen data copied into it.
 _Avoid_: Certificate, generated document, printout
 
+**Work Report** (_Rapportino_):
+An Issued Document giving a Job's closed Visits day by day (date, Technicians, hours per Labour Rate, Items used, and notes and prices if Office chooses), over the whole Job or a period; it comes from a Document Template with a work report field.
+_Avoid_: Timesheet, Visit report
+
 ## People
 
 **Instance** (_Istanza_):

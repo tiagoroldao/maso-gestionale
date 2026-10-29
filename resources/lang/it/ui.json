@@ -563,7 +563,8 @@
     "progressCancelled": "{count, plural, one {# annullato} other {# annullati}}",
     "progressNext": "prossimo: {when}",
     "summary": "Riepilogo ore e materiali",
-    "summaryHint": "Su tutti gli interventi e sulla commessa, per stato di esecuzione. Apri una riga per vedere gli interventi da cui proviene."
+    "summaryHint": "Su tutti gli interventi e sulla commessa, per stato di esecuzione. Apri una riga per vedere gli interventi da cui proviene.",
+    "issueWorkReport": "Emetti: {name}"
   },
   "rates": {
     "labourTitle": "Tariffe orarie",
@@ -607,7 +608,8 @@
       "job": "Commessa",
       "item": "Articolo",
       "items": "Articoli",
-      "table": "Tabella"
+      "table": "Tabella",
+      "work_report": "Rapportino della commessa"
     },
     "required": "Obbligatorio",
     "addField": "Aggiungi campo",
@@ -681,7 +683,13 @@
       "loadedFromJob": "{count, plural, =0 {Nessun articolo usato nella commessa.} one {Caricato # articolo dalla commessa.} other {Caricati # articoli dalla commessa.}}",
       "render": "Mostra il documento",
       "failed": "Documento non disponibile: controlla i campi.",
-      "back": "Torna al modello"
+      "back": "Torna al modello",
+      "workReportFrom": "Dal",
+      "workReportTo": "Al",
+      "workReportPeriodHint": "Lascia vuote le date per tutta la commessa.",
+      "workReportPrices": "Mostra i prezzi",
+      "workReportNotes": "Mostra le note degli interventi",
+      "noJobYet": "Scegli prima la commessa."
     },
     "archivedTitle": "Modelli archiviati",
     "archiveConfirm": "Archiviare il modello? Non si potranno più emettere documenti da questo modello; quelli già emessi restano."

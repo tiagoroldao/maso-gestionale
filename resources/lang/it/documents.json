@@ -53,5 +53,20 @@
   "issued": {
     "title": "{name} n. {number} del {date}",
     "replaces": "Sostituisce il documento n. {number} del {date}."
+  },
+  "workReport": {
+    "date": "Data",
+    "technicians": "Tecnici",
+    "description": "Descrizione",
+    "quantity": "Quantità",
+    "unitPrice": "Prezzo",
+    "amount": "Importo (IVA esclusa)",
+    "notes": "Note",
+    "notBilled": "Non addebitato",
+    "total": "Totale imponibile",
+    "between": "dal {from} al {to}",
+    "since": "dal {from}",
+    "until": "fino al {to}",
+    "wholeJob": "intera commessa"
   }
 }

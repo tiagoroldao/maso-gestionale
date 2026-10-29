@@ -1,4 +1,4 @@
-import { belongsTo, column, hasOne } from '@adonisjs/lucid/orm'
+import { belongsTo, column, hasOne, scope } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasOne } from '@adonisjs/lucid/types/relations'
 import { IssuedDocumentSchema } from '#database/schema'
 import Customer from '#models/customer'
@@ -36,6 +36,20 @@ export default class IssuedDocument extends IssuedDocumentSchema {
   // The fields as filled in, by key: prefills a replacement
   @column(json)
   declare input: Record<string, unknown>
+
+  /**
+   * Documents a Technician may open from a Visit: not a Job's work report
+   * (#180), which can print prices. Read from the version it was issued
+   * with, which never changes.
+   */
+  static forTechnicians = scope((query) => {
+    query.whereNotExists((versions) =>
+      versions
+        .from('document_template_versions as v')
+        .whereRaw('v.id = issued_documents.document_template_version_id')
+        .whereRaw(`v.fields @> '[{"type": "work_report"}]'::jsonb`)
+    )
+  })
 
   @belongsTo(() => Customer)
   declare customer: BelongsTo<typeof Customer>
