@@ -11,14 +11,16 @@ import type { TableData } from './document_templates.js'
 
 /**
  * What Office chooses when issuing: the period (either end open, both
- * open for the whole Job, as ISO dates), and whether prices and the
- * Visits' notes show.
+ * open for the whole Job, as ISO dates), whether prices and the Visits'
+ * notes show, and whether the Job's other costs follow the days (#192, on
+ * unless Office leaves them out, e.g. for a timesheet only).
  */
 export type WorkReportOptions = {
   from: string | null
   to: string | null
   prices: boolean
   notes: boolean
+  jobCharges: boolean
 }
 
 export const WHOLE_JOB_REPORT: WorkReportOptions = {
@@ -26,6 +28,7 @@ export const WHOLE_JOB_REPORT: WorkReportOptions = {
   to: null,
   prices: false,
   notes: false,
+  jobCharges: true,
 }
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -41,11 +44,13 @@ function isIsoDate(value: string) {
 
 /**
  * The options as filled in, or null when they aren't options: dates as
- * ISO days (empty for an open end), the choices as booleans.
+ * ISO days (empty for an open end), the choices as booleans. A report
+ * issued before #192 has no `jobCharges` and printed no other costs, so
+ * its replacement starts without them too.
  */
 export function parseWorkReportOptions(value: unknown): WorkReportOptions | null {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return null
-  const { from, to, prices, notes } = value as Record<string, unknown>
+  const { from, to, prices, notes, jobCharges = false } = value as Record<string, unknown>
   const day = (end: unknown) =>
     end === null || end === undefined || end === ''
       ? null
@@ -54,14 +59,20 @@ export function parseWorkReportOptions(value: unknown): WorkReportOptions | null
         : undefined
   const [start, finish] = [day(from), day(to)]
   if (start === undefined || finish === undefined) return null
-  if (typeof prices !== 'boolean' || typeof notes !== 'boolean') return null
-  return { from: start, to: finish, prices, notes }
+  if ([prices, notes, jobCharges].some((choice) => typeof choice !== 'boolean')) return null
+  return {
+    from: start,
+    to: finish,
+    prices: prices as boolean,
+    notes: notes as boolean,
+    jobCharges: jobCharges as boolean,
+  }
 }
 
 /**
- * Hours at a Labour Rate or an Item used, as a done Charge has them (ADR
- * 0010, 0016): `group` tells apart Labour Rates and Items of the same
- * name; `quantity` is what was recorded, `billQuantity` what Office set to
+ * Hours at a Labour Rate, an Item used or another cost, as a done Charge
+ * has them (ADR 0010, 0016): `group` tells apart Labour Rates, Items and
+ * other costs of the same name; `quantity` is what was recorded, `billQuantity` what Office set to
  * bill; `amount` is what it bills, null when it isn't billed (not
  * billable, or credited).
  */
@@ -87,7 +98,18 @@ export type WorkReportVisit = {
 }
 
 /**
- * The printed words, from the catalogue.
+ * The report's content: its days, and the Job's own done Charges, on no
+ * Visit (#192).
+ */
+export type WorkReport = {
+  visits: WorkReportVisit[]
+  jobCharges: WorkReportCharge[]
+}
+
+/**
+ * The printed words, from the catalogue: `total` for everything billed,
+ * `visitsTotal` when the Job's other costs are left out, so it isn't
+ * taken for the Invoice's total.
  */
 export type WorkReportLabels = {
   date: string
@@ -98,7 +120,9 @@ export type WorkReportLabels = {
   amount: string
   notes: string
   notBilled: string
+  jobCharges: string
   total: string
+  visitsTotal: string
 }
 
 const quantityFormat = new Intl.NumberFormat('it-IT', {
@@ -134,14 +158,18 @@ function linesOf(charges: WorkReportCharge[], prices: boolean): Line[] {
 
 /**
  * The report as a table: a row per line of each Visit, the Visit's day
- * and Technicians on its first, then its notes when chosen. Without
+ * and Technicians on its first, then its notes when chosen; then, when
+ * chosen, the Job's other costs under their own heading (#192). Without
  * prices, a line's quantity is what was recorded; with prices, it is what
  * is billed, with its unit price and amount (before VAT), so quantity ×
- * price gives the amount, and the total billed comes at the end.
+ * price gives the amount, and the total billed comes at the end. A line's
+ * amount is what its Charges bill (ADR 0010), so it can differ from
+ * quantity × price by per-Charge rounding, or when an Invoice line billed
+ * less.
  */
 export function workReportTable(
-  visits: WorkReportVisit[],
-  options: Pick<WorkReportOptions, 'prices' | 'notes'>,
+  report: WorkReport,
+  options: Pick<WorkReportOptions, 'prices' | 'notes' | 'jobCharges'>,
   labels: WorkReportLabels
 ): TableData {
   const headers = [labels.date, labels.technicians, labels.description, labels.quantity]
@@ -149,9 +177,8 @@ export function workReportTable(
   const blank = () => headers.map(() => '')
   const rows: string[][] = []
   const billed: string[] = []
-
-  for (const visit of visits) {
-    const visitRows = linesOf(visit.charges, options.prices).map((line) => {
+  const linesAsRows = (charges: WorkReportCharge[]) =>
+    linesOf(charges, options.prices).map((line) => {
       const row = blank()
       row[2] = line.description
       const quantity = options.prices ? line.billQuantity : line.quantity
@@ -164,6 +191,9 @@ export function workReportTable(
       }
       return row
     })
+
+  for (const visit of report.visits) {
+    const visitRows = linesAsRows(visit.charges)
     if (options.notes && visit.notes.length) {
       const row = blank()
       row[2] = `${labels.notes}: ${visit.notes.join(' / ')}`
@@ -175,9 +205,15 @@ export function workReportTable(
     rows.push(...visitRows)
   }
 
+  if (options.jobCharges && report.jobCharges.length) {
+    const heading = blank()
+    heading[2] = labels.jobCharges
+    rows.push(heading, ...linesAsRows(report.jobCharges))
+  }
+
   if (options.prices) {
     const row = blank()
-    row[2] = labels.total
+    row[2] = options.jobCharges ? labels.total : labels.visitsTotal
     row[5] = formatMoney(sumAmounts(billed))
     rows.push(row)
   }
@@ -185,7 +221,8 @@ export function workReportTable(
 }
 
 /**
- * Whether the Visit's work day falls in the period (ends included).
+ * Whether a day falls in the period (ends included): a Visit's work day,
+ * or the day a Job Charge became done (#192).
  */
 export function inPeriod(day: string, options: Pick<WorkReportOptions, 'from' | 'to'>) {
   return (!options.from || day >= options.from) && (!options.to || day <= options.to)
@@ -205,18 +242,21 @@ export function sampleWorkReport(labels: WorkReportLabels, today: string): Table
     amount: new Big(quantity).times(unitPrice).toFixed(2),
   })
   return workReportTable(
-    [
-      {
-        day: today,
-        technicians: ['Mario Bianchi', 'Luca Verdi'],
-        charges: [
-          charge('Manodopera ordinaria', 'h', '6', '40'),
-          charge('Valvola a sfera 1/2"', 'pz', '2', '8.5'),
-        ],
-        notes: ['Sostituita la valvola di intercettazione.'],
-      },
-    ],
-    { prices: true, notes: true },
+    {
+      visits: [
+        {
+          day: today,
+          technicians: ['Mario Bianchi', 'Luca Verdi'],
+          charges: [
+            charge('Manodopera ordinaria', 'h', '6', '40'),
+            charge('Valvola a sfera 1/2"', 'pz', '2', '8.5'),
+          ],
+          notes: ['Sostituita la valvola di intercettazione.'],
+        },
+      ],
+      jobCharges: [charge('Diritto di chiamata', '', '1', '30')],
+    },
+    { prices: true, notes: true, jobCharges: true },
     labels
   )
 }
