@@ -14,6 +14,7 @@ import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
 import Installations from '#services/installations'
 import { ChargeRefusedError } from '#services/charges'
 import { notDoneIn, visitCloseValidator } from '#validators/field'
+import { validationMessages } from '#validators/messages_provider'
 import {
   cancellableByOffice,
   closableByOffice,
@@ -198,7 +199,7 @@ export default class VisitsController {
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
     const input = await repeatVisitValidator.validate(withoutBlanks(request.body()), {
-      messagesProvider: i18n.createMessagesProvider(),
+      messagesProvider: validationMessages(i18n),
     })
     return inertia.render('visits/create', await planPage(job, ...(await repeatPlan(input))))
   }
@@ -251,7 +252,7 @@ export default class VisitsController {
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
     const body = withoutBlanks(request.body())
-    const messagesProvider = i18n.createMessagesProvider()
+    const messagesProvider = validationMessages(i18n)
     // The repeat comes back with the confirmation: if it no longer holds (a
     // Technician deactivated meanwhile), the plain form with the reason
     const [invalidRepeat, input] = await repeatVisitValidator.tryValidate(body, {
