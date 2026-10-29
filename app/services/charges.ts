@@ -127,8 +127,10 @@ export default class Charges {
    * once the Visit closed (it is planned until then), switching between
    * done and not done; a Charge on the Job itself at any time, confirming
    * planned work used (done) or not. Stock follows: an Item becoming done
-   * leaves stock (a usage dated today, referencing the Job), one done
-   * becoming not done comes back (an adjustment). An installed Item
+   * leaves stock (a usage referencing the Job, dated by its Visit's work
+   * day, #174, or today for a Charge on the Job itself), one done becoming
+   * not done comes back (an adjustment dated today, a correction made when
+   * Office acts). An installed Item
    * becoming done creates or updates its equipment, as closing the Visit
    * does (#162); becoming not done leaves the equipment as it is. Either
    * way it returns what Office is warned about the equipment (#168).
@@ -162,18 +164,21 @@ export default class Charges {
       let warnings: EquipmentWarning[] = []
       if (locked.kind === 'item') {
         const item = await Item.findOrFail(locked.itemId, { client: trx })
-        const common = {
-          occurredOn: DateTime.now().startOf('day'),
-          reference: job.number,
-          user,
-          client: trx,
-        }
+        const now = DateTime.now()
+        const common = { reference: job.number, user, client: trx }
         if (work === 'done' && !locked.stockMovementId) {
-          const movement = await StockLedger.use(item, { ...common, quantity: locked.quantity })
+          const movement = await StockLedger.use(item, {
+            ...common,
+            // Used when the Visit's work happened (#174)
+            occurredOn: visit ? visit.workDay(now) : now.startOf('day'),
+            quantity: locked.quantity,
+          })
           locked.stockMovementId = movement.id
         } else if (work === 'not_done' && locked.stockMovementId) {
+          // A correction: back on stock the day Office makes it
           await StockLedger.adjust(item, {
             ...common,
+            occurredOn: now.startOf('day'),
             quantity: locked.quantity,
             reason: stockReason,
           })
@@ -182,7 +187,7 @@ export default class Charges {
         await locked.save()
         // Installed on a Visit: on the Visit's work day (#174)
         if (work === 'done' && visit) {
-          warnings = await Installations.install(trx, locked, visit, job.siteId)
+          warnings = await Installations.install(trx, locked, visit, job.siteId, now)
         }
       }
       await this.addEvent(trx, locked, work, user, null)

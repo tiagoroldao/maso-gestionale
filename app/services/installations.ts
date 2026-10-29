@@ -1,3 +1,4 @@
+import type { DateTime } from 'luxon'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import type { I18n } from '@adonisjs/i18n'
 import Charge from '#models/charge'
@@ -44,16 +45,19 @@ export default class Installations {
    * equipment is locked after them. Returns what changed since the Charge
    * was recorded, for a warning: the unit removed or no longer at the
    * Job's Site (still updated), or no Site left to create the new one at.
+   * `now` is the caller's moment, so its other dates fall on the same work
+   * day even across midnight.
    */
   static async install(
     trx: TransactionClientContract,
     charge: Charge,
     visit: Visit,
-    siteId: number | null
+    siteId: number | null,
+    now: DateTime
   ): Promise<EquipmentWarning[]> {
     if (charge.kind !== 'item' || !charge.installed) return []
     const item = await Item.findOrFail(charge.itemId, { client: trx })
-    const day = visit.workDay()
+    const day = visit.workDay(now)
     const equipment = charge.installedEquipmentId
       ? await InstalledEquipment.query({ client: trx })
           .where('id', charge.installedEquipmentId)

@@ -1,6 +1,7 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import type { ApiClient } from '@japa/api-client'
+import Charge from '#models/charge'
 import InstalledEquipment from '#models/installed_equipment'
 import LabourRate from '#models/labour_rate'
 import StockMovement from '#models/stock_movement'
@@ -250,5 +251,34 @@ test.group('Visit work day and times (#174)', () => {
     assert.isNull(visit.startedById)
     assert.isNull(visit.closedAt)
     assert.isNull(visit.closedById)
+  })
+
+  test('Office marking done later dates the usage by the work day; not done is dated today', async ({
+    client,
+    assert,
+  }) => {
+    const threeDaysAgo = DateTime.now().minus({ days: 3 }).set({ hour: 9, minute: 0 })
+    const { anna, visit, item, old } = await plannedVisit(threeDaysAgo)
+    const started = DateTime.now().minus({ days: 2 })
+    await visit.merge({ status: 'in_progress', startedAt: started, startedById: anna.id }).save()
+    // Closed with the boiler from stock unticked: left not done
+    const [unused] = await Charge.query().where('visitId', visit.id).orderBy('id')
+    await FieldWork.setStatus(visit, 'done', anna, [unused.id])
+    const office = await createUser('office')
+
+    const done = await post(client, office, `/charges/${unused.id}/done`)
+    done.assertFlashMissing('error')
+    await unused.refresh()
+    const usage = await StockMovement.findOrFail(unused.stockMovementId)
+    assert.equal(usage.kind, 'usage')
+    assert.equal(usage.occurredOn.toISODate(), started.toISODate())
+    const { usages } = await workDates(old)
+    assert.deepEqual(usages, [started.toISODate(), started.toISODate()])
+
+    // Not done again: back on stock the day Office corrects it
+    await post(client, office, `/charges/${unused.id}/not-done`)
+    const adjustment = await StockMovement.query().where('kind', 'adjustment').firstOrFail()
+    assert.equal(adjustment.occurredOn.toISODate(), today())
+    assert.equal(await StockLedger.levelOf(item), '4.000')
   })
 })
