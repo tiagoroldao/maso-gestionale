@@ -190,8 +190,10 @@ export default class SupplierInvoices {
       .filter((id): id is string => Boolean(id))
       .map((id) => id.toUpperCase().replace(/^IT(?=\d{11}$)/, ''))
     if (!ours.length) return
-    const buyer = [fattura.buyer.vatNumber, fattura.buyer.taxCode].filter(Boolean)
-    if (!buyer.some((id) => ours.includes(id!))) {
+    const buyer = [fattura.buyer.vatNumber, fattura.buyer.taxCode]
+      .filter((id): id is string => Boolean(id))
+      .map((id) => id.replace(/[^A-Z0-9]/g, '').replace(/^IT(?=\d{11}$)/, ''))
+    if (!buyer.some((id) => ours.includes(id))) {
       throw new SupplierInvoiceRefusedError('notForCompany')
     }
   }

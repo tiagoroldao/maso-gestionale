@@ -167,7 +167,7 @@ const quantity = (value: string | null) =>
             <tr>
               <th>{{ t('ui.supplierInvoices.lineNumber') }}</th>
               <th>{{ t('ui.supplierInvoices.code') }}</th>
-              <th>{{ t('ui.supplierInvoices.description') }}</th>
+              <th>{{ t('ui.supplierInvoices.lineDescription') }}</th>
               <th :style="{ textAlign: 'right' }">{{ t('ui.supplierInvoices.quantity') }}</th>
               <th :style="{ textAlign: 'right' }">{{ t('ui.supplierInvoices.unitPrice') }}</th>
               <th :style="{ textAlign: 'right' }">{{ t('ui.supplierInvoices.lineTotal') }}</th>

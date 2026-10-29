@@ -1306,7 +1306,7 @@
   },
   "supplierInvoices": {
     "title": "Fatture passive",
-    "description": "Descrizione",
+    "description": "Le fatture ricevute dai fornitori. Carica il file XML o firmato (.p7m) scaricato dal portale dell'Agenzia delle Entrate.",
     "suppliers": "Fornitori",
     "upload": "Carica fattura",
     "file": "File della fattura (XML o .p7m)",
@@ -1341,6 +1341,7 @@
     "lines": "Righe",
     "lineNumber": "N.",
     "code": "Codice",
+    "lineDescription": "Descrizione",
     "quantity": "Quantità",
     "unitPrice": "Prezzo unitario",
     "lineTotal": "Importo",
@@ -1355,7 +1356,6 @@
     "amount": "Importo",
     "iban": "IBAN",
     "notes": "Causale",
-    "totals": "Totali",
     "documentTypes": {
       "TD01": "Fattura",
       "TD02": "Acconto / anticipo su fattura",

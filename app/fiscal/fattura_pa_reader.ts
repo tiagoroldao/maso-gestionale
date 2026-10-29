@@ -1,5 +1,6 @@
 import * as asn1js from 'asn1js'
 import Big from 'big.js'
+import { DateTime } from 'luxon'
 import { XMLParser } from 'fast-xml-parser'
 
 /**
@@ -303,7 +304,7 @@ function decimal(value: string, name: string): string {
 
 function date(value: string, name: string): string {
   const day = value.slice(0, 10)
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || Number.isNaN(Date.parse(day))) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !DateTime.fromISO(day).isValid) {
     throw new FatturaReadError('unreadable', `${name} is not a date: ${value}`)
   }
   return day
@@ -396,7 +397,7 @@ function lineOf(line: Element): ReceivedLine {
   const quantity = text(line, 'Quantita')
   const codes = elements(line, 'CodiceArticolo')
   return {
-    lineNumber: Number(required(line, 'NumeroLinea')),
+    lineNumber: lineNumberOf(required(line, 'NumeroLinea')),
     code: codes.length ? text(codes[0], 'CodiceValore') : null,
     description: required(line, 'Descrizione'),
     quantity: quantity ? decimal(quantity, 'Quantita') : null,
@@ -406,6 +407,14 @@ function lineOf(line: Element): ReceivedLine {
     vatRate: decimal(required(line, 'AliquotaIVA'), 'AliquotaIVA'),
     natura: text(line, 'Natura'),
   }
+}
+
+/** NumeroLinea: a whole number, at most 4 digits */
+function lineNumberOf(value: string) {
+  if (!/^\d{1,4}$/.test(value)) {
+    throw new FatturaReadError('unreadable', `NumeroLinea is not a line number: ${value}`)
+  }
+  return Number(value)
 }
 
 function vatRowOf(row: Element): ReceivedVatRow {

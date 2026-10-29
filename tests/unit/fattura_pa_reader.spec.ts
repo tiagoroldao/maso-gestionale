@@ -188,6 +188,21 @@ test.group('Reading received FatturaPA files', () => {
       ),
       'unreadable'
     )
+    // A day that doesn't exist, and a line number that isn't one
+    assert.equal(
+      refusal(() =>
+        readFatturaPA(fixture().replace('<Data>2026-10-15</Data>', '<Data>2026-02-30</Data>'))
+      ),
+      'unreadable'
+    )
+    assert.equal(
+      refusal(() =>
+        readFatturaPA(
+          fixture().replace('<NumeroLinea>2</NumeroLinea>', '<NumeroLinea>2.5</NumeroLinea>')
+        )
+      ),
+      'unreadable'
+    )
     assert.equal(
       refusal(() =>
         readFatturaPA(fixture().replace('<Imposta>33.00</Imposta>', '<Imposta>33,00</Imposta>'))

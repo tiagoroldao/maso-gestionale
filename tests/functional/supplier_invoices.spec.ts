@@ -313,6 +313,14 @@ test.group('Supplier Invoices', (group) => {
     const bare = supplierInvoiceXml({ number: 'FV-2026/9' }).replace(/^<\?xml[^>]*>\s*/, '')
     const read = await upload(client, office, { contents: Buffer.from(bare), name: 'c.XML' })
     read.assertFlashMessage('success', it('flash.supplierInvoiceUploaded', { count: 1 }))
+
+    // The buyer's VAT number written with its country prefix is still the company's
+    const prefixed = await upload(
+      client,
+      office,
+      xmlUpload({ number: 'FV-2026/10', buyerVat: 'IT01987654322' })
+    )
+    prefixed.assertFlashMessage('success', it('flash.supplierInvoiceUploaded', { count: 1 }))
   })
 
   test('the SDI intermediary hands files to receive(); one already received is refused', async ({
