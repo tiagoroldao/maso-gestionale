@@ -5,7 +5,8 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
-import { amountForInput } from '@shared/money'
+import { amountForInput, parseAmount } from '@shared/money'
+import { takesSerialNumber } from '@shared/items'
 import {
   canSetBackToBill,
   isHeld,
@@ -31,7 +32,19 @@ const props = defineProps<{
       labourRateId: number | null
       technicianId: number | null
       workerName: string | null
-      item: { id: number; code: string; description: string; unit: string } | null
+      item: {
+        id: number
+        code: string
+        description: string
+        unit: string
+        equipment: boolean
+      } | null
+      equipment: {
+        equipmentType: string | null
+        make: string | null
+        model: string | null
+        serialNumber: string | null
+      }
     }
     billing: {
       quantity: string
@@ -68,6 +81,17 @@ function pickItem(picked: PickedItem) {
   item.value = picked
   changingItem.value = false
 }
+
+// An Equipment Item's details, until it is done (#169): a serial number
+// for a single piece only
+const correctedQuantity = ref(amountForInput(props.charge.recorded.quantity))
+const pendingDetails = computed(
+  () => props.charge.kind === 'item' && !!item.value?.equipment && props.charge.workState !== 'done'
+)
+const singlePiece = computed(() => {
+  const parsed = parseAmount(correctedQuantity.value)
+  return parsed !== null && takesSerialNumber(parsed.toFixed())
+})
 
 // What is billed is frozen while an Invoice holds or bills the Charge,
 // whatever the Job's status (#111)
@@ -236,13 +260,64 @@ const shown = (key: string, value: string | null) => {
             </label>
             <input
               id="correct-quantity"
+              v-model="correctedQuantity"
               name="quantity"
               inputmode="decimal"
               class="field__input"
-              :value="quantity(charge.recorded.quantity)"
             />
             <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
           </div>
+          <template v-if="pendingDetails">
+            <p class="field__hint" :style="{ margin: 0 }">{{ t('ui.charges.equipmentDetails') }}</p>
+            <div class="field">
+              <label class="field__label" for="correct-type">{{
+                t('ui.field.equipmentType')
+              }}</label>
+              <input
+                id="correct-type"
+                name="equipmentType"
+                class="field__input"
+                :value="charge.recorded.equipment.equipmentType ?? ''"
+              />
+              <span class="field__hint">{{ t('ui.field.equipmentTypeHint') }}</span>
+              <span v-if="errors.equipmentType" class="field__error">{{
+                errors.equipmentType
+              }}</span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="correct-make">{{ t('ui.field.make') }}</label>
+              <input
+                id="correct-make"
+                name="make"
+                class="field__input"
+                :value="charge.recorded.equipment.make ?? ''"
+              />
+              <span v-if="errors.make" class="field__error">{{ errors.make }}</span>
+            </div>
+            <div class="field">
+              <label class="field__label" for="correct-model">{{ t('ui.field.model') }}</label>
+              <input
+                id="correct-model"
+                name="model"
+                class="field__input"
+                :value="charge.recorded.equipment.model ?? ''"
+              />
+              <span v-if="errors.model" class="field__error">{{ errors.model }}</span>
+            </div>
+            <div v-if="singlePiece" class="field">
+              <label class="field__label" for="correct-serial">{{
+                t('ui.field.serialNumber')
+              }}</label>
+              <input
+                id="correct-serial"
+                name="serialNumber"
+                class="field__input"
+                :value="charge.recorded.equipment.serialNumber ?? ''"
+              />
+              <span v-if="errors.serialNumber" class="field__error">{{ errors.serialNumber }}</span>
+            </div>
+            <span v-else class="field__hint">{{ t('ui.field.serialNumberHint') }}</span>
+          </template>
           <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
             {{ t('ui.charges.saveCorrection') }}
           </button>

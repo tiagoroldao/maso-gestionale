@@ -99,8 +99,17 @@ export default class ChargesController {
                 code: charge.item.code,
                 description: charge.item.description,
                 unit: charge.item.unit,
+                equipment: charge.item.equipment,
               }
             : null,
+          // An Equipment Item's details, entered or corrected until it is
+          // done (#169)
+          equipment: {
+            equipmentType: charge.equipmentType,
+            make: charge.equipmentMake,
+            model: charge.equipmentModel,
+            serialNumber: charge.equipmentSerialNumber,
+          },
         },
         billing: {
           quantity: charge.billQuantity,

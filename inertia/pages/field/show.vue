@@ -61,6 +61,7 @@ const props = defineProps<{
     unit: string
     quantity: string
     equipment: boolean
+    details: { description: string; serialNumber: string | null } | null
     notDone: boolean
   }[]
 }>()
@@ -371,6 +372,15 @@ function toggle(id: number, ticked: boolean) {
             <span class="mono">{{ line.code }}</span> {{ line.description }}
             <span v-if="line.equipment" class="tag">{{ t('ui.field.equipmentTag') }}</span>
             <span v-if="line.notDone" class="tag">{{ t('ui.charges.workStates.not_done') }}</span>
+            <!-- The details it is registered with when done (#169) -->
+            <span v-if="line.details" class="field__hint" data-testid="item-equipment-details">
+              <br />
+              {{ line.details.description }}
+              <template v-if="line.details.serialNumber">
+                · {{ t('ui.field.serialNumber') }}
+                <span class="mono">{{ line.details.serialNumber }}</span>
+              </template>
+            </span>
           </span>
           <Form
             v-if="!done"

@@ -22,7 +22,7 @@ import {
 import type { LineKind } from '#shared/vat'
 import { labourDescription } from '#services/field_work'
 import { isCancelledVisit, isClosedVisit } from '#shared/visits'
-import { isWholeQuantity } from '#shared/items'
+import { isWholeQuantity, takesSerialNumber } from '#shared/items'
 import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
 
 /**
@@ -69,6 +69,17 @@ type Recorded = {
   workerName?: string | null
   // Item
   itemId?: number
+} & EquipmentDetails
+
+/**
+ * An Equipment Charge's pending details (#169): each one left out stays as
+ * it is, and an empty one (null) is cleared.
+ */
+type EquipmentDetails = {
+  equipmentType?: string | null
+  make?: string | null
+  model?: string | null
+  serialNumber?: string | null
 }
 
 type Billing = {
@@ -246,7 +257,13 @@ export default class Charges {
    * quantity never changes Installed Equipment (#162, #176): it returns a
    * warning naming the equipment the Charge created, if any, and a Charge
    * not yet done installs as its new Item and quantity say when it becomes
-   * done. An Equipment Item takes only a whole quantity.
+   * done. An Equipment Item takes only a whole quantity. Until the Charge is
+   * done, Office also enters or corrects the equipment's pending details
+   * (type, make, model, and a serial number for a single piece, #169);
+   * another Item that isn't Equipment clears them, and a quantity other
+   * than one its serial number. Once done they are left as they were, and
+   * details sent anyway (it became done while the page was open) return a
+   * warning: the equipment is managed on the Site page.
    */
   static async correct(
     charge: Charge,
@@ -304,10 +321,21 @@ export default class Charges {
         if (item.equipment && !isWholeQuantity(input.quantity)) {
           throw new ChargeRefusedError('wholeQuantity')
         }
+        const events = await ChargeEvent.query({ client: trx })
+          .where('chargeId', locked.id)
+          .orderBy('id')
         const newItem = item.id !== locked.itemId
         if (newItem || !new Big(input.quantity).eq(locked.quantity)) {
-          const events = await ChargeEvent.query({ client: trx }).where('chargeId', locked.id)
           left = await Installations.left(trx, locked, events, newItem ? 'left' : 'quantity')
+        }
+        if (workState(events) !== 'done') {
+          locked.merge(pendingDetails(locked, item.equipment, input))
+        } else if (detailsChanged(locked, input)) {
+          // Done while the page was open: not saved, and Office is told
+          left = [
+            ...left,
+            { reason: 'detailsDone', equipment: Installations.describe(locked, item) },
+          ]
         }
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })
@@ -626,7 +654,45 @@ export default class Charges {
     }
     if (charge.kind === 'other') return { quantity: charge.quantity }
     const item = await Item.findOrFail(charge.itemId, { client: trx })
-    return { quantity: charge.quantity, item: `${item.code} ${item.description}` }
+    return {
+      quantity: charge.quantity,
+      item: `${item.code} ${item.description}`,
+      equipmentType: charge.equipmentType,
+      make: charge.equipmentMake,
+      model: charge.equipmentModel,
+      serialNumber: charge.equipmentSerialNumber,
+    }
+  }
+}
+
+/**
+ * Whether `input` sends a pending detail other than the Charge's own.
+ */
+function detailsChanged(charge: Charge, input: Recorded) {
+  const sent = [
+    [input.equipmentType, charge.equipmentType],
+    [input.make, charge.equipmentMake],
+    [input.model, charge.equipmentModel],
+    [input.serialNumber, charge.equipmentSerialNumber],
+  ] as const
+  return sent.some(([given, current]) => given !== undefined && (given || null) !== current)
+}
+
+/**
+ * The pending details a Charge not yet done keeps after a correction to
+ * `input` (#169): none for an Item that isn't Equipment, and a serial
+ * number for a single piece only.
+ */
+function pendingDetails(charge: Charge, equipment: boolean, input: Recorded) {
+  const value = (given: string | null | undefined, current: string | null) =>
+    equipment ? (given === undefined ? current : given || null) : null
+  return {
+    equipmentType: value(input.equipmentType, charge.equipmentType),
+    equipmentMake: value(input.make, charge.equipmentMake),
+    equipmentModel: value(input.model, charge.equipmentModel),
+    equipmentSerialNumber: takesSerialNumber(input.quantity)
+      ? value(input.serialNumber, charge.equipmentSerialNumber)
+      : null,
   }
 }
 
@@ -640,24 +706,27 @@ function billingValues(charge: Charge) {
   }
 }
 
+// The values compared as decimals; any other ("007", a serial number) as text
+const DECIMAL_KEYS = new Set(['quantity', 'unitPrice'])
+
 /**
- * The values that changed, or null when none did. Decimals compare by
- * value ("2.000" and "2" are the same quantity).
+ * The values that changed, or null when none did. Quantities and prices
+ * compare by value ("2.000" and "2" are the same quantity).
  */
 function diff(
   before: Record<string, string | null>,
   after: Record<string, string | null>
 ): ChargeChanges | null {
-  const same = (a: string | null, b: string | null) => {
+  const same = (key: string, a: string | null, b: string | null) => {
     if (a === b) return true
-    if (a === null || b === null) return false
+    if (a === null || b === null || !DECIMAL_KEYS.has(key)) return false
     try {
       return new Big(a).eq(b)
     } catch {
       return false
     }
   }
-  const keys = Object.keys(after).filter((key) => !same(before[key], after[key]))
+  const keys = Object.keys(after).filter((key) => !same(key, before[key], after[key]))
   if (!keys.length) return null
   return {
     before: Object.fromEntries(keys.map((key) => [key, before[key]])),

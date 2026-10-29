@@ -145,6 +145,14 @@ export default class MyVisitsController {
         unit: line.item.unit,
         quantity: line.quantity,
         equipment: line.item.equipment,
+        // The details it installs with, until it is done (#169)
+        details:
+          line.item.equipment && line.workState !== 'done'
+            ? {
+                description: Installations.describe(line, line.item),
+                serialNumber: Installations.detailsOf(line, line.item).serialNumber,
+              }
+            : null,
         notDone: line.workState === 'not_done',
       })),
       notes: visit.fieldNotes.map((note) => ({
@@ -168,20 +176,17 @@ export default class MyVisitsController {
     await bouncer.authorize('viewVisit', visit)
     const { status, ...review } = await request.validateUsing(visitStatusValidator)
 
+    const user = auth.getUserOrFail()
     return this.refusable(visit, { response, session, i18n }, async () => {
-      const warnings = await FieldWork.setStatus(
-        visit,
-        status,
-        auth.getUserOrFail(),
-        notDoneIn(review)
-      )
-      // Equipment changed since it was recorded: told, as Office is (#168)
+      const warnings = await FieldWork.setStatus(visit, status, user, notDoneIn(review))
+      // Equipment not created for want of a Site: a Technician tells the
+      // office, who registers it (#168, #169)
       await flashWithStockWarning(
         { session, i18n },
         [],
         i18n.t('flash.visitStatusSaved'),
         undefined,
-        Installations.messages(i18n, warnings)
+        Installations.messages(i18n, warnings, user.role === 'technician' ? 'technician' : 'office')
       )
     })
   }

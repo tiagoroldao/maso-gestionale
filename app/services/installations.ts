@@ -16,10 +16,13 @@ import { equipmentUnits, takesSerialNumber } from '#shared/items'
  *   equipment it created was left as it was;
  * - `quantity`: the Charge's quantity was corrected, and the equipment it
  *   created was left as it was;
- * - `noSite`: the equipment wasn't created, the Job having no Site.
+ * - `noSite`: the equipment wasn't created, the Job having no Site;
+ * - `detailsDone`: Office sent pending details for a Charge already done
+ *   (it became done while the page was open), and they weren't saved
+ *   (#169).
  */
 export type EquipmentWarning = {
-  reason: 'left' | 'quantity' | 'noSite'
+  reason: 'left' | 'quantity' | 'noSite' | 'detailsDone'
   equipment: string
 }
 
@@ -58,19 +61,8 @@ export default class Installations {
     const created = await this.createdBy(trx, charge)
     if (created.length) return []
 
-    const details = {
-      itemId: item.id,
-      equipmentType: (charge.equipmentType || item.description).slice(0, 100),
-      make: charge.equipmentMake,
-      model: charge.equipmentModel,
-      serialNumber: takesSerialNumber(charge.quantity) ? charge.equipmentSerialNumber : null,
-      installedOn: day,
-      maintenanceIntervalMonths: item.maintenanceIntervalMonths,
-    }
-    if (!siteId) {
-      const unit = new InstalledEquipment().merge(details)
-      return [{ reason: 'noSite', equipment: unit.description }]
-    }
+    const details = { ...this.detailsOf(charge, item), installedOn: day }
+    if (!siteId) return [{ reason: 'noSite', equipment: this.describe(charge, item) }]
     const units = Array.from({ length: equipmentUnits(charge.quantity) }, () => ({
       ...details,
       siteId,
@@ -102,12 +94,45 @@ export default class Installations {
   }
 
   /**
-   * The warnings as flash sentences, in order.
+   * The warnings as flash sentences, in order. A Technician closing the
+   * Visit is told to let the office know rather than to fix it on the Site
+   * page, which is Office's (#169).
    */
-  static messages(i18n: I18n, warnings: EquipmentWarning[]): string[] {
+  static messages(
+    i18n: I18n,
+    warnings: EquipmentWarning[],
+    reader: 'office' | 'technician' = 'office'
+  ): string[] {
     return warnings.map(({ reason, equipment }) =>
-      i18n.t(`flash.equipmentWarning.${reason}`, { equipment })
+      i18n.t(
+        `flash.equipmentWarning.${reader === 'technician' && reason === 'noSite' ? 'noSiteTechnician' : reason}`,
+        { equipment }
+      )
     )
+  }
+
+  /**
+   * The equipment a Charge of an Equipment `item` creates when done, from
+   * its pending details: the Item's description when it has no type, and
+   * a serial number for a single piece only.
+   */
+  static detailsOf(charge: Charge, item: Item) {
+    return {
+      itemId: item.id,
+      equipmentType: (charge.equipmentType || item.description).slice(0, 100),
+      make: charge.equipmentMake,
+      model: charge.equipmentModel,
+      serialNumber: takesSerialNumber(charge.quantity) ? charge.equipmentSerialNumber : null,
+      maintenanceIntervalMonths: item.maintenanceIntervalMonths,
+    }
+  }
+
+  /**
+   * The name the equipment a Charge creates will have ("Caldaia murale —
+   * Vaillant ecoTEC"), as the Site page shows it.
+   */
+  static describe(charge: Charge, item: Item) {
+    return new InstalledEquipment().merge(this.detailsOf(charge, item)).description
   }
 
   /**
