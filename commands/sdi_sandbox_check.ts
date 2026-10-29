@@ -2,7 +2,13 @@ import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
 import env from '#start/env'
 import { PLACEHOLDER_CALLBACK_URL } from '#services/sdi_receiving'
-import { SANDBOX_FISCAL_ID, SandboxOnlyError, SdiSandboxCheck } from '#services/sdi_sandbox_check'
+import {
+  DEFAULT_WAIT_SECONDS,
+  RECEIVE_WAIT_SECONDS,
+  SANDBOX_FISCAL_ID,
+  SandboxOnlyError,
+  SdiSandboxCheck,
+} from '#services/sdi_sandbox_check'
 
 /**
  * Checks Openapi's sandbox against what the app assumes (#219, #204, ADR
@@ -41,13 +47,19 @@ export default class SdiSandboxCheckCommand extends BaseCommand {
   declare callbackUrl: string
 
   @flags.number({
-    description: 'Seconds to wait for Openapi to list or store something',
-    default: 120,
+    description: `Seconds to wait for Openapi to list or store something (default ${DEFAULT_WAIT_SECONDS}, ${RECEIVE_WAIT_SECONDS} to receive with an undeliverable callback)`,
   })
-  declare wait: number
+  declare wait?: number
 
   @flags.string({ flagName: 'p7m', description: 'A signed .p7m file to try importing in check 8' })
   declare p7m?: string
+
+  @flags.string({
+    flagName: 'legal-storage-fiscal-id',
+    description:
+      'With --setup: a second, invented fiscal id to register with apply_legal_storage, for checks 9 to 11',
+  })
+  declare legalStorageFiscalId?: string
 
   async run() {
     // From .env or the environment; empty counts as missing
@@ -62,6 +74,14 @@ export default class SdiSandboxCheckCommand extends BaseCommand {
       this.exitCode = 1
       return
     }
+    const legal = this.legalStorageFiscalId
+    if (legal !== undefined && (!this.setup || legal === '' || legal === this.fiscalId)) {
+      this.logger.error(
+        '--legal-storage-fiscal-id needs --setup, and a fiscal id other than --fiscal-id'
+      )
+      this.exitCode = 1
+      return
+    }
 
     let check: SdiSandboxCheck
     try {
@@ -70,8 +90,9 @@ export default class SdiSandboxCheckCommand extends BaseCommand {
         fiscalId: this.fiscalId,
         callbackUrl: this.callbackUrl,
         setup: this.setup,
-        waitSeconds: this.wait,
+        waitSeconds: this.wait ?? null,
         p7mPath: this.p7m ?? null,
+        legalStorageFiscalId: legal ?? null,
         // On stderr, so stdout is only the report
         progress: (line) => this.logger.logError(`… ${line}`),
       })

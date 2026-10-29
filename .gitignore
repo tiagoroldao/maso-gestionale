@@ -30,3 +30,6 @@ storage
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Sandbox check reports (docs/openapi-sandbox-check.md): may hold callback URLs
+sandbox-report*.md
