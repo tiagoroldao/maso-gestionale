@@ -107,7 +107,9 @@
     "lineCreditTooLarge": "Una riga storna più di quanto resta della riga della fattura (il suo importo meno quanto già stornato da altre note di credito emesse): riduci l'importo.",
     "negativeCredit": "Le righe di una nota di credito non possono avere prezzi o importi negativi.",
     "partialDeduction": "Una detrazione d'acconto si restituisce per intero: tieni tutte le sue righe o nessuna.",
-    "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata."
+    "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata.",
+    "legacyVatRow": "Ogni riga deve avere l'IVA di una riga IVA dell'acconto pregresso che storna.",
+    "vatCreditTooLarge": "La nota di credito storna più IVA di quella riportata dalla fattura pregressa."
   },
   "creditNoteCreated": "Bozza di nota di credito creata: riduci gli importi a quanto va stornato.",
   "creditNoteRefused": {
@@ -179,5 +181,23 @@
   "chargeAdded": "Addebito aggiunto.",
   "documentTemplateArchived": "Modello «{name}» archiviato.",
   "documentTemplateRestored": "Modello «{name}» ripristinato.",
-  "documentTemplateArchivedNoEdit": "Il modello è archiviato: ripristinalo per modificarlo."
+  "documentTemplateArchivedNoEdit": "Il modello è archiviato: ripristinalo per modificarlo.",
+  "legacyInvoiceCreated": "Fattura pregressa registrata.",
+  "legacyInvoiceSaved": "Fattura pregressa salvata.",
+  "legacyInvoiceDeleted": "Fattura pregressa eliminata.",
+  "legacyInvoiceRefused": {
+    "advanceWithoutJob": "Un acconto appartiene a una commessa: scegli la commessa.",
+    "noVatRows": "Per un acconto indica le righe IVA (codice IVA e imponibile), così le fatture successive possono detrarlo.",
+    "duplicateVatRow": "Due righe IVA hanno la stessa aliquota e natura: riuniscile in una.",
+    "rowsTaxable": "La somma degli imponibili delle righe IVA non corrisponde all'imponibile.",
+    "rowsVat": "L'IVA delle righe, calcolata riga per riga, non corrisponde all'IVA indicata.",
+    "advanceTotal": "Il totale di un acconto deve essere l'imponibile più l'IVA.",
+    "customerNotOfJob": "La commessa scelta è di un altro cliente.",
+    "duplicateNumber": "Una fattura pregressa dello stesso anno ha già questo numero.",
+    "paid": "La fattura ha degli incassi: rimuovili prima di modificarla o eliminarla.",
+    "takenBack": "Una fattura detrae questo acconto: togli la detrazione prima di modificarlo o eliminarlo.",
+    "credited": "La fattura ha delle note di credito: non si può modificare né eliminare.",
+    "changed": "La fattura è stata appena modificata: ricarica la pagina e riprova."
+  },
+  "legacyInvoiceCustomerArchived": "Il cliente della commessa è archiviato: ripristinalo per registrare una fattura pregressa."
 }

@@ -32,7 +32,14 @@ import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
 import {
+  legacyCreditRefusal,
+  legacyRowVat,
+  type LegacyCreditRefusal,
+} from '#shared/legacy_invoices'
+import LegacyVatRow from '#models/legacy_vat_row'
+import {
   creditedInFull,
+  creditLeft,
   creditRefusal,
   credits,
   exceedsCredit,
@@ -66,7 +73,8 @@ export class InvoiceNotEditableError extends Error {}
  * take back (`creditTooLarge`); each of its lines credits a line of that
  * Invoice (`uncreditedLine`), never more than is left of it nor a
  * negative amount (lineCreditRefusal()); and it gives back all of a
- * deduction or none of it (`partialDeduction`). Corrected after a
+ * deduction or none of it (`partialDeduction`). On a Legacy Invoice, its
+ * lines credit amounts, as legacyCreditRefusal() says. Corrected after a
  * Rejection so it no longer gives a deduction back, the deduction must
  * still fit what is left of its advance (`deductionTooLarge`).
  */
@@ -83,6 +91,7 @@ export class InvoiceNotFinalisableError extends Error {
       | 'uncreditedLine'
       | 'partialDeduction'
       | LineCreditRefusal
+      | LegacyCreditRefusal
   ) {
     super(reason)
   }
@@ -232,6 +241,11 @@ export default class Invoices {
         },
         { client: trx }
       )
+      if (original.isLegacy) {
+        const values = await this.legacyCreditLines(trx, original, creditNote.id)
+        await InvoiceLine.createMany(values, { client: trx })
+        return creditNote
+      }
       const lines = await InvoiceLine.query({ client: trx })
         .where('invoiceId', original.id)
         .orderBy('position')
@@ -286,6 +300,163 @@ export default class Invoices {
       )
       return creditNote
     })
+  }
+
+  /**
+   * A Credit Note's starting lines for a Legacy Invoice (#27), which has
+   * no lines to copy, for Office to change:
+   * - an advance: what is left of each VAT row (after deductions and other
+   *   Credit Notes), at its VAT Code;
+   * - otherwise: one line for what is left of the printed taxable and VAT,
+   *   at the VAT Code whose rate gives its printed VAT; none when no active
+   *   one does (an exempt or reverse-charge invoice: its Natura can't be
+   *   told), and Office adds the lines.
+   * When VAT rounding or a total printed below taxable plus VAT takes them
+   * over what is left of the total, they are scaled down to it (what is
+   * left divided by the lines' total, VAT included), then lowered by the
+   * cent where each row's rounding still tips it over.
+   */
+  private static async legacyCreditLines(
+    trx: TransactionClientContract,
+    original: Invoice,
+    creditNoteId: number
+  ) {
+    const label = `Storno fattura ${original.legacyNumber} del ${original.issuedOn!.toFormat('dd/MM/yyyy')}`
+    const taken = await this.legacyTaken(trx, original, null)
+    const takenAt = (row: { vatRate: string; natura: string | null }) =>
+      taken
+        .filter(
+          (other) => Number(other.vatRate) === Number(row.vatRate) && other.natura === row.natura
+        )
+        .reduce((total, other) => total.plus(other.taxable), new Big(0))
+    const entries = original.advance
+      ? await this.legacyAdvanceEntries(trx, original, takenAt)
+      : await this.legacyEntry(trx, original, taken)
+    const values = entries
+      .filter(({ amount }) => amount.gt(0))
+      .map(({ code, amount }, position) => ({
+        invoiceId: creditNoteId,
+        position,
+        description: label,
+        quantity: '1',
+        unit: null,
+        unitPrice: amount.toFixed(2),
+        discountPercent: '0',
+        vatCodeId: code.id,
+        vatRate: code.rate,
+        natura: code.natura,
+        legalNote: code.legalNote,
+        lineTotal: amount.toFixed(2),
+      }))
+    const deducted = original.advance ? await this.advanceDeducted(trx, original.id) : '0'
+    const left = new Big(
+      creditLeft(original.total!, await Payments.credited(trx, original.id), deducted)
+    )
+    const totalOf = () =>
+      new Big(invoiceTotals(values.map((value) => ({ ...value, deduction: false }))).total)
+    const setAmount = (value: (typeof values)[number], amount: Big) =>
+      Object.assign(value, { unitPrice: amount.toFixed(2), lineTotal: amount.toFixed(2) })
+    if (values.length && totalOf().gt(left)) {
+      const ratio = left.lt(0) ? new Big(0) : left.div(totalOf())
+      for (const value of values) {
+        setAmount(value, new Big(value.lineTotal).times(ratio).round(2, Big.roundDown))
+      }
+      // Rounded down, a row's VAT may still round up by a cent: a few at most
+      for (let cents = 0; cents < 10 * values.length && totalOf().gt(left); cents++) {
+        const largest = values.reduce((max, value) =>
+          new Big(value.lineTotal).gt(max.lineTotal) ? value : max
+        )
+        setAmount(largest, new Big(largest.lineTotal).minus('0.01'))
+      }
+    }
+    return values.filter((value) => new Big(value.lineTotal).gt(0))
+  }
+
+  /**
+   * What is left of each VAT row of a Legacy advance, at its VAT Code.
+   */
+  private static async legacyAdvanceEntries(
+    trx: TransactionClientContract,
+    original: Invoice,
+    takenAt: (row: { vatRate: string; natura: string | null }) => Big
+  ) {
+    const rows = await LegacyVatRow.query({ client: trx })
+      .where('invoiceId', original.id)
+      .orderBy('position')
+    return rows.map((row) => ({
+      code: { id: row.vatCodeId, rate: row.vatRate, natura: row.natura, legalNote: row.legalNote },
+      amount: new Big(row.taxable).minus(takenAt(row)),
+    }))
+  }
+
+  /**
+   * What is left of a Legacy Invoice that isn't an advance, at the VAT
+   * Code its printed VAT shows, within the VAT left too; none without one.
+   */
+  private static async legacyEntry(
+    trx: TransactionClientContract,
+    original: Invoice,
+    taken: { taxable: string; vat?: string }[]
+  ) {
+    const code = await this.legacyVatCode(trx, original)
+    if (!code) return []
+    const taxableLeft = taken.reduce(
+      (left, row) => left.minus(row.taxable),
+      new Big(original.taxable!)
+    )
+    const vatLeft = taken.reduce((left, row) => left.minus(row.vat ?? 0), new Big(original.vat!))
+    // The most whose VAT, rounded half-up, stays within what is left of it
+    const byVat = vatLeft.plus('0.005').times(100).div(code.rate).round(2, Big.roundDown)
+    const amount = byVat.lt(taxableLeft) ? byVat : taxableLeft
+    return [{ code, amount }]
+  }
+
+  /**
+   * The active VAT Code without Natura whose rate, on the printed taxable,
+   * gives the printed VAT; null when none does (0 VAT: exempt, reverse
+   * charge or out of scope, whose Natura can't be told from the totals).
+   */
+  private static async legacyVatCode(trx: TransactionClientContract, original: Invoice) {
+    const codes = await VatCode.query({ client: trx })
+      .withScopes((scopes) => scopes.active())
+      .whereNull('natura')
+      .where('rate', '>', 0)
+      .orderBy('rate', 'desc')
+    return (
+      codes.find((code) =>
+        new Big(legacyRowVat({ vatRate: code.rate, taxable: original.taxable! })).eq(original.vat!)
+      ) ?? null
+    )
+  }
+
+  /**
+   * The taxable already taken back of a Legacy Invoice, by VAT treatment:
+   * for an advance, what issued Invoices deducted and other Credit Notes
+   * credited at each of its VAT rows (advancesOf()); otherwise what its
+   * Credit Notes past draft credited. All but the Credit Note `except`.
+   */
+  private static async legacyTaken(
+    trx: TransactionClientContract,
+    original: Invoice,
+    except: number | null
+  ) {
+    if (original.advance) {
+      const advances = await this.advancesOf(trx, original.jobId!, except)
+      return advances.find((entry) => entry.advance.id === original.id)?.taken ?? []
+    }
+    const notes = await Invoice.query({ client: trx })
+      .where('creditsInvoiceId', original.id)
+      .whereNot('status', 'draft')
+      .whereNot('id', except ?? 0)
+      .preload('lines')
+    return notes.flatMap((note) =>
+      note.totals.summary.map((row) => ({
+        vatRate: row.vatRate,
+        natura: row.natura,
+        taxable: row.taxable,
+        vat: row.vat,
+      }))
+    )
   }
 
   /**
@@ -378,6 +549,22 @@ export default class Invoices {
     const deducted = original.advance ? await this.advanceDeducted(trx, original.id) : '0'
     if (exceedsCredit(total, original.total!, others.toFixed(2), deducted)) {
       throw new InvoiceNotFinalisableError('creditTooLarge')
+    }
+    // A Legacy Invoice has no lines: its Credit Note credits amounts, by
+    // VAT row of an advance, or within the printed taxable (#27)
+    if (original.isLegacy) {
+      const rows = original.advance
+        ? await LegacyVatRow.query({ client: trx }).where('invoiceId', original.id)
+        : null
+      const refusal = legacyCreditRefusal({
+        rows,
+        taxable: original.taxable!,
+        vat: original.vat!,
+        lines,
+        taken: await this.legacyTaken(trx, original, creditNote.id),
+      })
+      if (refusal) throw new InvoiceNotFinalisableError(refusal)
+      return
     }
 
     const byOthers = await this.lineCredits(trx, original.id, creditNote.id)
@@ -476,6 +663,8 @@ export default class Invoices {
       .where('advance', true)
       .whereNot('status', 'draft')
       .preload('lines', (lines) => lines.orderBy('position'))
+      // A Legacy advance has VAT rows instead of lines (#27)
+      .preload('legacyVatRows', (rows) => rows.orderBy('position'))
       .orderBy('id')
     const ids = advances.map((advance) => advance.id)
     const issuedOthers = (builder: any) =>
@@ -625,9 +814,7 @@ export default class Invoices {
         .filter((row) => !new Big(row.taxable).eq(0))
         .map((row) => {
           // The VAT Code of a line in that row, copied as the advance had it
-          const source = advance.lines.find(
-            (line) => Number(line.vatRate) === Number(row.vatRate) && line.natura === row.natura
-          )!
+          const source = advance.vatTreatment(row.vatRate, row.natura)
           const unitPrice = new Big(row.taxable).neg().toFixed(2)
           return {
             invoiceId: invoice.id,
@@ -868,9 +1055,11 @@ export default class Invoices {
       const existing = await ownLines()
       const byId = new Map(existing.map((line) => [line.id, line]))
       // A Credit Note's lines each credit a line of its Invoice
-      const creditedLines = creditedInvoice
-        ? await InvoiceLine.query({ client: trx }).where('invoiceId', creditedInvoice.id)
-        : null
+      // (a Legacy Invoice has none: its Credit Note's lines are free, #27)
+      const creditedLines =
+        creditedInvoice && !creditedInvoice.isLegacy
+          ? await InvoiceLine.query({ client: trx }).where('invoiceId', creditedInvoice.id)
+          : null
       const creditable = creditedLines
         ? new Map(creditedLines.map((line) => [line.id, line]))
         : null
@@ -1494,10 +1683,10 @@ export default class Invoices {
 
   /**
    * Runs `work` with the Invoice's Job locked, then the Invoice locked and
-   * re-read, refusing unless its status passes `allowed`. A Credit Note
-   * first locks the Invoice it credits, after that Invoice's Job, so
-   * checking what is left to credit sees the other Credit Notes as they
-   * are.
+   * re-read, refusing unless its status passes `allowed` (and always for a
+   * Legacy Invoice). A Credit Note first locks the Invoice it credits,
+   * after that Invoice's Job, so checking what is left to credit sees the
+   * other Credit Notes as they are.
    */
   private static whileIn<T>(
     allowed: (status: InvoiceStatus) => boolean,
@@ -1518,7 +1707,9 @@ export default class Invoices {
         .where('id', invoice.id)
         .forUpdate()
         .firstOrFail()
-      if (!allowed(locked.status)) throw new InvoiceNotEditableError()
+      // A Legacy Invoice has no lines and no lifecycle of its own (#27):
+      // only LegacyInvoices changes it
+      if (!allowed(locked.status) || locked.isLegacy) throw new InvoiceNotEditableError()
       return work(trx, locked)
     })
   }

@@ -167,6 +167,14 @@ export interface ApiDefinition {
     confirmSubmission: typeof routes['invoices.confirm_submission']
     recordOutcome: typeof routes['invoices.record_outcome']
   }
+  legacyInvoices: {
+    create: typeof routes['legacy_invoices.create']
+    store: typeof routes['legacy_invoices.store']
+    show: typeof routes['legacy_invoices.show']
+    update: typeof routes['legacy_invoices.update']
+    destroy: typeof routes['legacy_invoices.destroy']
+    pdf: typeof routes['legacy_invoices.pdf']
+  }
   stockMovements: {
     receive: typeof routes['stock_movements.receive']
     adjust: typeof routes['stock_movements.adjust']

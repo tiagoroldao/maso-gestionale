@@ -39,6 +39,9 @@ function filter() {
   <AppLayout>
     <Page :title="t('ui.invoices.title')">
       <template #actions>
+        <Link route="legacy_invoices.create" class="btn btn--secondary btn--sm">
+          {{ t('ui.invoices.newLegacy') }}
+        </Link>
         <Link route="invoices.create" class="btn btn--primary btn--sm">
           <Plus :size="15" /> {{ t('ui.invoices.new') }}
         </Link>
@@ -70,6 +73,9 @@ function filter() {
               {{ invoice.number ?? '' }}
               <span v-if="invoice.documentType === 'credit_note'" class="tag">
                 {{ t('ui.invoices.creditNote') }}
+              </span>
+              <span v-if="invoice.documentType === 'legacy'" class="tag">
+                {{ t('ui.invoices.legacy') }}
               </span>
             </td>
             <td>

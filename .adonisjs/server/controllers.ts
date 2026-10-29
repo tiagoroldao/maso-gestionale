@@ -18,6 +18,7 @@ export const controllers = {
   ItemDocuments: () => import('#controllers/item_documents_controller'),
   Items: () => import('#controllers/items_controller'),
   Jobs: () => import('#controllers/jobs_controller'),
+  LegacyInvoices: () => import('#controllers/legacy_invoices_controller'),
   LetterheadPreview: () => import('#controllers/letterhead_preview_controller'),
   MyVisits: () => import('#controllers/my_visits_controller'),
   PaymentTerms: () => import('#controllers/payment_terms_controller'),

@@ -35,10 +35,10 @@ Review findings folded into planned work, so they are picked up with it:
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
-- **#27:** the paid indicator (`jobIndicators`, `JOB_PAID_SQL`) and what closing lists as unpaid (`Jobs.leftToClose`) count a Legacy Invoice's Payments when it belongs to the Job (from #103).
 
 ## Not yet issues
 
+- **A Legacy advance with stamp duty can't be entered** (#27): a Legacy advance's total must equal its taxable plus VAT, so taking all of it back closes it to the cent (ADR 0011). One whose total also carries a stamp duty (_bollo_) is refused. Confirm with the business whether the old data has any; if so, record the stamp duty apart from the amount taken back.
 - **"Issued invoice" wording:** ADRs 0008, 0011 and 0014 use "issued Invoice" informally, while the glossary lists "Issued invoice" under _Avoid_. Align the wording at some point.
 - **Sending a Quote while it is saved is untested under concurrency** (#137): `Quotes.send` and `Quotes.save` both lock the Job, then the Quote, so a save racing a send either lands before it or is refused. Tests share one connection, where locks are re-entrant, so none proves it; test it on separate connections with the other locking tests (#19).
 - **Quote numbers untested under concurrency** (#138): `Quotes.create` takes the Job's next Quote number under the Job's lock, and `(job_id, sequence)` is unique, so two Quotes written at once get different numbers or one fails. Tests share one connection; test it with the other locking tests (#19).

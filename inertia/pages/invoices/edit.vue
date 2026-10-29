@@ -7,6 +7,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
+import InvoicePayments from '~/components/invoice_payments.vue'
 import { urlFor } from '~/client'
 import { formatMoney, t, todayIso } from '~/i18n'
 import { formatDate } from '@shared/dates'
@@ -58,7 +59,15 @@ const props = defineProps<{
     advance: boolean
     documentType: DocumentType
     // A Credit Note's Invoice, and what is left of it to credit
-    credits: { id: number; number: string; issuedOn: string; total: string; left: string } | null
+    credits: {
+      id: number
+      // A Legacy Invoice: no lines, so the Credit Note's lines are free
+      legacy: boolean
+      number: string
+      issuedOn: string
+      total: string
+      left: string
+    } | null
     discountPercent: string
     notes: string | null
     lines: {
@@ -144,6 +153,9 @@ function linesFromProps(): Line[] {
 }
 
 const creditNote = computed(() => props.invoice.documentType === 'credit_note')
+// A Credit Note's lines credit its Invoice's, at their VAT; on a Legacy
+// Invoice (no lines) they are free, at a VAT Code Office picks (#27)
+const fixedLines = computed(() => creditNote.value && !props.invoice.credits?.legacy)
 
 const lines = reactive<Line[]>(linesFromProps())
 const discountPercent = ref(
@@ -206,7 +218,7 @@ function totalsLine(line: Line): TotalsLine | null {
   const discount = line.discountPercent ? parseAmount(line.discountPercent) : null
   // A Credit Note line keeps the VAT its Invoice charged
   const code =
-    creditNote.value && line.vatRate !== null
+    fixedLines.value && line.vatRate !== null
       ? { rate: line.vatRate, natura: line.natura }
       : codes.value.get(line.vatCodeId)
   if (!quantity || !price || !code || (line.discountPercent && !discount)) return null
@@ -382,7 +394,6 @@ const title = computed(() => {
     ? t('ui.invoices.invoiceTitle', { number: props.invoice.number })
     : t('ui.invoices.draftTitle')
 })
-const confirmRemovePayment = () => window.confirm(t('ui.invoices.removePaymentConfirm'))
 const today = todayIso()
 const confirmUpload = () => window.confirm(t('ui.invoices.confirmUploadConfirm'))
 const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '')
@@ -545,7 +556,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               </td>
               <td>
                 <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
-                <span v-if="creditNote" data-testid="credited-vat">
+                <span v-if="fixedLines" data-testid="credited-vat">
                   {{ codes.get(line.vatCodeId)?.name ?? '' }}
                   ({{ vatLabel({ vatRate: line.vatRate ?? '0', natura: line.natura }) }})
                 </span>
@@ -663,8 +674,8 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
       </Section>
 
       <!-- A Credit Note's lines are the credited Invoice's, lowered -->
-      <Section v-if="editable && !creditNote" :title="t('ui.invoices.addTitle')">
-        <ItemPicker :label="t('ui.invoices.addItem')" @select="addItem" />
+      <Section v-if="editable && !fixedLines" :title="t('ui.invoices.addTitle')">
+        <ItemPicker v-if="!creditNote" :label="t('ui.invoices.addItem')" @select="addItem" />
         <button type="button" class="btn btn--secondary btn--sm" @click="addFreeLine">
           {{ t('ui.invoices.addFreeLine') }}
         </button>
@@ -871,86 +882,12 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
         </table>
       </Section>
 
-      <Section v-if="paymentSummary" :title="t('ui.invoices.paymentsTitle')">
-        <p v-if="Number(paymentSummary.credited)">
-          {{ t('ui.invoices.credited', { amount: formatMoney(paymentSummary.credited) }) }}
-        </p>
-        <p>
-          <span class="tag">{{ t(`ui.invoices.paymentStatuses.${paymentSummary.status}`) }}</span>
-          <template v-if="paymentSummary.overpaidBy">
-            {{
-              t('ui.invoices.overpaidBy', {
-                paid: formatMoney(paymentSummary.paid),
-                amount: formatMoney(paymentSummary.overpaidBy),
-              })
-            }}
-          </template>
-          <template v-else>
-            {{
-              t('ui.invoices.paidOf', {
-                paid: formatMoney(paymentSummary.paid),
-                owed: formatMoney(paymentSummary.owed),
-              })
-            }}
-          </template>
-        </p>
-        <table v-if="payments.length" class="table">
-          <tbody>
-            <tr v-for="payment in payments" :key="payment.id">
-              <td>{{ formatDate(payment.paidOn) }}</td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(payment.amount) }}</td>
-              <td>{{ payment.note }}</td>
-              <td class="table__actions">
-                <Form
-                  route="invoices.remove_payment"
-                  :params="{ paymentId: payment.id }"
-                  :on-before="confirmRemovePayment"
-                >
-                  <button type="submit" class="btn btn--ghost btn--sm">
-                    {{ t('ui.invoices.removePayment') }}
-                  </button>
-                </Form>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <Form
-          v-slot="{ processing: paying, errors: paymentErrors }"
-          route="invoices.record_payment"
-          :params="{ id: invoice.id }"
-          reset-on-success
-          :style="{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }"
-        >
-          <div class="field">
-            <label class="field__label" for="payment-amount">{{
-              t('ui.invoices.amountPaid')
-            }}</label>
-            <input id="payment-amount" name="amount" inputmode="decimal" class="field__input" />
-            <span class="field__hint">{{ t('ui.invoices.refundHint') }}</span>
-            <span v-if="paymentErrors.amount" class="field__error">{{ paymentErrors.amount }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="payment-date">{{ t('ui.invoices.paidOn') }}</label>
-            <input
-              id="payment-date"
-              name="paidOn"
-              type="date"
-              class="field__input"
-              :value="today"
-            />
-            <span v-if="paymentErrors.paidOn" class="field__error">{{ paymentErrors.paidOn }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="payment-note">{{
-              t('ui.invoices.paymentNote')
-            }}</label>
-            <input id="payment-note" name="note" class="field__input" />
-          </div>
-          <button type="submit" class="btn btn--secondary btn--sm" :disabled="paying">
-            {{ t('ui.invoices.recordPayment') }}
-          </button>
-        </Form>
-      </Section>
+      <InvoicePayments
+        v-if="paymentSummary"
+        :invoice-id="invoice.id"
+        :payments="payments"
+        :summary="paymentSummary"
+      />
 
       <Section :title="t('ui.invoices.notes')">
         <textarea

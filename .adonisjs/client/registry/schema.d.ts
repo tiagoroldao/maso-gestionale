@@ -1476,6 +1476,84 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/invoices_controller').default['recordOutcome']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'legacy_invoices.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/legacy/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/invoice').newLegacyInvoiceValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.store': {
+    methods: ["POST"]
+    pattern: '/invoices/legacy'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/legacy'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['show']>>>
+    }
+  }
+  'legacy_invoices.update': {
+    methods: ["POST"]
+    pattern: '/invoices/:id/legacy'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/invoice').legacyInvoiceValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'legacy_invoices.destroy': {
+    methods: ["DELETE"]
+    pattern: '/invoices/:id/legacy'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['destroy']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['destroy']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['destroy']>>>
+    }
+  }
+  'legacy_invoices.pdf': {
+    methods: ["GET","HEAD"]
+    pattern: '/invoices/:id/legacy/pdf'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['pdf']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['pdf']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/legacy_invoices_controller').default['pdf']>>>
+    }
+  }
   'items.index': {
     methods: ["GET","HEAD"]
     pattern: '/items'

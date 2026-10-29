@@ -11,6 +11,7 @@ import { urlFor } from '~/client'
 import JobList, { type JobRow } from '~/components/job_list.vue'
 import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
 import { formatMoney, t } from '~/i18n'
+import { formatDate } from '@shared/dates'
 
 const props = defineProps<{
   customer: {
@@ -33,6 +34,16 @@ const props = defineProps<{
   issuedDocuments: IssuedDocumentRow[]
   balance: string
   overpaid: { id: number; number: string; overpaidBy: string }[]
+  // Issued Invoices and Legacy Invoices, newest first
+  invoices: {
+    id: number
+    number: string
+    documentType: string
+    advance: boolean
+    issuedOn: string
+    total: string
+    payment: string
+  }[]
 }>()
 
 const confirm = (message: string) => window.confirm(message)
@@ -173,6 +184,38 @@ function linkSite(site: PickedSite) {
             class="btn btn--secondary btn--sm"
           >
             <Plus :size="15" /> {{ t('ui.jobs.newForCustomer') }}
+          </Link>
+        </div>
+      </Section>
+      <Section :title="t('ui.customers.invoicesTitle')">
+        <table v-if="invoices.length" class="table" data-testid="customer-invoices">
+          <tbody>
+            <tr v-for="invoice in invoices" :key="invoice.id">
+              <td class="mono">
+                <Link route="invoices.edit" :params="{ id: invoice.id }" class="il">
+                  {{ invoice.number }}
+                </Link>
+                <span v-if="invoice.documentType === 'legacy'" class="tag">
+                  {{ t('ui.invoices.legacy') }}
+                </span>
+                <span v-if="invoice.advance" class="tag">{{ t('ui.invoices.advance') }}</span>
+              </td>
+              <td>{{ formatDate(invoice.issuedOn) }}</td>
+              <td>
+                <span class="tag">{{ t(`ui.invoices.paymentStatuses.${invoice.payment}`) }}</span>
+              </td>
+              <td :style="{ textAlign: 'right' }">{{ formatMoney(invoice.total) }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.customers.noInvoices') }}</p>
+        <div>
+          <Link
+            route="legacy_invoices.create"
+            :qs="{ customerId: customer.id }"
+            class="btn btn--secondary btn--sm"
+          >
+            <Plus :size="15" /> {{ t('ui.invoices.newLegacy') }}
           </Link>
         </div>
       </Section>

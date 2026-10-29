@@ -365,7 +365,8 @@ export function fatturaInputFor(
 ): FatturaInput {
   const company = invoice.companySnapshot
   const customer = invoice.customerSnapshot
-  if (invoice.status === 'draft' || !company || !customer) {
+  // A Legacy Invoice (#27) was issued by the previous software: never ours to send
+  if (invoice.status === 'draft' || invoice.isLegacy || !company || !customer) {
     throw new Error('Only finalised Invoices have FatturaPA XML')
   }
   const credited = invoice.isCreditNote ? invoice.creditedInvoice : null

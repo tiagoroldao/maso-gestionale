@@ -160,6 +160,8 @@ export default class Submissions {
         .where('id', invoice.id)
         .forUpdate()
         .firstOrFail()
+      // A Legacy Invoice is outside the SDI flow (#27)
+      if (locked.isLegacy) throw new SubmissionRefusedError()
       locked.useTransaction(trx)
       return work(trx, locked)
     })

@@ -18,6 +18,8 @@ const noNegativeItemPrice = vine.createRule((value: unknown, _, field: FieldCont
 // Capped with the price so a line total fits numeric(14,2)
 const LINE_QUANTITY_MAX = '99999'
 const LINE_PRICE_MAX = '9999999'
+// A Legacy Invoice's totals, as Payments are capped
+const LEGACY_AMOUNT_MAX = '9999999999'
 
 export const newInvoiceValidator = vine.create({
   customerId: vine.number().exists({
@@ -145,4 +147,71 @@ export const paymentValidator = vine.create({
     .use(amountRule({ decimals: 2, max: '9999999999', signed: true, nonZero: true })),
   paidOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
   note: vine.string().trim().maxLength(255).optional(),
+})
+
+/**
+ * A Legacy Invoice (#27) as entered from its PDF. Archived Customers and
+ * VAT Codes can't be picked, but one already kept stays (`customerId`,
+ * `vatCodeIds`). The PDF is required when it is first recorded; when it
+ * is changed, a new one replaces it. With `paid`, a Payment for its total
+ * is recorded on `paidOn`, by default its date; a day before it is warned
+ * about, never refused (ADR 0014).
+ */
+export const legacyInvoiceValidator = vine
+  .withMetaData<{ customerId: number | null; vatCodeIds: number[]; creating: boolean }>()
+  .create({
+    customerId: vine.number().exists({
+      table: 'customers',
+      column: 'id',
+      filter: (db, _, field) => {
+        db.where((q) => q.whereNull('archived_at').orWhere('id', field.meta.customerId ?? 0))
+      },
+    }),
+    jobId: vine.number().exists({ table: 'jobs', column: 'id' }).optional(),
+    // As printed; a Credit Note refers to it in FatturaPA's 20 characters
+    number: vine.string().trim().minLength(1).maxLength(20),
+    issuedOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
+    dueOn: vine
+      .date({ formats: ['YYYY-MM-DD'] })
+      .afterOrSameAs('issuedOn')
+      .optional(),
+    taxable: vine.string().use(amountRule({ decimals: 2, max: LEGACY_AMOUNT_MAX })),
+    vat: vine.string().use(amountRule({ decimals: 2, max: LEGACY_AMOUNT_MAX })),
+    total: vine.string().use(amountRule({ decimals: 2, max: LEGACY_AMOUNT_MAX, positive: true })),
+    advance: vine.boolean().optional(),
+    vatRows: vine
+      .array(
+        vine.object({
+          vatCodeId: vine.number().exists({
+            table: 'vat_codes',
+            column: 'id',
+            filter: (db, _, field) => {
+              db.where((q) => q.whereNull('archived_at').orWhereIn('id', field.meta.vatCodeIds))
+            },
+          }),
+          taxable: vine
+            .string()
+            .use(amountRule({ decimals: 2, max: LEGACY_AMOUNT_MAX, positive: true })),
+        })
+      )
+      .maxLength(20)
+      .optional(),
+    paid: vine.boolean().optional(),
+    paidOn: vine
+      .date({ formats: ['YYYY-MM-DD'] })
+      .beforeOrEqual('today')
+      .optional(),
+    pdf: vine
+      .file({ size: '20mb', extnames: ['pdf'] })
+      .optional()
+      .requiredWhen((field) => field.meta.creating),
+  })
+
+/**
+ * What a new Legacy Invoice starts from: a Customer, or a Job (its
+ * Customer's).
+ */
+export const newLegacyInvoiceValidator = vine.create({
+  customerId: vine.number().withoutDecimals().positive().optional(),
+  jobId: vine.number().withoutDecimals().positive().optional(),
 })

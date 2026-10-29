@@ -17,6 +17,7 @@ import Invoices, {
   JobNotInvoiceableError,
 } from '#services/invoices'
 import { creditLeft, creditRefusal, credits } from '#shared/credit_notes'
+import { PAYABLE_DOCUMENT_TYPES } from '#shared/payments'
 import DocumentRenderer from '#documents/document_renderer'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { invoiceDocument } from '#documents/invoice_document'
@@ -37,6 +38,11 @@ import {
   submissionOutcomeValidator,
 } from '#validators/invoice'
 import type { HttpContext } from '@adonisjs/core/http'
+
+/**
+ * The Invoice types Payments are recorded on (shared/payments.ts).
+ */
+const PAYABLE_TYPES = [...PAYABLE_DOCUMENT_TYPES]
 
 /**
  * The description of the per-rate global discount lines in the XML.
@@ -96,16 +102,16 @@ export default class InvoicesController {
       .orderBy('created_at', 'desc')
     // As paymentStatus(): overdue when past due with something owed,
     // overpaid when what is owed is below zero; nothing is paid on a
-    // Credit Note
+    // Credit Note (Legacy Invoices are paid as any other)
     if (stage === 'overdue') {
       query
-        .where('documentType', 'invoice')
+        .whereIn('documentType', PAYABLE_TYPES)
         .whereNot('status', 'draft')
         .where('dueOn', '<', DateTime.now().toISODate()!)
         .whereRaw(`${OWED_SQL('invoices')} > 0`)
     } else if (stage === 'overpaid') {
       query
-        .where('documentType', 'invoice')
+        .whereIn('documentType', PAYABLE_TYPES)
         .whereNot('status', 'draft')
         .whereRaw(`${OWED_SQL('invoices')} < 0`)
     } else if (stage !== 'all') query.where('status', stage)
@@ -199,7 +205,10 @@ export default class InvoicesController {
     }
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, response }: HttpContext) {
+    // A Legacy Invoice has its own page: no lines, no SDI (#27)
+    const found = await Invoice.findOrFail(params.id)
+    if (found.isLegacy) return response.redirect().toRoute('legacy_invoices.show', { id: found.id })
     const invoice = await Invoice.query()
       .where('id', params.id)
       .preload('customer')
@@ -269,6 +278,8 @@ export default class InvoicesController {
         credits: credited
           ? {
               id: credited.id,
+              // A Legacy Invoice is credited by amounts, its lines free (#27)
+              legacy: credited.isLegacy,
               number: credited.formattedNumber!,
               issuedOn: credited.issuedOn!.toISODate()!,
               total: credited.total!,
@@ -480,6 +491,10 @@ export default class InvoicesController {
       .preload('lines', (lines) => lines.orderBy('position'))
       .firstOrFail()
     if (invoice.status === 'draft') return response.notFound()
+    // A Legacy Invoice's PDF is the original, as uploaded (#27)
+    if (invoice.isLegacy) {
+      return response.redirect().toRoute('legacy_invoices.pdf', { id: invoice.id })
+    }
 
     try {
       const pdf = await new DocumentRenderer().renderPdf(await invoiceDocument(invoice, i18n))

@@ -4,12 +4,13 @@ import { InvoiceSchema } from '#database/schema'
 import Customer from '#models/customer'
 import Job from '#models/job'
 import InvoiceLine from '#models/invoice_line'
-import { invoiceTotals } from '#shared/invoice_totals'
+import { invoiceTotals, type InvoiceTotals } from '#shared/invoice_totals'
 import { formatInvoiceNumber } from '#shared/invoice_numbers'
 import type { PaymentMethod } from '#shared/payments'
 import type { InvoiceStatus } from '#shared/invoice_lifecycle'
 import InvoiceSubmission from '#models/invoice_submission'
 import Payment from '#models/payment'
+import LegacyVatRow from '#models/legacy_vat_row'
 import { sumAmounts } from '#shared/money'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { credits, type DocumentType, type NumberingSeries } from '#shared/credit_notes'
@@ -65,7 +66,9 @@ export type CompanySnapshot = {
  * A request for payment to a Customer, or a Credit Note crediting one
  * (`documentType`, ADR 0014). A draft has no number; finalising numbers
  * and dates it, copies the Customer and company onto it, and makes it a
- * fiscal document that no longer changes.
+ * fiscal document that no longer changes. A Legacy Invoice (#27) was
+ * issued by the previous software: it has no lines, only its old number,
+ * dates, totals and original PDF, and is stored as delivered.
  */
 export default class Invoice extends InvoiceSchema {
   declare status: InvoiceStatus
@@ -80,6 +83,8 @@ export default class Invoice extends InvoiceSchema {
    * series); drafts have no number.
    */
   get formattedNumber() {
+    // A Legacy Invoice's number as the old software printed it
+    if (this.isLegacy) return this.legacyNumber
     return this.number && this.year
       ? formatInvoiceNumber(this.number, this.year, this.series ?? 'invoice')
       : null
@@ -87,6 +92,10 @@ export default class Invoice extends InvoiceSchema {
 
   get isCreditNote() {
     return this.documentType === 'credit_note'
+  }
+
+  get isLegacy() {
+    return this.documentType === 'legacy'
   }
 
   @belongsTo(() => Customer)
@@ -104,6 +113,10 @@ export default class Invoice extends InvoiceSchema {
 
   @hasMany(() => Payment)
   declare payments: HasMany<typeof Payment>
+
+  /** A Legacy advance's VAT rows (#27), from which deductions are built */
+  @hasMany(() => LegacyVatRow)
+  declare legacyVatRows: HasMany<typeof LegacyVatRow>
 
   /** A Credit Note's Invoice, the one it credits */
   @belongsTo(() => Invoice, { foreignKey: 'creditsInvoiceId' })
@@ -130,12 +143,54 @@ export default class Invoice extends InvoiceSchema {
   }
 
   /**
-   * Totals and VAT summary, from the preloaded lines.
+   * Totals and VAT summary, from the preloaded lines. A Legacy Invoice's
+   * are as printed, its VAT summary its VAT rows when preloaded (only an
+   * advance has them).
    */
-  get totals() {
+  get totals(): InvoiceTotals {
+    if (this.isLegacy) {
+      return {
+        linesTotal: this.taxable!,
+        discount: '0.00',
+        taxable: this.taxable!,
+        vat: this.vat!,
+        total: this.total!,
+        summary: (this.legacyVatRows ?? []).map((row) => ({
+          vatRate: row.vatRate,
+          natura: row.natura,
+          linesTotal: row.taxable,
+          discount: '0.00',
+          taxable: row.taxable,
+          vat: row.vat,
+        })),
+      }
+    }
     return invoiceTotals(
       this.lines.map((line) => line.totalsLine),
       this.discountPercent
     )
+  }
+
+  /**
+   * The VAT treatment an advance billed at `vatRate` and `natura`, from
+   * its preloaded lines (or a Legacy advance's VAT rows), so a deduction
+   * line copies it as the advance had it (ADR 0011).
+   */
+  vatTreatment(vatRate: string, natura: string | null) {
+    const sources: {
+      vatRate: string
+      natura: string | null
+      vatCodeId: number
+      legalNote: string | null
+    }[] = this.isLegacy ? this.legacyVatRows : this.lines
+    const source = sources.find(
+      (row) => Number(row.vatRate) === Number(vatRate) && row.natura === natura
+    )!
+    return {
+      vatCodeId: source.vatCodeId,
+      vatRate: source.vatRate,
+      natura: source.natura,
+      legalNote: source.legalNote,
+    }
   }
 }

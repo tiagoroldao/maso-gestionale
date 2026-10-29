@@ -6,8 +6,12 @@ import type { InvoiceStatus } from './invoice_lifecycle.js'
  * one issued Invoice, partly or fully. It is stored as an Invoice record
  * of its own type, with the same lifecycle. Used by the server and the
  * Office pages alike.
+ *
+ * The Invoice record's types: an Invoice (TD01, or TD02 for an advance), a
+ * Credit Note, or a Legacy Invoice the previous software issued (#27),
+ * entered by hand and outside the SDI flow (shared/legacy_invoices.ts).
  */
-export const DOCUMENT_TYPES = ['invoice', 'credit_note'] as const
+export const DOCUMENT_TYPES = ['invoice', 'credit_note', 'legacy'] as const
 export type DocumentType = (typeof DOCUMENT_TYPES)[number]
 
 /**
@@ -30,8 +34,9 @@ export type NumberingSeries = 'invoice' | 'credit_note'
  *   all of it deducted by issued Invoices or credited already (ADR 0014);
  *   checked when the Credit Note is drafted, since it needs what was
  *   deducted.
- * Legacy Invoices (#27) are outside the SDI flow and will be refused here
- * too, once they exist.
+ * A Legacy Invoice (#27) is issued (stored as delivered), so it can be
+ * credited: it has no lines, so its Credit Note credits amounts, by VAT
+ * row (legacyCreditRefusal()).
  */
 export type CreditRefusal = 'creditNote' | 'notIssued' | 'advanceTakenBack'
 

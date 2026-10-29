@@ -44,6 +44,7 @@ const props = defineProps<{
     status: string
     total: string
     advance: boolean
+    legacy: boolean
     deduction: { deducted: string; credited: string; state: AdvanceState } | null
     // Its Credit Notes, drafts included (ADR 0014)
     creditNotes: { id: number; number: string | null; status: string; total: string }[]
@@ -404,10 +405,7 @@ function confirmCancel() {
         </Link>
       </Section>
 
-      <Section
-        v-if="invoices.length || canInvoice || canInvoiceAdvance"
-        :title="t('ui.invoices.title')"
-      >
+      <Section :title="t('ui.invoices.title')">
         <p v-if="invoices.length" :style="{ margin: '0 0 8px' }" data-testid="invoiced-so-far">
           {{
             t('ui.invoices.invoicedSoFarOf', {
@@ -425,7 +423,11 @@ function confirmCancel() {
               {{ invoice.number ?? t('ui.invoices.statuses.draft') }}
             </Link>
             <span v-if="invoice.advance"> · {{ t('ui.invoices.advance') }}</span>
-            · {{ t(`ui.invoices.statuses.${invoice.status}`) }} · {{ formatMoney(invoice.total) }}
+            ·
+            {{
+              invoice.legacy ? t('ui.invoices.legacy') : t(`ui.invoices.statuses.${invoice.status}`)
+            }}
+            · {{ formatMoney(invoice.total) }}
             <span v-if="invoice.deduction" data-testid="advance-state">
               ·
               {{
@@ -475,6 +477,14 @@ function confirmCancel() {
             {{ t('ui.invoices.fromCharges') }}
           </button>
         </Form>
+        <Link
+          route="legacy_invoices.create"
+          :qs="{ jobId: job.id }"
+          class="btn btn--ghost btn--sm"
+          :style="{ marginTop: '8px' }"
+        >
+          {{ t('ui.legacyInvoices.new') }}
+        </Link>
       </Section>
 
       <Section v-if="active" :title="t('ui.jobs.closeSection')">
