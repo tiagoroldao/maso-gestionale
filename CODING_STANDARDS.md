@@ -19,7 +19,7 @@ Judgement calls the reviewer applies to every diff. Mechanical rules are enforce
 
 ## UI scope
 
-The UI is functional scaffolding until the UX pass (ADR 0009). In each diff:
+The UI is functional scaffolding until the UX pass (ADR 0009). A screen moved to the new UI follows `docs/ui.md` (ADR 0020) instead; for every other screen, in each diff:
 
 - **Reachable, not designed.** A feature gets a plain page from the existing pieces (`Page`, `Section`, `.table`, `.field` classes). New visual components, styles, layout work and interaction niceties (live previews, drag and drop, inline editing) are out unless the feature can't work without them. Destructive actions (delete, cancel, finalise) get a confirmation; nothing else does.
 - **Lists** are a plain table in an explicit order (by name, or newest first for dated records). Search only where a record must be found or picked; filters, sorting and pagination only when an acceptance criterion or the data volume needs them.
