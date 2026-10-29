@@ -345,7 +345,9 @@ export default class FieldWork {
           { client: trx }
         )
         if (!done || charge.kind !== 'item') continue
-        warnings.push(...(await Installations.install(trx, charge, locked, locked.job.siteId, now)))
+        warnings.push(
+          ...(await Installations.install(trx, charge, locked.job.siteId, locked.workDay(now)))
+        )
         if (charge.stockMovementId) continue
         const movement = await StockLedger.use(charge.item, {
           quantity: charge.quantity,

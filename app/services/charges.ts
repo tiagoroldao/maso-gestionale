@@ -169,12 +169,13 @@ export default class Charges {
       if (locked.kind === 'item') {
         const item = await Item.findOrFail(locked.itemId, { client: trx })
         const now = DateTime.now()
+        // Used when the Visit's work happened (#174), or today on the Job
+        const workDay = visit ? visit.workDay(now) : now.startOf('day')
         const common = { reference: job.number, user, client: trx }
         if (work === 'done' && !locked.stockMovementId) {
           const movement = await StockLedger.use(item, {
             ...common,
-            // Used when the Visit's work happened (#174)
-            occurredOn: visit ? visit.workDay(now) : now.startOf('day'),
+            occurredOn: workDay,
             quantity: locked.quantity,
           })
           locked.stockMovementId = movement.id
@@ -189,9 +190,9 @@ export default class Charges {
           locked.stockMovementId = null
         }
         await locked.save()
-        // Installed on a Visit: on the Visit's work day (#174)
-        if (work === 'done' && visit) {
-          warnings = await Installations.install(trx, locked, visit, job.siteId, now)
+        // Installed the day it leaves stock, on a Visit or on the Job (#176)
+        if (work === 'done') {
+          warnings = await Installations.install(trx, locked, job.siteId, workDay)
         }
       }
       await this.addEvent(trx, locked, work, user, null)

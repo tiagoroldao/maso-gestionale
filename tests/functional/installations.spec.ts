@@ -8,11 +8,12 @@ import InstalledEquipment from '#models/installed_equipment'
 import type Site from '#models/site'
 import type User from '#models/user'
 import Visit from '#models/visit'
+import Quotes from '#services/quotes'
 import StockLedger from '#stock/stock_ledger'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
-import { createItem } from '#tests/helpers/items'
+import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
@@ -500,5 +501,74 @@ test.group('Equipment Items on a Job without a Site (#168, #176)', () => {
         warned('flash.visitMarkedDone', [['noSite', 'Caldaia murale — Vaillant ecoTEC']])
       )
       assert.lengthOf(await equipmentAt(site), 1)
+    })
+})
+
+/**
+ * An open Job at `site` (or none) whose accepted Quote has two boilers of
+ * an Equipment Item, imported onto the Job itself.
+ */
+async function boilersOnJob(site: Site | null) {
+  await completeCompany()
+  const office = await createUser('office')
+  const job = await createJob(await createCustomer(), { status: 'open', siteId: site?.id ?? null })
+  const boiler = await createItem({ description: 'Caldaia 25 kW', maintenanceIntervalMonths: 12 })
+  await StockLedger.receive(boiler, { quantity: '3', occurredOn: DateTime.now() })
+  const standard = await vatCode()
+  const quote = await Quotes.create(job, {
+    lines: [
+      {
+        kind: 'item',
+        itemId: boiler.id,
+        description: 'Caldaia',
+        quantity: '2',
+        unitPrice: '1500',
+        vatCodeId: standard.id,
+      },
+    ],
+  })
+  await Quotes.accept(quote)
+  await quote.load('lines')
+  const [charge] = await Quotes.importLines(
+    quote,
+    { lineIds: quote.lines.map((line) => line.id) },
+    office
+  )
+  return { boiler, charge }
+}
+
+test.group('Equipment Items on the Job itself (#176)', () => {
+  test('{$self} confirming them used creates one unit per piece, installed today')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const site = await createSite()
+      const { boiler, charge } = await boilersOnJob(site)
+      assert.lengthOf(await equipmentAt(site), 0)
+
+      const response = await send(client, user, 'post', `/charges/${charge.id}/done`)
+      response.assertFlashMessage('success', it('flash.chargeWork.done'))
+
+      const created = await equipmentAt(site)
+      assert.deepEqual(
+        created.map((unit) => [unit.itemId, unit.installedOn?.toISODate(), unit.chargeId]),
+        Array(2).fill([boiler.id, DateTime.now().toISODate(), charge.id])
+      )
+    })
+
+  test('{$self} confirming them used on a Job without a Site is warned, never refused')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const { charge } = await boilersOnJob(null)
+
+      const response = await send(client, user, 'post', `/charges/${charge.id}/done`)
+      response.assertFlashMessage(
+        'warning',
+        warned('flash.chargeWork.done', [['noSite', 'Caldaia 25 kW']])
+      )
+      await charge.refresh()
+      assert.isNotNull(charge.stockMovementId)
+      assert.lengthOf(await InstalledEquipment.query().where('chargeId', charge.id), 0)
     })
 })

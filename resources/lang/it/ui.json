@@ -399,7 +399,7 @@
     "groupable": "Raggruppabile",
     "groupableHint": "I suoi addebiti con lo stesso prezzo possono stare in una sola riga di fattura. Vale per gli addebiti registrati da qui in avanti.",
     "equipment": "Apparecchio",
-    "equipmentHint": "Quando un suo addebito risulta eseguito, ogni pezzo viene registrato tra gli apparecchi dell'immobile. Vale per gli addebiti registrati da qui in avanti.",
+    "equipmentHint": "Quando un suo addebito risulta eseguito, ogni pezzo viene registrato tra gli apparecchi dell'immobile. Vale per gli addebiti non ancora eseguiti.",
     "flags": "Tipo",
     "significantGoodHint": "Caldaie, apparecchi di condizionamento e ricambio dell'aria, sanitari e rubinetteria da bagno, infissi, videocitofoni, ascensori e montacarichi, impianti di sicurezza. L'IVA al 10% si applica solo fino al valore del resto del lavoro.",
     "purchasePrice": "Prezzo di acquisto",
