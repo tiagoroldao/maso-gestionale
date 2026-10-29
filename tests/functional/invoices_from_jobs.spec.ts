@@ -88,7 +88,7 @@ test.group('Invoices from Jobs with a Quote', () => {
     response.assertHeader('location', `/invoices/${invoice.id}/edit`)
     assert.equal(invoice.status, 'draft')
     // Priced as quoted, at the Quote's VAT (10%, reverse charge) rather
-    // than the Job's defaults; the text line and the Quote's notes stay on it
+    // than the Job's defaults, labour first (organised by kind, ADR 0018)
     const defaults = await VatDefaults.forJob(job)
     assert.notEqual(defaults.labour.natura, 'N6.7')
     assert.notEqual(defaults.material.rate, '10.00')
@@ -103,8 +103,8 @@ test.group('Invoices from Jobs with a Quote', () => {
         line.natura,
       ]),
       [
-        [item.id, 'Caldaia', '1.000', 'pz', '1500.0000', '10.00', null],
         [null, 'Posa', '4.000', 'h', '40.0000', '0.00', 'N6.7'],
+        [item.id, 'Caldaia', '1.000', 'pz', '1500.0000', '10.00', null],
       ]
     )
     assert.isNull(invoice.notes)
@@ -133,11 +133,11 @@ test.group('Invoices from Jobs with a Quote', () => {
     assert.deepEqual(
       invoice.lines.map((line) => [line.vatCodeId, line.natura]),
       [
+        [invoice.lines[0].vatCodeId, 'N6.7'],
         [defaults.material.id, defaults.material.natura],
-        [invoice.lines[1].vatCodeId, 'N6.7'],
       ]
     )
-    assert.notEqual(invoice.lines[0].vatCodeId, reduced.id)
+    assert.notEqual(invoice.lines[1].vatCodeId, reduced.id)
   })
 
   test('an accepted Quote alone is not billable: nothing imported, nothing to invoice', async ({
@@ -296,7 +296,7 @@ test.group('Invoices from Jobs with a Quote', () => {
     await Submissions.confirm(invoice, 'Sconto')
     await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
     await invoice.load('lines', (l) => l.orderBy('position'))
-    const [boiler, labour] = invoice.lines
+    const [labour, boiler] = invoice.lines
 
     await client
       .put(`/invoices/${invoice.id}`)

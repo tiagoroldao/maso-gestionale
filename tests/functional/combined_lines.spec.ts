@@ -170,7 +170,7 @@ test.group('Combining alike Charges on drafts', () => {
 
   test('one line per Charge when not combining, as before', async ({ client, assert }) => {
     const { office, job } = await longJob()
-    await draft(client, job, office, { combine: 'false' })
+    await draft(client, job, office, { combine: 'false', organiseBy: 'none' })
 
     const lines = await linesOf(await draftOf(job))
     assert.lengthOf(lines, 10)

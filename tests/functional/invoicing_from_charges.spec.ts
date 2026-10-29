@@ -296,11 +296,12 @@ test.group('Invoicing from Charges', () => {
       callOutLine,
       { description: 'Extra', quantity: '1', unitPrice: '5', vatCodeId: standard.id },
     ])
+    // The new line sits outside the draft's sections, so at the top (ADR 0018)
     assert.deepEqual(await treatments(), [
+      [standard.id, '23.00', 'Nuova nota'],
       [reduced.id, '11.00', null],
       [standard.id, '23.00', 'Nuova nota'],
       [standard.id, '22.00', null],
-      [standard.id, '23.00', 'Nuova nota'],
     ])
   })
 

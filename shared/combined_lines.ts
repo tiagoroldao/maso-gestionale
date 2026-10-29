@@ -34,7 +34,8 @@ export type CombinedLine<T> = { charges: T[]; quantity: string }
  * the same Labour Rate or Item sit together (at different prices, or a
  * line per piece), where the first of them happened.
  *
- * Applied to the Charges of one section, once Invoices have them (#184).
+ * Applied to the Charges of one section of the draft (ADR 0018,
+ * organiseCharges()).
  */
 export function combineCharges<T extends CombinableCharge>(
   charges: T[],
