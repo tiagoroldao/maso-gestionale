@@ -191,6 +191,7 @@
     "left": "L'apparecchio «{equipment}» registrato con questo addebito non è stato modificato: se serve, correggilo o eliminalo nella scheda dell'immobile.",
     "quantity": "La quantità è cambiata, ma l'apparecchio «{equipment}» registrato con questo addebito no: se serve, aggiungi o elimina apparecchi nella scheda dell'immobile.",
     "noSite": "L'apparecchio «{equipment}» non è stato registrato perché la commessa non ha un immobile: se serve, aggiungilo a mano nella scheda dell'immobile.",
+    "detailsDone": "L'addebito risulta già eseguito: i dati dell'apparecchio non sono stati salvati; se serve, correggili nella scheda dell'immobile.",
     "noSiteTechnician": "L'apparecchio «{equipment}» non è stato registrato perché la commessa non ha un immobile: avvisa l'ufficio."
   },
   "chargeBillingSaved": "Fatturazione dell'addebito salvata.",

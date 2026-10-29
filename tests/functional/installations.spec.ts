@@ -708,7 +708,7 @@ test.group("An Equipment Charge's pending details (#169)", () => {
     assert.deepEqual(detailsOf(charge), [null, null, null, null])
   })
 
-  test('once done they stay as they are: the equipment is managed on the Site', async ({
+  test('once done they stay as they are, with a warning: the equipment is managed on the Site', async ({
     client,
     assert,
   }) => {
@@ -716,17 +716,55 @@ test.group("An Equipment Charge's pending details (#169)", () => {
     const charge = await recordBoiler(client, anna, visit, boilerA.id)
     await close(client, anna, visit)
 
+    // The same details as stored, as the page sends them: nothing to say
+    const same = await correct(client, office, charge, {
+      itemId: boilerA.id,
+      quantity: '1',
+      make: 'Vaillant',
+      serialNumber: 'SN-777',
+    })
+    same.assertFlashMessage('success', it('flash.chargeCorrected'))
+
+    // Done while the page was open: not saved, and Office is told
     const response = await correct(client, office, charge, {
       itemId: boilerA.id,
       quantity: '1',
       make: 'Baxi',
       serialNumber: 'BX-2',
     })
-    response.assertFlashMessage('success', it('flash.chargeCorrected'))
+    response.assertFlashMessage(
+      'warning',
+      warned('flash.chargeCorrected', [['detailsDone', 'Caldaia murale — Vaillant ecoTEC']])
+    )
     await charge.refresh()
     assert.deepEqual(detailsOf(charge), ['Caldaia murale', 'Vaillant', 'ecoTEC', 'SN-777'])
     const [, created] = await equipmentAt(site)
     assert.deepEqual([created.make, created.serialNumber], ['Vaillant', 'SN-777'])
+  })
+
+  test('a serial number that only looks like the same number is a change', async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, visit, boilerA } = await setup()
+    const charge = await recordBoiler(client, anna, visit, boilerA.id)
+    await correct(client, office, charge, {
+      itemId: boilerA.id,
+      quantity: '1',
+      serialNumber: '007',
+    })
+
+    await correct(client, office, charge, { itemId: boilerA.id, quantity: '1', serialNumber: '7' })
+    await charge.refresh()
+    assert.equal(charge.equipmentSerialNumber, '7')
+    const events = await charge.related('events').query().where('kind', 'corrected').orderBy('id')
+    assert.deepEqual(
+      events.map((event) => event.changes),
+      [
+        { before: { serialNumber: 'SN-777' }, after: { serialNumber: '007' } },
+        { before: { serialNumber: '007' }, after: { serialNumber: '7' } },
+      ]
+    )
   })
 
   test('a detail over 100 characters is refused', async ({ client, assert }) => {
@@ -756,6 +794,7 @@ test.group("An Equipment Charge's pending details (#169)", () => {
       model: 'ecoTEC',
       serialNumber: 'SN-777',
     }
+    const described = { description: 'Caldaia murale — Vaillant ecoTEC', serialNumber: 'SN-777' }
 
     const edit = await client.get(`/charges/${charge.id}/edit`).withInertia().loginAs(office)
     edit.assertInertiaPropsContains({
@@ -766,7 +805,7 @@ test.group("An Equipment Charge's pending details (#169)", () => {
       const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
       return (page.inertiaProps.items as { details: unknown }[]).map((line) => line.details)
     }
-    assert.sameDeepMembers(await shown(), [details, null])
+    assert.sameDeepMembers(await shown(), [described, null])
 
     await close(client, anna, visit)
     assert.deepEqual(await shown(), [null, null])

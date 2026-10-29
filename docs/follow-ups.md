@@ -28,6 +28,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #179  | Group alike Charges on Invoice drafts                                                     | —                                                 |
 | #180  | Work report for a Job (rapportino)                                                        | —                                                 |
 | #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
+| #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 
 ## Added to existing issues
 
@@ -68,6 +69,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Quote imports of Equipment Items in part pieces** (#176): whole pieces are checked in the field and on corrections, not on Quote imports; a Quote line of 1,5 boilers imports as is and creates one unit when done.
 - **A done Charge corrected onto an Equipment Item** (#176): correcting a done Charge from an Item that isn't Equipment to one that is creates no equipment (corrections never change equipment) and says nothing. Warn, as `noSite` does, that the equipment is to be added by hand on the Site page (from the #182 review).
 - **A quantity typo on an Equipment Item** (#176): a done Charge of 1000 boilers creates 1000 units in one go. Cap an Equipment Charge's quantity lower, or confirm large ones, if it happens (from the #182 review).
+- **Pending details access test to add** (#169): a Technician and the Superuser refused when changing an Equipment Charge's pending details through `PUT /charges/:id/recorded`, with the details unchanged (the existing access test sends only the Item and quantity) (from the #186 review).
 - **Equipment reuse test to add** (#176): a done Charge whose units were partly deleted by hand, then its quantity raised and done again (it reuses what is left and creates nothing; the quantity warning names it) (from the #182 review).
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set and `start/env.ts` requires at boot (from the #101 review).
 - **Invoice edit page loads every Submission's XML** to work out `hasFile`; select a boolean instead if Invoices accumulate many Submissions (from the #101 review).

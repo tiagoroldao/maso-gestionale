@@ -261,8 +261,9 @@ export default class Charges {
    * done, Office also enters or corrects the equipment's pending details
    * (type, make, model, and a serial number for a single piece, #169);
    * another Item that isn't Equipment clears them, and a quantity other
-   * than one its serial number. Once done they are left as they were: the
-   * equipment is managed on the Site page.
+   * than one its serial number. Once done they are left as they were, and
+   * details sent anyway (it became done while the page was open) return a
+   * warning: the equipment is managed on the Site page.
    */
   static async correct(
     charge: Charge,
@@ -329,6 +330,12 @@ export default class Charges {
         }
         if (workState(events) !== 'done') {
           locked.merge(pendingDetails(locked, item.equipment, input))
+        } else if (detailsChanged(locked, input)) {
+          // Done while the page was open: not saved, and Office is told
+          left = [
+            ...left,
+            { reason: 'detailsDone', equipment: Installations.describe(locked, item) },
+          ]
         }
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })
@@ -659,6 +666,19 @@ export default class Charges {
 }
 
 /**
+ * Whether `input` sends a pending detail other than the Charge's own.
+ */
+function detailsChanged(charge: Charge, input: Recorded) {
+  const sent = [
+    [input.equipmentType, charge.equipmentType],
+    [input.make, charge.equipmentMake],
+    [input.model, charge.equipmentModel],
+    [input.serialNumber, charge.equipmentSerialNumber],
+  ] as const
+  return sent.some(([given, current]) => given !== undefined && (given || null) !== current)
+}
+
+/**
  * The pending details a Charge not yet done keeps after a correction to
  * `input` (#169): none for an Item that isn't Equipment, and a serial
  * number for a single piece only.
@@ -686,24 +706,27 @@ function billingValues(charge: Charge) {
   }
 }
 
+// The values compared as decimals; any other ("007", a serial number) as text
+const DECIMAL_KEYS = new Set(['quantity', 'unitPrice'])
+
 /**
- * The values that changed, or null when none did. Decimals compare by
- * value ("2.000" and "2" are the same quantity).
+ * The values that changed, or null when none did. Quantities and prices
+ * compare by value ("2.000" and "2" are the same quantity).
  */
 function diff(
   before: Record<string, string | null>,
   after: Record<string, string | null>
 ): ChargeChanges | null {
-  const same = (a: string | null, b: string | null) => {
+  const same = (key: string, a: string | null, b: string | null) => {
     if (a === b) return true
-    if (a === null || b === null) return false
+    if (a === null || b === null || !DECIMAL_KEYS.has(key)) return false
     try {
       return new Big(a).eq(b)
     } catch {
       return false
     }
   }
-  const keys = Object.keys(after).filter((key) => !same(before[key], after[key]))
+  const keys = Object.keys(after).filter((key) => !same(key, before[key], after[key]))
   if (!keys.length) return null
   return {
     before: Object.fromEntries(keys.map((key) => [key, before[key]])),

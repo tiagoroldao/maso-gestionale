@@ -149,10 +149,8 @@ export default class MyVisitsController {
         details:
           line.item.equipment && line.workState !== 'done'
             ? {
-                equipmentType: line.equipmentType,
-                make: line.equipmentMake,
-                model: line.equipmentModel,
-                serialNumber: line.equipmentSerialNumber,
+                description: Installations.describe(line, line.item),
+                serialNumber: Installations.detailsOf(line, line.item).serialNumber,
               }
             : null,
         notDone: line.workState === 'not_done',
