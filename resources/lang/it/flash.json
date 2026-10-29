@@ -179,7 +179,7 @@
   },
   "servicedSaved": "Apparecchi revisionati salvati.",
   "chargeCorrected": "Addebito corretto.",
-  "equipmentLeft": "L'apparecchio «{equipment}» installato con questo addebito non è stato modificato: se serve, correggilo o segnalo come rimosso nella scheda dell'immobile.",
+  "equipmentLeft": "L'apparecchio «{equipment}» installato con questo addebito non è stato modificato: se serve, correggilo o segnalalo come rimosso nella scheda dell'immobile.",
   "chargeBillingSaved": "Fatturazione dell'addebito salvata.",
   "chargeNotBillable": "Addebito segnato come non fatturabile.",
   "chargeBillable": "Addebito di nuovo fatturabile.",

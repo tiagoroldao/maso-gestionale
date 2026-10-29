@@ -22,6 +22,8 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
+| #168  | Warn when an installed Item's unit was removed, or the Job's Site changed, before done    | —                                                 |
+| #169  | Pending equipment details on a Charge shown and correctable (`ui-later`)                  | The UX pass                                       |
 
 ## Added to existing issues
 
@@ -57,6 +59,9 @@ Review findings folded into planned work, so they are picked up with it:
 - **Call-out Fee wording** (ADR 0012): the glossary calls it a price for attending a Visit, while an imported Quote call-out becomes a Job Charge. Revisit if it confuses anyone (from the #131 review).
 - **Test file names** (#130): `invoices_from_time_and_materials.spec.ts` (functional and browser) now test Jobs without a Quote; rename them (from the #133 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
+- **Equipment lock order at Visit close untested** (#162): closing a Visit locks each existing unit its installed Items go onto in Charge order, so two Visits closing at once onto the same two units in opposite order could deadlock. Unlikely (two Visits on one Site's same units); no test runs two connections (from the #167 review).
+- **Re-done onto an existing unit** (#162): a Charge installed onto a unit already at the Site that goes done → not done → done applies its Item and serial number to the unit again, overwriting hand edits made after the first done (a Charge that created its unit reuses it unchanged). Skip the update on a repeat done if it matters (from the #167 review).
+- **Charges from before #162** (migration 224 era): a Charge that created its equipment when recorded and is still planned gives no warning when its Item is corrected, and removing it in the field leaves its equipment behind. Only dev data has any; no data migration (from the #167 review).
 - **Dates rely on the server's time zone:** "today" checks (e.g. a notice date not in the future, not before the upload day) use the process zone, so they hold only with `TZ=Europe/Rome`, which compose, CI and `.env` all set (from the #101 review).
 - **Invoice edit page loads every Submission's XML** to work out `hasFile`; select a boolean instead if Invoices accumulate many Submissions (from the #101 review).
 - **Invoice list total vs. stored total** (#25): the Invoice list shows the total worked out from the lines next to a payment status based on the stored `total`. They only differ if they drift; issued Invoices could show the stored value (from the #97 review).
