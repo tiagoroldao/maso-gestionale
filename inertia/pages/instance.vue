@@ -4,6 +4,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { SDI_MODES } from '@shared/instance'
+import { formatDateTime } from '@shared/dates'
 import { t } from '~/i18n'
 
 defineProps<{
@@ -14,6 +15,20 @@ defineProps<{
     webhookEnabled: boolean
     hasWebhookSecret: boolean
     publicUrl: string | null
+  }
+  backups: {
+    endpoint: string | null
+    bucket: string | null
+    region: string | null
+    accessKeyId: string | null
+    hasSecret: boolean
+    retention: number
+    recipient: string | null
+    startedAt: string | null
+    succeededAt: string | null
+    lastName: string | null
+    failedAt: string | null
+    failure: string | null
   }
   admins: { id: number; name: string | null; email: string; active: boolean }[]
 }>()
@@ -111,6 +126,178 @@ defineProps<{
           </div>
           <button type="submit" class="btn btn--primary" :disabled="processing">
             {{ t('ui.instance.save') }}
+          </button>
+        </Form>
+      </Section>
+
+      <Section
+        :title="t('ui.instance.backups.section')"
+        :description="t('ui.instance.backups.description')"
+      >
+        <h3>{{ t('ui.instance.backups.status') }}</h3>
+        <p v-if="backups.startedAt">
+          {{ t('ui.instance.backups.running', { at: formatDateTime(backups.startedAt) }) }}
+        </p>
+        <p v-if="backups.succeededAt">
+          {{
+            t('ui.instance.backups.lastSuccess', {
+              at: formatDateTime(backups.succeededAt),
+              name: backups.lastName,
+            })
+          }}
+        </p>
+        <p v-else>{{ t('ui.instance.backups.noSuccess') }}</p>
+        <template v-if="backups.failedAt">
+          <p class="field__error">
+            {{ t('ui.instance.backups.lastFailure', { at: formatDateTime(backups.failedAt) }) }}
+          </p>
+          <pre :style="{ whiteSpace: 'pre-wrap' }">{{ backups.failure }}</pre>
+        </template>
+        <Form
+          v-slot="{ processing }"
+          route="instance.backups.run"
+          :style="{ marginBottom: '16px' }"
+        >
+          <button type="submit" class="btn btn--secondary" :disabled="processing">
+            {{ t('ui.instance.backups.runNow') }}
+          </button>
+        </Form>
+
+        <Form v-slot="{ processing, errors }" route="instance.backups">
+          <div class="field">
+            <label class="field__label" for="backup-endpoint">{{
+              t('ui.instance.backups.endpoint')
+            }}</label>
+            <input
+              id="backup-endpoint"
+              name="backupEndpoint"
+              type="url"
+              class="field__input"
+              :value="backups.endpoint ?? ''"
+            />
+            <span v-if="errors.backupEndpoint" class="field__error">{{
+              errors.backupEndpoint
+            }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="backup-bucket">{{
+              t('ui.instance.backups.bucket')
+            }}</label>
+            <input
+              id="backup-bucket"
+              name="backupBucket"
+              class="field__input"
+              :value="backups.bucket ?? ''"
+            />
+            <span v-if="errors.backupBucket" class="field__error">{{ errors.backupBucket }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="backup-region">{{
+              t('ui.instance.backups.region')
+            }}</label>
+            <input
+              id="backup-region"
+              name="backupRegion"
+              class="field__input"
+              :value="backups.region ?? ''"
+            />
+            <span v-if="errors.backupRegion" class="field__error">{{ errors.backupRegion }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="backup-access-key">{{
+              t('ui.instance.backups.accessKeyId')
+            }}</label>
+            <input
+              id="backup-access-key"
+              name="backupAccessKeyId"
+              autocomplete="off"
+              class="field__input"
+              :value="backups.accessKeyId ?? ''"
+            />
+            <span v-if="errors.backupAccessKeyId" class="field__error">{{
+              errors.backupAccessKeyId
+            }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="backup-secret">{{
+              t('ui.instance.backups.secretAccessKey')
+            }}</label>
+            <input
+              id="backup-secret"
+              name="backupSecretAccessKey"
+              type="password"
+              autocomplete="off"
+              class="field__input"
+            />
+            <span v-if="backups.hasSecret" class="field__hint">{{
+              t('ui.instance.secretStored')
+            }}</span>
+            <span v-if="errors.backupSecretAccessKey" class="field__error">{{
+              errors.backupSecretAccessKey
+            }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="backup-retention">{{
+              t('ui.instance.backups.retention')
+            }}</label>
+            <input
+              id="backup-retention"
+              name="backupRetention"
+              inputmode="numeric"
+              class="field__input"
+              :value="backups.retention"
+              :style="{ maxWidth: '120px' }"
+            />
+            <span class="field__hint">{{ t('ui.instance.backups.retentionHint') }}</span>
+            <span v-if="errors.backupRetention" class="field__error">{{
+              errors.backupRetention
+            }}</span>
+          </div>
+          <p>
+            <strong>{{ t('ui.instance.backups.passphraseWarning') }}</strong>
+          </p>
+          <p>{{ t('ui.instance.backups.appKeyWarning') }}</p>
+          <p v-if="backups.recipient" class="field__hint">
+            {{ t('ui.instance.backups.passphraseChange') }}
+          </p>
+          <div class="field">
+            <label class="field__label" for="backup-passphrase">{{
+              t('ui.instance.backups.passphrase')
+            }}</label>
+            <input
+              id="backup-passphrase"
+              name="backupPassphrase"
+              type="password"
+              autocomplete="new-password"
+              class="field__input"
+            />
+            <span v-if="backups.recipient" class="field__hint">{{
+              t('ui.instance.backups.passphraseSet')
+            }}</span>
+            <span v-if="errors.backupPassphrase" class="field__error">{{
+              errors.backupPassphrase
+            }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="backup-passphrase-confirmation">{{
+              t('ui.instance.backups.passphraseConfirmation')
+            }}</label>
+            <input
+              id="backup-passphrase-confirmation"
+              name="backupPassphraseConfirmation"
+              type="password"
+              autocomplete="new-password"
+              class="field__input"
+            />
+            <span v-if="errors.backupPassphraseConfirmation" class="field__error">{{
+              errors.backupPassphraseConfirmation
+            }}</span>
+          </div>
+          <p v-if="backups.recipient" class="field__hint">
+            {{ t('ui.instance.backups.publicKey', { key: backups.recipient }) }}
+          </p>
+          <button type="submit" class="btn btn--primary" :disabled="processing">
+            {{ t('ui.instance.backups.save') }}
           </button>
         </Form>
       </Section>

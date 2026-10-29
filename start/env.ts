@@ -34,6 +34,13 @@ export default await Env.create(new URL('../', import.meta.url), {
   // Files
   STORAGE_PATH: Env.schema.string.optional(),
 
+  // Nightly backup time, HH:mm in Europe/Rome (#33)
+  BACKUP_TIME: (key: string, value?: string) => {
+    if (!value) return undefined
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(value)) throw new Error(`${key} must be HH:mm`)
+    return value
+  },
+
   // PDF conversion
   GOTENBERG_URL: Env.schema.string({ format: 'url', tld: false }),
 })
