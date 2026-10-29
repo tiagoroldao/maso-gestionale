@@ -2,7 +2,7 @@ import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import { OpenapiError } from '#services/openapi_sdi_gateway'
 import { SdiSendRefusedError } from '#services/sdi_gateway'
-import { FakeOpenapi } from '#tests/helpers/openapi'
+import { FakeOpenapi, recorded } from '#tests/helpers/openapi'
 
 const file = { fileName: 'IT01987654322_M0001.xml', xml: '<p:FatturaElettronica/>' }
 const UUID = 'cb1e9d7b-a7f5-49f4-8abb-9111467891fd'
@@ -31,6 +31,7 @@ test.group('Openapi SDI gateway', () => {
       ['malformed', 'Parsing error: malformed XML'],
       ['noCredit', 'Insufficient Credit in Wallet'],
       ['wrongToken', 'Wrong Token'],
+      ['noBusinessRegistry', 'No business registry configurations have been set up.'],
     ]) {
       const gateway = new FakeOpenapi().on('POST', '/invoices', answer).gateway()
       const error = await gateway.submit(file).catch((caught) => caught)
@@ -88,9 +89,16 @@ test.group('Openapi SDI gateway', () => {
   })
 
   test('lists received Supplier Invoices page by page, since a moment', async ({ assert }) => {
-    const openapi = new FakeOpenapi().on('GET', '/invoices', (request) =>
-      request.query.get('page') === '1' ? 'receivedPage1' : 'emptyPage'
-    )
+    // Recorded page shape: data, page, itemsPerPage, hasMore
+    const pages = recorded('receivedPage1')
+    const [first, second] = pages.body.data
+    const openapi = new FakeOpenapi().on('GET', '/invoices', (request) => {
+      const page = request.query.get('page') === '1'
+      return {
+        status: 200,
+        body: { ...pages.body, data: [page ? first : second], hasMore: page },
+      }
+    })
     const since = DateTime.fromISO('2026-10-01T00:00:00Z')
 
     const refs = await openapi.gateway().received(since)
@@ -102,9 +110,11 @@ test.group('Openapi SDI gateway', () => {
         ['ffe8cdad-1a02-49fe-8cc6-f6b189eb6e5d', 'IT12345678901_00002.xml.p7m', '335228642533'],
       ]
     )
+    // Stops when Openapi says there is no more
     assert.lengthOf(openapi.requests, 2)
     assert.equal(openapi.requests[0].query.get('type'), '1')
     assert.equal(openapi.requests[0].query.get('createdAt[after]'), '2026-10-01T00:00:00.000Z')
+    assert.equal(openapi.requests[1].query.get('page'), '2')
   })
 
   test('downloads a received file as delivered', async ({ assert }) => {
@@ -126,18 +136,53 @@ test.group('Openapi SDI gateway', () => {
     assert.equal(openapi.requests[0].headers['accept'], 'application/octet-stream')
   })
 
-  test('finds the files sent for an Invoice by number and date', async ({ assert }) => {
-    const openapi = new FakeOpenapi().on('GET', '/invoices', (request) =>
-      request.query.get('page') === '1' ? 'receivedPage1' : 'emptyPage'
-    )
+  test('finds the files sent for an Invoice by its date, matching the number itself', async ({
+    assert,
+  }) => {
+    // The recorded sandbox list holds Invoice 92/2026 of 29 October 2026
+    const openapi = new FakeOpenapi().on('GET', '/invoices', 'sentList')
+    const gateway = openapi.gateway()
 
-    const found = await openapi.gateway().findSent({ number: '12/2026', issuedOn: '2026-10-29' })
+    assert.deepEqual(await gateway.findSent({ number: '92/2026', issuedOn: '2026-10-29' }), [UUID])
+    // Openapi ignores invoiceNumber, so another number on that day finds nothing
+    assert.deepEqual(await gateway.findSent({ number: '93/2026', issuedOn: '2026-10-29' }), [])
 
-    assert.lengthOf(found, 2)
     const query = openapi.requests[0].query
     assert.equal(query.get('type'), '0')
-    assert.equal(query.get('invoiceNumber'), '12/2026')
+    assert.isNull(query.get('invoiceNumber'))
     assert.equal(query.get('invoiceDate[after]'), '2026-10-29')
     assert.equal(query.get('invoiceDate[before]'), '2026-10-29')
+    // One page: hasMore is false
+    assert.lengthOf(openapi.requests, 2)
+  })
+
+  test('registers the receiving callback only when it differs', async ({ assert }) => {
+    const openapi = new FakeOpenapi().keepsApiConfigurations()
+    const gateway = openapi.gateway()
+    const callback = {
+      fiscalId: '02903752463',
+      url: 'https://invalid.invalid/sdi/webhook',
+      authHeader: null,
+    }
+
+    assert.isTrue(await gateway.ensureReceiving(callback))
+    assert.isFalse(await gateway.ensureReceiving(callback))
+    assert.isTrue(
+      await gateway.ensureReceiving({ ...callback, url: 'https://maso.example.it/sdi/webhook' })
+    )
+
+    assert.deepEqual(openapi.configurations, [
+      {
+        fiscal_id: '02903752463',
+        callbacks: [{ event: 'supplier-invoice', url: 'https://invalid.invalid/sdi/webhook' }],
+      },
+      {
+        fiscal_id: '02903752463',
+        callbacks: [{ event: 'supplier-invoice', url: 'https://maso.example.it/sdi/webhook' }],
+      },
+    ])
+    const read = openapi.requests.find((request) => request.method === 'GET')!
+    assert.equal(read.query.get('fiscal_id'), '02903752463')
+    assert.equal(read.headers['authorization'], 'Bearer test-token')
   })
 })

@@ -128,7 +128,16 @@
     "newPasswordFor": "Nuova password per {email}",
     "confirmPasswordFor": "Conferma la password per {email}",
     "setPassword": "Imposta password",
-    "inactive": "(disattivato)"
+    "inactive": "(disattivato)",
+    "pollSteps": {
+      "unsettled": "Ricerca degli invii dall'esito incerto",
+      "settle": "Verifica dell'invio {subject}",
+      "waiting": "Ricerca delle fatture in attesa di esito",
+      "outcome": "Esito di {subject}",
+      "received": "Elenco delle fatture passive ricevute",
+      "download": "Scaricamento della fattura passiva {subject}",
+      "handOver": "Registrazione della fattura passiva {subject}"
+    }
   },
   "errors": {
     "forbiddenTitle": "Accesso negato.",
@@ -1342,5 +1351,11 @@
     "deleteConfirm": "Eliminare questa fattura pregressa e il suo PDF?",
     "locked": "Ha incassi o note di credito, o è detratta da una fattura: non si può modificare né eliminare.",
     "advanceState": "Acconto: {state}, da detrarre {left}."
+  },
+  "sdiFailures": {
+    "notFoundAtIntermediary": "il file non risulta arrivato a Openapi: si può inviare di nuovo",
+    "noRemoteId": "Openapi ha accettato il file senza indicarne l'identificativo",
+    "submissionRefused": "la fattura non è più in attesa di questo esito",
+    "noticeBeforeSubmission": "la notifica di SDI è datata prima dell'invio"
   }
 }

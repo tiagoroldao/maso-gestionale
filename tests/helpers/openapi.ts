@@ -15,8 +15,11 @@ export type RecordedRequest = {
   body: string | null
 }
 
-/** A recorded response by name, or a failure before any answer (a dropped connection) */
-type Answer = string | Error
+/**
+ * A recorded response by name, a response built from one, or a failure
+ * before any answer (a dropped connection)
+ */
+type Answer = string | Fixture | Error
 type Responder = Answer | ((request: RecordedRequest) => Answer | Promise<Answer>)
 
 /**
@@ -31,6 +34,33 @@ export class FakeOpenapi {
   on(method: string, path: string, responder: Responder) {
     this.routes.unshift({ method, path, responder })
     return this
+  }
+
+  /**
+   * Answers `api_configurations` as Openapi keeps them: one configuration
+   * per fiscal id, each POST replacing it. The POSTs are in `requests`.
+   */
+  keepsApiConfigurations(initial: { fiscal_id: string; callbacks: unknown[] } | null = null) {
+    let stored = initial
+    this.on('GET', '/api_configurations', () => {
+      const none = recorded('apiConfigurationsNone')
+      if (stored) none.body.data = [{ id: '000000000000000000000000', ...stored }]
+      return none
+    })
+    this.on('POST', '/api_configurations', (request) => {
+      stored = JSON.parse(request.body!)
+      const configured = recorded('apiConfigured')
+      configured.body.data[0].callbacks = stored!.callbacks
+      return configured
+    })
+    return this
+  }
+
+  /** The POSTs that replaced the callback configuration */
+  get configurations() {
+    return this.requests
+      .filter((request) => request.method === 'POST' && request.path === '/api_configurations')
+      .map((request) => JSON.parse(request.body!))
   }
 
   /** The gateway, talking to this fake */
@@ -65,7 +95,7 @@ export class FakeOpenapi {
     if (answer === 'notFound') {
       return Response.json({ success: false, message: 'Not Found', error: 231 }, { status: 404 })
     }
-    const fixture = fixtures[answer]
+    const fixture = typeof answer === 'string' ? fixtures[answer] : answer
     if (!fixture) throw new Error(`No recorded response ${answer}`)
     if (fixture.text !== undefined) {
       return new Response(fixture.text, {
@@ -77,7 +107,21 @@ export class FakeOpenapi {
   }
 }
 
-/** A recorded response body by name */
-export function recorded(name: string) {
-  return fixtures[name]
+/** A recorded response by name, as a copy to adapt */
+export function recorded(name: string): Fixture & { body: any } {
+  return structuredClone(fixtures[name]) as Fixture & { body: any }
+}
+
+/**
+ * The recorded list of sent files, holding one Invoice with this number
+ * (in its payload, where Openapi keeps it).
+ */
+export function sentListWith(number: string) {
+  const list = recorded('sentList')
+  for (const found of list.body.data) {
+    const payload = JSON.parse(found.payload)
+    payload.fattura_elettronica_body[0].dati_generali.dati_generali_documento.numero = number
+    found.payload = JSON.stringify(payload)
+  }
+  return list
 }

@@ -13,7 +13,7 @@ import {
   supplierInvoiceIntake,
   type IncomingSupplierInvoice,
 } from '#services/supplier_invoice_intake'
-import { FakeOpenapi } from '#tests/helpers/openapi'
+import { FakeOpenapi, sentListWith } from '#tests/helpers/openapi'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { vatCode } from '#tests/helpers/items'
@@ -44,12 +44,14 @@ async function sentEarlier(submission: InvoiceSubmission) {
 }
 
 /** Lists by type: sent files (type 0) and received ones (type 1), one page each */
-function lists(sent: string, received: string) {
+function lists(sent: string | (() => ReturnType<typeof sentListWith>), received: string) {
   return (request: { query: URLSearchParams }) =>
     request.query.get('page') !== '1'
       ? 'emptyPage'
       : request.query.get('type') === '0'
-        ? sent
+        ? typeof sent === 'string'
+          ? sent
+          : sent()
         : received
 }
 
@@ -59,8 +61,11 @@ const posts = (openapi: FakeOpenapi) =>
 test.group('SDI through Openapi', (group) => {
   let openapi: FakeOpenapi
   group.each.setup(() => {
-    openapi = new FakeOpenapi().on('GET', '/invoices', lists('emptyPage', 'emptyPage'))
+    openapi = new FakeOpenapi()
+      .on('GET', '/invoices', lists('emptyPage', 'emptyPage'))
+      .keepsApiConfigurations()
     SdiConnection.use(openapi.gateway())
+    SdiPolling.registered = null
     return () => {
       SdiConnection.restore()
       supplierInvoiceIntake.current = null
@@ -185,13 +190,18 @@ test.group('SDI through Openapi', (group) => {
     client,
     assert,
   }) => {
-    openapi
-      .on('POST', '/invoices', 'unavailable')
-      .on('GET', '/invoices', lists('sentList', 'emptyPage'))
-      .on('GET', `/invoices_notifications/${UUID}`, 'notificationsNone')
     const office = await createUser('office')
     await completeCompany()
     const invoice = await finalised()
+    // The recorded sandbox list, holding this Invoice's number
+    openapi
+      .on('POST', '/invoices', 'unavailable')
+      .on(
+        'GET',
+        '/invoices',
+        lists(() => sentListWith(invoice.formattedNumber!), 'emptyPage')
+      )
+      .on('GET', `/invoices_notifications/${UUID}`, 'notificationsNone')
     await Submissions.prepare(invoice)
 
     const uncertain = await client
@@ -232,10 +242,10 @@ test.group('SDI through Openapi', (group) => {
     await invoice.refresh()
     assert.equal(invoice.status, 'submitted')
     const lookup = openapi.requests.find((request) => request.query.get('type') === '0')!
-    assert.equal(lookup.query.get('invoiceNumber'), invoice.formattedNumber)
+    assert.equal(lookup.query.get('invoiceDate[after]'), invoice.issuedOn!.toISODate())
   })
 
-  test('a send never found at Openapi is ready to send again', async ({ assert }) => {
+  test('a send never found at Openapi is ready to send again', async ({ client, assert }) => {
     openapi.on('POST', '/invoices', new TypeError('fetch failed'))
     await completeCompany()
     const invoice = await finalised()
@@ -251,15 +261,24 @@ test.group('SDI through Openapi', (group) => {
     await submission.refresh()
     assert.isNull(submission.sendingAt)
     assert.isNull(submission.xml)
-    assert.equal(submission.sendFailure, 'not found at the intermediary')
+    assert.equal(submission.sendFailure, 'notFoundAtIntermediary')
     await invoice.refresh()
     assert.equal(invoice.status, 'finalised')
+    // Office reads why in Italian
+    const page = await client
+      .get(`/invoices/${invoice.id}/edit`)
+      .withInertia()
+      .loginAs(await createUser('office'))
+    page.assertInertiaPropsContains({
+      openSubmission: { sending: false, sendFailure: it('ui.sdiFailures.notFoundAtIntermediary') },
+    })
   })
 
   test('the poll fetches received Supplier Invoices once and keeps them for the intake', async ({
     client,
     assert,
   }) => {
+    await completeCompany()
     openapi.on('GET', '/invoices', lists('emptyPage', 'receivedPage1'))
     for (const id of RECEIVED) openapi.on('GET', `/invoices_download/${id}`, 'supplierInvoiceXml')
     const downloads = () =>
@@ -301,7 +320,7 @@ test.group('SDI through Openapi', (group) => {
     const report = await SdiPolling.poll()
     assert.deepInclude(report, { handed: 1 })
     assert.deepEqual(report.polled && report.failures, [
-      'IT12345678901_00002.xml.p7m: signature unread',
+      { step: 'handOver', subject: 'IT12345678901_00002.xml.p7m', detail: 'signature unread' },
     ])
     assert.deepInclude(await SdiPolling.poll(), { handed: 1 })
     assert.deepEqual(
@@ -337,7 +356,133 @@ test.group('SDI through Openapi', (group) => {
       .get('/instance')
       .withInertia()
       .loginAs(await createUser('superuser'))
-    assert.include(page.inertiaProps.settings.pollFailure, 'Wrong Token')
+    const submission = await InvoiceSubmission.findByOrFail('invoiceId', invoice.id)
+    assert.deepInclude(page.inertiaProps.settings.pollFailures, {
+      step: 'outcome',
+      subject: submission.fileName,
+      detail: 'Openapi 401: Wrong Token',
+    })
+  })
+})
+
+test.group('SDI receiving callback', (group) => {
+  const SECRET = 'whsec_4567890abcdef'
+  let openapi: FakeOpenapi
+  group.each.setup(() => {
+    openapi = new FakeOpenapi()
+      .on('GET', '/invoices', lists('emptyPage', 'emptyPage'))
+      .keepsApiConfigurations({
+        fiscal_id: '01987654322',
+        callbacks: [{ event: 'customer-notification', url: 'https://elsewhere.example/hook' }],
+      })
+    SdiConnection.use(openapi.gateway())
+    SdiPolling.registered = null
+    return () => SdiConnection.restore()
+  })
+
+  const save = (client: any, superuser: any, fields: Record<string, string>) =>
+    client
+      .put('/instance')
+      .form({ sdiEnvironment: 'sandbox', pollingMinutes: '30', ...fields })
+      .withCsrfToken()
+      .loginAs(superuser)
+      .redirects(0)
+
+  test('saving Openapi mode registers the callback Openapi needs to receive', async ({
+    client,
+    assert,
+  }) => {
+    const superuser = await createUser('superuser')
+    await completeCompany()
+
+    // Without the webhook: the placeholder, which never resolves
+    const saved = await save(client, superuser, { sdiMode: 'openapi', openapiToken: 'oat_1' })
+    saved.assertFlashMessage('success', it('flash.instanceSaved'))
+    assert.deepEqual(openapi.configurations, [
+      {
+        fiscal_id: '01987654322',
+        callbacks: [
+          { event: 'customer-notification', url: 'https://elsewhere.example/hook' },
+          { event: 'supplier-invoice', url: 'https://invalid.invalid/sdi/webhook' },
+        ],
+      },
+    ])
+
+    // Saved again unchanged: read, not written
+    await save(client, superuser, { sdiMode: 'openapi' })
+    assert.lengthOf(openapi.configurations, 1)
+    assert.deepInclude(
+      openapi.requests.map((request) => `${request.method} ${request.path}`),
+      'GET /api_configurations'
+    )
+
+    // With the webhook: its URL, carrying its secret
+    await save(client, superuser, {
+      sdiMode: 'openapi',
+      webhookEnabled: 'true',
+      webhookSecret: SECRET,
+      publicUrl: 'https://maso.example.it',
+    })
+    assert.lengthOf(openapi.configurations, 2)
+    assert.deepEqual(openapi.configurations[1].callbacks[1], {
+      event: 'supplier-invoice',
+      url: 'https://maso.example.it/sdi/webhook',
+      auth_header: `Bearer ${SECRET}`,
+    })
+    // Other events' callbacks are kept
+    assert.equal(openapi.configurations[1].callbacks[0].event, 'customer-notification')
+  })
+
+  test('saving still works when the callback can not be registered', async ({ client, assert }) => {
+    const superuser = await createUser('superuser')
+    // No VAT number in Company settings yet: no fiscal id to register for
+    const saved = await save(client, superuser, { sdiMode: 'openapi', openapiToken: 'oat_1' })
+    saved.assertFlashMessage(
+      'error',
+      it('flash.receivingNotRegistered', { detail: it('ui.sdiFailures.noFiscalId') })
+    )
+    const settings = await InstanceSettings.findOrFail(1)
+    assert.equal(settings.sdiMode, 'openapi')
+    assert.lengthOf(openapi.configurations, 0)
+  })
+
+  test('the poller registers it on its first poll, and again only on a change', async ({
+    assert,
+  }) => {
+    await completeCompany()
+
+    await SdiPolling.poll()
+    await SdiPolling.poll()
+    assert.lengthOf(openapi.configurations, 1)
+    assert.equal(
+      openapi.requests.filter((request) => request.path === '/api_configurations').length,
+      2
+    )
+
+    // The webhook turned on elsewhere: registered again
+    const settings = await InstanceSettings.current()
+    settings.merge({ webhookEnabled: true, publicUrl: 'https://maso.example.it' })
+    settings.secret = SECRET
+    await settings.save()
+    await SdiPolling.poll()
+    assert.lengthOf(openapi.configurations, 2)
+    assert.equal(openapi.configurations[1].callbacks[1].url, 'https://maso.example.it/sdi/webhook')
+  })
+
+  test('a failed registration is a poll failure, and the rest of the poll goes on', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    openapi.on('POST', '/api_configurations', 'wrongToken')
+
+    const report = await SdiPolling.poll()
+
+    assert.deepInclude(report.polled && report.failures, {
+      step: 'register',
+      subject: null,
+      detail: 'Openapi 401: Wrong Token',
+    })
+    assert.isNull(SdiPolling.registered)
   })
 })
 

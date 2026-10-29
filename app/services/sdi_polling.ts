@@ -1,11 +1,16 @@
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
-import type InstanceSettings from '#models/instance_settings'
+import InstanceSettings from '#models/instance_settings'
 import InvoiceSubmission from '#models/invoice_submission'
 import SdiReceivedFile from '#models/sdi_received_file'
 import SdiConnection from '#services/sdi_connection'
-import Submissions from '#services/submissions'
+import SdiReceiving, { receivingCallback } from '#services/sdi_receiving'
+import Submissions, {
+  NoticeBeforeSubmissionError,
+  SubmissionRefusedError,
+} from '#services/submissions'
+import type { PollFailure, PollStep } from '#shared/sdi_failures'
 import { supplierInvoiceIntake } from '#services/supplier_invoice_intake'
 import type { SdiGateway } from '#services/sdi_gateway'
 
@@ -20,7 +25,7 @@ export type PollReport =
       outcomes: number
       received: number
       handed: number
-      failures: string[]
+      failures: PollFailure[]
     }
 
 /**
@@ -46,7 +51,8 @@ export default class SdiPolling {
     const gateway = await SdiConnection.gateway()
     if (!gateway.automatic) return { polled: false }
 
-    const failures: string[] = []
+    const failures: PollFailure[] = []
+    await this.register(gateway, failures)
     const settled = await this.settleSends(gateway, failures)
     const outcomes = await this.outcomes(gateway, failures)
     const received = await this.receive(gateway, failures)
@@ -57,19 +63,42 @@ export default class SdiPolling {
     await db
       .from('instance_settings')
       .where('id', 1)
-      .update({ sdi_polled_at: new Date(), sdi_poll_failure: failures.join('\n') || null })
+      .update({
+        sdi_polled_at: new Date(),
+        sdi_poll_failure: failures.length ? JSON.stringify(failures) : null,
+      })
     return { polled: true, settled, outcomes, received, handed, failures }
+  }
+
+  /**
+   * The receiving callback this process last saw registered, so it is
+   * checked on the first poll and again only when the settings change it
+   */
+  static registered: string | null = null
+
+  /**
+   * Keeps the receiving callback registered at the intermediary: saving
+   * the settings registers it, and this catches a failed or missed save.
+   */
+  private static async register(gateway: SdiGateway, failures: PollFailure[]) {
+    await attempt(failures, 'register', null, async () => {
+      const callback = await receivingCallback(await InstanceSettings.current())
+      const key = JSON.stringify([gateway.channel, callback])
+      if (key === this.registered) return
+      await SdiReceiving.ensure(gateway, callback)
+      this.registered = key
+    })
   }
 
   /**
    * Sends left "sending" past the grace period: found at the
    * intermediary, or never arrived and ready to send again.
    */
-  private static async settleSends(gateway: SdiGateway, failures: string[]) {
+  private static async settleSends(gateway: SdiGateway, failures: PollFailure[]) {
     let settled = 0
-    const pending = await attempt(failures, 'unsettled sends', () => Submissions.unsettled(gateway))
+    const pending = await attempt(failures, 'unsettled', null, () => Submissions.unsettled(gateway))
     for (const submission of pending ?? []) {
-      const done = await attempt(failures, submission.fileName, () =>
+      const done = await attempt(failures, 'settle', submission.fileName, () =>
         Submissions.settle(gateway, submission)
       )
       if (done) settled++
@@ -80,9 +109,9 @@ export default class SdiPolling {
   /**
    * SDI's outcome for each Submission sent and still waiting.
    */
-  private static async outcomes(gateway: SdiGateway, failures: string[]) {
+  private static async outcomes(gateway: SdiGateway, failures: PollFailure[]) {
     let recorded = 0
-    const waiting = await attempt(failures, 'waiting Submissions', () =>
+    const waiting = await attempt(failures, 'waiting', null, () =>
       InvoiceSubmission.query()
         .where('channel', gateway.channel)
         .whereNull('outcome')
@@ -92,7 +121,7 @@ export default class SdiPolling {
         .orderBy('submittedAt')
     )
     for (const submission of waiting ?? []) {
-      const done = await attempt(failures, submission.fileName, async () => {
+      const done = await attempt(failures, 'outcome', submission.fileName, async () => {
         const report = await gateway.outcome(submission.remoteId!)
         if (!report) return false
         await Submissions.recordOutcome(submission.invoice, report, null, submission.id)
@@ -106,13 +135,13 @@ export default class SdiPolling {
   /**
    * Fetches the Supplier Invoice files not fetched yet, each once.
    */
-  private static async receive(gateway: SdiGateway, failures: string[]) {
+  private static async receive(gateway: SdiGateway, failures: PollFailure[]) {
     const newest = await SdiReceivedFile.query()
       .where('channel', gateway.channel)
       .orderBy('receivedAt', 'desc')
       .first()
     const since = newest?.receivedAt.minus({ days: RECEIVED_OVERLAP_DAYS }) ?? null
-    const refs = await attempt(failures, 'received files', () => gateway.received(since))
+    const refs = await attempt(failures, 'received', null, () => gateway.received(since))
     if (!refs?.length) return 0
 
     const known = await SdiReceivedFile.query()
@@ -125,7 +154,7 @@ export default class SdiPolling {
     const seen = new Set(known.map((row) => row.remoteId))
     let fetched = 0
     for (const ref of refs.filter((candidate) => !seen.has(candidate.remoteId))) {
-      const done = await attempt(failures, `received ${ref.remoteId}`, async () => {
+      const done = await attempt(failures, 'download', ref.remoteId, async () => {
         const file = await gateway.download(ref)
         // A file fetched twice at once (two pollers) is kept once
         await db.rawQuery(
@@ -153,7 +182,7 @@ export default class SdiPolling {
    * Hands the files waiting to the Supplier Invoice intake (#198); with
    * none yet, they wait.
    */
-  private static async handOver(gateway: SdiGateway, failures: string[]) {
+  private static async handOver(gateway: SdiGateway, failures: PollFailure[]) {
     const intake = supplierInvoiceIntake.current
     if (!intake) return 0
     let handed = 0
@@ -167,8 +196,8 @@ export default class SdiPolling {
         file.merge({ handedAt: DateTime.now(), failure: null })
         handed++
       } catch (error) {
-        file.failure = message(error)
-        failures.push(`${file.fileName}: ${file.failure}`)
+        file.failure = detail(error)
+        failures.push({ step: 'handOver', subject: file.fileName, detail: file.failure })
       }
       await file.save()
     }
@@ -179,16 +208,27 @@ export default class SdiPolling {
 /**
  * Runs one step of the poll; a failure is noted and the poll goes on.
  */
-async function attempt<T>(failures: string[], what: string, work: () => Promise<T>) {
+async function attempt<T>(
+  failures: PollFailure[],
+  step: PollStep,
+  subject: string | null,
+  work: () => Promise<T>
+) {
   try {
     return await work()
   } catch (error) {
-    logger.warn({ err: error }, `SDI poll: ${what}`)
-    failures.push(`${what}: ${message(error)}`)
+    logger.warn({ err: error }, `SDI poll: ${step} ${subject ?? ''}`)
+    failures.push({ step, subject, detail: detail(error) })
     return null
   }
 }
 
-function message(error: unknown) {
+/**
+ * Why a step failed: a code the pages translate, or the intermediary's
+ * own message.
+ */
+function detail(error: unknown): string {
+  if (error instanceof SubmissionRefusedError) return 'submissionRefused'
+  if (error instanceof NoticeBeforeSubmissionError) return 'noticeBeforeSubmission'
   return error instanceof Error ? error.message : String(error)
 }

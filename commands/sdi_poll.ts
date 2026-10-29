@@ -46,6 +46,8 @@ export default class SdiPoll extends BaseCommand {
       `SDI poll: ${report.settled} sends settled, ${report.outcomes} outcomes, ` +
         `${report.received} files received, ${report.handed} handed over`
     )
-    for (const failure of report.failures) this.logger.warning(failure)
+    for (const { step, subject, detail } of report.failures) {
+      this.logger.warning(`${step} ${subject ?? ''}: ${detail}`)
+    }
   }
 }

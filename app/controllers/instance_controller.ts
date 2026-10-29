@@ -3,7 +3,10 @@ import User from '#models/user'
 import { Backups } from '#services/backups'
 import { adminPasswordValidator, instanceSettingsValidator } from '#validators/instance_settings'
 import SdiReceivedFile from '#models/sdi_received_file'
-import { SDI_WEBHOOK_PATH } from '#shared/instance'
+import { sdiWebhookUrl } from '#shared/instance'
+import { isSdiFailureCode, type PollFailure } from '#shared/sdi_failures'
+import SdiConnection from '#services/sdi_connection'
+import SdiReceiving from '#services/sdi_receiving'
 import type { HttpContext } from '@adonisjs/core/http'
 import { errors as vineErrors } from '@vinejs/vine'
 
@@ -34,11 +37,9 @@ export default class InstanceController {
         secretUnreadable: settings.webhookSecret !== null && settings.secret === null,
         publicUrl: settings.publicUrl,
         // What to give Openapi as the callback address
-        webhookUrl: settings.publicUrl
-          ? `${settings.publicUrl.replace(/\/+$/, '')}${SDI_WEBHOOK_PATH}`
-          : null,
+        webhookUrl: settings.publicUrl ? sdiWebhookUrl(settings.publicUrl) : null,
         polledAt: settings.sdiPolledAt?.toISO() ?? null,
-        pollFailure: settings.sdiPollFailure ?? null,
+        pollFailures: pollFailures(settings.sdiPollFailure),
         // Supplier Invoice files received and not yet taken by the intake (#198)
         receivedWaiting: Number(waiting?.$extras.total ?? 0),
       },
@@ -97,6 +98,21 @@ export default class InstanceController {
     await settings.save()
 
     session.flash('success', i18n.t('flash.instanceSaved'))
+    // Openapi receives Supplier Invoices only with a callback registered
+    // (ADR 0019); the poller retries if this fails
+    if (settings.sdiMode === 'openapi') {
+      try {
+        await SdiReceiving.ensure(await SdiConnection.gateway())
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error)
+        session.flash(
+          'error',
+          i18n.t('flash.receivingNotRegistered', {
+            detail: isSdiFailureCode(detail) ? i18n.t(`ui.sdiFailures.${detail}`) : detail,
+          })
+        )
+      }
+    }
     response.redirect().toRoute('instance')
   }
 
@@ -111,5 +127,17 @@ export default class InstanceController {
 
     session.flash('success', i18n.t('flash.adminPasswordSet', { email: admin.email }))
     response.redirect().toRoute('instance')
+  }
+}
+
+/**
+ * The last poll's failed steps, as the poller stored them (ADR 0019).
+ */
+function pollFailures(stored: string | null): PollFailure[] {
+  if (!stored) return []
+  try {
+    return JSON.parse(stored) as PollFailure[]
+  } catch {
+    return []
   }
 }

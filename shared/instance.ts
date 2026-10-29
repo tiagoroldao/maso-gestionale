@@ -11,3 +11,8 @@ export type SdiEnvironment = (typeof SDI_ENVIRONMENTS)[number]
 
 /** Where the intermediary's webhook calls, under the public URL */
 export const SDI_WEBHOOK_PATH = '/sdi/webhook'
+
+/** The webhook's address under the public URL */
+export function sdiWebhookUrl(publicUrl: string) {
+  return `${publicUrl.replace(/\/+$/, '')}${SDI_WEBHOOK_PATH}`
+}

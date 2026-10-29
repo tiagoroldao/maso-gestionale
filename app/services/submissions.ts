@@ -9,6 +9,7 @@ import { buildFatturaPA, fatturaFileName, fatturaInputFor } from '#fiscal/fattur
 import { canTransition, transition, type InvoiceEvent } from '#shared/invoice_lifecycle'
 import { SdiSendRefusedError, type SdiFile, type SdiGateway } from '#services/sdi_gateway'
 import SdiConnection, { manualGateway } from '#services/sdi_connection'
+import type { SdiFailureCode } from '#shared/sdi_failures'
 
 /**
  * The Invoice isn't in a state where this Submission step applies.
@@ -246,7 +247,8 @@ export default class Submissions {
     const taken = new Set(known.map((row) => row.remoteId))
     const remoteId = found.find((id) => !taken.has(id))
     if (remoteId) await this.sent(invoice, submission.id, remoteId)
-    else await this.unsent(invoice, submission.id, 'not found at the intermediary')
+    else
+      await this.unsent(invoice, submission.id, 'notFoundAtIntermediary' satisfies SdiFailureCode)
     return remoteId ? 'sent' : 'unsent'
   }
 

@@ -4,6 +4,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { SDI_ENVIRONMENTS, SDI_MODES } from '@shared/instance'
+import { isSdiFailureCode, type PollFailure } from '@shared/sdi_failures'
 import { formatDateTime } from '@shared/dates'
 import { t } from '~/i18n'
 
@@ -20,7 +21,7 @@ defineProps<{
     publicUrl: string | null
     webhookUrl: string | null
     polledAt: string | null
-    pollFailure: string | null
+    pollFailures: PollFailure[]
     receivedWaiting: number
   }
   backups: {
@@ -39,6 +40,10 @@ defineProps<{
   }
   admins: { id: number; name: string | null; email: string; active: boolean }[]
 }>()
+
+/** A code the app names in Italian, or Openapi's own message as it is */
+const sdiFailure = (detail: string) =>
+  isSdiFailureCode(detail) ? t(`ui.sdiFailures.${detail}`) : detail
 </script>
 
 <template>
@@ -166,9 +171,14 @@ defineProps<{
           {{ t('ui.instance.lastPoll', { at: formatDateTime(settings.polledAt) }) }}
         </p>
         <p v-else>{{ t('ui.instance.noPoll') }}</p>
-        <template v-if="settings.pollFailure">
+        <template v-if="settings.pollFailures.length">
           <p class="field__error">{{ t('ui.instance.pollFailure') }}</p>
-          <pre :style="{ whiteSpace: 'pre-wrap' }">{{ settings.pollFailure }}</pre>
+          <ul>
+            <li v-for="(failure, index) in settings.pollFailures" :key="index">
+              {{ t(`ui.instance.pollSteps.${failure.step}`, { subject: failure.subject ?? '' }) }}:
+              {{ sdiFailure(failure.detail) }}
+            </li>
+          </ul>
         </template>
         <p v-if="settings.receivedWaiting">
           {{ t('ui.instance.receivedWaiting', { count: settings.receivedWaiting }) }}

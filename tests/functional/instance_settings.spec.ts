@@ -3,6 +3,8 @@ import hash from '@adonisjs/core/services/hash'
 import db from '@adonisjs/lucid/services/db'
 import InstanceSettings from '#models/instance_settings'
 import { createUser } from '#tests/helpers/users'
+import SdiConnection from '#services/sdi_connection'
+import { FakeOpenapi } from '#tests/helpers/openapi'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const fields = {
@@ -13,7 +15,13 @@ const fields = {
 }
 const SECRET = 'whsec_4567890abcdef'
 
-test.group('Instance settings', () => {
+test.group('Instance settings', (group) => {
+  // Saving Openapi mode registers the receiving callback: never live here
+  group.each.setup(() => {
+    SdiConnection.use(new FakeOpenapi().keepsApiConfigurations().gateway())
+    return () => SdiConnection.restore()
+  })
+
   test('the Superuser saves settings; the Openapi token is stored encrypted and never shown', async ({
     client,
     assert,

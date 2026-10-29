@@ -4,48 +4,50 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Tracked as issues
 
-| Issue | What                                                                                      | Waiting on                                       |
-| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                     |
-| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                     |
-| #34   | How updates are applied                                                                   | The business (`needs-human`)                     |
-| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                     |
-| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                               |
-| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                          |
-| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17 |
-| #59   | Proposal: payment in instalments                                                          | Review of proposal                               |
-| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                               |
-| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                               |
-| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                      |
-| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                |
-| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                      |
-| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                           |
-| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                           |
-| #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                      |
-| #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                      |
-| #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                      |
-| #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                      |
+| Issue | What                                                                                                                             | Waiting on                                            |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| #17   | Commercialista review of VAT settings and invoicing assumptions                                                                  | The business (`needs-human`)                          |
+| #28   | Bulk import from the old accounting software                                                                                     | The business (`needs-human`)                          |
+| #34   | How updates are applied                                                                                                          | The business (`needs-human`)                          |
+| #35   | Cloudflare Tunnel and Access setup                                                                                               | The business (`needs-human`)                          |
+| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                                                        | Review of proposal                                    |
+| #57   | Proposal: withholding tax on condominium Invoices                                                                                | Review of proposal, #17                               |
+| #58   | Proposal: assisted _beni significativi_ VAT split                                                                                | Review of proposal; its rule is confirmed in #17      |
+| #59   | Proposal: payment in instalments                                                                                                 | Review of proposal                                    |
+| #60   | Proposal: virtual stamp duty                                                                                                     | Review of proposal                                    |
+| #61   | Proposal: tax bonus wording on Invoices                                                                                          | Review of proposal                                    |
+| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                                                                 | The UX pass                                           |
+| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73                                        | —                                                     |
+| #73   | UX backlog: polish found in reviews (`ui-later`)                                                                                 | The UX pass                                           |
+| #118  | Labour Rates whose hours are not billable by default (`proposal`)                                                                | Review                                                |
+| #119  | Quote lines show which were added as Charges (`proposal`)                                                                        | Review                                                |
+| #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)                                            | The UX pass                                           |
+| #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)                                                   | The UX pass                                           |
+| #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                                                       | The UX pass                                           |
+| #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                                                           | The UX pass                                           |
+| #204  | Check in the Openapi sandbox that a queued sent file is found by number, and that an undelivered Supplier Invoice stays listable | The business (`needs-human`): sandbox callback set-up |
 
 ## Added to existing issues
 
 Review findings folded into planned work, so they are picked up with it:
 
 - **#17:** Registro Imprese / REA; Credit Note numbering (shared sequence or _sezionale_).
-- **#19:** concurrency tests on separate connections (including crediting Charges, the per-line Credit Note limit and crediting an advance against a deduction, all under the credited Invoice's Job lock, from #146); Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF.
+- **#19:** concurrency tests on separate connections (including crediting Charges, the per-line Credit Note limit and crediting an advance against a deduction, all under the credited Invoice's Job lock, from #146); Item lock order and `StockLedger.receive()` note; payment method and IBAN on the PDF; two concurrent SDI confirms on separate connections (from the #202 review, comment on #19).
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
-- **#198:** received Supplier Invoices are fetched by the SDI poller (#92) and wait in `sdi_received_files`: set `supplierInvoiceIntake.current` (TODO in `app/services/supplier_invoice_intake.ts`) to the intake service, which must take a file it already has without error. The waiting files are handed over on the next poll.
-- **#56:** Openapi's public administration notices NE (EC01/EC02) and DT aren't mapped to outcomes yet (`FINAL_NOTICES` in `openapi_sdi_gateway.ts`): a PA Invoice reads as delivered at RC.
-- **#35:** the SDI webhook (`POST /sdi/webhook`, optional) must get past Cloudflare Access, e.g. a bypass rule for that path; it is checked by its own secret.
+- **#198:** received Supplier Invoices are fetched by the SDI poller (#92) and wait in `sdi_received_files`: set `supplierInvoiceIntake.current` (TODO in `app/services/supplier_invoice_intake.ts`) to the intake service, which must take a file it already has without error. The waiting files are handed over on the next poll. (comment on #198)
+- **#56:** Openapi's public administration notices NE (EC01/EC02) and DT aren't mapped to outcomes yet (`FINAL_NOTICES` in `openapi_sdi_gateway.ts`): a PA Invoice reads as delivered at RC. (comment on #56)
+- **#35:** the SDI webhook (`POST /sdi/webhook`, optional) must get past Cloudflare Access, e.g. a bypass rule for that path; it is checked by its own secret. (comment on #35)
 - **#34:** the update's backup is `docker compose run --rm backup backup:run` (non-zero exit on failure), taken before pulling the new image (not yet commented on #34).
 
 ## Not yet issues
 
-- **Openapi account set-up unverified** (#92, ADR 0019): the docs say receiving needs an API configuration with a `supplier-invoice` callback even though the files are then read with `GET /invoices`. Check in the sandbox whether polling alone works. The token provided on 2026-10-29 was refused by the sandbox (401 "Wrong Token"), so nothing has been tried live; the fake follows the spec's examples. Also confirm there the webhook header (`auth_header` sent as `Authorization`), `POST /simulate/supplier-invoice` vs `/simulate-supplier-invoice`, and that `GET /invoices?type=0&invoiceNumber=` finds a sent file by our number.
-- **A "sending" Submission when the connection is removed** (#92): only the poller settles a send whose result is unknown, and it doesn't run without a connection, so the Invoice waits. Restore the token, or add an Office action that settles it by hand if this happens.
-- **Poll and send failures show Openapi's own text** (#92): the Instance page's last poll errors and the Invoice's "last send failed" detail show the provider's message (often English) after an Italian label, as backup failures do.
-- **Live sandbox test only reads** (#92): `tests/functional/openapi_sandbox.spec.ts` lists files when `OPENAPI_SANDBOX_TOKEN` is set. Extend it to send a file and simulate its notice and a Supplier Invoice (`POST /simulate/…`) once a sandbox token works, and record real responses into `tests/fixtures/openapi`.
+- **A Submission left behind when the connection is removed** (#92): only the poller settles a send whose result is unknown, or records the outcome of a file sent through Openapi, and it doesn't run without a connection. A "sending" Invoice waits; one sent then switched to manual is never polled, yet its page still says the outcome is recorded automatically (Office can record it by hand). Restore the token, or add an Office action and change the hint, if this happens.
+- **Sandbox and production share a channel** (#92): a Submission records `openapi`, not the environment, so after switching from sandbox to production the poller asks production about sandbox files still waiting (they answer 404 and show as poll failures). Record the environment on the Submission, or settle sandbox ones before switching, if this matters.
+- **The first poll downloads the whole history** (#92): with no file received yet, the poller lists every Supplier Invoice Openapi holds (at most 50 pages) and downloads each once (€0.001 each). Start from a date if the account already holds a long history.
+- **Poll and send failures show Openapi's own text** (#92): the app's own reasons are codes in `resources/lang/it` (`ui.sdiFailures`, `ui.instance.pollSteps`), but Openapi's messages (often English) are shown as they are, after an Italian label, as backup failures are.
+- **Live sandbox test only reads** (#92): `tests/functional/openapi_sandbox.spec.ts` lists files and finds sent ones when `OPENAPI_SANDBOX_TOKEN` is set. Sending and simulating need sandbox set-up an agent may not change (callbacks), so they wait for #204.
 - **"Issued invoice" wording:** ADRs 0008, 0011 and 0014 use "issued Invoice" informally, while the glossary lists "Issued invoice" under _Avoid_. Align the wording at some point.
 - **Sending a Quote while it is saved is untested under concurrency** (#137): `Quotes.send` and `Quotes.save` both lock the Job, then the Quote, so a save racing a send either lands before it or is refused. Tests share one connection, where locks are re-entrant, so none proves it; test it on separate connections with the other locking tests (#19).
 - **Quote numbers untested under concurrency** (#138): `Quotes.create` takes the Job's next Quote number under the Job's lock, and `(job_id, sequence)` is unique, so two Quotes written at once get different numbers or one fails. Tests share one connection; test it with the other locking tests (#19).

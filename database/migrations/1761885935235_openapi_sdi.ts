@@ -10,8 +10,11 @@ export default class extends BaseSchema {
     this.schema.raw(
       'ALTER TABLE instance_settings DROP CONSTRAINT IF EXISTS instance_settings_values_check'
     )
-    // Invoicetronic was never selectable: nothing to carry over
-    this.schema.raw("UPDATE instance_settings SET sdi_mode = 'manual' WHERE sdi_mode <> 'manual'")
+    // Invoicetronic was never selectable: nothing to carry over, and its
+    // key must never read as a stored Openapi token
+    this.schema.raw(
+      "UPDATE instance_settings SET sdi_mode = 'manual', invoicetronic_api_key = NULL"
+    )
     this.schema.alterTable('instance_settings', (table) => {
       // Encrypted with APP_KEY, never sent back to the page
       table.renameColumn('invoicetronic_api_key', 'openapi_token')
@@ -59,6 +62,15 @@ export default class extends BaseSchema {
   }
 
   async down() {
+    this.defer(async (db) => {
+      // A send whose result is unknown would lose its state: refuse
+      const sending = await db.rawQuery(
+        'SELECT id FROM invoice_submissions WHERE sending_at IS NOT NULL AND submitted_at IS NULL LIMIT 1'
+      )
+      if (sending.rows.length) {
+        throw new Error('A Submission is being sent through Openapi: settle it before rolling back')
+      }
+    })
     this.schema.dropTable('sdi_received_files')
     this.schema.raw('DROP INDEX invoice_submissions_remote_unique')
     this.schema.alterTable('invoice_submissions', (table) => {

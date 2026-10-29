@@ -84,7 +84,9 @@ docker compose run --rm --no-deps -v /path/to/maso-restore/backup/storage:/resto
 docker compose up -d app
 ```
 
-This starts the app and what it needs (`db`, `gotenberg`), but **not** the `backup` service. The restored settings still point at the old server's bucket. Started now, `backup` would catch up on the missed night: it would upload to that bucket and prune its oldest backups while the old server may still be writing there, or while this is only a drill. It starts in step 7.
+This starts the app and what it needs (`db`, `gotenberg`), but **not** the `backup` and `sdi` services. The restored settings still point at the old server's bucket. Started now, `backup` would catch up on the missed night: it would upload to that bucket and prune its oldest backups while the old server may still be writing there, or while this is only a drill. The `sdi` poller (ADR 0019) would use the restored Openapi token, which works in production. Both start in step 7.
+
+**On a drill, before anyone uses the app:** in Instance settings set the SDI mode to "Manuale", or remove the Openapi token. The restored app holds a working production token. Sending an Invoice from the drill would send it to SDI for real.
 
 Use the same release as the old server, or a newer one: the app runs any newer migrations on start-up.
 
@@ -103,6 +105,16 @@ Use the same release as the old server, or a newer one: the app runs any newer m
   ```
 
   Press "Esegui ora" and check the backup succeeds.
+
+- **SDI poller:** on a real recovery only, once the old server is off for good, start it:
+
+  ```sh
+  docker compose up -d sdi
+  ```
+
+  Never on a drill: two servers would poll and send through the same Openapi account.
+
+- A later `docker compose up -d` (for example when updating, #34) starts **every** service, `backup` and `sdi` included. On a drill machine, stop or remove it first.
 
 ## 8. Clean up
 

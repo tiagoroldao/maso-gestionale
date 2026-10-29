@@ -1,5 +1,6 @@
 import { type DateTime } from 'luxon'
 import type { SubmissionOutcome } from '#shared/invoice_lifecycle'
+import type { SdiFailureCode } from '#shared/sdi_failures'
 
 /**
  * A FatturaPA file ready to go to SDI.
@@ -35,11 +36,27 @@ export type ReceivedRef = {
 export type ReceivedFile = { fileName: string; content: Buffer }
 
 /**
+ * Where the intermediary should call when a Supplier Invoice arrives, for
+ * our fiscal id. Polling stays the source of truth; the call only needs to
+ * be registered for the intermediary to receive at all (ADR 0019).
+ */
+export type ReceivingCallback = { fiscalId: string; url: string; authHeader: string | null }
+
+/**
  * The intermediary refused the file, so nothing reached SDI: it can be
  * sent again once the cause is fixed. Any other error from `submit` leaves
  * it unknown whether the file went.
  */
 export class SdiSendRefusedError extends Error {}
+
+/**
+ * A failure the app names itself, by a code the pages translate.
+ */
+export class SdiFailure extends Error {
+  constructor(readonly code: SdiFailureCode) {
+    super(code)
+  }
+}
 
 /**
  * How Submissions reach SDI and Supplier Invoices come back (ADR 0019).
@@ -62,6 +79,8 @@ export interface SdiGateway {
   received(since: DateTime | null): Promise<ReceivedRef[]>
   /** One received file */
   download(ref: ReceivedRef): Promise<ReceivedFile>
+  /** Keeps the receiving callback registered as given; whether it had to change it */
+  ensureReceiving(callback: ReceivingCallback): Promise<boolean>
 }
 
 /**
@@ -85,6 +104,9 @@ export class ManualSdiGateway implements SdiGateway {
   }
   async download(): Promise<ReceivedFile> {
     throw new Error('Nothing is received without an intermediary')
+  }
+  async ensureReceiving() {
+    return false
   }
 }
 
@@ -128,5 +150,14 @@ export class FakeSdiGateway implements SdiGateway {
   async download(ref: ReceivedRef) {
     const file = this.files.get(ref.remoteId)!
     return { fileName: file.fileName, content: file.content }
+  }
+
+  /** The receiving callback registered, as the intermediary would keep it */
+  receiving: ReceivingCallback | null = null
+
+  async ensureReceiving(callback: ReceivingCallback) {
+    const same = JSON.stringify(this.receiving) === JSON.stringify(callback)
+    this.receiving = callback
+    return !same
   }
 }

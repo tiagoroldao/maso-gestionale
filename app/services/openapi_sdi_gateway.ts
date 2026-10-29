@@ -3,8 +3,10 @@ import { TIME_ZONE } from '#shared/dates'
 import type { SdiEnvironment } from '#shared/instance'
 import type { SubmissionOutcome } from '#shared/invoice_lifecycle'
 import {
+  SdiFailure,
   SdiSendRefusedError,
   type ReceivedRef,
+  type ReceivingCallback,
   type SdiFile,
   type SdiGateway,
   type SdiOutcomeReport,
@@ -58,11 +60,19 @@ type Notification = {
 }
 type ErrorEntry = { Codice?: string; Descrizione?: string }
 
+/** The callback event for received Supplier Invoices */
+const RECEIVING_EVENT = 'supplier-invoice'
+
+type Callback = { event: string; url: string; auth_header?: string | null; field?: string | null }
+type ApiConfiguration = { id?: string; callbacks?: Callback[] | Callback | null }
+
 type InvoiceRead = {
   uuid: string
   created_at: string
   sdi_file_name?: string | null
   sdi_file_id?: string | number | null
+  /** The invoice as JSON text, FatturaPA's fields in snake case */
+  payload?: string | null
 }
 
 /**
@@ -103,7 +113,8 @@ export class OpenapiSdiGateway implements SdiGateway {
     }
     const body = (await response.json()) as { data?: { uuid?: string } }
     const remoteId = body.data?.uuid
-    if (!remoteId) throw new Error('Openapi accepted the file without giving its uuid')
+    // Accepted, but with no id to follow it by: whether it went is unknown
+    if (!remoteId) throw new SdiFailure('noRemoteId')
     return { remoteId }
   }
 
@@ -132,17 +143,19 @@ export class OpenapiSdiGateway implements SdiGateway {
   }
 
   /**
-   * GET /invoices?type=0 by number and date: the files Openapi holds for
-   * that Invoice.
+   * GET /invoices?type=0 on the Invoice's date: the files Openapi holds
+   * with its number. Openapi ignores the `invoiceNumber` filter (seen in
+   * the sandbox), so the number is matched here, from each file's payload.
    */
   async findSent(invoice: { number: string; issuedOn: string }) {
     const invoices = await this.list({
       'type': '0',
-      'invoiceNumber': invoice.number,
       'invoiceDate[after]': invoice.issuedOn,
       'invoiceDate[before]': invoice.issuedOn,
     })
-    return invoices.map((found) => found.uuid)
+    return invoices
+      .filter((found) => payloadNumbers(found.payload).includes(invoice.number))
+      .map((found) => found.uuid)
   }
 
   /**
@@ -179,17 +192,59 @@ export class OpenapiSdiGateway implements SdiGateway {
   }
 
   /**
-   * A paged collection, read until a page comes back empty.
+   * Keeps the `supplier-invoice` callback registered: Openapi receives
+   * Supplier Invoices only for a fiscal id with one (ADR 0019). Each POST
+   * replaces the whole configuration, so it is read first, written only
+   * when the callback differs, and keeps the callbacks of other events.
+   */
+  async ensureReceiving(callback: ReceivingCallback) {
+    const search = new URLSearchParams({ fiscal_id: callback.fiscalId })
+    const response = await this.request('GET', `/api_configurations?${search}`)
+    const body = (await response.json()) as { data?: ApiConfiguration[] | null }
+    const callbacks = (body.data ?? []).flatMap((configuration) =>
+      Array.isArray(configuration.callbacks)
+        ? configuration.callbacks
+        : configuration.callbacks
+          ? [configuration.callbacks]
+          : []
+    )
+    const wanted: Callback = {
+      event: RECEIVING_EVENT,
+      url: callback.url,
+      ...(callback.authHeader ? { auth_header: callback.authHeader } : {}),
+    }
+    const current = callbacks.find((entry) => entry.event === RECEIVING_EVENT)
+    if (
+      current &&
+      current.url === wanted.url &&
+      (current.auth_header ?? null) === (wanted.auth_header ?? null)
+    ) {
+      return false
+    }
+
+    const others = callbacks.filter((entry) => entry.event !== RECEIVING_EVENT)
+    await this.request('POST', '/api_configurations', {
+      body: JSON.stringify({ fiscal_id: callback.fiscalId, callbacks: [...others, wanted] }),
+      contentType: 'application/json',
+    })
+    return true
+  }
+
+  /**
+   * A paged collection, read while Openapi says there is more.
    */
   private async list(query: Record<string, string>) {
     const found: InvoiceRead[] = []
     for (let page = 1; page <= MAX_PAGES; page++) {
       const search = new URLSearchParams({ ...query, page: String(page) })
       const response = await this.request('GET', `/invoices?${search}`)
-      const body = (await response.json()) as { data?: InvoiceRead[] | null }
+      const body = (await response.json()) as {
+        data?: InvoiceRead[] | null
+        hasMore?: boolean
+      }
       const rows = body.data ?? []
-      if (!rows.length) break
       found.push(...rows)
+      if (!rows.length || body.hasMore === false) break
     }
     return found
   }
@@ -227,6 +282,25 @@ async function errorMessage(response: Response) {
     // Not JSON: the text itself
   }
   return text.slice(0, 500) || response.statusText
+}
+
+/**
+ * The document numbers in an invoice's payload (one per body of a batch
+ * file); none if it can't be read.
+ */
+function payloadNumbers(payload: string | null | undefined): string[] {
+  try {
+    const invoice = JSON.parse(payload ?? '') as {
+      fattura_elettronica_body?: {
+        dati_generali?: { dati_generali_documento?: { numero?: unknown } }
+      }[]
+    }
+    return (invoice.fattura_elettronica_body ?? [])
+      .map((body) => body.dati_generali?.dati_generali_documento?.numero)
+      .filter((numero): numero is string => typeof numero === 'string')
+  } catch {
+    return []
+  }
 }
 
 /**

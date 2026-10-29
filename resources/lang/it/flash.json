@@ -157,6 +157,7 @@
   "submissionSent": "Fattura inviata a SDI tramite Openapi: l'esito arriverà con il prossimo controllo.",
   "submissionSending": "L'invio di questa fattura è in corso o il suo esito non è ancora noto: verrà verificato al prossimo controllo.",
   "submissionSendRefused": "Openapi ha rifiutato il file, che non è stato inviato: correggi e riprova. Dettaglio: {detail}",
+  "receivingNotRegistered": "Impostazioni salvate, ma non è stato possibile registrare presso Openapi l'indirizzo per ricevere le fatture passive: verrà ritentato al prossimo controllo. Dettaglio: {detail}",
   "submissionSendUncertain": "Non è stato possibile sapere se il file è arrivato a Openapi: verrà verificato al prossimo controllo, non inviarlo di nuovo. Dettaglio: {detail}",
   "submissionOutcome": {
     "delivered": "Fattura consegnata.",
