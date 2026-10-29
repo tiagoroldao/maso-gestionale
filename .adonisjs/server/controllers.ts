@@ -25,6 +25,7 @@ export const controllers = {
   PaymentTerms: () => import('#controllers/payment_terms_controller'),
   Quotes: () => import('#controllers/quotes_controller'),
   Rates: () => import('#controllers/rates_controller'),
+  SdiWebhook: () => import('#controllers/sdi_webhook_controller'),
   Session: () => import('#controllers/session_controller'),
   Setup: () => import('#controllers/setup_controller'),
   Sites: () => import('#controllers/sites_controller'),

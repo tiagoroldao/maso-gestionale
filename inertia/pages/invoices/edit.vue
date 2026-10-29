@@ -130,7 +130,15 @@ const props = defineProps<{
     outcomeNotes: string | null
     hasFile: boolean
   }[]
-  openSubmission: { id: number; fileName: string; submitted: boolean } | null
+  openSubmission: {
+    id: number
+    fileName: string
+    submitted: boolean
+    automatic: boolean
+    sending: boolean
+    sendFailure: string | null
+    sentByApp: boolean
+  } | null
   resubmitBy: string | null
   unsubmittedCount: number
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
@@ -675,6 +683,7 @@ const title = computed(() => {
 })
 const today = todayIso()
 const confirmUpload = () => window.confirm(t('ui.invoices.confirmUploadConfirm'))
+const confirmSend = () => window.confirm(t('ui.invoices.sendConfirm'))
 const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '')
 </script>
 
@@ -1181,13 +1190,18 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               {{ t('ui.invoices.downloadXml', { file: openSubmission.fileName }) }}
             </a>
           </p>
+          <p v-if="openSubmission.sending">{{ t('ui.invoices.sending') }}</p>
+          <p v-if="openSubmission.sendFailure" class="field__error">
+            {{ t('ui.invoices.sendFailure', { detail: openSubmission.sendFailure }) }}
+          </p>
           <Form
+            v-if="!openSubmission.sending"
             route="invoices.confirm_submission"
             :params="{ id: invoice.id }"
-            :on-before="confirmUpload"
+            :on-before="openSubmission.automatic ? confirmSend : confirmUpload"
           >
             <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
-              {{ t('ui.invoices.confirmUpload') }}
+              {{ t(openSubmission.automatic ? 'ui.invoices.send' : 'ui.invoices.confirmUpload') }}
             </button>
           </Form>
         </template>
@@ -1200,6 +1214,9 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
             {{ t('ui.invoices.prepareSubmission') }}
           </button>
         </Form>
+        <p v-if="openSubmission?.submitted && openSubmission.sentByApp" class="field__hint">
+          {{ t('ui.invoices.outcomePolled') }}
+        </p>
         <Form
           v-if="openSubmission?.submitted"
           v-slot="{ processing: recording, errors: outcomeErrors }"

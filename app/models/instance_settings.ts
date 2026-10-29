@@ -1,7 +1,7 @@
 import encryption from '@adonisjs/core/services/encryption'
 import { InstanceSettingSchema } from '#database/schema'
 
-import type { SdiMode } from '#shared/instance'
+import type { SdiEnvironment, SdiMode } from '#shared/instance'
 
 /**
  * The Superuser's settings for this Instance (ADR 0005): how invoices
@@ -12,6 +12,7 @@ export default class InstanceSettings extends InstanceSettingSchema {
   static table = 'instance_settings'
 
   declare sdiMode: SdiMode
+  declare sdiEnvironment: SdiEnvironment
 
   /**
    * The saved settings, or the defaults before the Superuser first saves.
@@ -19,16 +20,31 @@ export default class InstanceSettings extends InstanceSettingSchema {
   static async current() {
     return (
       (await this.find(1)) ??
-      new this().merge({ id: 1, sdiMode: 'manual', pollingMinutes: 60, backupRetention: 14 })
+      new this().merge({
+        id: 1,
+        sdiMode: 'manual',
+        sdiEnvironment: 'sandbox',
+        pollingMinutes: 60,
+        backupRetention: 14,
+      })
     )
   }
 
-  set apiKey(value: string | null) {
-    this.invoicetronicApiKey = value ? encryption.encrypt(value) : null
+  /** Openapi's token (ADR 0019) */
+  set token(value: string | null) {
+    this.openapiToken = value ? encryption.encrypt(value) : null
   }
 
-  get apiKey(): string | null {
-    return this.invoicetronicApiKey ? encryption.decrypt<string>(this.invoicetronicApiKey) : null
+  get token(): string | null {
+    return this.openapiToken ? encryption.decrypt<string>(this.openapiToken) : null
+  }
+
+  /**
+   * A token is stored but no longer decrypts: APP_KEY changed (a restore
+   * with a new key). It must be entered again.
+   */
+  get tokenUnreadable() {
+    return this.openapiToken !== null && this.token === null
   }
 
   set secret(value: string | null) {

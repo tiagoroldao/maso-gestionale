@@ -1,0 +1,487 @@
+{
+  "_source": "Openapi SDI API responses (ADR 0019). Recorded from the sandbox on 2026-10-29: sent, sentList, invoiceDetail, emptyPage, notificationsNone, wrongToken, noBusinessRegistry, recipientNotConfigured, apiConfigurationsNone (Openapi ids replaced by placeholders; VAT numbers replaced by the invented 00000000000 and 11111111111). Not reproducible in the sandbox, so following the official spec examples (console.openapi.com/oas/en/sdi.openapi.json): malformed, noCredit, unavailable, notificationsRejected, notificationsDelivered, receivedPage1, supplierInvoiceXml, apiConfigured (POST answer), apiConfigurationsOne (GET answer: one item per callback, singular `callback`).",
+  "sent": {
+    "status": 200,
+    "body": {
+      "data": {
+        "uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd"
+      },
+      "message": "Created 1  invoice",
+      "success": true,
+      "error": null
+    }
+  },
+  "malformed": {
+    "status": 422,
+    "body": {
+      "success": false,
+      "message": "Parsing error: malformed XML",
+      "error": "802",
+      "data": null
+    }
+  },
+  "noCredit": {
+    "status": 402,
+    "body": {
+      "success": false,
+      "message": "Billing error message: Insufficient Credit in Wallet: 200 > 1.1935842939015E-12 code 810",
+      "error": 611,
+      "data": null
+    }
+  },
+  "wrongToken": {
+    "status": 401,
+    "body": {
+      "success": false,
+      "message": "Wrong Token",
+      "error": 125.22,
+      "data": null
+    }
+  },
+  "unavailable": {
+    "status": 500,
+    "body": {
+      "success": "false",
+      "message": "service temporarily unavailable",
+      "error": "631"
+    }
+  },
+  "notificationsRejected": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "@id": "/invoices/cb1e9d7b-a7f5-49f4-8abb-9111467891fd/notifications/notification",
+          "@type": "Notification",
+          "uuid": "257af4c1-359d-4471-8dba-8c2788b61233",
+          "invoice_uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+          "created_at": "2026-10-29T23:13:57+00:00",
+          "type": "NS",
+          "message": {
+            "@type": "NotificaScartoType",
+            "@id": "_:2072",
+            "identificativo_sdi": "111",
+            "nome_file": "IT01234567890_11111.xml.p7m",
+            "data_ora_ricezione": "2026-10-29T23:00:00+00:00",
+            "riferimento_archivio": {
+              "@type": "RiferimentoArchivioType",
+              "@id": "_:2029",
+              "identificativo_sdi": "100",
+              "nome_file": "IT0111567890_11111.zip"
+            },
+            "lista_errori": {
+              "Errore": {
+                "Codice": "00100",
+                "Descrizione": "Certificato di firma scaduto"
+              }
+            },
+            "message_id": "123456",
+            "note": "Note"
+          },
+          "downloaded": true,
+          "downloaded_at": "2026-10-29T23:14:06+00:00",
+          "file_name": "20261029_231357_294530_8a855ad77a4fe1111d22ac63465a2de1.xml"
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "notificationsDelivered": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "uuid": "8f0c1d2e-0000-4000-8000-000000000002",
+          "invoice_uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+          "created_at": "2026-10-30T09:00:00+00:00",
+          "type": "RC",
+          "message": {
+            "identificativo_sdi": "4242",
+            "nome_file": "IT01234567890_11111.xml"
+          },
+          "downloaded": false,
+          "downloaded_at": null,
+          "file_name": "20261030_090000_000000_0000000000000000000000000000000002.xml"
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "notificationsNone": {
+    "status": 200,
+    "body": {
+      "data": [],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "receivedPage1": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "uuid": "9b8dddbd-7900-48c6-b159-0f60cc9b413c",
+          "created_at": "2026-10-28T10:39:14+00:00",
+          "type": 1,
+          "sdi_file_name": "IT12345678901_00001.xml",
+          "sdi_file_id": "1084646898320",
+          "marking": "received",
+          "downloaded": false
+        },
+        {
+          "uuid": "ffe8cdad-1a02-49fe-8cc6-f6b189eb6e5d",
+          "created_at": "2026-10-29T08:32:19+00:00",
+          "type": 1,
+          "sdi_file_name": "IT12345678901_00002.xml.p7m",
+          "sdi_file_id": "335228642533",
+          "marking": "received",
+          "downloaded": false
+        }
+      ],
+      "page": 1,
+      "itemsPerPage": 10,
+      "hasMore": false,
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "sentList": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "created_at": "2026-10-29T16:13:25+00:00",
+          "uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+          "type": 0,
+          "payload": "{\"fattura_elettronica_header\":{\"dati_trasmissione\":{\"id_trasmittente\":{\"id_paese\":\"IT\",\"id_codice\":\"00000000000\"},\"progressivo_invio\":\"M0001\",\"formato_trasmissione\":\"FPR12\",\"codice_destinatario\":\"0000000\",\"contatti_trasmittente\":null,\"pec_destinatario\":null},\"cedente_prestatore\":{\"dati_anagrafici\":{\"id_fiscale_iva\":{\"id_paese\":\"IT\",\"id_codice\":\"00000000000\"},\"codice_fiscale\":null,\"anagrafica\":{\"denominazione\":\"Maso sandbox test\",\"nome\":null,\"cognome\":null,\"titolo\":null,\"cod_eori\":null},\"albo_professionale\":null,\"provincia_albo\":null,\"numero_iscrizione_albo\":null,\"data_iscrizione_albo\":null,\"regime_fiscale\":\"RF01\"},\"sede\":{\"indirizzo\":\"Via di Qua 1\",\"numero_civico\":null,\"cap\":\"38100\",\"comune\":\"Trento\",\"provincia\":\"TN\",\"nazione\":\"IT\"},\"stabile_organizzazione\":null,\"iscrizione_rea\":null,\"contatti\":null,\"riferimento_amministrazione\":null},\"rappresentante_fiscale\":null,\"cessionario_committente\":{\"dati_anagrafici\":{\"id_fiscale_iva\":{\"id_paese\":\"IT\",\"id_codice\":\"11111111111\"},\"codice_fiscale\":null,\"anagrafica\":{\"denominazione\":\"Cliente di prova\",\"nome\":null,\"cognome\":null,\"titolo\":null,\"cod_eori\":null}},\"sede\":{\"indirizzo\":\"Via di La 2\",\"numero_civico\":null,\"cap\":\"38100\",\"comune\":\"Trento\",\"provincia\":\"TN\",\"nazione\":\"IT\"},\"stabile_organizzazione\":null,\"rappresentante_fiscale\":null},\"terzo_intermediario_o_soggetto_emittente\":null,\"soggetto_emittente\":null},\"fattura_elettronica_body\":[{\"dati_generali\":{\"dati_generali_documento\":{\"tipo_documento\":\"TD01\",\"divisa\":\"EUR\",\"data\":\"2026-10-29\",\"numero\":\"92\\/2026\",\"dati_ritenuta\":null,\"dati_bollo\":null,\"dati_cassa_previdenziale\":null,\"sconto_maggiorazione\":null,\"importo_totale_documento\":\"122.00\",\"arrotondamento\":null,\"causale\":null,\"art73\":null},\"dati_ordine_acquisto\":null,\"dati_contratto\":null,\"dati_convenzione\":null,\"dati_ricezione\":null,\"dati_fatture_collegate\":null,\"dati_sal\":null,\"dati_ddt\":null,\"dati_trasporto\":null,\"fattura_principale\":null},\"dati_beni_servizi\":{\"dettaglio_linee\":[{\"numero_linea\":1,\"tipo_cessione_prestazione\":null,\"codice_articolo\":null,\"descrizione\":\"Intervento\",\"quantita\":\"1.00\",\"unita_misura\":null,\"data_inizio_periodo\":null,\"data_fine_periodo\":null,\"prezzo_unitario\":\"100.00\",\"sconto_maggiorazione\":null,\"prezzo_totale\":\"100.00\",\"aliquota_iva\":\"22.00\",\"ritenuta\":null,\"natura\":null,\"riferimento_amministrazione\":null,\"altri_dati_gestionali\":null}],\"dati_riepilogo\":[{\"aliquota_iva\":\"22.00\",\"natura\":null,\"spese_accessorie\":null,\"arrotondamento\":null,\"imponibile_importo\":\"100.00\",\"imposta\":\"22.00\",\"esigibilita_iva\":\"I\",\"riferimento_normativo\":null}]},\"dati_veicoli\":null,\"dati_pagamento\":null,\"allegati\":null}]}",
+          "sender": {
+            "uuid": "00000000-0000-4000-8000-000000000001",
+            "head_office_address_street": "Via di Qua 1",
+            "head_office_address_street_number": null,
+            "head_office_address_zip_code": "38100",
+            "head_office_address_city": "Trento",
+            "head_office_address_province": "TN",
+            "head_office_address_country": "IT",
+            "office_address_street": null,
+            "office_address_street_number": null,
+            "office_address_zip_code": null,
+            "office_address_city": null,
+            "office_address_province": null,
+            "office_address_country": null,
+            "business_vat_number_country": "IT",
+            "business_vat_number_code": "00000000000",
+            "business_fiscal_code": null,
+            "business_name": "Maso sandbox test",
+            "name": null,
+            "surname": null,
+            "title": null,
+            "cod_eori": null,
+            "professional_register": null,
+            "professional_register_province": null,
+            "professional_register_registration_number": null,
+            "professional_register_registration_date": null,
+            "tax_regime": "RF01",
+            "contact_phone": null,
+            "contact_fax": null,
+            "contact_email": null,
+            "rea_registration_office": null,
+            "rea_registration_number": null,
+            "rea_registration_share_capital": null,
+            "rea_registration_sole_shareholder": null,
+            "rea_registration_liquidation_status": null,
+            "reference_administration": null,
+            "fiscal_representative_vat_number_country": null,
+            "fiscal_representative_vat_number_code": null,
+            "fiscal_representative_fiscal_code": null,
+            "fiscal_representative_denomination": null,
+            "fiscal_representative_name": null,
+            "fiscal_representative_surname": null,
+            "fiscal_representative_title": null,
+            "fiscal_representative_cod_eori": null,
+            "recipient_code": null,
+            "pec": null
+          },
+          "recipient": {
+            "uuid": "00000000-0000-4000-8000-000000000002",
+            "head_office_address_street": "Via di La 2",
+            "head_office_address_street_number": null,
+            "head_office_address_zip_code": "38100",
+            "head_office_address_city": "Trento",
+            "head_office_address_province": "TN",
+            "head_office_address_country": "IT",
+            "office_address_street": null,
+            "office_address_street_number": null,
+            "office_address_zip_code": null,
+            "office_address_city": null,
+            "office_address_province": null,
+            "office_address_country": null,
+            "business_vat_number_country": "IT",
+            "business_vat_number_code": "11111111111",
+            "business_fiscal_code": "11111111111",
+            "business_name": "Cliente di prova",
+            "name": null,
+            "surname": null,
+            "title": null,
+            "cod_eori": null,
+            "professional_register": null,
+            "professional_register_province": null,
+            "professional_register_registration_number": null,
+            "professional_register_registration_date": null,
+            "tax_regime": null,
+            "contact_phone": null,
+            "contact_fax": null,
+            "contact_email": null,
+            "rea_registration_office": null,
+            "rea_registration_number": null,
+            "rea_registration_share_capital": null,
+            "rea_registration_sole_shareholder": null,
+            "rea_registration_liquidation_status": null,
+            "reference_administration": null,
+            "fiscal_representative_vat_number_country": null,
+            "fiscal_representative_vat_number_code": null,
+            "fiscal_representative_fiscal_code": null,
+            "fiscal_representative_denomination": null,
+            "fiscal_representative_name": null,
+            "fiscal_representative_surname": null,
+            "fiscal_representative_title": null,
+            "fiscal_representative_cod_eori": null,
+            "recipient_code": "0000000",
+            "pec": null
+          },
+          "notifications": [
+            {
+              "type": "RC",
+              "created_at": "2026-10-29T16:13:53+00:00"
+            }
+          ],
+          "sdi_file_name": "IT10442360961ACB26_00E78.xml",
+          "sdi_file_id": "803607370655",
+          "signed": false,
+          "legally_stored": false,
+          "preserved_document": null,
+          "downloaded": false,
+          "downloaded_at": null,
+          "marking": "delivered",
+          "notice": null,
+          "retry_information": [],
+          "transmission_format": "FPR12",
+          "document_type": "TD01",
+          "to_pa": false
+        }
+      ],
+      "page": 1,
+      "itemsPerPage": 10,
+      "hasMore": false,
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "emptyPage": {
+    "status": 200,
+    "body": {
+      "data": [],
+      "page": 1,
+      "itemsPerPage": 10,
+      "hasMore": false,
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "supplierInvoiceXml": {
+    "status": 200,
+    "contentType": "application/octet-stream",
+    "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:FatturaElettronica versione=\"FPR12\" xmlns:p=\"http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2\"><FatturaElettronicaHeader><DatiTrasmissione><IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>12345678901</IdCodice></IdTrasmittente><ProgressivoInvio>00001</ProgressivoInvio><FormatoTrasmissione>FPR12</FormatoTrasmissione><CodiceDestinatario>JKKZDGR</CodiceDestinatario></DatiTrasmissione></FatturaElettronicaHeader><FatturaElettronicaBody><DatiGenerali><DatiGeneraliDocumento><TipoDocumento>TD01</TipoDocumento><Divisa>EUR</Divisa><Data>2026-10-28</Data><Numero>1</Numero></DatiGeneraliDocumento></DatiGenerali></FatturaElettronicaBody></p:FatturaElettronica>"
+  },
+  "invoiceDetail": {
+    "status": 200,
+    "body": {
+      "data": {
+        "created_at": "2026-10-29T16:13:25+00:00",
+        "uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+        "type": 0,
+        "payload": "{\"fattura_elettronica_header\":{\"dati_trasmissione\":{\"id_trasmittente\":{\"id_paese\":\"IT\",\"id_codice\":\"00000000000\"},\"progressivo_invio\":\"M0001\",\"formato_trasmissione\":\"FPR12\",\"codice_destinatario\":\"0000000\",\"contatti_trasmittente\":null,\"pec_destinatario\":null},\"cedente_prestatore\":{\"dati_anagrafici\":{\"id_fiscale_iva\":{\"id_paese\":\"IT\",\"id_codice\":\"00000000000\"},\"codice_fiscale\":null,\"anagrafica\":{\"denominazione\":\"Maso sandbox test\",\"nome\":null,\"cognome\":null,\"titolo\":null,\"cod_eori\":null},\"albo_professionale\":null,\"provincia_albo\":null,\"numero_iscrizione_albo\":null,\"data_iscrizione_albo\":null,\"regime_fiscale\":\"RF01\"},\"sede\":{\"indirizzo\":\"Via di Qua 1\",\"numero_civico\":null,\"cap\":\"38100\",\"comune\":\"Trento\",\"provincia\":\"TN\",\"nazione\":\"IT\"},\"stabile_organizzazione\":null,\"iscrizione_rea\":null,\"contatti\":null,\"riferimento_amministrazione\":null},\"rappresentante_fiscale\":null,\"cessionario_committente\":{\"dati_anagrafici\":{\"id_fiscale_iva\":{\"id_paese\":\"IT\",\"id_codice\":\"11111111111\"},\"codice_fiscale\":null,\"anagrafica\":{\"denominazione\":\"Cliente di prova\",\"nome\":null,\"cognome\":null,\"titolo\":null,\"cod_eori\":null}},\"sede\":{\"indirizzo\":\"Via di La 2\",\"numero_civico\":null,\"cap\":\"38100\",\"comune\":\"Trento\",\"provincia\":\"TN\",\"nazione\":\"IT\"},\"stabile_organizzazione\":null,\"rappresentante_fiscale\":null},\"terzo_intermediario_o_soggetto_emittente\":null,\"soggetto_emittente\":null},\"fattura_elettronica_body\":[{\"dati_generali\":{\"dati_generali_documento\":{\"tipo_documento\":\"TD01\",\"divisa\":\"EUR\",\"data\":\"2026-10-29\",\"numero\":\"92\\/2026\",\"dati_ritenuta\":null,\"dati_bollo\":null,\"dati_cassa_previdenziale\":null,\"sconto_maggiorazione\":null,\"importo_totale_documento\":\"122.00\",\"arrotondamento\":null,\"causale\":null,\"art73\":null},\"dati_ordine_acquisto\":null,\"dati_contratto\":null,\"dati_convenzione\":null,\"dati_ricezione\":null,\"dati_fatture_collegate\":null,\"dati_sal\":null,\"dati_ddt\":null,\"dati_trasporto\":null,\"fattura_principale\":null},\"dati_beni_servizi\":{\"dettaglio_linee\":[{\"numero_linea\":1,\"tipo_cessione_prestazione\":null,\"codice_articolo\":null,\"descrizione\":\"Intervento\",\"quantita\":\"1.00\",\"unita_misura\":null,\"data_inizio_periodo\":null,\"data_fine_periodo\":null,\"prezzo_unitario\":\"100.00\",\"sconto_maggiorazione\":null,\"prezzo_totale\":\"100.00\",\"aliquota_iva\":\"22.00\",\"ritenuta\":null,\"natura\":null,\"riferimento_amministrazione\":null,\"altri_dati_gestionali\":null}],\"dati_riepilogo\":[{\"aliquota_iva\":\"22.00\",\"natura\":null,\"spese_accessorie\":null,\"arrotondamento\":null,\"imponibile_importo\":\"100.00\",\"imposta\":\"22.00\",\"esigibilita_iva\":\"I\",\"riferimento_normativo\":null}]},\"dati_veicoli\":null,\"dati_pagamento\":null,\"allegati\":null}]}",
+        "sender": {
+          "uuid": "00000000-0000-4000-8000-000000000001",
+          "head_office_address_street": "Via di Qua 1",
+          "head_office_address_street_number": null,
+          "head_office_address_zip_code": "38100",
+          "head_office_address_city": "Trento",
+          "head_office_address_province": "TN",
+          "head_office_address_country": "IT",
+          "office_address_street": null,
+          "office_address_street_number": null,
+          "office_address_zip_code": null,
+          "office_address_city": null,
+          "office_address_province": null,
+          "office_address_country": null,
+          "business_vat_number_country": "IT",
+          "business_vat_number_code": "00000000000",
+          "business_fiscal_code": null,
+          "business_name": "Maso sandbox test",
+          "name": null,
+          "surname": null,
+          "title": null,
+          "cod_eori": null,
+          "professional_register": null,
+          "professional_register_province": null,
+          "professional_register_registration_number": null,
+          "professional_register_registration_date": null,
+          "tax_regime": "RF01",
+          "contact_phone": null,
+          "contact_fax": null,
+          "contact_email": null,
+          "rea_registration_office": null,
+          "rea_registration_number": null,
+          "rea_registration_share_capital": null,
+          "rea_registration_sole_shareholder": null,
+          "rea_registration_liquidation_status": null,
+          "reference_administration": null,
+          "fiscal_representative_vat_number_country": null,
+          "fiscal_representative_vat_number_code": null,
+          "fiscal_representative_fiscal_code": null,
+          "fiscal_representative_denomination": null,
+          "fiscal_representative_name": null,
+          "fiscal_representative_surname": null,
+          "fiscal_representative_title": null,
+          "fiscal_representative_cod_eori": null,
+          "recipient_code": null,
+          "pec": null
+        },
+        "recipient": {
+          "uuid": "00000000-0000-4000-8000-000000000002",
+          "head_office_address_street": "Via di La 2",
+          "head_office_address_street_number": null,
+          "head_office_address_zip_code": "38100",
+          "head_office_address_city": "Trento",
+          "head_office_address_province": "TN",
+          "head_office_address_country": "IT",
+          "office_address_street": null,
+          "office_address_street_number": null,
+          "office_address_zip_code": null,
+          "office_address_city": null,
+          "office_address_province": null,
+          "office_address_country": null,
+          "business_vat_number_country": "IT",
+          "business_vat_number_code": "11111111111",
+          "business_fiscal_code": "11111111111",
+          "business_name": "Cliente di prova",
+          "name": null,
+          "surname": null,
+          "title": null,
+          "cod_eori": null,
+          "professional_register": null,
+          "professional_register_province": null,
+          "professional_register_registration_number": null,
+          "professional_register_registration_date": null,
+          "tax_regime": null,
+          "contact_phone": null,
+          "contact_fax": null,
+          "contact_email": null,
+          "rea_registration_office": null,
+          "rea_registration_number": null,
+          "rea_registration_share_capital": null,
+          "rea_registration_sole_shareholder": null,
+          "rea_registration_liquidation_status": null,
+          "reference_administration": null,
+          "fiscal_representative_vat_number_country": null,
+          "fiscal_representative_vat_number_code": null,
+          "fiscal_representative_fiscal_code": null,
+          "fiscal_representative_denomination": null,
+          "fiscal_representative_name": null,
+          "fiscal_representative_surname": null,
+          "fiscal_representative_title": null,
+          "fiscal_representative_cod_eori": null,
+          "recipient_code": "0000000",
+          "pec": null
+        },
+        "notifications": [],
+        "sdi_file_name": "IT10442360961ACB26_00E78.xml",
+        "sdi_file_id": "803607370655",
+        "signed": false,
+        "legally_stored": false,
+        "preserved_document": null,
+        "downloaded": false,
+        "downloaded_at": null,
+        "marking": "sent",
+        "notice": null,
+        "retry_information": [],
+        "transmission_format": "FPR12",
+        "document_type": "TD01",
+        "to_pa": false
+      },
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "recipientNotConfigured": {
+    "status": 500,
+    "body": {
+      "success": false,
+      "message": "service temporarily unavailable {\"title\":\"An error occurred\",\"detail\":\"Recipient with fiscal id 00000000000 is not configured\",\"status\":428,\"type\":\"\\/errors\\/428\"}",
+      "error": 631,
+      "data": null
+    }
+  },
+  "noBusinessRegistry": {
+    "status": 401,
+    "body": {
+      "success": false,
+      "message": "No business registry configurations have been set up.",
+      "error": 661,
+      "data": null
+    }
+  },
+  "apiConfigurationsNone": {
+    "status": 200,
+    "body": {
+      "data": [],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "apiConfigured": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "id": "000000000000000000000000",
+          "callbacks": []
+        }
+      ],
+      "message": "",
+      "success": true,
+      "error": null
+    }
+  },
+  "apiConfigurationsOne": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "id": "65e5e01232136c3ffd7f0942",
+          "fiscal_id": "OPENAPI1234",
+          "callback": {
+            "event": "supplier-invoice",
+            "url": "https://dev.console.openapi.com",
+            "auth_header": "Test 22345",
+            "field": "{\"test\":true}",
+            "provider_uuid": "a6d9550b-44fc-428f-b7da-11111111"
+          }
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  }
+}

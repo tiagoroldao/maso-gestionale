@@ -59,6 +59,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/session_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'sdi.webhook': {
+    methods: ["POST"]
+    pattern: '/sdi/webhook'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/sdi_webhook_controller').default['notify']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/sdi_webhook_controller').default['notify']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/sdi_webhook_controller').default['notify']>>>
+    }
+  }
   'session.destroy': {
     methods: ["POST"]
     pattern: '/logout'

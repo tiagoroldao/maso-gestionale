@@ -2,7 +2,13 @@ import InstanceSettings from '#models/instance_settings'
 import User from '#models/user'
 import { Backups } from '#services/backups'
 import { adminPasswordValidator, instanceSettingsValidator } from '#validators/instance_settings'
+import SdiReceivedFile from '#models/sdi_received_file'
+import { sdiWebhookUrl } from '#shared/instance'
+import { isSdiFailureCode, type PollFailure } from '#shared/sdi_failures'
+import SdiConnection from '#services/sdi_connection'
+import SdiReceiving from '#services/sdi_receiving'
 import type { HttpContext } from '@adonisjs/core/http'
+import { errors as vineErrors } from '@vinejs/vine'
 
 /**
  * Instance settings, for the Superuser only (ADR 0005). Nothing here shows
@@ -14,17 +20,28 @@ export default class InstanceController {
   async show({ inertia }: HttpContext) {
     const settings = await InstanceSettings.current()
     const admins = await User.query().where('role', 'admin').orderBy('email')
+    const waiting = await SdiReceivedFile.query().whereNull('handedAt').count('* as total').first()
 
     return inertia.render('instance', {
       settings: {
         sdiMode: settings.sdiMode,
+        sdiEnvironment: settings.sdiEnvironment,
         // Whether a usable secret is stored, never the secret: one
-        // encrypted under another APP_KEY (after a restore) reads as null
-        hasApiKey: settings.apiKey !== null,
+        // encrypted under another APP_KEY (after a restore) reads as null,
+        // and the page says it must be entered again
+        hasToken: settings.token !== null,
+        tokenUnreadable: settings.tokenUnreadable,
         pollingMinutes: settings.pollingMinutes,
         webhookEnabled: settings.webhookEnabled,
         hasWebhookSecret: settings.secret !== null,
+        secretUnreadable: settings.webhookSecret !== null && settings.secret === null,
         publicUrl: settings.publicUrl,
+        // What to give Openapi as the callback address
+        webhookUrl: settings.publicUrl ? sdiWebhookUrl(settings.publicUrl) : null,
+        polledAt: settings.sdiPolledAt?.toISO() ?? null,
+        pollFailures: pollFailures(settings.sdiPollFailure),
+        // Supplier Invoice files received and not yet taken by the intake (#198)
+        receivedWaiting: Number(waiting?.$extras.total ?? 0),
       },
       backups: {
         endpoint: settings.backupEndpoint ?? null,
@@ -53,27 +70,49 @@ export default class InstanceController {
   }
 
   async update({ request, response, session, i18n }: HttpContext) {
-    const data = await request.validateUsing(instanceSettingsValidator)
-    // Automatic Submission isn't built yet (#92)
-    if (data.sdiMode !== 'manual') {
-      session.flash('error', i18n.t('flash.invoicetronicNotAvailable'))
-      return response.redirect().toRoute('instance')
+    const settings = await InstanceSettings.current()
+    let data
+    try {
+      data = await request.validateUsing(instanceSettingsValidator, {
+        meta: { hasToken: settings.token !== null, hasSecret: settings.secret !== null },
+      })
+    } catch (error) {
+      if (!(error instanceof vineErrors.E_VALIDATION_ERROR)) throw error
+      // The errors only, never the input: the token and the webhook secret
+      // don't travel back in the session cookie
+      session.flashValidationErrors(error, false)
+      return response.redirect().back()
     }
 
-    const settings = await InstanceSettings.current()
     settings.merge({
       sdiMode: data.sdiMode,
+      sdiEnvironment: data.sdiEnvironment,
       pollingMinutes: data.pollingMinutes,
       webhookEnabled: data.webhookEnabled ?? false,
       publicUrl: data.publicUrl ?? null,
     })
-    if (data.clearApiKey) settings.apiKey = null
-    else if (data.invoicetronicApiKey) settings.apiKey = data.invoicetronicApiKey
-    if (data.clearWebhookSecret) settings.secret = null
-    else if (data.webhookSecret) settings.secret = data.webhookSecret
+    if (data.openapiToken) settings.token = data.openapiToken
+    else if (data.clearToken) settings.token = null
+    if (data.webhookSecret) settings.secret = data.webhookSecret
+    else if (data.clearWebhookSecret) settings.secret = null
     await settings.save()
 
     session.flash('success', i18n.t('flash.instanceSaved'))
+    // Openapi receives Supplier Invoices only with a callback registered
+    // (ADR 0019); the poller retries if this fails
+    if (settings.sdiMode === 'openapi') {
+      try {
+        await SdiReceiving.ensure(await SdiConnection.gateway())
+      } catch (error) {
+        const detail = error instanceof Error ? error.message : String(error)
+        session.flash(
+          'error',
+          i18n.t('flash.receivingNotRegistered', {
+            detail: isSdiFailureCode(detail) ? i18n.t(`ui.sdiFailures.${detail}`) : detail,
+          })
+        )
+      }
+    }
     response.redirect().toRoute('instance')
   }
 
@@ -88,5 +127,17 @@ export default class InstanceController {
 
     session.flash('success', i18n.t('flash.adminPasswordSet', { email: admin.email }))
     response.redirect().toRoute('instance')
+  }
+}
+
+/**
+ * The last poll's failed steps, as the poller stored them (ADR 0019).
+ */
+function pollFailures(stored: string | null): PollFailure[] {
+  if (!stored) return []
+  try {
+    return JSON.parse(stored) as PollFailure[]
+  } catch {
+    return []
   }
 }

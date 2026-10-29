@@ -309,7 +309,7 @@ export class InstalledEquipmentSchema extends BaseModel {
 }
 
 export class InstanceSettingSchema extends BaseModel {
-  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'invoicetronicApiKey', 'pollingMinutes', 'publicUrl', 'sdiMode', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
+  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'openapiToken', 'pollingMinutes', 'publicUrl', 'sdiEnvironment', 'sdiMode', 'sdiPollFailure', 'sdiPollRequestedAt', 'sdiPolledAt', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
   $columns = InstanceSettingSchema.$columns
   @column()
   declare backupAccessKeyId: string | null
@@ -340,13 +340,21 @@ export class InstanceSettingSchema extends BaseModel {
   @column({ isPrimary: true })
   declare id: number
   @column()
-  declare invoicetronicApiKey: string | null
+  declare openapiToken: string | null
   @column()
   declare pollingMinutes: number
   @column()
   declare publicUrl: string | null
   @column()
+  declare sdiEnvironment: string
+  @column()
   declare sdiMode: string
+  @column()
+  declare sdiPollFailure: string | null
+  @column.dateTime()
+  declare sdiPollRequestedAt: DateTime | null
+  @column.dateTime()
+  declare sdiPolledAt: DateTime | null
   @column.dateTime({ autoCreate: true, autoUpdate: true })
   declare updatedAt: DateTime | null
   @column()
@@ -440,7 +448,7 @@ export class InvoiceSequenceSchema extends BaseModel {
 }
 
 export class InvoiceSubmissionSchema extends BaseModel {
-  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'noticeOn', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'sdiId', 'submittedAt', 'submittedBy', 'updatedAt', 'xml'] as const
+  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'noticeOn', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'remoteId', 'sdiId', 'sendFailure', 'sendingAt', 'submittedAt', 'submittedBy', 'updatedAt', 'xml'] as const
   $columns = InvoiceSubmissionSchema.$columns
   @column()
   declare channel: string
@@ -469,7 +477,13 @@ export class InvoiceSubmissionSchema extends BaseModel {
   @column()
   declare progressive: string
   @column()
+  declare remoteId: string | null
+  @column()
   declare sdiId: string | null
+  @column()
+  declare sendFailure: string | null
+  @column.dateTime()
+  declare sendingAt: DateTime | null
   @column.dateTime()
   declare submittedAt: DateTime | null
   @column()
@@ -823,6 +837,31 @@ export class QuoteSchema extends BaseModel {
   declare updatedAt: DateTime | null
   @column()
   declare validityDays: number | null
+}
+
+export class SdiReceivedFileSchema extends BaseModel {
+  static $columns = ['channel', 'content', 'createdAt', 'failure', 'fileName', 'handedAt', 'id', 'receivedAt', 'remoteId', 'sdiId'] as const
+  $columns = SdiReceivedFileSchema.$columns
+  @column()
+  declare channel: string
+  @column()
+  declare content: Buffer
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare failure: string | null
+  @column()
+  declare fileName: string
+  @column.dateTime()
+  declare handedAt: DateTime | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column.dateTime()
+  declare receivedAt: DateTime
+  @column()
+  declare remoteId: string
+  @column()
+  declare sdiId: string | null
 }
 
 export class SiteSchema extends BaseModel {
