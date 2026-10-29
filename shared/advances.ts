@@ -44,6 +44,8 @@ const rowKey = (row: { vatRate: string; natura: string | null }) =>
  * (`taken`, by row, from issued Invoices), so the advance always closes
  * to the cent. A part never takes back more than its row has left, so
  * rounding can't overshoot and leave the closing step a positive line.
+ * No row is ever taken back beyond its taxable: a rejected advance can't
+ * be corrected that way (belowTakenRow()).
  */
 export function deductionRows(
   rows: AdvanceRow[],
@@ -69,5 +71,26 @@ export function deductionRows(
       .round(2, Big.roundHalfUp)
     const capped = part.gt(remaining[index]) ? remaining[index] : part
     return { ...row, taxable: capped.toFixed(2) }
+  })
+}
+
+/**
+ * Whether a corrected advance leaves one of its VAT rows (`rows`, by
+ * rate and Natura) below the taxable already taken back of it (`taken`),
+ * a row it no longer has included. Its total may still cover what was
+ * taken back, but the deductions, split by row, could no longer close it
+ * to the cent (ADR 0011), so such a correction is refused.
+ */
+export function belowTakenRow(
+  rows: { vatRate: string; natura: string | null; taxable: string }[],
+  taken: { vatRate: string; natura: string | null; taxable: string }[]
+) {
+  const byRow = new Map<string, Big>()
+  for (const other of taken) {
+    byRow.set(rowKey(other), (byRow.get(rowKey(other)) ?? new Big(0)).plus(other.taxable))
+  }
+  return [...byRow].some(([key, amount]) => {
+    const row = rows.find((candidate) => rowKey(candidate) === key)
+    return new Big(row?.taxable ?? 0).lt(amount)
   })
 }

@@ -6,6 +6,7 @@ import Invoice from '#models/invoice'
 import Payment from '#models/payment'
 import type User from '#models/user'
 import { owed } from '#shared/payment_status'
+import { CREDITED_SQL, PAID_SQL } from '#services/job_status'
 
 /**
  * Not a payment at all: the Invoice is still a draft, or it is a Credit
@@ -73,30 +74,29 @@ export default class Payments {
   /**
    * What has been paid on the Invoice, refunds included, read in `trx`:
    * current when the Invoice is locked there. The one place it is summed
-   * for a check, so recording and correcting read it alike.
+   * for a check, so recording and correcting read it alike; it selects
+   * PAID_SQL, so checks and list filters can't drift apart.
    */
   static async paid(trx: TransactionClientContract, invoiceId: number) {
-    const row = await trx
-      .from('payments')
-      .where('invoice_id', invoiceId)
-      .sum('amount as paid')
-      .first()
-    return new Big(row?.paid ?? 0).toFixed(2)
+    return this.sumOf(trx, invoiceId, PAID_SQL('i'))
   }
 
   /**
    * What the Invoice's Credit Notes credit (credits(): those past draft),
    * read in `trx`: current when the Invoice is locked there, since a
-   * Credit Note locks the Invoice it credits before it changes.
+   * Credit Note locks the Invoice it credits before it changes. It
+   * selects CREDITED_SQL, the one place the rule is written for the
+   * database.
    */
   static async credited(trx: TransactionClientContract, invoiceId: number) {
-    const row = await trx
-      .from('invoices')
-      .where('credits_invoice_id', invoiceId)
-      .whereNot('status', 'draft')
-      .sum('total as credited')
-      .first()
-    return new Big(row?.credited ?? 0).toFixed(2)
+    return this.sumOf(trx, invoiceId, CREDITED_SQL('i'))
+  }
+
+  private static async sumOf(trx: TransactionClientContract, invoiceId: number, sql: string) {
+    const { rows } = await trx.rawQuery(`SELECT ${sql} AS amount FROM invoices i WHERE i.id = ?`, [
+      invoiceId,
+    ])
+    return new Big(rows[0]?.amount ?? 0).toFixed(2)
   }
 
   /**

@@ -1,5 +1,7 @@
 import { test } from '@japa/runner'
+import Big from 'big.js'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import type { ApiClient } from '@japa/api-client'
 import type Customer from '#models/customer'
 import type User from '#models/user'
@@ -10,6 +12,7 @@ import StockMovement from '#models/stock_movement'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
 import Submissions from '#services/submissions'
+import { OWED_SQL } from '#services/job_status'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
@@ -17,6 +20,7 @@ import { createItem, vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { formatMoney } from '#shared/money'
 import { formatDate } from '#shared/dates'
+import { owed } from '#shared/payment_status'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
@@ -128,6 +132,53 @@ test.group('Payments', () => {
     const { payment } = await Payments.record(invoice, { amount: '22.00', paidOn: DateTime.now() })
     await client.delete(`/payments/${payment.id}`).withCsrfToken().loginAs(office)
     assert.lengthOf(await Payment.all(), 0)
+  })
+
+  test('checks, pages and list filters count Payments and Credit Notes alike', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    const invoice = await issued()
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, { outcome: 'delivered' })
+    await Payments.record(invoice, { amount: '100', paidOn: DateTime.now() })
+    await Payments.record(invoice, { amount: '-10', paidOn: DateTime.now() })
+
+    // Each way of reading what is owed: the checks', the page's, the filters'
+    const readings = async () => {
+      const checks = await db.transaction(async (trx) => ({
+        paid: await Payments.paid(trx, invoice.id),
+        credited: await Payments.credited(trx, invoice.id),
+      }))
+      const fresh = await Invoice.query()
+        .where('id', invoice.id)
+        .preload('payments')
+        .preload('creditNotes')
+        .firstOrFail()
+      const { rows } = await db.rawQuery(
+        `SELECT ${OWED_SQL('i')} AS owed FROM invoices i WHERE i.id = ?`,
+        [invoice.id]
+      )
+      return {
+        checks,
+        page: { paid: fresh.paid, credited: fresh.credited },
+        owed: [owed({ total: invoice.total!, ...checks }), new Big(rows[0].owed).toFixed(2)],
+      }
+    }
+    // A draft Credit Note credits nothing yet
+    const note = await Invoices.createCreditNote(invoice)
+    assert.deepEqual(await readings(), {
+      checks: { paid: '90.00', credited: '0.00' },
+      page: { paid: '90.00', credited: '0.00' },
+      owed: ['32.00', '32.00'],
+    })
+    await Invoices.finalise(note)
+    assert.deepEqual(await readings(), {
+      checks: { paid: '90.00', credited: '122.00' },
+      page: { paid: '90.00', credited: '122.00' },
+      owed: ['-90.00', '-90.00'],
+    })
   })
 
   test('a Payment above what is owed is recorded with a warning; the Invoice is overpaid', async ({

@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { lineKindOf, needsSignificantGoodSplit } from '#shared/vat'
+import { keptVatTreatment, lineKindOf, needsSignificantGoodSplit } from '#shared/vat'
 
 test.group('VAT line kinds', () => {
   test('a line is labour unless it bills an Item', ({ assert }) => {
@@ -15,5 +15,14 @@ test.group('VAT line kinds', () => {
     assert.isFalse(needsSignificantGoodSplit(reduced, false))
     assert.isFalse(needsSignificantGoodSplit({ rate: '22.00', natura: null }, true))
     assert.isFalse(needsSignificantGoodSplit({ rate: '0.00', natura: 'N6.7' }, true))
+  })
+})
+
+test.group('VAT treatment of a saved line', () => {
+  test('kept while its code is unchanged; the code read again otherwise', ({ assert }) => {
+    const saved = { vatCodeId: 1, vatRate: '22.00', natura: null }
+    assert.strictEqual(keptVatTreatment(saved, 1), saved)
+    assert.isNull(keptVatTreatment(saved, 2))
+    assert.isNull(keptVatTreatment(null, 1))
   })
 })

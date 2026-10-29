@@ -218,6 +218,27 @@ test.group('Credit Notes on Legacy Invoices', () => {
     assert.equal(await owedOn(exempt), '0.00')
   })
 
+  test('the prefill keeps its VAT within the VAT left, even on a half cent', async ({ assert }) => {
+    await completeCompany()
+    // At 10%, with a stamp duty in its total so the total doesn't cap it
+    const invoice = await legacy(await createCustomer(), {
+      taxable: '100.00',
+      vat: '10.00',
+      total: '112.00',
+    })
+    // 89.95 at 10% is 8.995 of VAT, charged 9.00: 10.05 and 1.00 are left
+    const first = await saveLines(await Invoices.createCreditNote(invoice), [['10%', '89.95']])
+    await Invoices.finalise(first)
+
+    // 10.05 would charge 1.005, rounded to 1.01: one cent too many
+    const second = await Invoices.createCreditNote(invoice)
+    const [line] = await linesOf(second)
+    assert.equal(line.unitPrice, '10.0400')
+    await Invoices.finalise(second)
+    await second.refresh()
+    assert.equal(second.total, '11.04')
+  })
+
   test('a large amount is prefilled at once, within what is left of its total', async ({
     assert,
   }) => {

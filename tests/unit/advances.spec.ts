@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { advanceLeft, advanceState, deductionRows } from '#shared/advances'
+import { advanceLeft, advanceState, belowTakenRow, deductionRows } from '#shared/advances'
 
 const rows = [
   { vatRate: '22.00', natura: null, taxable: '100.00', vat: '22.00' },
@@ -54,5 +54,23 @@ test.group('Advance deductions', () => {
       deductionRows(rows, '222.00', '222.00', taken).map((row) => row.taxable),
       ['95.69', '95.69']
     )
+  })
+
+  test('a correction may not leave a VAT row below what was taken back of it', ({ assert }) => {
+    const taken = [
+      { vatRate: '22.00', natura: null, taxable: '50.00' },
+      { vatRate: '10.00', natura: null, taxable: '60.00' },
+      { vatRate: '10.00', natura: null, taxable: '40.00' },
+    ]
+    assert.isFalse(belowTakenRow(rows, taken))
+    // 22% 120 + 10% 80: the total still covers it, the 10% row doesn't
+    const corrected = [
+      { vatRate: '22.00', natura: null, taxable: '120.00' },
+      { vatRate: '10.00', natura: null, taxable: '80.00' },
+    ]
+    assert.isTrue(belowTakenRow(corrected, taken))
+    // A row taken back of and then removed
+    assert.isTrue(belowTakenRow([rows[0]], taken))
+    assert.isFalse(belowTakenRow(rows, []))
   })
 })

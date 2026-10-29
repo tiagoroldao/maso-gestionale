@@ -438,6 +438,51 @@ test.group('Advance Invoices', () => {
     kept.assertFlashMessage('success', it('flash.invoiceSaved'))
   })
 
+  test('a rejected advance keeps each VAT row at least what was taken back of it', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, cost } = await costJob()
+    const reduced = await vatCode('10%')
+    const standard = await vatCode()
+    const advance = await Invoices.createAdvance(job)
+    await Invoices.save(advance, {
+      lines: [
+        { description: 'Acconto', quantity: '1', unitPrice: '100', vatCodeId: standard.id },
+        { description: 'Acconto', quantity: '1', unitPrice: '100', vatCodeId: reduced.id },
+      ],
+    })
+    await Invoices.finalise(advance)
+    // The final Invoice takes all of it back: 100 at each rate
+    await cost('200')
+    await Invoices.finalise(await Invoices.fromJob(job))
+    await Submissions.prepare(advance)
+    await Submissions.confirm(advance, 'Sconto')
+    await Submissions.recordOutcome(advance, { outcome: 'rejected' })
+    await advance.load('lines')
+    const [first, second] = workLines(advance)
+    const correct = (prices: [string, string]) =>
+      client
+        .put(`/invoices/${advance.id}`)
+        .json({
+          lines: [
+            { ...first, unitPrice: prices[0] },
+            { ...second, unitPrice: prices[1] },
+          ],
+        })
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+
+    // 146.40 + 88.00 still covers the 232.00 taken back, but not at 10%
+    const refused = await correct(['120', '80'])
+    refused.assertFlashMessage('error', it('flash.invoiceNotFinalisable.belowDeductedRow'))
+    await advance.refresh()
+    assert.equal(advance.total, '232.00')
+    const kept = await correct(['120', '100'])
+    kept.assertFlashMessage('success', it('flash.invoiceSaved'))
+  })
+
   test("a deduction is split over the advance's VAT rows; its lines follow it", async ({
     assert,
   }) => {

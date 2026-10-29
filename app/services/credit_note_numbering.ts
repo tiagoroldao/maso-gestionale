@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import type { CreditNoteNumberingMode, NumberingSeries } from '#shared/credit_notes'
+import { ADVISORY_LOCKS } from '#services/advisory_locks'
 
 /**
  * Serialises finalising across years, so the issue date and the year's
@@ -9,7 +10,7 @@ import type { CreditNoteNumberingMode, NumberingSeries } from '#shared/credit_no
  * how Credit Notes are numbered takes it too, so the change and a Credit
  * Note being numbered can't cross.
  */
-export const NUMBERING_LOCK_KEY = 4_190_419
+export const NUMBERING_LOCK_KEY = ADVISORY_LOCKS.invoiceNumbering
 
 /**
  * How Credit Notes are numbered, an Admin setting (ADR 0014): in the

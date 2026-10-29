@@ -22,12 +22,7 @@ import { storagePath } from '#services/storage'
 import TemplateData from '#services/template_data'
 import { formatDate } from '#shared/dates'
 import { own, type TemplateField, type TemplatePrefill } from '#shared/document_templates'
-
-/**
- * Arbitrary key for the advisory lock that serialises numbering, taken
- * together with the template's id: each template counts on its own.
- */
-const NUMBERING_LOCK_KEY = 41_000_004
+import { ADVISORY_LOCKS } from '#services/advisory_locks'
 
 /**
  * Why an Issued Document can't be issued: its template was archived, or
@@ -103,7 +98,10 @@ export default class IssuedDocuments {
 
       // Dated after the lock, so a later number never gets an earlier date
       // and the year always matches the date
-      await trx.rawQuery('SELECT pg_advisory_xact_lock(?, ?)', [NUMBERING_LOCK_KEY, template.id])
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(?, ?)', [
+        ADVISORY_LOCKS.issuedDocumentNumbering,
+        template.id,
+      ])
       const today = DateTime.now().startOf('day')
       const document = await IssuedDocument.create(
         {

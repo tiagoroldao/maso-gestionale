@@ -54,3 +54,18 @@ export function needsSignificantGoodSplit(
 ) {
   return significantGood && !code.natura && Number(code.rate) === 10
 }
+
+/**
+ * The saved line whose VAT treatment (rate, Natura, legal note) a line
+ * keeps: its own as saved, while its VAT Code is still the one it was
+ * saved with; null when the code's current treatment applies (a new
+ * line, or one whose code changed). So editing a code in settings
+ * doesn't rewrite a draft's lines (#94, ADR 0008), on the server and on
+ * the page alike.
+ */
+export function keptVatTreatment<T extends { vatCodeId: number }>(
+  saved: T | null | undefined,
+  vatCodeId: number
+): T | null {
+  return saved && saved.vatCodeId === vatCodeId ? saved : null
+}
