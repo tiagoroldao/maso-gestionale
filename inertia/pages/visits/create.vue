@@ -75,14 +75,14 @@ const durations = [...new Set([30, 60, 90, 120, 180, 240, 480, durationMinutes.v
 )
 const repeat = ref(props.draft?.repeat ?? 'none')
 const repeating = computed(() => !props.visit && repeat.value !== 'none')
-// Repeating first lists the dates (the same page, with the repeat in the
-// query); otherwise the Visit is planned or saved straight away
+// Repeating first lists the dates (the same page, posted back with the
+// repeat); otherwise the Visit is planned or saved straight away
 const action = computed(() => {
   if (props.visit) {
     return { url: urlFor('visits.update', { id: props.visit.id }), method: 'put' as const }
   }
   if (repeating.value) {
-    return { url: urlFor('visits.create', { id: props.job.id }), method: 'get' as const }
+    return { url: urlFor('visits.repeat_dates', { id: props.job.id }), method: 'post' as const }
   }
   return { url: urlFor('visits.store', { id: props.job.id }), method: 'post' as const }
 })

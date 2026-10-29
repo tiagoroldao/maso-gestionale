@@ -66,11 +66,26 @@ function timeOn(date: string, startTime: string, durationMinutes: number) {
 }
 
 /**
- * The query string without empty fields, which a form sends for inputs
- * left blank and the validators would read as given.
+ * The fields without empty ones, which a form sends for inputs left blank
+ * and the validators would read as given.
  */
 function withoutBlanks(query: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(query).filter(([, value]) => value !== ''))
+}
+
+/**
+ * The plan form's props: a new Visit for the Job, starting from `draft`,
+ * with the dates of a repeat when one was asked for.
+ */
+async function planPage<D, P>(job: Job, draft: D, preview: P) {
+  return {
+    job: { id: job.id, number: job.number, title: job.title, customer: job.customer.displayName },
+    technicians: await technicians(),
+    visit: null,
+    draft,
+    preview,
+    maxRepeated: MAX_REPEATED_VISITS,
+  }
 }
 
 /**
@@ -80,60 +95,14 @@ export default class VisitsController {
   /**
    * The form to plan a Visit. With `from`, it starts as a copy of that
    * Visit of the Job, on a later day ("plan the next Visit", #177):
-   * Technicians, hours and notes, never its Charges. With `repeat`, it also
-   * lists the dates the repeated Visit would fall on, flagging public
-   * holidays and Technicians already booked, for Office to confirm.
+   * Technicians, hours and notes, never its Charges.
    */
-  async create({ params, request, inertia, response, session, i18n }: HttpContext) {
+  async create({ params, request, inertia }: HttpContext) {
     const job = await Job.query().where('id', params.id).preload('customer').firstOrFail()
-    const query = withoutBlanks(request.qs())
-    const { from } = await planVisitQueryValidator.validate(query)
+    const { from } = await planVisitQueryValidator.validate(withoutBlanks(request.qs()))
 
     let draft = null
-    let preview = null
-    if (query.repeat) {
-      if (!Scheduling.canSchedule(job)) {
-        session.flash('error', i18n.t('flash.jobNotSchedulable'))
-        return response.redirect().withQs(false).toRoute('jobs.show', { id: job.id })
-      }
-      const input = await repeatVisitValidator.validate(query)
-      const visit = {
-        startTime: input.startTime,
-        durationMinutes: input.durationMinutes,
-        technicianIds: input.technicianIds,
-        notes: input.notes ?? null,
-        survey: input.survey ?? false,
-      }
-      draft = {
-        ...visit,
-        date: input.date.toISODate()!,
-        repeat: input.repeat,
-        weekdays: input.weekdays ?? [],
-        until: input.until?.toISODate() ?? null,
-        count: input.count ?? null,
-      }
-      const { dates, truncated } = repeatedDates({
-        from: draft.date,
-        frequency: input.repeat,
-        weekdays: draft.weekdays,
-        until: draft.until,
-        count: draft.count,
-      })
-      const clashes = await Scheduling.clashes(
-        input.technicianIds,
-        dates.map((date) => timeOn(date, input.startTime, input.durationMinutes))
-      )
-      preview = {
-        ...visit,
-        truncated,
-        dates: dates.map((date, index) => ({
-          date,
-          weekday: isoWeekday(date),
-          holiday: italianHoliday(date),
-          clashes: clashes[index],
-        })),
-      }
-    } else if (from) {
+    if (from) {
       const source = await Visit.query()
         .where('id', from)
         .where('jobId', job.id)
@@ -155,15 +124,60 @@ export default class VisitsController {
         count: null,
       }
     }
+    return inertia.render('visits/create', await planPage(job, draft, null))
+  }
 
-    return inertia.render('visits/create', {
-      job: { id: job.id, number: job.number, title: job.title, customer: job.customer.displayName },
-      technicians: await technicians(),
-      visit: null,
-      draft,
-      preview,
-      maxRepeated: MAX_REPEATED_VISITS,
+  /**
+   * The plan form again, listing the dates a repeated Visit would fall on
+   * (#177), flagging public holidays and Technicians already booked, for
+   * Office to confirm. Posted, not a query string, since the notes run to
+   * 5000 characters; it answers on the form's own address, so a reload
+   * shows the empty form.
+   */
+  async repeatDates({ params, request, inertia, response, session, i18n }: HttpContext) {
+    const job = await Job.query().where('id', params.id).preload('customer').firstOrFail()
+    if (!Scheduling.canSchedule(job)) {
+      session.flash('error', i18n.t('flash.jobNotSchedulable'))
+      return response.redirect().toRoute('jobs.show', { id: job.id })
+    }
+    const input = await repeatVisitValidator.validate(withoutBlanks(request.body()))
+    const visit = {
+      startTime: input.startTime,
+      durationMinutes: input.durationMinutes,
+      technicianIds: input.technicianIds,
+      notes: input.notes ?? null,
+      survey: input.survey ?? false,
+    }
+    const draft = {
+      ...visit,
+      date: input.date.toISODate()!,
+      repeat: input.repeat,
+      weekdays: input.weekdays ?? [],
+      until: input.until?.toISODate() ?? null,
+      count: input.count ?? null,
+    }
+    const { dates, truncated } = repeatedDates({
+      from: draft.date,
+      frequency: input.repeat,
+      weekdays: draft.weekdays,
+      until: draft.until,
+      count: draft.count,
     })
+    const clashes = await Scheduling.clashes(
+      input.technicianIds,
+      dates.map((date) => timeOn(date, input.startTime, input.durationMinutes))
+    )
+    const preview = {
+      ...visit,
+      truncated,
+      dates: dates.map((date, index) => ({
+        date,
+        weekday: isoWeekday(date),
+        holiday: italianHoliday(date),
+        clashes: clashes[index],
+      })),
+    }
+    return inertia.render('visits/create', await planPage(job, draft, preview))
   }
 
   async store({ params, request, response, session, i18n }: HttpContext) {

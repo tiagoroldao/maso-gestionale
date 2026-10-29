@@ -420,6 +420,12 @@ const routes = {
     tokens: [[0,"jobs"],[1,"id"],[0,"visits"],[0,"create"]],
     types: placeholder as Registry['visits.create']['types'],
   },
+  'visits.repeat_dates': {
+    methods: ["POST"],
+    pattern: '/jobs/:id/visits/create',
+    tokens: [[0,"jobs"],[1,"id"],[0,"visits"],[0,"create"]],
+    types: placeholder as Registry['visits.repeat_dates']['types'],
+  },
   'visits.store': {
     methods: ["POST"],
     pattern: '/jobs/:id/visits',

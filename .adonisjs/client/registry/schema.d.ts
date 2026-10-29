@@ -898,10 +898,23 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQueryForGet<InferInput<(typeof import('#validators/visit').planVisitQueryValidator)>|InferInput<(typeof import('#validators/visit').repeatVisitValidator)>>
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/visit').planVisitQueryValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'visits.repeat_dates': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/visits/create'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').repeatVisitValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').repeatVisitValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['repeatDates']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['repeatDates']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['repeatDates']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'visits.store': {

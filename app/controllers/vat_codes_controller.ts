@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import VatCode from '#models/vat_code'
 import { isUniqueViolation } from '#services/database_errors'
 import { vatCodeValidator } from '#validators/vat_code'
+import { LEGAL_NOTE_MAX } from '#shared/vat'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -34,7 +35,10 @@ export default class VatCodesController {
         rate: code.rate,
         natura: code.natura,
         legalNote: code.legalNote,
+        // Saved before the limit (#172): refused on the next save until shortened
+        legalNoteTooLong: (code.legalNote?.length ?? 0) > LEGAL_NOTE_MAX,
       })),
+      legalNoteMax: LEGAL_NOTE_MAX,
     })
   }
 

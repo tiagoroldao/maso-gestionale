@@ -12,26 +12,17 @@ import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
- * A query string as the page's form sends it, arrays with brackets.
+ * The plan form as posted to list a repeat's dates, blank fields included.
  */
-function query(fields: Record<string, string | number | (string | number)[]>) {
-  const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(fields)) {
-    if (Array.isArray(value)) value.forEach((item) => params.append(`${key}[]`, String(item)))
-    else params.append(key, String(value))
-  }
-  return params.toString()
-}
-
 function repeat(technicianIds: number[], overrides: Record<string, string | number | number[]>) {
-  return query({
+  return {
     date: '2026-12-07',
     startTime: '09:00',
     durationMinutes: 120,
     technicianIds,
     notes: 'Cantiere bagno',
     ...overrides,
-  })
+  }
 }
 
 function confirmed(technicianIds: number[], dates: string[]) {
@@ -75,12 +66,15 @@ test.group('Repeated Visits', () => {
     await visitOf(other, [bruno.id], '2026-12-11T09:00')
     // Back to back with 09:00–11:00 isn't a clash
     await visitOf(other, [anna.id], '2026-12-07T11:00')
+    // A cancelled Job's Visits are abandoned work: they take no one's time
+    const cancelled = await createJob(await createCustomer(), { status: 'cancelled' })
+    await visitOf(cancelled, [anna.id], '2026-12-11T09:00')
     const job = await createJob(await createCustomer())
 
     const response = await client
-      .get(
-        `/jobs/${job.id}/visits/create?${repeat([anna.id], { repeat: 'weekdays', count: 5, until: '' })}`
-      )
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'weekdays', count: 5, until: '' }))
+      .withCsrfToken()
       .withInertia()
       .loginAs(office)
 
@@ -107,13 +101,9 @@ test.group('Repeated Visits', () => {
     const job = await createJob(await createCustomer())
 
     const response = await client
-      .get(
-        `/jobs/${job.id}/visits/create?${repeat([anna.id], {
-          repeat: 'days',
-          weekdays: [1, 3],
-          until: '2026-12-21',
-        })}`
-      )
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'days', weekdays: [1, 3], until: '2026-12-21' }))
+      .withCsrfToken()
       .withInertia()
       .loginAs(office)
 
@@ -138,8 +128,10 @@ test.group('Repeated Visits', () => {
       [{ repeat: 'monthly', count: 3 }, 'repeat'],
     ] as const) {
       const response = await client
-        .get(`${page}?${repeat([anna.id], fields)}`)
+        .post(page)
+        .json(repeat([anna.id], fields))
         .header('referer', page)
+        .withCsrfToken()
         .loginAs(office)
         .redirects(0)
       assert.properties(response.flashMessage('inputErrorsBag'), [field], JSON.stringify(fields))
@@ -243,7 +235,9 @@ test.group('Repeated Visits', () => {
       const job = await createJob(await createCustomer(), { status })
 
       const preview = await client
-        .get(`/jobs/${job.id}/visits/create?${repeat([anna.id], { repeat: 'daily', count: 3 })}`)
+        .post(`/jobs/${job.id}/visits/create`)
+        .json(repeat([anna.id], { repeat: 'daily', count: 3 }))
+        .withCsrfToken()
         .loginAs(office)
         .redirects(0)
       preview.assertFlashMessage('error', it('flash.jobNotSchedulable'))
@@ -268,7 +262,9 @@ test.group('Repeated Visits', () => {
     const job = await createJob(await createCustomer())
 
     const preview = await client
-      .get(`/jobs/${job.id}/visits/create?${repeat([anna.id], { repeat: 'daily', count: 2 })}`)
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'daily', count: 2 }))
+      .withCsrfToken()
       .withInertia()
       .loginAs(admin)
     assert.lengthOf((preview.inertiaProps.preview as { dates: unknown[] }).dates, 2)
@@ -287,13 +283,19 @@ test.group('Repeated Visits', () => {
 
     for (const role of ['technician', 'superuser'] as const) {
       const user = await createUser(role)
-      for (const url of [
-        `/jobs/${job.id}/visits/create?${repeat([user.id], { repeat: 'daily', count: 2 })}`,
-        `/jobs/${job.id}/visits/create?from=${visit.id}`,
-      ]) {
-        const page = await client.get(url).withInertia().loginAs(user)
-        page.assertStatus(403)
-      }
+      const page = await client
+        .get(`/jobs/${job.id}/visits/create?from=${visit.id}`)
+        .withInertia()
+        .loginAs(user)
+      page.assertStatus(403)
+      const dates = await client
+        .post(`/jobs/${job.id}/visits/create`)
+        .json(repeat([user.id], { repeat: 'daily', count: 2 }))
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(user)
+        .redirects(0)
+      dates.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
       const store = await client
         .post(`/jobs/${job.id}/visits/repeated`)
         .json(confirmed([user.id], ['2026-12-08', '2026-12-09']))

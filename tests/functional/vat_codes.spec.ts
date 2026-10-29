@@ -202,6 +202,36 @@ test.group('VAT Codes', () => {
     assert.properties(refused.flashMessage('inputErrorsBag'), ['vatCodeId'])
   })
 
+  test('a code saved before the limit is flagged for its long legal note', async ({
+    client,
+    assert,
+  }) => {
+    const admin = await createUser('admin')
+    const long = await VatCode.create({
+      name: 'Nota lunga',
+      rate: '0',
+      natura: 'N4',
+      legalNote: 'x'.repeat(101),
+    })
+    const fitting = await VatCode.create({
+      name: 'Nota giusta',
+      rate: '0',
+      natura: 'N4',
+      legalNote: 'x'.repeat(100),
+    })
+
+    const response = await client.get('/settings/vat-codes').withInertia().loginAs(admin)
+
+    const codes = response.inertiaProps.vatCodes as { id: number; legalNoteTooLong: boolean }[]
+    assert.isTrue(codes.find((code) => code.id === long.id)?.legalNoteTooLong)
+    assert.isFalse(codes.find((code) => code.id === fitting.id)?.legalNoteTooLong)
+    assert.lengthOf(
+      codes.filter((code) => code.legalNoteTooLong),
+      1
+    )
+    response.assertInertiaPropsContains({ legalNoteMax: 100 })
+  })
+
   test('only the Admin manages VAT Codes', async ({ client, assert }) => {
     const code = await vatCode()
     for (const role of ['office', 'technician'] as const) {
