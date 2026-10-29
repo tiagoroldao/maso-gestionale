@@ -11,6 +11,17 @@ const i18nConfig = defineConfig({
   supportedLocales: ['it'],
   formatter: formatters.icu(),
 
+  /**
+   * Under test a missing key throws rather than rendering a placeholder:
+   * a test comparing against the catalogue would get the same placeholder
+   * on both sides and pass (#207).
+   */
+  fallback: app.inTest
+    ? (identifier, locale) => {
+        throw new Error(`Missing translation: ${locale}, ${identifier}`)
+      }
+    : undefined,
+
   loaders: [
     loaders.fs({
       location: app.languageFilesPath(),
