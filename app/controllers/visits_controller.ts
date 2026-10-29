@@ -161,6 +161,8 @@ export default class VisitsController {
     const visit = await Visit.query()
       .where('id', params.id)
       .preload('technicians')
+      .preload('startedBy')
+      .preload('closedBy')
       .preload('job', (job) => job.preload('customer'))
       .firstOrFail()
     const ids = visit.technicians.map((technician) => technician.id)
@@ -182,6 +184,7 @@ export default class VisitsController {
         notes: visit.notes,
         survey: visit.survey,
         status: visit.status,
+        ...visit.milestones(),
         editable: isOpenVisit(visit.status) && Scheduling.canSchedule(visit.job),
         // Left open when the Job was cancelled: Office marks it done (#153)
         closableByOffice: closableByOffice(visit.job.status, visit.status),

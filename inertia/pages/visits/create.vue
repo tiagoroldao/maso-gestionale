@@ -5,6 +5,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { t, todayIso } from '~/i18n'
+import { formatDateTime } from '@shared/dates'
 
 const props = defineProps<{
   job: { id: number; number: string; title: string; customer: string }
@@ -19,6 +20,8 @@ const props = defineProps<{
     notes: string | null
     survey: boolean
     status: string
+    started: { at: string; by: string | null } | null
+    closed: { at: string; by: string | null } | null
     editable: boolean
     closableByOffice: boolean
     cancellable: boolean
@@ -46,6 +49,23 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
       "
       :description="`${job.title} · ${job.customer}`"
     >
+      <p v-if="visit?.started" class="field__hint" data-testid="visit-started">
+        {{
+          visit.started.by
+            ? t('ui.visits.startedBy', {
+                at: formatDateTime(visit.started.at),
+                by: visit.started.by,
+              })
+            : t('ui.visits.started', { at: formatDateTime(visit.started.at) })
+        }}
+      </p>
+      <p v-if="visit?.closed" class="field__hint" data-testid="visit-closed">
+        {{
+          visit.closed.by
+            ? t('ui.visits.closedBy', { at: formatDateTime(visit.closed.at), by: visit.closed.by })
+            : t('ui.visits.closed', { at: formatDateTime(visit.closed.at) })
+        }}
+      </p>
       <Section v-if="visit?.closableByOffice">
         <p class="field__hint">{{ t('ui.visits.frozenHint') }}</p>
         <Form route="visits.mark_done" :params="{ id: visit.id }" :on-before="confirmDone">

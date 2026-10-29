@@ -1,3 +1,4 @@
+import type { DateTime } from 'luxon'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import type { I18n } from '@adonisjs/i18n'
 import Charge from '#models/charge'
@@ -37,23 +38,26 @@ export type EquipmentWarning = {
 export default class Installations {
   /**
    * The installed Item's Charge became done on `visit`: creates its new
-   * equipment at the Job's Site, installed on the Visit's day, or updates
-   * the unit it goes onto. A Charge done again reuses the equipment it
+   * equipment at the Job's Site, installed on the Visit's work day
+   * (`Visit.workDay`, #174), or updates the unit it goes onto. A Charge done again reuses the equipment it
    * created, if that still exists, unchanged. Runs inside the caller's
    * transaction, with the Visit, its Job and the Charge locked; the
    * equipment is locked after them. Returns what changed since the Charge
    * was recorded, for a warning: the unit removed or no longer at the
    * Job's Site (still updated), or no Site left to create the new one at.
+   * `now` is the caller's moment, so its other dates fall on the same work
+   * day even across midnight.
    */
   static async install(
     trx: TransactionClientContract,
     charge: Charge,
     visit: Visit,
-    siteId: number | null
+    siteId: number | null,
+    now: DateTime
   ): Promise<EquipmentWarning[]> {
     if (charge.kind !== 'item' || !charge.installed) return []
     const item = await Item.findOrFail(charge.itemId, { client: trx })
-    const day = visit.startsAt.startOf('day')
+    const day = visit.workDay(now)
     const equipment = charge.installedEquipmentId
       ? await InstalledEquipment.query({ client: trx })
           .where('id', charge.installedEquipmentId)

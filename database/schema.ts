@@ -976,10 +976,14 @@ export class VisitTechnicianSchema extends BaseModel {
 }
 
 export class VisitSchema extends BaseModel {
-  static $columns = ['cancelledAt', 'createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startsAt', 'status', 'survey', 'updatedAt'] as const
+  static $columns = ['cancelledAt', 'closedAt', 'closedById', 'createdAt', 'endsAt', 'id', 'jobId', 'notes', 'startedAt', 'startedById', 'startsAt', 'status', 'survey', 'updatedAt'] as const
   $columns = VisitSchema.$columns
   @column.dateTime()
   declare cancelledAt: DateTime | null
+  @column.dateTime()
+  declare closedAt: DateTime | null
+  @column()
+  declare closedById: number | null
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
   @column.dateTime()
@@ -990,6 +994,10 @@ export class VisitSchema extends BaseModel {
   declare jobId: number
   @column()
   declare notes: string | null
+  @column.dateTime()
+  declare startedAt: DateTime | null
+  @column()
+  declare startedById: number | null
   @column.dateTime()
   declare startsAt: DateTime
   @column()

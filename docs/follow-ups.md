@@ -23,6 +23,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #169  | Pending equipment details on a Charge shown and correctable (`ui-later`)                  | The UX pass                                       |
+| #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
 
 ## Added to existing issues
 

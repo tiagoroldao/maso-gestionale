@@ -385,7 +385,8 @@ test.group('Work state: Office switches done and not done', () => {
       const usage = await StockMovement.findOrFail(valves.stockMovementId)
       assert.deepEqual(
         [usage.kind, usage.quantity, usage.occurredOn.toISODate(), usage.reference],
-        ['usage', '-3.000', today, job.number]
+        // Used on the Visit's work day, its planned day here (#174)
+        ['usage', '-3.000', '2026-10-20', job.number]
       )
       assert.equal(await StockLedger.levelOf(valve), '7.000')
 
