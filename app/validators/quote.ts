@@ -1,6 +1,7 @@
 import vine from '@vinejs/vine'
 import { QUOTE_LINE_KINDS } from '#models/quote_line'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
+import { QUOTE_VALIDITY_DAYS } from '#shared/quotes'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
 
@@ -16,7 +17,12 @@ export const quoteValidator = vine
   .withMetaData<{ itemIds: number[]; labourRateIds: number[]; vatCodeIds: number[] }>()
   .create({
     notes: vine.string().trim().maxLength(5000).optional(),
-    validityDays: vine.number().withoutDecimals().min(1).max(365).optional(),
+    validityDays: vine
+      .number()
+      .withoutDecimals()
+      .min(QUOTE_VALIDITY_DAYS.min)
+      .max(QUOTE_VALIDITY_DAYS.max)
+      .optional(),
     lines: vine
       .array(
         vine.object({

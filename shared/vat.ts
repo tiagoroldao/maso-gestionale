@@ -1,3 +1,5 @@
+import Big from 'big.js'
+
 /**
  * FatturaPA Natura codes: why a line carries no VAT (exempt, out of
  * scope, reverse charge…). A VAT Code at 0% always has one.
@@ -33,6 +35,14 @@ export type NaturaCode = (typeof NATURA_CODES)[number]
  * in the XML.
  */
 export const LEGAL_NOTE_MAX = 100
+
+/**
+ * How a line's or VAT row's treatment is shown: its Natura code, or the
+ * rate as a percentage ("22%", "5,5%"), on documents and pages alike.
+ */
+export function vatLabel(row: { vatRate: string; natura: string | null }) {
+  return row.natura ?? `${new Big(row.vatRate).toString().replace('.', ',')}%`
+}
 
 /**
  * What a line bills, for the default VAT rules (#26): labour (and the

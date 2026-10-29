@@ -19,7 +19,13 @@ import {
 } from '@shared/invoice_lifecycle'
 import { amountForInput, parseAmount, parseQuantity } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
-import { keptVatTreatment, lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
+import {
+  keptVatTreatment,
+  lineKindOf,
+  needsSignificantGoodSplit,
+  vatLabel,
+  type LineKind,
+} from '@shared/vat'
 import type { DocumentType } from '@shared/credit_notes'
 
 type Line = {
@@ -252,10 +258,6 @@ const totals = computed(() =>
     parseAmount(discountPercent.value || '0')?.toFixed() ?? '0'
   )
 )
-
-function vatLabel(row: { vatRate: string; natura: string | null }) {
-  return row.natura ? row.natura : `${trim(row.vatRate)}%`
-}
 
 function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }) {
   lines.push({

@@ -4,6 +4,7 @@ import type Invoice from '#models/invoice'
 import { recipientFrom, type DocumentInput } from '#documents/document_renderer'
 import { formatDate } from '#shared/dates'
 import { BANK_TRANSFER } from '#shared/payments'
+import { vatLabel } from '#shared/vat'
 
 // Amounts in invoices are always in euro, with up to 4 decimals on prices
 const euro = new Intl.NumberFormat('it-IT', {
@@ -15,8 +16,6 @@ const euro = new Intl.NumberFormat('it-IT', {
 })
 const quantityFormat = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 })
 const money = (amount: string) => euro.format(amount as unknown as number)
-const vatLabel = (rate: string, natura: string | null) =>
-  natura ?? `${Number(rate).toLocaleString('it-IT')}%`
 
 /**
  * A finalised Invoice as a document on the Base Layout, built from the
@@ -58,11 +57,11 @@ export async function invoiceDocument(invoice: Invoice, i18n: I18n): Promise<Doc
       discount: Number(line.discountPercent)
         ? `${Number(line.discountPercent).toLocaleString('it-IT')}%`
         : '',
-      vat: vatLabel(line.vatRate, line.natura),
+      vat: vatLabel(line),
       amount: money(line.lineTotal),
     })),
     summary: totals.summary.map((row) => ({
-      vat: vatLabel(row.vatRate, row.natura),
+      vat: vatLabel(row),
       taxable: money(row.taxable),
       vatAmount: money(row.vat),
     })),

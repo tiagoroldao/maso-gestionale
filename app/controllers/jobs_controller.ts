@@ -277,7 +277,9 @@ export default class JobsController {
         of: sumAmounts(amounts),
         quoted: quotes.some((quote) => quote.status === 'accepted')
           ? sumAmounts(
-              quotes.filter((quote) => quote.status === 'accepted').map((quote) => quote.taxable)
+              quotes
+                .filter((quote) => quote.status === 'accepted')
+                .map((quote) => quote.totals.taxable)
             )
           : null,
       },

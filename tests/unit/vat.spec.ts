@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { keptVatTreatment, lineKindOf, needsSignificantGoodSplit } from '#shared/vat'
+import { keptVatTreatment, lineKindOf, needsSignificantGoodSplit, vatLabel } from '#shared/vat'
 
 test.group('VAT line kinds', () => {
   test('a line is labour unless it bills an Item', ({ assert }) => {
@@ -24,5 +24,13 @@ test.group('VAT treatment of a saved line', () => {
     assert.strictEqual(keptVatTreatment(saved, 1), saved)
     assert.isNull(keptVatTreatment(saved, 2))
     assert.isNull(keptVatTreatment(null, 1))
+  })
+})
+
+test.group('VAT labels', () => {
+  test('the Natura code, or the rate without trailing zeros', ({ assert }) => {
+    assert.equal(vatLabel({ vatRate: '22.00', natura: null }), '22%')
+    assert.equal(vatLabel({ vatRate: '5.50', natura: null }), '5,5%')
+    assert.equal(vatLabel({ vatRate: '0.00', natura: 'N6.7' }), 'N6.7')
   })
 })
