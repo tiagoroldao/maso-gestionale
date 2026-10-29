@@ -1,6 +1,6 @@
 # UI conventions ("Carbonio", ADR 0020)
 
-Rules for every screen on the new UI: a screen is on it once it renders inside the new app shell, and once the shell exists new screens start there. Other screens follow "Reachable, not designed" in `CODING_STANDARDS.md` (ADR 0009); the rest of its "UI scope" applies to every screen. The mockups these rules come from are on the design canvas "Maso Gestionale UI directions", page Carbonio.
+Rules for every screen on the new UI: a screen is on it once it renders inside the new app shell, and once the shell exists new screens start there. Other screens follow "Reachable, not designed" in `CODING_STANDARDS.md` (ADR 0009); see its "UI scope" for which of its rules every screen keeps. The mockups these rules come from are on the design canvas "Maso Gestionale UI directions", page Carbonio.
 
 ## Screen sizes
 
