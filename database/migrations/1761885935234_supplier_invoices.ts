@@ -75,7 +75,8 @@ export default class extends BaseSchema {
         'supplier_invoices_handled_check'
       )
       table.check(
-        `received_via IN ('upload', 'sdi') AND (received_via = 'upload' OR sdi_identifier IS NOT NULL)`,
+        // An intermediary may not give SDI's identifier (#92)
+        `received_via IN ('upload', 'sdi')`,
         [],
         'supplier_invoices_received_check'
       )

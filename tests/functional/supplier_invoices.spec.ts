@@ -370,6 +370,30 @@ test.group('Supplier Invoices', (group) => {
     assert.lengthOf(await storedFiles(), 1)
   })
 
+  test('an intermediary that gives no SDI identifier: duplicates by number and date', async ({
+    assert,
+  }) => {
+    const arrival = { via: 'sdi', sdiIdentifier: null } as const
+    const [invoice] = await SupplierInvoices.receive(xmlUpload(), arrival)
+    await invoice.refresh()
+    assert.equal(invoice.receivedVia, 'sdi')
+    assert.isNull(invoice.sdiIdentifier)
+    assert.equal(invoice.number, FIXTURE.number)
+
+    let reason: string | null = null
+    try {
+      await SupplierInvoices.receive(xmlUpload(), arrival)
+    } catch (error) {
+      if (!(error instanceof SupplierInvoiceRefusedError)) throw error
+      reason = error.reason
+    }
+    assert.equal(reason, 'duplicate')
+    // Another invoice without an identifier is not mistaken for the first
+    await SupplierInvoices.receive(xmlUpload({ number: 'FV-2026/1235' }), arrival)
+    assert.lengthOf(await SupplierInvoice.all(), 2)
+    assert.lengthOf(await storedFiles(), 2)
+  })
+
   test('Office marks one handled, and sets it back to handle', async ({ client, assert }) => {
     const office = await createUser('office')
     await upload(client, office)

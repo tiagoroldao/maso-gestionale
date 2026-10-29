@@ -49,9 +49,10 @@ export type ReceivedFile = {
 
 /**
  * How the file arrived: uploaded by Office, or delivered by the SDI
- * intermediary with SDI's identifier for it (#92).
+ * intermediary (#92) with SDI's identifier for it when the intermediary
+ * gives one (null otherwise).
  */
-export type Arrival = { via: 'upload'; user: User } | { via: 'sdi'; sdiIdentifier: string }
+export type Arrival = { via: 'upload'; user: User } | { via: 'sdi'; sdiIdentifier: string | null }
 
 const DIRECTORY = 'supplier-invoices'
 
@@ -68,9 +69,11 @@ export default class SupplierInvoices {
    *
    * This is the way in for both Office's upload and the SDI intermediary:
    * the gateway's receive path (#92) calls it with `{ via: 'sdi',
-   * sdiIdentifier }` for each file it fetches. A file received before is
-   * refused with `duplicate`, so a poll that sees it again can treat that
-   * as already done.
+   * sdiIdentifier }` for each file it fetches, the identifier null when the
+   * intermediary gives none. A file received before (by SDI identifier when
+   * there is one, and always by the Supplier's number and date) is refused
+   * with `duplicate`, so a poll that sees it again can treat that as
+   * already done.
    */
   static async receive(file: ReceivedFile, arrival: Arrival): Promise<SupplierInvoice[]> {
     const fattura = this.read(file.contents)
@@ -251,7 +254,7 @@ export default class SupplierInvoices {
     fattura: ReceivedFattura,
     arrival: Arrival
   ) {
-    if (arrival.via === 'sdi') {
+    if (arrival.via === 'sdi' && arrival.sdiIdentifier !== null) {
       const received = await trx
         .from('supplier_invoices')
         .where('sdi_identifier', arrival.sdiIdentifier)
