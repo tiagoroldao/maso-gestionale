@@ -13,13 +13,7 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
      * In that case, we must always assume that HttpContext is not fully hydrated
      * with all the properties
      */
-    const { auth, request } = ctx as Partial<HttpContext>
-
-    const theme: 'light' | 'dark' =
-      request?.plainCookie('app_theme', {
-        defaultValue: 'light',
-        encoded: false,
-      }) ?? 'light'
+    const { auth } = ctx as Partial<HttpContext>
 
     /**
      * Data shared with all Inertia pages. Make sure you are using
@@ -28,7 +22,6 @@ export default class InertiaMiddleware extends BaseInertiaMiddleware {
     return {
       errors: ctx.inertia.always(this.getValidationErrors(ctx)),
       user: ctx.inertia.always(auth?.user ? UserTransformer.transform(auth.user) : undefined),
-      preferences: ctx.inertia.always({ theme }),
     }
   }
 

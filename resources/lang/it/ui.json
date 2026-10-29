@@ -28,7 +28,23 @@
     "schedule": "Agenda",
     "invoices": "Fatture",
     "myVisits": "I miei interventi",
-    "supplierInvoices": "Fatture passive"
+    "supplierInvoices": "Fatture passive",
+    "suppliers": "Fornitori",
+    "groups": {
+      "work": "Lavoro",
+      "billing": "Fatturazione",
+      "warehouse": "Magazzino",
+      "records": "Anagrafiche",
+      "settings": "Impostazioni"
+    }
+  },
+  "shell": {
+    "mainNav": "Navigazione principale",
+    "wordmark": "Maso Hightechnology",
+    "openMenu": "Menu",
+    "closeMenu": "Chiudi menu",
+    "searchPlaceholder": "Cerca…",
+    "searchSoon": "La ricerca arriverà presto"
   },
   "roles": {
     "superuser": "Superuser",

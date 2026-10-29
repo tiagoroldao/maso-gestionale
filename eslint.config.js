@@ -56,6 +56,16 @@ export default configApp(
     },
   },
   {
+    // Components copied in by the shadcn-vue CLI (ADR 0020) keep its file
+    // names and prop style, so `npx shadcn-vue add` can update them
+    name: 'shadcn-vue components',
+    files: ['inertia/components/ui/**'],
+    rules: {
+      '@unicorn/filename-case': 'off',
+      'vue/require-default-prop': 'off',
+    },
+  },
+  {
     name: 'inertia-vue ts overrides',
     files: ['inertia/**/*.ts'],
     rules: {

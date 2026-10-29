@@ -1,0 +1,115 @@
+/*
+ * The stylesheet entry (ADR 0020, docs/ui.md): Tailwind v4 beside app.css.
+ *
+ * Tailwind's base reset (preflight) is left out, so the pages not yet moved
+ * look as they did: app.css keeps its own reset, unlayered as before.
+ * Utilities come after it, so on the same element a utility wins; app.css's
+ * element rules (`button`, `a`, `*`) are weaker than any utility class.
+ */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import './app.css';
+@import 'tailwindcss/utilities.css';
+@import 'tw-animate-css';
+
+/* Self-hosted fonts: Inter for text and numbers, Montserrat for the wordmark and labels */
+@import '@fontsource-variable/inter/wght.css';
+@import '@fontsource/montserrat/600.css';
+@import '@fontsource/montserrat/700.css';
+
+/* `data-theme` is set on <html> before paint (resources/views/inertia_layout.edge) */
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Tokens: the only colours, radii and type the new UI uses. Light values
+ * here, dark ones below. Status colours go in tinted tags (`text-blue
+ * bg-blue-tint`), never alone.
+ */
+@theme {
+  --color-*: initial;
+  --color-white: #ffffff;
+  --color-black: #000000;
+
+  /* Work surfaces */
+  --color-background: #fafafa;
+  --color-foreground: #0b0b0c;
+  --color-foreground-2: #2b2d31;
+  --color-muted-foreground: #5d6168;
+  --color-card: #ffffff;
+  --color-card-foreground: #0b0b0c;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0b0b0c;
+  --color-border: #e2e2e5;
+  --color-input: #e2e2e5;
+
+  /* Controls are black and white; brand red is a mark (logo cut, active item, focus ring) */
+  --color-primary: #0b0b0c;
+  --color-primary-foreground: #ffffff;
+  --color-brand: #d4000f;
+  --color-ring: #d4000f;
+  --color-destructive: #d4000f;
+
+  /* The black frame: sidebar, phone header, drawer */
+  --color-sidebar: #0b0b0c;
+  --color-sidebar-foreground: #c9cacd;
+  --color-sidebar-accent: #1c1c1f;
+  --color-sidebar-accent-foreground: #ffffff;
+  --color-sidebar-brand: #ff3030;
+  --color-sidebar-label: #8d9096;
+  --color-sidebar-muted: #a9abb0;
+  --color-sidebar-border: #222326;
+  --color-sidebar-chip: #26272b;
+
+  /* Status: blue planned, orange in progress or to bill, green done or paid, grey draft */
+  --color-blue: #1d56c4;
+  --color-blue-tint: #e6eefc;
+  --color-orange: #9a4a06;
+  --color-orange-tint: #fcefe0;
+  --color-green: #17724a;
+  --color-green-tint: #e3f2e9;
+  --color-grey: #4f535a;
+  --color-grey-tint: #ececef;
+
+  --font-sans: 'Inter Variable', Inter, system-ui, sans-serif;
+  --font-display: Montserrat, 'Inter Variable', Inter, system-ui, sans-serif;
+
+  /* 3px corners everywhere */
+  --radius-xs: 3px;
+  --radius-sm: 3px;
+  --radius-md: 3px;
+  --radius-lg: 3px;
+  --radius-xl: 3px;
+}
+
+:root[data-theme='dark'] {
+  --color-background: #0e0e10;
+  --color-foreground: #ececed;
+  --color-foreground-2: #c3c5c9;
+  --color-muted-foreground: #9a9ea6;
+  --color-card: #151518;
+  --color-card-foreground: #ececed;
+  --color-popover: #151518;
+  --color-popover-foreground: #ececed;
+  --color-border: #2a2b30;
+  --color-input: #2a2b30;
+
+  --color-primary: #ececed;
+  --color-primary-foreground: #0b0b0c;
+  --color-brand: #ff4545;
+  --color-ring: #ff4545;
+  --color-destructive: #ff4545;
+
+  --color-sidebar: #000000;
+  --color-sidebar-foreground: #a9abb0;
+  --color-sidebar-accent: #1a1a1d;
+  --color-sidebar-brand: #ff4545;
+
+  --color-blue: #93b8ff;
+  --color-blue-tint: #172540;
+  --color-orange: #ffb46b;
+  --color-orange-tint: #3a250f;
+  --color-green: #62d39c;
+  --color-green-tint: #11301f;
+  --color-grey: #b9bcc2;
+  --color-grey-tint: #25262b;
+}

@@ -1,20 +1,40 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { usePage } from '@inertiajs/vue3'
+/**
+ * Switches between light and dark. The theme follows the system setting
+ * until the user picks the other one; picking the system's own theme again
+ * goes back to following it. `data-theme` on <html> is the theme shown, set
+ * before paint by resources/views/inertia_layout.edge.
+ */
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { Moon, Sun } from 'lucide-vue-next'
 import { t } from '~/i18n'
 
 const COOKIE = 'app_theme'
 const ONE_YEAR = 60 * 60 * 24 * 365
 
-const page = usePage()
-const theme = ref<'light' | 'dark'>(page.props.preferences?.theme ?? 'light')
+const theme = ref<'light' | 'dark'>('light')
+let system: MediaQueryList | undefined
+
+function read() {
+  theme.value = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light'
+}
+
+onMounted(() => {
+  read()
+  // The layout's script switches <html> when the system setting changes
+  system = window.matchMedia('(prefers-color-scheme: dark)')
+  system.addEventListener('change', read)
+})
+onBeforeUnmount(() => system?.removeEventListener('change', read))
 
 function toggle() {
   const next = theme.value === 'dark' ? 'light' : 'dark'
   theme.value = next
   document.documentElement.setAttribute('data-theme', next)
-  document.cookie = `${COOKIE}=${next}; path=/; max-age=${ONE_YEAR}; samesite=lax`
+  const followsSystem = next === (system?.matches ? 'dark' : 'light')
+  document.cookie = followsSystem
+    ? `${COOKIE}=; path=/; max-age=0; samesite=lax`
+    : `${COOKIE}=${next}; path=/; max-age=${ONE_YEAR}; samesite=lax`
 }
 </script>
 

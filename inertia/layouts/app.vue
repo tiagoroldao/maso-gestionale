@@ -1,91 +1,68 @@
 <script setup lang="ts">
-import { t } from '~/i18n'
-import { computed } from 'vue'
-import { usePage } from '@inertiajs/vue3'
-import {
-  Boxes,
-  Briefcase,
-  Building2,
-  CalendarDays,
-  Contact,
-  FileText,
-  House,
-  Inbox,
-  LogOut,
-  MapPin,
-  Package,
-  Server,
-  Users,
-} from 'lucide-vue-next'
-import { Form } from '@adonisjs/inertia/vue'
-import Logo from '~/components/logo.vue'
-import FlashToasts from '~/components/flash_toasts.vue'
-import ThemeToggle from '~/components/theme_toggle.vue'
-import NavLink, { type NavItem } from '~/components/nav_link.vue'
-
 /**
- * Top-level app navigation, per role. The server enforces access; this
- * only hides links a role can't use.
+ * The app shell (ADR 0020, docs/ui.md): the black sidebar on desktop
+ * (folded to icons from 768 to 1023px), and on the phone a black bar whose
+ * "☰", always top right, opens the same sidebar as a drawer from the
+ * right. The page renders in the content area as it did before the shell.
  */
-const navByRole: Record<string, NavItem[]> = {
-  superuser: [{ label: t('ui.nav.instance'), route: 'instance', icon: Server }],
-  admin: [
-    { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
-    { label: t('ui.nav.jobs'), route: 'jobs.index', icon: Briefcase },
-    { label: t('ui.nav.schedule'), route: 'visits.schedule', icon: CalendarDays },
-    { label: t('ui.nav.invoices'), route: 'invoices.index', icon: FileText },
-    { label: t('ui.nav.supplierInvoices'), route: 'supplier_invoices.index', icon: Inbox },
-    { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
-    { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
-    { label: t('ui.nav.items'), route: 'items.index', icon: Package },
-    { label: t('ui.nav.stock'), route: 'stock.index', icon: Boxes },
-    { label: t('ui.nav.users'), route: 'users.index', icon: Users },
-    { label: t('ui.nav.settings'), route: 'company_settings.edit', icon: Building2 },
-  ],
-  office: [
-    { label: t('ui.nav.dashboard'), route: 'dashboard', icon: House },
-    { label: t('ui.nav.jobs'), route: 'jobs.index', icon: Briefcase },
-    { label: t('ui.nav.schedule'), route: 'visits.schedule', icon: CalendarDays },
-    { label: t('ui.nav.invoices'), route: 'invoices.index', icon: FileText },
-    { label: t('ui.nav.supplierInvoices'), route: 'supplier_invoices.index', icon: Inbox },
-    { label: t('ui.nav.customers'), route: 'customers.index', icon: Contact },
-    { label: t('ui.nav.sites'), route: 'sites.index', icon: MapPin },
-    { label: t('ui.nav.items'), route: 'items.index', icon: Package },
-    { label: t('ui.nav.stock'), route: 'stock.index', icon: Boxes },
-  ],
-  technician: [{ label: t('ui.nav.myVisits'), route: 'my_visits.index', icon: CalendarDays }],
-}
+import { ref } from 'vue'
+import { Link } from '@adonisjs/inertia/vue'
+import { Menu, X } from 'lucide-vue-next'
+import { t } from '~/i18n'
+import AppSidebar from '~/components/app_sidebar.vue'
+import FlashToasts from '~/components/flash_toasts.vue'
+import LogoMark from '~/components/logo_mark.vue'
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '~/components/ui/sheet'
 
-const page = usePage()
-const nav = computed(() => navByRole[page.props.user?.role ?? ''] ?? [])
+const drawerOpen = ref(false)
+
+const barButton =
+  'grid size-11 place-items-center rounded-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand'
 </script>
 
 <template>
-  <header class="header header--bar">
-    <div class="header__inner">
-      <Logo :size="28" />
-      <div class="header__right">
-        <ThemeToggle />
-        <Form route="session.destroy">
-          <button type="submit" class="btn btn--secondary btn--sm">
-            <LogOut :size="15" /> {{ t('ui.common.logout') }}
-          </button>
-        </Form>
-      </div>
-    </div>
-  </header>
+  <div class="flex min-h-screen flex-col md:flex-row">
+    <aside
+      class="sticky top-0 hidden h-screen w-[236px] shrink-0 overflow-y-auto md:block md:max-lg:w-16"
+    >
+      <AppSidebar />
+    </aside>
 
-  <nav class="subnav">
-    <div class="subnav__inner">
-      <NavLink v-for="item in nav" :key="item.label" :route="item.route" class="subnav__item">
-        <component :is="item.icon" v-if="item.icon" :size="14" />
-        {{ item.label }}
-      </NavLink>
-    </div>
-  </nav>
+    <Sheet v-model:open="drawerOpen">
+      <header
+        class="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between bg-sidebar pr-1 pl-4 font-sans md:hidden"
+      >
+        <Link
+          href="/"
+          class="rounded-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand"
+        >
+          <LogoMark class="h-6 w-10" cut-class="fill-sidebar-brand" />
+          <span class="sr-only">{{ t('ui.shell.wordmark') }}</span>
+        </Link>
+        <SheetTrigger :class="barButton" :aria-label="t('ui.shell.openMenu')">
+          <Menu :size="22" aria-hidden="true" />
+        </SheetTrigger>
+      </header>
 
-  <div class="app-main">
-    <slot />
+      <SheetContent
+        side="right"
+        :aria-describedby="undefined"
+        class="w-[312px] max-w-[85vw] gap-0 overflow-y-auto border-0 bg-sidebar shadow-[-10px_0_30px_rgba(0,0,0,0.35)] sm:max-w-[312px]"
+      >
+        <SheetTitle class="sr-only">{{ t('ui.shell.openMenu') }}</SheetTitle>
+        <AppSidebar drawer @navigate="drawerOpen = false">
+          <template #close>
+            <SheetClose :class="barButton" :aria-label="t('ui.shell.closeMenu')">
+              <X :size="22" aria-hidden="true" />
+            </SheetClose>
+          </template>
+        </AppSidebar>
+      </SheetContent>
+    </Sheet>
+
+    <div class="app-main min-w-0 flex-1">
+      <slot />
+    </div>
   </div>
   <FlashToasts />
 </template>
