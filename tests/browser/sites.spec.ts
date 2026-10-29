@@ -55,9 +55,7 @@ test.group('Sites in the browser', () => {
     await site.merge({ archivedAt: DateTime.now() }).save()
     await option.click()
 
-    await page
-      .getByText(it('validator.shared.messages.database.exists', { field: 'immobile' }))
-      .waitFor()
+    await page.getByText(it('validator.shared.messages.database.exists')).waitFor()
     await customer.load('sites')
     assert.lengthOf(customer.sites, 0)
   })

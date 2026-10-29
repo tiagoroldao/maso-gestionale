@@ -389,7 +389,7 @@ test.group('Invoice sections: organising a draft from a Job', () => {
     const { office, job } = await workedJob()
     const response = await draft(client, job, office, { organiseBy: 'technician' })
     assert.deepEqual(response.flashMessage('inputErrorsBag'), {
-      organiseBy: [it('validator.shared.messages.enum', { field: 'organizza per' })],
+      organiseBy: [it('validator.shared.messages.enum')],
     })
     assert.lengthOf(await Invoice.query().where('jobId', job.id), 0)
   })

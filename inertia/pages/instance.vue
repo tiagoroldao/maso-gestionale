@@ -430,10 +430,23 @@ const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExisti
               {{ t('ui.instance.setPassword') }}
             </button>
           </div>
-          <span v-if="errors.password" class="field__error">{{ errors.password }}</span>
-          <span v-if="errors.passwordConfirmation" class="field__error">{{
-            errors.passwordConfirmation
-          }}</span>
+          <!-- Under both inputs, so naming the one each error is about -->
+          <span v-if="errors.password" class="field__error">
+            {{
+              t('ui.common.fieldError', {
+                field: t('ui.instance.newPasswordFor', { email: admin.email }),
+                message: errors.password,
+              })
+            }}
+          </span>
+          <span v-if="errors.passwordConfirmation" class="field__error">
+            {{
+              t('ui.common.fieldError', {
+                field: t('ui.instance.confirmPasswordFor', { email: admin.email }),
+                message: errors.passwordConfirmation,
+              })
+            }}
+          </span>
         </Form>
       </Section>
     </Page>

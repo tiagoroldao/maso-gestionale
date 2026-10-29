@@ -88,8 +88,23 @@ defineProps<{
                   <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
                     {{ t('ui.common.save') }}
                   </button>
-                  <span v-if="errors.name" class="field__error">{{ errors.name }}</span>
-                  <span v-if="errors.days" class="field__error">{{ errors.days }}</span>
+                  <!-- Away from their inputs, so naming them -->
+                  <span v-if="errors.name" class="field__error">
+                    {{
+                      t('ui.common.fieldError', {
+                        field: t('ui.paymentTerms.name'),
+                        message: errors.name,
+                      })
+                    }}
+                  </span>
+                  <span v-if="errors.days" class="field__error">
+                    {{
+                      t('ui.common.fieldError', {
+                        field: t('ui.paymentTerms.days'),
+                        message: errors.days,
+                      })
+                    }}
+                  </span>
                 </Form>
               </td>
               <td class="table__actions">

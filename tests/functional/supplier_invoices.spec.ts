@@ -414,7 +414,7 @@ test.group('Supplier Invoices', (group) => {
     // A valid Partita IVA for Italy; letters and digits elsewhere
     const invalid = await post({ name: 'Termo', vatCountry: 'IT', vatNumber: '03456789013' })
     assert.deepEqual(invalid.flashMessage('inputErrorsBag').vatNumber, [
-      it('validator.shared.messages.vatNumber', { field: 'Partita IVA' }),
+      it('validator.shared.messages.vatNumber'),
     ])
     const foreign = await post({ name: 'Heizung GmbH', vatCountry: 'de', vatNumber: '123 456 789' })
     foreign.assertHeader('location', '/suppliers')

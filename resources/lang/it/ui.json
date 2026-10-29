@@ -12,7 +12,8 @@
     "logout": "Esci",
     "lightTheme": "Passa al tema chiaro",
     "darkTheme": "Passa al tema scuro",
-    "paginationLabel": "Paginazione"
+    "paginationLabel": "Paginazione",
+    "fieldError": "{field}: {message}"
   },
   "nav": {
     "dashboard": "Bacheca",
@@ -737,6 +738,7 @@
     "save": "Salva regole",
     "archived": "(archiviato)",
     "codeFor": "{kind}: {customerType}, {workCategory}, {residential}",
+    "rule": "{kind} ({customerType}, {workCategory}, {residential})",
     "lineKinds": {
       "labour": "Manodopera",
       "material": "Materiale",

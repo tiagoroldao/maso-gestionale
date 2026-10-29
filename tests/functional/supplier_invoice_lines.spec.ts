@@ -382,7 +382,7 @@ test.group('Supplier Invoice lines', (group) => {
       quantity: '1,2345',
     })
     assert.deepEqual(tooFine.flashMessage('inputErrorsBag').quantity, [
-      it('validator.shared.messages.quantity', { field: 'quantità' }),
+      it('validator.shared.messages.quantity'),
     ])
     assert.lengthOf(await StockMovement.query().where('itemId', cable.id), 0)
     const [open] = await SupplierInvoiceLine.query().where('id', lines[2].id)
@@ -1128,7 +1128,7 @@ test.group('Supplier Invoice lines: already received, and the costs confirmed (#
       unitCost: '1.234,5',
     })
     assert.deepEqual(badCost.flashMessage('inputErrorsBag').unitCost, [
-      it('validator.shared.messages.amount', { field: 'costo unitario' }),
+      it('validator.shared.messages.amount'),
     ])
   })
 

@@ -204,7 +204,7 @@ test.group('Legacy Invoices', (group) => {
     assert.properties(noPdf.flashMessage('inputErrorsBag'), ['pdf'])
     const png = await post(client, office, legacyFields(customer), { file: notPdf })
     assert.deepEqual(png.flashMessage('inputErrorsBag').pdf, [
-      it('validator.shared.messages.file.extname', { field: 'PDF' }),
+      it('validator.shared.messages.file.extname'),
     ])
     const bad = await post(
       client,

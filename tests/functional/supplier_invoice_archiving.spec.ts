@@ -142,7 +142,7 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     )
     const malformed = await retry(client, office, invoice.id, { sdiId: '12AB' })
     assert.deepEqual(malformed.flashMessage('inputErrorsBag').sdiId, [
-      it('validator.shared.messages.regex', { field: 'identificativo SDI' }),
+      it('validator.shared.messages.regex'),
     ])
     assert.lengthOf(gateway.archived, 0)
 
