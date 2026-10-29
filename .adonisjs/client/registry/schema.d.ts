@@ -999,13 +999,13 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/visits/:id/done'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/field').visitCloseValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/field').visitCloseValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['markDone']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'charges.store': {
@@ -1097,6 +1097,32 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['setBackToBill']>>>
+    }
+  }
+  'charges.mark_done': {
+    methods: ["POST"]
+    pattern: '/charges/:id/done'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markDone']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markDone']>>>
+    }
+  }
+  'charges.mark_not_done': {
+    methods: ["POST"]
+    pattern: '/charges/:id/not-done'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotDone']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotDone']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/charges_controller').default['markNotDone']>>>
     }
   }
   'quotes.create': {

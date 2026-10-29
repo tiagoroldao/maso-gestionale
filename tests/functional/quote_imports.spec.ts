@@ -18,6 +18,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { confirmUsed, workStatesOf } from '#tests/helpers/charges'
 
 /**
  * A Job with a Quote of a boiler, labour, the call-out and a text line,
@@ -141,7 +142,10 @@ test.group('Importing Quote lines as Charges', () => {
     assert.equal(hours.workerName, 'Ditta Rossi')
     assert.isNull(hours.userId)
     assert.equal(callOut.vatKind, 'labour')
-    // No stock moves for Items on the Job itself
+    // Planned until Office confirms them used (ADR 0016), so no stock moves
+    for (const charge of charges) {
+      assert.deepEqual(await workStatesOf(charge), { ts: 'planned', sql: 'planned' })
+    }
     assert.lengthOf(await StockMovement.query().where('itemId', item.id), 0)
 
     // Each has its "recorded" event, naming the Quote line it came from
@@ -484,7 +488,9 @@ test.group('Importing Quote lines as Charges', () => {
       after: { vatKind: 'material', vatCode: null },
     })
 
-    // The draft follows the new kind, at the Job's default for it
+    // The draft follows the new kind, at the Job's default for it, once
+    // Office confirms the call-out happened (ADR 0016)
+    await confirmUsed(job.id, office)
     const invoice = await Invoices.fromJob(job)
     await invoice.load('lines')
     const defaults = await VatDefaults.forJob(job)

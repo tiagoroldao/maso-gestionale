@@ -9,6 +9,7 @@ import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
+import { markDone } from '#tests/helpers/charges'
 import { it } from '#tests/helpers/i18n'
 
 test.group('Document Templates filled with real data in the browser', () => {
@@ -30,7 +31,7 @@ test.group('Document Templates filled with real data in the browser', () => {
     const job = await createJob(customer, { title: 'Sostituzione caldaia' })
     const valve = await createItem({ code: 'VS-1', description: 'Valvola a sfera' })
     for (const quantity of ['1', '2.5']) {
-      await Charge.create({
+      const charge = await Charge.create({
         jobId: job.id,
         kind: 'item',
         itemId: valve.id,
@@ -39,6 +40,7 @@ test.group('Document Templates filled with real data in the browser', () => {
         unitPrice: '1',
         description: 'Valvola a sfera',
       })
+      await markDone(charge)
     }
     const template = await DocumentTemplates.create({
       name: 'Rapporto di intervento',

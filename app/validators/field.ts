@@ -2,9 +2,30 @@ import vine from '@vinejs/vine'
 import { VISIT_STATUSES } from '#models/visit'
 import { quantityRule } from '#validators/rules/quantity'
 
+/**
+ * The review of a Visit's Charges when it closes (ADR 0016): `reviewed`
+ * lists the Charges shown, `done` those left ticked. A Charge shown and
+ * unticked becomes not done; one not shown (recorded by a colleague
+ * meanwhile) is done, as ticked by default.
+ */
+const closeReview = {
+  reviewed: vine.array(vine.number()).distinct().optional(),
+  done: vine.array(vine.number()).distinct().optional(),
+}
+
 export const visitStatusValidator = vine.create({
   status: vine.enum(VISIT_STATUSES),
+  ...closeReview,
 })
+
+export const visitCloseValidator = vine.create(closeReview)
+
+/**
+ * The Charges a close review leaves unticked.
+ */
+export function notDoneIn({ reviewed = [], done = [] }: { reviewed?: number[]; done?: number[] }) {
+  return reviewed.filter((id) => !done.includes(id))
+}
 
 export const visitNoteValidator = vine.create({
   body: vine.string().trim().minLength(1).maxLength(5000),

@@ -9,6 +9,7 @@ import Scheduling, {
   VisitNotMovableError,
 } from '#services/scheduling'
 import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import { notDoneIn, visitCloseValidator } from '#validators/field'
 import { CLOSED_VISIT_STATUSES, closableByOffice } from '#shared/visits'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
@@ -179,10 +180,11 @@ export default class VisitsController {
    * its Items come off stock and its Charges become billable, as when the
    * Technician closes it.
    */
-  async markDone({ params, response, session, auth, i18n }: HttpContext) {
+  async markDone({ params, request, response, session, auth, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
+    const review = await request.validateUsing(visitCloseValidator)
     try {
-      await FieldWork.closeOnCancelledJob(visit, auth.getUserOrFail())
+      await FieldWork.closeOnCancelledJob(visit, auth.getUserOrFail(), notDoneIn(review))
       session.flash('success', i18n.t('flash.visitMarkedDone'))
     } catch (error) {
       if (!(error instanceof FieldWorkRefusedError)) throw error

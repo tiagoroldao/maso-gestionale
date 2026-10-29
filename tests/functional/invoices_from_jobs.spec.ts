@@ -14,13 +14,15 @@ import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { confirmUsed } from '#tests/helpers/charges'
 
 /**
  * A Job with an accepted Quote (a boiler at 10%, labour under reverse
  * charge, and a text line), its lines imported onto the Job as Charges
- * unless `imported` is false (ADR 0012).
+ * unless `imported` is false (ADR 0012), and confirmed used unless `used`
+ * is false (ADR 0016).
  */
-async function acceptedJob({ imported = true } = {}) {
+async function acceptedJob({ imported = true, used = true } = {}) {
   const customer = await createCustomer({ name: 'Condominio Verdi' })
   const job = await createJob(customer, { workCategory: 'sale' })
   const item = await createItem({ unit: 'pz' })
@@ -60,6 +62,7 @@ async function acceptedJob({ imported = true } = {}) {
       { lineIds: quote.lines.map((line) => line.id), workerName: 'Ditta Rossi' },
       await createUser('office')
     )
+    if (used) await confirmUsed(job.id)
   }
   return { job, item, reduced, customer, quote }
 }
@@ -318,19 +321,25 @@ test.group('Invoices from Jobs with a Quote', () => {
       .withCsrfToken()
       .loginAs(office)
 
-    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 0)
+    // Only the usage when Office confirmed it used (ADR 0016)
+    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
     await invoice.load('lines', (l) => l.orderBy('position'))
     assert.equal(invoice.lines[1].unit, 'h')
   })
 
-  test("a Job's Invoice takes nothing off stock: its Visits did", async ({ assert }) => {
+  test("a Job's Invoice takes nothing off stock: confirming it used did", async ({ assert }) => {
     await completeCompany()
     const { job, item } = await acceptedJob()
+    const used = await StockMovement.query().where('itemId', item.id)
+    assert.deepEqual(
+      used.map((movement) => [movement.kind, movement.quantity, movement.reference]),
+      [['usage', '-1.000', job.number]]
+    )
     const invoice = await Invoices.fromJob(job)
 
     await Invoices.finalise(invoice)
 
-    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 0)
+    assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
   })
 
   test('an invoiced Job keeps its Customer and can not be cancelled', async ({

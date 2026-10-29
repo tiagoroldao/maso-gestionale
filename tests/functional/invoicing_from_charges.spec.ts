@@ -162,7 +162,7 @@ test.group('Invoicing from Charges', () => {
     // Released without a trace in its history; the kept lines still hold theirs
     assert.equal(await stateOf(callOut), 'to_bill')
     assert.equal(await sqlStateOf(callOut), 'to_bill')
-    assert.deepEqual(await history(callOut), ['recorded'])
+    assert.deepEqual(await history(callOut), ['recorded', 'done'])
     assert.deepEqual(await chargesByLine(draft), [[hours.id], [valves.id]])
 
     await Invoices.finalise(draft)
@@ -303,7 +303,7 @@ test.group('Invoicing from Charges', () => {
       .redirects(0)
     response.assertFlashMessage('success', it('flash.chargeSetBackToBill'))
     response.assertHeader('location', `/charges/${callOut.id}/edit`)
-    assert.deepEqual(await history(callOut), ['recorded', 'billed', 'unbilled'])
+    assert.deepEqual(await history(callOut), ['recorded', 'done', 'billed', 'unbilled'])
     const unbilled = await ChargeEvent.query()
       .where('chargeId', callOut.id)
       .where('kind', 'unbilled')
@@ -331,6 +331,7 @@ test.group('Invoicing from Charges', () => {
     await Invoices.finalise(second)
     assert.deepEqual(await history(callOut), [
       'recorded',
+      'done',
       'billed',
       'unbilled',
       'billing_edited',

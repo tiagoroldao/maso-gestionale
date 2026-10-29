@@ -25,6 +25,7 @@ import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
+import { markDone } from '#tests/helpers/charges'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 const noConverter: PdfConverter = {
@@ -96,8 +97,9 @@ async function world() {
   return { customer, site, boiler, job, valve }
 }
 
-function itemCharge(jobId: number, itemId: number) {
-  return Charge.create({
+async function itemCharge(jobId: number, itemId: number) {
+  // Done: documents list the Items used (ADR 0016)
+  const charge = await Charge.create({
     jobId,
     kind: 'item',
     itemId,
@@ -106,6 +108,7 @@ function itemCharge(jobId: number, itemId: number) {
     unitPrice: '1',
     description: 'x',
   })
+  return markDone(charge)
 }
 
 async function htmlOf(document: IssuedDocument) {

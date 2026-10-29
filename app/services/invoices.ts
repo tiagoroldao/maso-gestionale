@@ -20,6 +20,8 @@ import {
   ADVANCE_DEDUCTED_SQL,
   ADVANCE_TAKEN_BACK_SQL,
   DEDUCTION_REVERSED_SQL,
+  OUTSTANDING_SQL,
+  WORK_STATE_SQL,
 } from '#services/job_status'
 import Charges from '#services/charges'
 import Payments from '#services/payments'
@@ -862,10 +864,11 @@ export default class Invoices {
 
   /**
    * A draft Invoice for a Job, from its Charges, whether or not it has a
-   * Quote (ADR 0012): one line per Charge to bill on its closed Visits and
-   * on the Job itself, with what Office set
-   * to bill (quantity, price, description; ADR 0010), so its total before
-   * VAT equals the Job page's running total. Each line gets the VAT Code
+   * Quote (ADR 0012): one line per done Charge to bill (ADR 0016) on its
+   * closed Visits and on the Job itself, with what Office set
+   * to bill (quantity, price, description; ADR 0010). The Job page's
+   * running total also counts what is still planned, held by a draft or
+   * billed, so it isn't this draft's total. Each line gets the VAT Code
    * of the default rules for its kind (labour, material or significant
    * good), and holds its Charge: finalising bills it, removing the line or
    * deleting the draft releases it. While a draft is open it is returned
@@ -952,13 +955,21 @@ export default class Invoices {
         trx,
         lines.map((line, index) => ({ lineId: line.id, chargeId: work[index].charge.id }))
       )
-      // A draft that bills everything outstanding (no Visit still to come)
-      // takes back what is left of each advance; others start with none,
-      // and Office can change both (ADR 0011)
-      const moreWork = await Visit.query({ client: trx })
-        .where('jobId', locked.id)
-        .whereIn('status', ['planned', 'in_progress'])
-        .first()
+      // A draft that bills everything outstanding (no Visit still to come,
+      // no planned Charge on the Job, ADR 0016) takes back what is left of
+      // each advance; others start with none, and Office can change both
+      // (ADR 0011)
+      const moreWork =
+        (await Visit.query({ client: trx })
+          .where('jobId', locked.id)
+          .whereIn('status', ['planned', 'in_progress'])
+          .first()) ||
+        (await trx
+          .from('charges')
+          .where('job_id', locked.id)
+          .whereRaw(`${WORK_STATE_SQL('charges')} = 'planned'`)
+          .whereRaw(OUTSTANDING_SQL('charges'))
+          .first())
       if (!moreWork) {
         await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), work.length)
       }

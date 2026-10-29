@@ -25,6 +25,9 @@ export const CHARGE_EVENT_KINDS = [
   'unbilled',
   'credited',
   'uncredited',
+  'planned',
+  'done',
+  'not_done',
 ] as const
 export type ChargeEventKind = (typeof CHARGE_EVENT_KINDS)[number]
 
@@ -42,6 +45,31 @@ export const BILLING_EVENT_KINDS = ['billed', 'unbilled', 'credited', 'uncredite
  */
 export const CHARGE_STATES = ['to_bill', 'not_billable', 'in_draft', 'billed', 'credited'] as const
 export type ChargeState = (typeof CHARGE_STATES)[number]
+
+/**
+ * Whether the work happened (ADR 0016): planned, done or not done. Stock
+ * follows it; only done Charges are billed.
+ */
+export const WORK_STATES = ['planned', 'done', 'not_done'] as const
+export type WorkState = (typeof WORK_STATES)[number]
+
+/**
+ * The events that set a Charge's work state, one per state.
+ */
+export const WORK_EVENT_KINDS = WORK_STATES
+
+/**
+ * A Charge's work state, from its history (oldest event first): the latest
+ * work event, or planned before any (recorded in the field or imported from
+ * a Quote, until its Visit closes or Office confirms it). Independent of
+ * its billing state. WORK_STATE_SQL says the same in SQL.
+ */
+export function workState(events: { kind: string }[]): WorkState {
+  const latest = events.findLast((event) =>
+    (WORK_EVENT_KINDS as readonly string[]).includes(event.kind)
+  )
+  return (latest?.kind as WorkState | undefined) ?? 'planned'
+}
 
 const isBillingEvent = (kind: string) => (BILLING_EVENT_KINDS as readonly string[]).includes(kind)
 
@@ -83,18 +111,26 @@ export function canSetBackToBill(state: ChargeState) {
 }
 
 /**
- * Still waiting for an issued Invoice: to bill, or only held by a draft.
- * A credited Charge is final, like one not billable, until Office sets it
- * back to bill.
+ * Still waiting for an issued Invoice: to bill, or only held by a draft,
+ * and done or still planned (planned work keeps billing open, ADR 0016).
+ * A not done Charge never is; a credited Charge is final, like one not
+ * billable, until Office sets it back to bill.
  */
-export function isOutstanding(state: ChargeState) {
-  return state === 'to_bill' || state === 'in_draft'
+export function isOutstanding(state: ChargeState, work: WorkState) {
+  return work !== 'not_done' && (state === 'to_bill' || state === 'in_draft')
+}
+
+/**
+ * What a draft Invoice from the Job takes: done and to bill (ADR 0016).
+ */
+export function isDraftable(state: ChargeState, work: WorkState) {
+  return work === 'done' && state === 'to_bill'
 }
 
 /**
  * A Visit is billed once it is closed and none of its Charges are
  * outstanding.
  */
-export function isVisitBilled(closed: boolean, states: ChargeState[]) {
-  return closed && !states.some(isOutstanding)
+export function isVisitBilled(closed: boolean, charges: { state: ChargeState; work: WorkState }[]) {
+  return closed && !charges.some((charge) => isOutstanding(charge.state, charge.work))
 }

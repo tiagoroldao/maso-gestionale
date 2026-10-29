@@ -1,7 +1,7 @@
 import Big from 'big.js'
 import Job from '#models/job'
 import { closableByOffice, hasBillableWork, isClosedVisit } from '#shared/visits'
-import { isVisitBilled, type ChargeState } from '#shared/charges'
+import { isDraftable, isVisitBilled, type ChargeState } from '#shared/charges'
 import Jobs, {
   JobClosedError,
   JobInvoicedError,
@@ -158,10 +158,21 @@ export default class JobsController {
     const amountOf = (charge: Charge) =>
       charge.billing?.amount ?? lineTotal(charge.billQuantity, charge.unitPrice)
     // What is billable so far, and where it stands: not what Office marked
-    // not billable, nor what Credit Notes credited (ADR 0014)
+    // not billable, nor what Credit Notes credited (ADR 0014), nor work not
+    // done (ADR 0016)
     const work = charges
-      .filter((charge) => charge.state !== 'not_billable' && charge.state !== 'credited')
-      .map((charge) => ({ visitId: charge.visitId, amount: amountOf(charge), state: charge.state }))
+      .filter(
+        (charge) =>
+          charge.state !== 'not_billable' &&
+          charge.state !== 'credited' &&
+          charge.workState !== 'not_done'
+      )
+      .map((charge) => ({
+        visitId: charge.visitId,
+        amount: amountOf(charge),
+        state: charge.state,
+        draftable: isDraftable(charge.state, charge.workState),
+      }))
     const amounts = work.map((line) => line.amount)
     const sumOf = (state: ChargeState) =>
       sumAmounts(work.filter((line) => line.state === state).map((line) => line.amount))
@@ -232,13 +243,12 @@ export default class JobsController {
         (hasBillableWork(
           job.visits.map((visit) => ({
             status: visit.status,
-            unbilledLines: work.filter(
-              (line) => line.visitId === visit.id && line.state === 'to_bill'
-            ).length,
+            unbilledLines: work.filter((line) => line.visitId === visit.id && line.draftable)
+              .length,
           }))
         ) ||
-          // Charges on the Job itself are billable at once
-          work.some((line) => line.visitId === null && line.state === 'to_bill')),
+          // Done Charges on the Job itself are billable at once
+          work.some((line) => line.visitId === null && line.draftable)),
       // An advance is for work to come
       canInvoiceAdvance: job.isActive,
       // What closing would leave behind, shown as a warning (ADR 0015)
@@ -278,6 +288,7 @@ export default class JobsController {
         unitPrice: charge.unitPrice,
         amount: amountOf(charge),
         state: charge.state,
+        workState: charge.workState,
       })),
       job: {
         ...jobRow(job),
@@ -295,8 +306,14 @@ export default class JobsController {
         closableByOffice: closableByOffice(job.status, visit.status),
         billed: isVisitBilled(
           isClosedVisit(visit.status),
-          charges.filter((charge) => charge.visitId === visit.id).map((charge) => charge.state)
+          charges
+            .filter((charge) => charge.visitId === visit.id)
+            .map((charge) => ({ state: charge.state, work: charge.workState }))
         ),
+        // Its Charges, for the review when Office closes it (ADR 0016)
+        charges: charges
+          .filter((charge) => charge.visitId === visit.id)
+          .map((charge) => ({ id: charge.id, description: charge.description })),
         technicians: visit.technicians.map((technician) => technician.fullName ?? technician.email),
         notes: visit.fieldNotes.map((note) => ({
           id: note.id,

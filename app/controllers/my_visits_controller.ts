@@ -19,6 +19,7 @@ import {
   visitNoteValidator,
   visitPhotoValidator,
   visitStatusValidator,
+  notDoneIn,
 } from '#validators/field'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -127,6 +128,8 @@ export default class MyVisitsController {
         technician: hour.worker ?? '',
         labourRate: hour.labourRate.name,
         hours: hour.quantity,
+        // Unticked when the Visit closed (ADR 0016)
+        notDone: hour.workState === 'not_done',
       })),
       items: visit.items.map((line) => ({
         id: line.id,
@@ -135,6 +138,7 @@ export default class MyVisitsController {
         unit: line.item.unit,
         quantity: line.quantity,
         installed: line.installed,
+        notDone: line.workState === 'not_done',
       })),
       notes: visit.fieldNotes.map((note) => ({
         id: note.id,
@@ -155,10 +159,10 @@ export default class MyVisitsController {
   async updateStatus({ params, request, response, session, auth, bouncer, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
     await bouncer.authorize('viewVisit', visit)
-    const { status } = await request.validateUsing(visitStatusValidator)
+    const { status, ...review } = await request.validateUsing(visitStatusValidator)
 
     return this.refusable(visit, { response, session, i18n }, async () => {
-      await FieldWork.setStatus(visit, status, auth.getUserOrFail())
+      await FieldWork.setStatus(visit, status, auth.getUserOrFail(), notDoneIn(review))
       session.flash('success', i18n.t('flash.visitStatusSaved'))
     })
   }
@@ -280,9 +284,18 @@ export default class MyVisitsController {
       .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
       .preload('photos', (photos) => photos.orderBy('createdAt'))
       .preload('hours', (hours) =>
-        hours.preload('technician').preload('labourRate').orderBy('createdAt')
+        hours
+          .preload('technician')
+          .preload('labourRate')
+          .preload('events', (events) => events.orderBy('id'))
+          .orderBy('createdAt')
       )
-      .preload('items', (items) => items.preload('item').orderBy('createdAt'))
+      .preload('items', (items) =>
+        items
+          .preload('item')
+          .preload('events', (events) => events.orderBy('id'))
+          .orderBy('createdAt')
+      )
       .preload('job', (job) =>
         job.preload('customer').preload('site', (site) =>
           site.preload('installedEquipment', (equipment) =>

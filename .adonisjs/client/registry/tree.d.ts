@@ -135,6 +135,8 @@ export interface ApiDefinition {
     markNotBillable: typeof routes['charges.mark_not_billable']
     markBillable: typeof routes['charges.mark_billable']
     setBackToBill: typeof routes['charges.set_back_to_bill']
+    markDone: typeof routes['charges.mark_done']
+    markNotDone: typeof routes['charges.mark_not_done']
   }
   quotes: {
     create: typeof routes['quotes.create']

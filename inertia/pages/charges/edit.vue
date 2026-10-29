@@ -12,6 +12,7 @@ import {
   type ChargeEventKind,
   type ChargeKind,
   type ChargeState,
+  type WorkState,
 } from '@shared/charges'
 import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
@@ -21,6 +22,9 @@ const props = defineProps<{
     id: number
     kind: ChargeKind
     state: ChargeState
+    workState: WorkState
+    canSetWork: boolean
+    frozen: boolean
     visitStartsAt: string | null
     recorded: {
       quantity: string
@@ -103,6 +107,9 @@ const shown = (key: string, value: string | null) => {
       </template>
 
       <p>
+        <span class="tag" data-testid="charge-work-state">{{
+          t(`ui.charges.workStates.${charge.workState}`)
+        }}</span>
         <span class="tag" data-testid="charge-state">{{
           t(`ui.charges.states.${charge.state}`)
         }}</span>
@@ -120,7 +127,37 @@ const shown = (key: string, value: string | null) => {
         </Link>
       </p>
 
+      <Section :title="t('ui.charges.work')" :description="t('ui.charges.workHint')">
+        <div v-if="charge.canSetWork" :style="{ display: 'flex', gap: '8px' }">
+          <Form
+            v-if="charge.workState !== 'done'"
+            route="charges.mark_done"
+            :params="{ id: charge.id }"
+          >
+            <button type="submit" class="btn btn--secondary btn--sm">
+              {{
+                charge.workState === 'planned'
+                  ? t('ui.charges.confirmUsed')
+                  : t('ui.charges.markDone')
+              }}
+            </button>
+          </Form>
+          <Form
+            v-if="charge.workState !== 'not_done'"
+            route="charges.mark_not_done"
+            :params="{ id: charge.id }"
+          >
+            <button type="submit" class="btn btn--ghost btn--sm">
+              {{ t('ui.charges.markNotDone') }}
+            </button>
+          </Form>
+        </div>
+      </Section>
+
       <Section :title="t('ui.charges.recordedSection')" :description="t('ui.charges.recordedHint')">
+        <p v-if="charge.frozen" class="field__hint" data-testid="charge-frozen">
+          {{ t('ui.charges.frozenHint') }}
+        </p>
         <Form
           v-slot="{ processing, errors }"
           route="charges.correct"

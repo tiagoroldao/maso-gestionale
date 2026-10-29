@@ -510,6 +510,18 @@ const routes = {
     tokens: [[0,"charges"],[1,"id"],[0,"to-bill"]],
     types: placeholder as Registry['charges.set_back_to_bill']['types'],
   },
+  'charges.mark_done': {
+    methods: ["POST"],
+    pattern: '/charges/:id/done',
+    tokens: [[0,"charges"],[1,"id"],[0,"done"]],
+    types: placeholder as Registry['charges.mark_done']['types'],
+  },
+  'charges.mark_not_done': {
+    methods: ["POST"],
+    pattern: '/charges/:id/not-done',
+    tokens: [[0,"charges"],[1,"id"],[0,"not-done"]],
+    types: placeholder as Registry['charges.mark_not_done']['types'],
+  },
   'quotes.create': {
     methods: ["GET","HEAD"],
     pattern: '/jobs/:id/quotes/create',
