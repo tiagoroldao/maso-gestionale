@@ -9,6 +9,12 @@ import { LINE_KINDS, type LineKind } from '#shared/vat'
 export type JobVatDefaults = Record<LineKind, VatCode>
 
 /**
+ * A Job's line has no VAT Code to start from: no default rule for it and
+ * no standard rate, every active code having a Natura (#96).
+ */
+export class NoStandardVatCodeError extends Error {}
+
+/**
  * The one place that decides a new line's VAT Code (ADR 0008): a Job's
  * lines follow the Admin's default rules, other lines the Item's own code;
  * the standard rate fills any gap. Office can still change any line's code.
@@ -19,6 +25,10 @@ export default class VatDefaults {
    * ties broken by name.
    */
   static standard(client?: TransactionClientContract) {
+    return this.standardQuery(client).firstOrFail()
+  }
+
+  private static standardQuery(client?: TransactionClientContract) {
     return VatCode.query({ client })
       .withScopes((scopes) => scopes.active())
       .whereNull('natura')
@@ -26,13 +36,13 @@ export default class VatDefaults {
         { column: 'rate', order: 'desc' },
         { column: 'name', order: 'asc' },
       ])
-      .firstOrFail()
   }
 
   /**
    * The code for each kind of line on the Job's Invoices and Quotes, from
    * its Customer's type, its Work Category and its Site. A rule pointing
-   * at a code archived since gives the standard rate.
+   * at a code archived since gives the standard rate; without one, a
+   * kind no rule covers throws NoStandardVatCodeError.
    */
   static async forJob(
     job: Pick<Job, 'customerId' | 'siteId' | 'workCategory'>,
@@ -45,10 +55,12 @@ export default class VatDefaults {
       .where('workCategory', job.workCategory)
       .where('residential', site?.residential ?? false)
       .preload('vatCode')
-    const standard = await this.standard(client)
+    const standard = await this.standardQuery(client).first()
     const codeFor = (kind: LineKind) => {
       const code = rules.find((rule) => rule.lineKind === kind)?.vatCode
-      return code && !code.archivedAt ? code : standard
+      if (code && !code.archivedAt) return code
+      if (!standard) throw new NoStandardVatCodeError()
+      return standard
     }
     return Object.fromEntries(LINE_KINDS.map((kind) => [kind, codeFor(kind)])) as JobVatDefaults
   }

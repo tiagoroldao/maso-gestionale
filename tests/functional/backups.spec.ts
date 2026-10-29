@@ -17,6 +17,7 @@ import { storagePath } from '#services/storage'
 import { committedData } from '#tests/helpers/committed'
 import { createUser } from '#tests/helpers/users'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { ADVISORY_LOCKS } from '#services/advisory_locks'
 
 const PASSPHRASE = 'cavallo corretto batteria graffetta'
 
@@ -372,7 +373,7 @@ test.group('Backup job', (group) => {
     await configureBackups()
     // Another process's run: the lock held on a connection of its own
     const other = await connect()
-    await other.query('SELECT pg_advisory_lock(330033)')
+    await other.query('SELECT pg_advisory_lock($1)', [ADVISORY_LOCKS.backup])
     await db.from('instance_settings').where('id', 1).update({ backup_started_at: new Date() })
     try {
       const response = await client

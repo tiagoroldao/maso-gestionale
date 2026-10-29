@@ -109,12 +109,15 @@ export default class Jobs {
    * are kept as history and closed to field work (see FieldWork); its
    * recorded Charges can still be billed (#111). A closed Job is reopened
    * first. Visits still open never stop it: they are returned for Office
-   * to see, and Office can mark them done afterwards (#153).
+   * to see, and Office can mark them done afterwards (#153), also when
+   * the Job was cancelled already (a second tab, a double submit).
    */
   static cancel(id: number) {
     return db.transaction(async (trx) => {
       const locked = await Job.query({ client: trx }).where('id', id).forUpdate().firstOrFail()
-      if (locked.status === 'cancelled') return { job: locked, openVisits: 0 }
+      if (locked.status === 'cancelled') {
+        return { job: locked, openVisits: await this.openVisits(trx, locked.id) }
+      }
       if (locked.status === 'closed') throw new JobClosedError()
       // A Job already invoiced is closed instead (ADR 0015); a cancelled one
       // may still invoice its recorded work afterwards (#111)

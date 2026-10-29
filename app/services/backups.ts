@@ -15,6 +15,7 @@ import { encryptStream } from '#services/backup_encryption'
 import { S3BackupStore, type BackupStore, type S3Config } from '#services/backup_store'
 import { storagePath } from '#services/storage'
 import { TIME_ZONE } from '#shared/dates'
+import { ADVISORY_LOCKS } from '#services/advisory_locks'
 
 /**
  * Nightly encrypted off-site backups (#33, ADR 0002). Each run makes one
@@ -34,7 +35,7 @@ export const BACKUP_PREFIX = 'maso-backup-'
 const BACKUP_OBJECT = /^maso-backup-(\d{8}T\d{6}Z)\.(tar|key)\.age$/
 
 /** The advisory lock key a running backup holds (see `acquireLock`) */
-const BACKUP_LOCK = 330_033
+const BACKUP_LOCK = ADVISORY_LOCKS.backup
 
 export type BackupOutcome = 'succeeded' | 'failed' | 'busy'
 

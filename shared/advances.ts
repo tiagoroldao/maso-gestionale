@@ -44,6 +44,9 @@ const rowKey = (row: { vatRate: string; natura: string | null }) =>
  * (`taken`, by row, from issued Invoices), so the advance always closes
  * to the cent. A part never takes back more than its row has left, so
  * rounding can't overshoot and leave the closing step a positive line.
+ * A row already taken back beyond its taxable (a rejected advance whose
+ * VAT split was corrected after a deduction) has nothing left, never a
+ * negative amount that would make a positive deduction line.
  */
 export function deductionRows(
   rows: AdvanceRow[],
@@ -52,11 +55,12 @@ export function deductionRows(
   taken: { vatRate: string; natura: string | null; taxable: string }[] = []
 ) {
   const billed = rows.filter((row) => !new Big(row.taxable).eq(0))
-  const remaining = billed.map((row) =>
-    taken
+  const remaining = billed.map((row) => {
+    const unTaken = taken
       .filter((other) => rowKey(other) === rowKey(row))
       .reduce((rest, other) => rest.minus(other.taxable), new Big(row.taxable))
-  )
+    return unTaken.lt(0) ? new Big(0) : unTaken
+  })
   if (new Big(amount).eq(left)) {
     return billed.map((row, index) => ({ ...row, taxable: remaining[index].toFixed(2) }))
   }

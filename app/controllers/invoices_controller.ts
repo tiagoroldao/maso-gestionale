@@ -9,7 +9,7 @@ import { DateTime } from 'luxon'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import VatCode from '#models/vat_code'
-import VatDefaults from '#services/vat_defaults'
+import VatDefaults, { NoStandardVatCodeError } from '#services/vat_defaults'
 import Invoices, {
   CreditNoteRefusedError,
   InvoiceNotEditableError,
@@ -166,8 +166,13 @@ export default class InvoicesController {
       session.flash('success', i18n.t('flash.invoiceCreated'))
       return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     } catch (error) {
-      if (!(error instanceof JobNotInvoiceableError)) throw error
-      session.flash('error', i18n.t('flash.jobNotInvoiceable'))
+      if (error instanceof NoStandardVatCodeError) {
+        session.flash('error', i18n.t('flash.noStandardVatCode'))
+      } else if (error instanceof JobNotInvoiceableError) {
+        session.flash('error', i18n.t('flash.jobNotInvoiceable'))
+      } else {
+        throw error
+      }
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
   }
@@ -199,8 +204,13 @@ export default class InvoicesController {
       session.flash('success', i18n.t('flash.invoiceCreated'))
       return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     } catch (error) {
-      if (!(error instanceof JobNotInvoiceableError)) throw error
-      session.flash('error', i18n.t('flash.jobNotInvoiceable'))
+      if (error instanceof NoStandardVatCodeError) {
+        session.flash('error', i18n.t('flash.noStandardVatCode'))
+      } else if (error instanceof JobNotInvoiceableError) {
+        session.flash('error', i18n.t('flash.jobNotInvoiceable'))
+      } else {
+        throw error
+      }
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
   }

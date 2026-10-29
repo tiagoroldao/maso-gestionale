@@ -6,6 +6,7 @@ import ChargeEvent from '#models/charge_event'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import LabourRate from '#models/labour_rate'
+import VatCode from '#models/vat_code'
 import Visit from '#models/visit'
 import Charges from '#services/charges'
 import FieldWork from '#services/field_work'
@@ -259,6 +260,65 @@ test.group('Invoicing from Charges', () => {
     )
     assert.deepEqual(await chargesByLine(draft), [[hours.id], [valves.id]])
     assert.equal(await stateOf(callOut), 'to_bill')
+  })
+
+  test("a kept line keeps its VAT treatment when the code's settings change", async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await workedJob()
+    const draft = await Invoices.fromJob(job)
+    const [labour, valveLine, callOutLine] = await asSent(draft)
+    const standard = await vatCode()
+    const reduced = await vatCode('10%')
+    const save = (lines: object[]) =>
+      client.put(`/invoices/${draft.id}`).json({ lines }).withCsrfToken().loginAs(office)
+    await save([labour, { ...valveLine, vatCodeId: reduced.id }, callOutLine])
+
+    // The Admin edits both codes; saving the draft again changes nothing
+    await standard.merge({ rate: '23', legalNote: 'Nuova nota' }).save()
+    await reduced.merge({ rate: '11' }).save()
+    await save([labour, { ...valveLine, vatCodeId: reduced.id }, callOutLine])
+    const treatments = async () => {
+      const lines = await InvoiceLine.query().where('invoiceId', draft.id).orderBy('position')
+      return lines.map((line) => [line.vatCodeId, line.vatRate, line.legalNote])
+    }
+    assert.deepEqual(await treatments(), [
+      [standard.id, '22.00', null],
+      [reduced.id, '10.00', null],
+      [standard.id, '22.00', null],
+    ])
+
+    // A line whose code changes, and a new line, take the code as it is now
+    await save([
+      { ...labour, vatCodeId: reduced.id },
+      { ...valveLine, vatCodeId: standard.id },
+      callOutLine,
+      { description: 'Extra', quantity: '1', unitPrice: '5', vatCodeId: standard.id },
+    ])
+    assert.deepEqual(await treatments(), [
+      [reduced.id, '11.00', null],
+      [standard.id, '23.00', 'Nuova nota'],
+      [standard.id, '22.00', null],
+      [standard.id, '23.00', 'Nuova nota'],
+    ])
+  })
+
+  test('without a VAT Code to start the lines from, Office is told so and no draft is made', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await workedJob()
+    // Every rate archived: the rules' 22% falls back to a standard rate
+    // that no longer exists
+    await VatCode.query().whereNull('natura').update({ archived_at: new Date() })
+
+    for (const url of [`/jobs/${job.id}/invoices`, `/jobs/${job.id}/advance-invoices`]) {
+      const response = await client.post(url).withCsrfToken().loginAs(office).redirects(0)
+      response.assertHeader('location', `/jobs/${job.id}`)
+      response.assertFlashMessage('error', it('flash.noStandardVatCode'))
+    }
+    assert.lengthOf(await Invoice.query().where('jobId', job.id), 0)
   })
 
   test('the Admin sets a billed Charge back to bill too', async ({ client, assert }) => {

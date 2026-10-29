@@ -1,11 +1,6 @@
 import db from '@adonisjs/lucid/services/db'
 import User from '#models/user'
-
-/**
- * Arbitrary key for the Postgres advisory lock that serialises first-run
- * setup, so two concurrent submissions can't both create accounts.
- */
-const SETUP_LOCK_KEY = 41_000_001
+import { ADVISORY_LOCKS } from '#services/advisory_locks'
 
 export class SetupAlreadyCompletedError extends Error {
   constructor() {
@@ -30,7 +25,7 @@ export default class InstanceSetup {
 
   static async run(input: SetupInput) {
     return db.transaction(async (trx) => {
-      await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [SETUP_LOCK_KEY])
+      await trx.rawQuery('SELECT pg_advisory_xact_lock(?)', [ADVISORY_LOCKS.instanceSetup])
       if (await trx.from('users').select(trx.raw('1')).first()) {
         throw new SetupAlreadyCompletedError()
       }

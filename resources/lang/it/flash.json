@@ -168,6 +168,7 @@
   "jobInvoiced": "La commessa ha fatture: non si può annullare, ma si può chiudere.",
   "jobCustomerInvoiced": "La commessa ha fatture: il cliente non si può cambiare.",
   "jobNotInvoiceable": "La commessa non ha ancora nulla da fatturare (addebiti sulla commessa o su interventi chiusi), oppure, per un acconto, è chiusa o annullata.",
+  "noStandardVatCode": "Nessun codice IVA da proporre per le righe: serve un codice IVA attivo con aliquota (senza natura), oppure le regole IVA predefinite per questa commessa.",
   "paymentRecorded": "Incasso registrato.",
   "paymentRemoved": "Incasso eliminato.",
   "paymentRefused": "Una bozza non si incassa: emetti prima la fattura. Su una nota di credito non si incassa: un rimborso è un incasso negativo sulla fattura stornata.",

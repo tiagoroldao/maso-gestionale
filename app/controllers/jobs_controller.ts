@@ -384,7 +384,7 @@ export default class JobsController {
    */
   async cancel({ params, response, session, i18n }: HttpContext) {
     try {
-      const { job, openVisits } = await Jobs.cancel(params.id)
+      const { job, openVisits } = await Jobs.cancel(Number(params.id))
       if (openVisits) {
         session.flash(
           'warning',
@@ -407,7 +407,7 @@ export default class JobsController {
    */
   async close({ params, response, session, i18n }: HttpContext) {
     try {
-      const { job, left } = await Jobs.close(params.id)
+      const { job, left } = await Jobs.close(Number(params.id))
       const parts = leftovers(left).map(([key, count]) =>
         i18n.t(`ui.jobs.leftToClose.${key}`, { count })
       )
@@ -431,7 +431,7 @@ export default class JobsController {
    */
   async reopen({ params, response, session, i18n }: HttpContext) {
     try {
-      const job = await Jobs.reopen(params.id)
+      const job = await Jobs.reopen(Number(params.id))
       session.flash('success', i18n.t('flash.jobReopened', { number: job.number }))
     } catch (error) {
       if (error instanceof JobNotEditableError) {

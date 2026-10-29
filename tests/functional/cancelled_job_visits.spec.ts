@@ -193,6 +193,16 @@ test.group('Visits left open on a cancelled Job (#153)', () => {
     )
     await job.refresh()
     assert.equal(job.status, 'cancelled')
+    const cancelledAt = job.cancelledAt!.toISO()
+
+    // Cancelled again (a second tab): the same warning, the first date kept
+    const again = await post(client, office, `/jobs/${job.id}/cancel`)
+    again.assertFlashMessage(
+      'warning',
+      it('flash.jobCancelledWithOpenVisits', { number: job.number, count: 2 })
+    )
+    await job.refresh()
+    assert.equal(job.cancelledAt!.toISO(), cancelledAt)
 
     // Without open Visits, a plain confirmation
     const quiet = await createJob(await createCustomer(), { status: 'in_progress' })

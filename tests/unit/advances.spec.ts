@@ -55,4 +55,22 @@ test.group('Advance deductions', () => {
       ['95.69', '95.69']
     )
   })
+
+  test('a row taken back beyond its taxable has nothing left, never a negative amount', ({
+    assert,
+  }) => {
+    // The 10% row was corrected down to 100 after 120 was taken back of it
+    const taken = [
+      { vatRate: '22.00', natura: null, taxable: '50.00' },
+      { vatRate: '10.00', natura: null, taxable: '120.00' },
+    ]
+    assert.deepEqual(
+      deductionRows(rows, '61.00', '61.00', taken).map((row) => row.taxable),
+      ['50.00', '0.00']
+    )
+    assert.deepEqual(
+      deductionRows(rows, '30.00', '61.00', taken).map((row) => row.taxable),
+      ['12.93', '0.00']
+    )
+  })
 })
