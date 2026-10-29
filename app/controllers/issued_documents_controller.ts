@@ -12,6 +12,7 @@ import IssuedDocuments, {
   StoredPdfMissingError,
 } from '#services/issued_documents'
 import { TemplateDataError } from '#services/template_data'
+import type { TemplatePrefill } from '#shared/document_templates'
 import { issuedDocumentValidator, replacementValidator } from '#validators/issued_document'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -23,11 +24,13 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class IssuedDocumentsController {
   /**
    * Choosing a template, then filling it in (for a Customer when one is
-   * given).
+   * given, and with one of its Jobs in the Job field when given: a Job's
+   * work report, #180).
    */
   async create({ request, inertia }: HttpContext) {
     const templateId = Number(request.input('templateId'))
     const customerId = Number(request.input('customerId'))
+    const jobId = Number(request.input('jobId'))
     const customer = customerId
       ? await Customer.query()
           .withScopes((scopes) => scopes.active())
@@ -58,12 +61,18 @@ export default class IssuedDocumentsController {
     }
 
     const current = await DocumentTemplates.current(template)
+    const jobField = current.fields.find((field) => field.type === 'job')
+    const job = customer && jobField && jobId ? await Job.find(jobId) : null
+    const prefill: Record<string, TemplatePrefill> = {}
+    if (jobField && job && job.customerId === customer?.id) {
+      prefill[jobField.key] = { id: job.id, label: `${job.number} – ${job.title}` }
+    }
     return inertia.render('issued_documents/create', {
       templates: [],
       template: { id: template.id, name: current.name, fields: current.fields },
       customer: picked,
       replaces: null,
-      prefill: {},
+      prefill,
     })
   }
 

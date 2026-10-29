@@ -14,6 +14,7 @@ import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
 import { markDone } from '#tests/helpers/charges'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { addedTemplates } from '#tests/helpers/document_templates'
 
 const placeholder = (key: string) => ({ type: 'placeholder', attrs: { key } })
 const paragraph = (...content: object[]) => ({ type: 'paragraph', content })
@@ -228,7 +229,7 @@ test.group('Document Templates: entity fields and tables', () => {
       assert.deepEqual(await errorsFor([...fields], body), bodyRefused, JSON.stringify(body))
     }
     // Only the one with Equipment before its Site was saved
-    assert.lengthOf(await DocumentTemplate.all(), 1)
+    assert.lengthOf(await addedTemplates(), 1)
   })
 
   test('the preview fills entity fields and tables with sample data', async ({
@@ -559,6 +560,6 @@ test.group('Document Templates: entity fields and tables', () => {
       .withInertia()
       .loginAs(admin)
     page.assertInertiaPropsContains({ template: { id: template.id, fields: entityFields } })
-    assert.lengthOf(await DocumentTemplate.all(), 1)
+    assert.lengthOf(await addedTemplates(), 1)
   })
 })

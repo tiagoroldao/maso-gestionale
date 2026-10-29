@@ -11,6 +11,7 @@ import Jobs, {
 import Invoice from '#models/invoice'
 import Invoices from '#services/invoices'
 import Quotes from '#services/quotes'
+import IssuedDocuments from '#services/issued_documents'
 import { advanceState } from '#shared/advances'
 import Charge from '#models/charge'
 import CompanySettings from '#models/company_settings'
@@ -296,6 +297,10 @@ export default class JobsController {
         cancelled: progress.cancelled,
         next: progress.next && { startsAt: progress.next.startsAt, endsAt: progress.next.endsAt },
       },
+      // The Job's work report (#180) is issued from these templates, and
+      // listed with the Job's other Issued Documents
+      workReportTemplates: await IssuedDocuments.workReportTemplates(),
+      issuedDocuments: await IssuedDocuments.history({ jobId: job.id }),
       summary: chargeSummary(
         charges.map((charge) => summaryCharge(charge)),
         job.visits.map((visit) => visit.id)

@@ -25,7 +25,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #169  | Pending equipment details on a Charge shown and correctable (`ui-later`)                  | The UX pass                                       |
 | #177  | Schedule repeated Visits for long Jobs                                                    | —                                                 |
 | #179  | Group alike Charges on Invoice drafts                                                     | —                                                 |
-| #180  | Work report for a Job (rapportino)                                                        | —                                                 |
 | #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
 | #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 | #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
