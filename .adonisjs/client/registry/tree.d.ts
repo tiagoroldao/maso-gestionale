@@ -200,6 +200,7 @@ export interface ApiDefinition {
     show: typeof routes['supplier_invoices.show']
     file: typeof routes['supplier_invoices.file']
     spreadDiscounts: typeof routes['supplier_invoices.spread_discounts']
+    archive: typeof routes['supplier_invoices.archive']
   }
   supplierInvoiceLines: {
     receive: typeof routes['supplier_invoice_lines.receive']
@@ -270,6 +271,7 @@ export interface ApiDefinition {
     backups: typeof routes['instance.backups'] & {
       run: typeof routes['instance.backups.run']
     }
+    archiveSupplierInvoices: typeof routes['instance.archive_supplier_invoices']
     adminPassword: typeof routes['instance.admin_password']
   }
 }

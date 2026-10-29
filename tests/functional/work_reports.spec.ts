@@ -18,6 +18,7 @@ import Charges from '#services/charges'
 import DocumentTemplates from '#services/document_templates'
 import FieldWork from '#services/field_work'
 import Scheduling from '#services/scheduling'
+import WorkReports from '#services/work_reports'
 import { storagePath } from '#services/storage'
 import { formatDate } from '#shared/dates'
 import { formatMoney } from '#shared/money'
@@ -312,6 +313,11 @@ test.group('Work report for a Job (#180)', (group) => {
         { commessa: job.id, rapportino: { ...whole, prices: 'yes' } },
         { rapportino: it('errors.templateData.invalid') },
       ],
+      [
+        // New input says whether the other costs follow; only a report issued before #192 may not
+        { commessa: job.id, rapportino: { from: '', to: '', prices: false, notes: false } },
+        { rapportino: it('errors.templateData.invalid') },
+      ],
       [{ commessa: job.id }, { rapportino: it('errors.templateData.required') }],
     ]
     for (const [values, errors] of cases) {
@@ -597,6 +603,48 @@ test.group("Work report: the Job's other costs (#192)", (group) => {
     ])
   })
 
+  test('a Job Charge is dated by its latest "done", on the day it was in Rome', async ({
+    assert,
+  }) => {
+    const job = await createJob(await createCustomer())
+    const onJob = (description: string) =>
+      Charge.create({
+        jobId: job.id,
+        kind: 'other',
+        vatKind: 'labour',
+        description,
+        quantity: '1',
+        billQuantity: '1',
+        unitPrice: '10',
+      })
+    const at = (moment: string) => DateTime.fromISO(moment, { zone: 'utc' })
+    // Done on the 2nd, not done on the 3rd, done again on the 5th
+    const redone = await onJob('Rifatto')
+    for (const [kind, when] of [
+      ['done', '2026-10-02T10:00'],
+      ['not_done', '2026-10-03T10:00'],
+      ['done', '2026-10-05T10:00'],
+    ] as const) {
+      await ChargeEvent.create({ chargeId: redone.id, kind, createdAt: at(when) })
+    }
+    // 23:30 UTC on the 6th is 00:30 on the 7th in Rome
+    const lateNight = await onJob('Notturno')
+    await ChargeEvent.create({
+      chargeId: lateNight.id,
+      kind: 'done',
+      createdAt: at('2026-10-06T23:30'),
+    })
+    const reported = async (from: string, to: string) => {
+      const charges = await WorkReports.jobCharges(job, { from, to })
+      return charges.map((charge) => charge.description)
+    }
+
+    assert.deepEqual(await reported('2026-10-01', '2026-10-04'), [])
+    assert.deepEqual(await reported('2026-10-05', '2026-10-05'), ['Rifatto'])
+    assert.deepEqual(await reported('2026-10-06', '2026-10-06'), [])
+    assert.deepEqual(await reported('2026-10-07', '2026-10-07'), ['Notturno'])
+  })
+
   test("a replacement keeps the original's choice", async ({ client, assert }) => {
     const { office, customer, job, template } = await longJob()
     const replacing = async (rapportino: Record<string, unknown>) => {
@@ -620,7 +668,5 @@ test.group("Work report: the Job's other costs (#192)", (group) => {
       ...options,
       jobCharges: false,
     })
-    // Issued before #192, without the choice: it had no other costs
-    assert.deepEqual(await replacing(options), { ...options, jobCharges: false })
   })
 })

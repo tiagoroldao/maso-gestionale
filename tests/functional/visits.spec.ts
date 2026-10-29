@@ -313,6 +313,39 @@ test.group('Agenda', () => {
     assert.properties(response.flashMessage('inputErrorsBag'), ['startsAt'])
   })
 
+  test('a hand-over is checked against the Visit, not the lane the page says it came from', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const gone = await createUser('technician', { isActive: false })
+    const visit = await visitFor([anna.id], '2026-11-03T09:00')
+    const move = (body: Record<string, unknown>) =>
+      client
+        .patch(`/visits/${visit.id}/move`)
+        .json({ startsAt: '2026-11-03T11:00', ...body })
+        .header('referer', '/agenda')
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+
+    // A deactivated Technician not on the Visit, named as its lane too
+    const notOnIt = await move({ fromTechnicianId: gone.id, toTechnicianId: gone.id })
+    assert.properties(notOnIt.flashMessage('inputErrorsBag'), ['toTechnicianId'])
+    // Not an id at all: refused, not crashed on
+    const garbled = await move({ fromTechnicianId: 'abc', toTechnicianId: anna.id })
+    assert.properties(garbled.flashMessage('inputErrorsBag'), ['fromTechnicianId'])
+
+    await visit.refresh()
+    assert.equal(visit.startsAt.toFormat('HH:mm'), '09:00')
+    await visit.load('technicians')
+    assert.deepEqual(
+      visit.technicians.map((technician) => technician.id),
+      [anna.id]
+    )
+  })
+
   test('Technicians can not use the agenda', async ({ client }) => {
     const technician = await createUser('technician')
     const visit = await visitFor([technician.id], '2026-11-03T09:00')
@@ -419,12 +452,18 @@ test.group('Editing and deleting Visits', () => {
     await visit.save()
 
     for (const request of [
-      client.put(`/visits/${visit.id}`).json(plan([anna.id])),
+      client
+        .put(`/visits/${visit.id}`)
+        .json(plan([anna.id], { date: '2026-12-01', notes: 'Altro' })),
       client.delete(`/visits/${visit.id}`),
     ]) {
       const response = await request.withCsrfToken().loginAs(office).redirects(0)
       response.assertFlashMessage('error', it('flash.visitNotEditable'))
     }
+    // The refused edit changed nothing
+    await visit.refresh()
+    assert.equal(visit.startsAt.toISODate(), '2026-11-03')
+    assert.equal(visit.notes, 'Portare la chiave del locale caldaia')
 
     visit.status = 'planned'
     await visit.save()

@@ -12,6 +12,7 @@ import Submissions, {
 } from '#services/submissions'
 import type { PollFailure, PollStep } from '#shared/sdi_failures'
 import { supplierInvoiceIntake } from '#services/supplier_invoice_intake'
+import SupplierInvoiceArchiving from '#services/supplier_invoice_archiving'
 import type { SdiGateway } from '#services/sdi_gateway'
 
 /** Received files are listed again from a day before the newest one, in case of late arrivals */
@@ -25,6 +26,7 @@ export type PollReport =
       outcomes: number
       received: number
       handed: number
+      archived: number
       failures: PollFailure[]
     }
 
@@ -42,7 +44,8 @@ export function isPollDue(settings: InstanceSettings, now = DateTime.now()) {
 /**
  * Polling the intermediary, the source of truth (ADR 0019): it settles
  * sends whose result is unknown, records SDI's outcomes on Submissions,
- * and fetches received Supplier Invoices for the intake. With no
+ * fetches received Supplier Invoices for the intake, and sends to legal
+ * archiving the Supplier Invoices waiting for it (#214). With no
  * connection it does nothing. Only the poller (`sdi:poll`) runs it; a
  * webhook only asks for an earlier poll.
  */
@@ -57,6 +60,7 @@ export default class SdiPolling {
     const outcomes = await this.outcomes(gateway, failures)
     const received = await this.receive(gateway, failures)
     const handed = await this.handOver(gateway, failures)
+    const archived = await this.archive(failures)
 
     // Only the status columns, so a save of the settings meanwhile stays
     await db.rawQuery('INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING')
@@ -67,7 +71,7 @@ export default class SdiPolling {
         sdi_polled_at: new Date(),
         sdi_poll_failure: failures.length ? JSON.stringify(failures) : null,
       })
-    return { polled: true, settled, outcomes, received, handed, failures }
+    return { polled: true, settled, outcomes, received, handed, archived, failures }
   }
 
   /**
@@ -203,6 +207,32 @@ export default class SdiPolling {
       await file.save()
     }
     return handed
+  }
+
+  /**
+   * Sends to legal archiving the Supplier Invoices waiting for it (#214):
+   * queued (by the intake or the Superuser's one-off action) or failed
+   * before. Only with the setting on and an intermediary that can.
+   */
+  private static async archive(failures: PollFailure[]) {
+    const gateway = await attempt(failures, 'archive', null, () =>
+      SupplierInvoiceArchiving.gateway()
+    )
+    if (!gateway) return 0
+    const pending = await attempt(failures, 'archive', null, () =>
+      SupplierInvoiceArchiving.pending()
+    )
+    let archived = 0
+    for (const file of pending ?? []) {
+      await attempt(failures, 'archive', file.fileName, async () => {
+        const result = await SupplierInvoiceArchiving.send(gateway, file.filePath)
+        if (result?.outcome === 'requested') archived++
+        if (result?.outcome === 'failed') {
+          failures.push({ step: 'archive', subject: file.fileName, detail: result.failure })
+        }
+      })
+    }
+    return archived
   }
 }
 

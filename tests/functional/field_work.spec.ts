@@ -5,6 +5,7 @@ import { rm } from 'node:fs/promises'
 import app from '@adonisjs/core/services/app'
 import { storagePath } from '#services/storage'
 import Visit from '#models/visit'
+import VisitPhoto from '#models/visit_photo'
 import Charge from '#models/charge'
 import LabourRate from '#models/labour_rate'
 import StockMovement from '#models/stock_movement'
@@ -237,6 +238,11 @@ test.group('Field work', () => {
         .form({ technicianId: String(outsider.id), labourRateId: String(rate.id), hours: '1' }),
       client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
       client.delete(`/charges/${hour.id}`),
+      client.post(`/my-visits/${visit.id}/notes`).form({ body: 'Non è mio' }),
+      client
+        .post(`/my-visits/${visit.id}/photos`)
+        .file('photo', app.makePath('tests/fixtures/logo.png')),
+      client.post(`/my-visits/${visit.id}/serviced`).form({ equipmentIds: [] }),
     ]) {
       const response = await request
         .header('referer', '/')
@@ -247,6 +253,91 @@ test.group('Field work', () => {
     }
     await visit.load('hours')
     assert.lengthOf(visit.hours, 1)
+    await visit.load('items')
+    assert.lengthOf(visit.items, 0)
+    await visit.load('fieldNotes')
+    assert.lengthOf(visit.fieldNotes, 0)
+    await visit.load('photos')
+    assert.lengthOf(visit.photos, 0)
+    // Refused before the upload was stored
+    assert.isFalse(existsSync(storagePath(`visits/${visit.id}`)))
+  })
+
+  test('the Superuser is refused on every field-work route', async ({ client, assert }) => {
+    const { anna, visit, rate, item } = await setup()
+    const superuser = await createUser('superuser')
+    const hour = await FieldWork.recordHours(visit, {
+      technicianId: anna.id,
+      labourRateId: rate.id,
+      hours: '1',
+    })
+    const photo = await VisitPhoto.create({
+      visitId: visit.id,
+      userId: anna.id,
+      filePath: `visits/${visit.id}/foto.png`,
+      mimeType: 'image/png',
+      sizeBytes: 1,
+    })
+
+    for (const url of [
+      '/my-visits',
+      `/my-visits/${visit.id}`,
+      `/visit-photos/${photo.id}`,
+      `/my-visits/${visit.id}/item-documents/1`,
+      `/my-visits/${visit.id}/issued-documents/1`,
+    ]) {
+      const response = await client.get(url).loginAs(superuser)
+      assert.equal(response.status(), 403, url)
+    }
+    for (const request of [
+      client.post(`/my-visits/${visit.id}/status`).form({ status: 'done' }),
+      client.post(`/my-visits/${visit.id}/notes`).form({ body: 'Supporto' }),
+      client
+        .post(`/my-visits/${visit.id}/photos`)
+        .file('photo', app.makePath('tests/fixtures/logo.png')),
+      client
+        .post(`/my-visits/${visit.id}/hours`)
+        .form({ technicianId: String(anna.id), labourRateId: String(rate.id), hours: '1' }),
+      client.post(`/my-visits/${visit.id}/items`).form({ itemId: String(item.id), quantity: '1' }),
+      client.post(`/my-visits/${visit.id}/serviced`).form({ equipmentIds: [] }),
+      client.delete(`/charges/${hour.id}`),
+    ]) {
+      const response = await request
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(superuser)
+        .redirects(0)
+      response.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+    }
+
+    await visit.refresh()
+    assert.equal(visit.status, 'planned')
+    for (const relation of ['hours', 'items', 'fieldNotes', 'photos'] as const) {
+      await visit.load(relation)
+    }
+    assert.deepEqual(
+      [visit.hours.length, visit.items.length, visit.fieldNotes.length, visit.photos.length],
+      [1, 0, 0, 1]
+    )
+  })
+
+  test('a photo that is not an image is refused, and not stored', async ({ client, assert }) => {
+    const { anna, visit } = await setup()
+
+    const response = await client
+      .post(`/my-visits/${visit.id}/photos`)
+      .file('photo', app.makePath('tests/fixtures/not_an_image.txt'))
+      .header('referer', `/my-visits/${visit.id}`)
+      .withCsrfToken()
+      .loginAs(anna)
+      .redirects(0)
+
+    assert.deepEqual(response.flashMessage('inputErrorsBag').photo, [
+      it('validator.shared.messages.photo.file.extname'),
+    ])
+    await visit.load('photos')
+    assert.lengthOf(visit.photos, 0)
+    assert.isFalse(existsSync(storagePath(`visits/${visit.id}`)))
   })
 
   test('Office sees the running total and Work Complete; Technicians see no prices', async ({

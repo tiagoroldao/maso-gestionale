@@ -1,9 +1,10 @@
-import { belongsTo, hasMany } from '@adonisjs/lucid/orm'
+import { belongsTo, column, hasMany } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { SupplierInvoiceSchema } from '#database/schema'
 import Supplier from '#models/supplier'
 import SupplierInvoiceLine from '#models/supplier_invoice_line'
 import type {
+  LegalArchivingState,
   SupplierInvoiceDetails,
   SupplierInvoiceSource,
   SupplierInvoiceStatus,
@@ -17,6 +18,9 @@ import type {
  * into stock, marked it already received (#210) or marked it not stock
  * (#199, SupplierInvoiceLines). `spreadDiscounts` says whether the
  * discounts on the whole invoice lower its lines' default costs (#210).
+ * `legalArchiving` follows its file's legal archiving through the SDI
+ * intermediary (#214, SupplierInvoiceArchiving), with the intermediary's
+ * ids once requested.
  */
 export default class SupplierInvoice extends SupplierInvoiceSchema {
   static table = 'supplier_invoices'
@@ -24,6 +28,11 @@ export default class SupplierInvoice extends SupplierInvoiceSchema {
   declare status: SupplierInvoiceStatus
   declare receivedVia: SupplierInvoiceSource
   declare details: SupplierInvoiceDetails
+  declare legalArchiving: LegalArchivingState | null
+
+  // A JSON array: stringified, as the driver would write it as a Postgres array
+  @column({ prepare: (value: string[] | null) => (value === null ? null : JSON.stringify(value)) })
+  declare legalArchivingIds: string[] | null
 
   @belongsTo(() => Supplier)
   declare supplier: BelongsTo<typeof Supplier>

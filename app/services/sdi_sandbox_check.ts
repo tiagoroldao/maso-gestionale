@@ -437,9 +437,10 @@ export class SdiSandboxCheck {
   }
 
   /**
-   * A raw call: the gateway has no method for this endpoint yet. Use the
-   * gateway's once #214 adds one (`archiveReceived`, #222). The .p7m is
-   * sent as it is, on purpose, to learn whether Openapi takes it.
+   * Raw calls for now: the XML import is to go through the gateway's
+   * `archiveReceived` (#222, docs/follow-ups.md). The .p7m stays a raw
+   * call, sent as it is on purpose to learn whether Openapi takes it,
+   * where the gateway sends a .p7m as its extracted XML.
    */
   private async importReceived() {
     if (!this.received) return this.skip('Nothing was received (check 5)')

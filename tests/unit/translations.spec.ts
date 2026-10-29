@@ -35,6 +35,7 @@ import {
   ALL_PAYMENT_METHODS,
   DOCUMENT_TYPES,
   SUPPLIER_INVOICE_SOURCES,
+  LEGAL_ARCHIVING_STATES,
   SUPPLIER_INVOICE_STATUSES,
   type LineReceiptRefusal,
 } from '#shared/supplier_invoices'
@@ -52,6 +53,7 @@ import type { QuoteImportRefusedError } from '#services/quotes'
 import type { VisitCancelRefusedError } from '#services/scheduling'
 import type { LineRefusedError } from '#services/supplier_invoice_lines'
 import type { SupplierInvoiceRefusedError } from '#services/supplier_invoices'
+import type { ArchivingRefusedError } from '#services/supplier_invoice_archiving'
 import type { WorkReportLabels } from '#shared/work_report'
 
 /** The values of a type no list holds: typecheck keeps the object complete. */
@@ -122,6 +124,7 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
   'ui.paymentMethods': PAYMENT_METHODS,
   'ui.vatRules.lineKinds': LINE_KINDS,
   'ui.supplierInvoices.statuses': SUPPLIER_INVOICE_STATUSES,
+  'ui.supplierInvoices.legalArchivingStates': LEGAL_ARCHIVING_STATES,
   'ui.supplierInvoices.sources': SUPPLIER_INVOICE_SOURCES,
   'ui.supplierInvoices.documentTypes': DOCUMENT_TYPES,
   'ui.supplierInvoices.paymentMethods': ALL_PAYMENT_METHODS,
@@ -236,6 +239,10 @@ const BUILT_ON_SERVER: Record<string, readonly (string | number)[]> = {
     negativeTotal: true,
     receiptNotLinkable: true,
   }),
+  'flash.supplierInvoiceArchivingRefused': valuesOf<ArchivingRefusedError['reason']>({
+    notOffered: true,
+    notWaiting: true,
+  }),
   'flash.supplierInvoiceRefused': valuesOf<SupplierInvoiceRefusedError['reason']>({
     unreadable: true,
     unsupported: true,
@@ -308,7 +315,7 @@ async function catalogue() {
   return keys
 }
 
-/** The .vue and .ts files under `directories`. */
+/** The .vue, .ts and .edge files under `directories`. */
 async function sources(directories: string[]): Promise<string[]> {
   const files = await Promise.all(
     directories.map(async (directory) => {
@@ -317,7 +324,7 @@ async function sources(directories: string[]): Promise<string[]> {
         entries.map((entry) => {
           const path = join(directory, entry.name)
           if (entry.isDirectory()) return sources([path])
-          return /\.(vue|ts)$/.test(entry.name) ? [path] : []
+          return /\.(vue|ts|edge)$/.test(entry.name) ? [path] : []
         })
       )
     })
@@ -325,9 +332,10 @@ async function sources(directories: string[]): Promise<string[]> {
   return files.flat(2)
 }
 
-/** The pages and the modules they share with the server; the server. */
+/** The pages and the modules they share with the server; the server, and its views. */
 const PAGES = ['inertia', 'shared']
-const SERVER = ['app', 'start']
+const SERVER = ['app', 'start', 'commands', 'providers']
+const VIEWS = ['resources/views']
 
 async function matchesInSources(pattern: RegExp, directories = PAGES) {
   const found: { key: string; text: string; file: string }[] = []
@@ -341,12 +349,15 @@ async function matchesInSources(pattern: RegExp, directories = PAGES) {
 }
 
 test.group('Translations', () => {
-  test('every key written in the pages exists in the catalogue', async ({ assert }) => {
+  test('every key written in the pages, the server and its views exists in the catalogue', async ({
+    assert,
+  }) => {
     const keys = await catalogue()
     // Any key in a string, passed to t() or kept for it ('ui.x' or `ui.x`); a
     // double-quoted one is a Vue attribute, an expression ("errors.email")
     const written = await matchesInSources(
-      /(?:\bt\(\s*)?(['`])((?:documents|errors|flash|ui|validator)\.[a-zA-Z0-9_.]*[a-zA-Z0-9_])\1/g
+      /(?:\bt\(\s*)?(['`])((?:documents|errors|flash|ui|validator)\.[a-zA-Z0-9_.]*[a-zA-Z0-9_])\1/g,
+      [...PAGES, ...SERVER, ...VIEWS]
     )
     // A comment may name a group of keys (`ui.sdiFailures`); t() never takes one
     const groups = new Set(

@@ -88,8 +88,11 @@
     "secretUnreadable": "Il valore salvato non si può più leggere (la chiave APP_KEY è cambiata): inseriscilo di nuovo.",
     "clearToken": "Rimuovi il token salvato",
     "legalArchiving": "Conservazione a norma tramite l'intermediario",
-    "legalArchivingHint": "Le fatture inviate vengono anche conservate a norma dall'intermediario, a pagamento: con Openapi circa 0,105 € a fattura invece di 0,070 € (listino di ottobre 2026). L'accesso alla piattaforma di conservazione si attiva presso Openapi, fuori dall'app.",
-    "legalArchivingElsewhere": "Le fatture inviate non vengono conservate a norma né dall'app né dall'intermediario: provvedi in altro modo, per esempio con il servizio gratuito dell'Agenzia delle Entrate.",
+    "legalArchivingHint": "Le fatture inviate e le fatture passive ricevute (anche quelle caricate a mano) vengono anche conservate a norma dall'intermediario, a pagamento: con Openapi circa 0,105 € per fattura inviata invece di 0,070 € (listino di ottobre 2026), più il costo di ogni fattura passiva conservata secondo il listino di Openapi. L'accesso alla piattaforma di conservazione si attiva presso Openapi, fuori dall'app.",
+    "legalArchivingElsewhere": "Né le fatture inviate né le fatture passive ricevute vengono conservate a norma dall'app o dall'intermediario: provvedi per entrambe in altro modo, per esempio con il servizio gratuito dell'Agenzia delle Entrate.",
+    "archiveExisting": "Archivia le fatture passive già presenti",
+    "archiveExistingHint": "{count, plural, one {# fattura passiva registrata prima dell'attivazione non è stata inviata} other {# fatture passive registrate prima dell'attivazione non sono state inviate}} alla conservazione a norma.",
+    "archiveExistingConfirm": "Inviare alla conservazione a norma tutte le fatture passive già presenti? L'invio avviene al prossimo controllo, a pagamento per ogni fattura.",
     "pollingMinutes": "Controllo esiti e fatture passive ogni (minuti)",
     "webhookEnabled": "Webhook attivo (avvia subito un controllo)",
     "webhookSecret": "Segreto del webhook (almeno 16 caratteri)",
@@ -141,7 +144,8 @@
       "outcome": "Esito di {subject}",
       "received": "Elenco delle fatture passive ricevute",
       "download": "Scaricamento della fattura passiva {subject}",
-      "handOver": "Registrazione della fattura passiva {subject}"
+      "handOver": "Registrazione della fattura passiva {subject}",
+      "archive": "Conservazione a norma della fattura passiva {subject}"
     }
   },
   "errors": {
@@ -1365,7 +1369,9 @@
     "submissionRefused": "la fattura non è più in attesa di questo esito",
     "noticeBeforeSubmission": "la notifica di SDI è datata prima dell'invio",
     "noFiscalId": "manca la Partita IVA (o il Codice Fiscale) nelle impostazioni dell'azienda",
-    "tooManyPages": "Openapi ha restituito troppe pagine di risultati: riprovato al prossimo controllo"
+    "tooManyPages": "Openapi ha restituito troppe pagine di risultati: riprovato al prossimo controllo",
+    "noSdiIdentifier": "manca l'identificativo SDI della fattura: indicalo nella pagina della fattura",
+    "archivingInterrupted": "l'invio si è interrotto prima della risposta: riprovato al prossimo controllo"
   },
   "supplierInvoices": {
     "title": "Fatture passive",
@@ -1511,7 +1517,19 @@
     "exportHint": "Un file zip con i file originali (XML o .p7m), una copia PDF di ogni fattura e un indice CSV, per data della fattura.",
     "exportFrom": "Dal",
     "exportTo": "Al",
-    "exportSubmit": "Esporta lo zip"
+    "exportSubmit": "Esporta lo zip",
+    "legalArchiving": "Conservazione a norma",
+    "legalArchivingStates": {
+      "queued": "In attesa di invio all'intermediario",
+      "sending": "In invio all'intermediario",
+      "requested": "Richiesta all'intermediario il {at}",
+      "failed": "Invio non riuscito ({at}): {detail}"
+    },
+    "legalArchivingIds": "Identificativi presso l'intermediario",
+    "legalArchivingNone": "Non inviata alla conservazione a norma tramite l'intermediario.",
+    "legalArchivingRetryHint": "Viene ritentato al prossimo controllo, o subito con il pulsante.",
+    "legalArchivingSdiIdHint": "L'intermediario richiede l'identificativo SDI del file, che si trova sul portale dell'Agenzia delle Entrate o nel file dei metadati.",
+    "legalArchivingRetry": "Invia alla conservazione a norma"
   },
   "suppliers": {
     "title": "Fornitori",

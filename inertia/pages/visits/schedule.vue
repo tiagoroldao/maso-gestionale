@@ -7,6 +7,15 @@ import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
 import { urlFor } from '~/client'
 import { formatDate, t, todayIso } from '~/i18n'
+import {
+  SLOT_MINUTES,
+  gridHours,
+  layout,
+  onDay,
+  span,
+  startsOn,
+  type Placement,
+} from '@shared/agenda'
 
 type CalendarVisit = {
   id: number
@@ -37,34 +46,13 @@ const props = defineProps<{
   }[]
 }>()
 
-const SLOT_MINUTES = 30
 const SLOT_HEIGHT = 24
 
 const time = (iso: string) => iso.slice(11, 16)
-const minutesOf = (iso: string) => Number(iso.slice(11, 13)) * 60 + Number(iso.slice(14, 16))
 const pad = (n: number) => String(n).padStart(2, '0')
 const label = (minutes: number) => `${pad(Math.floor(minutes / 60))}:${pad(minutes % 60)}`
 
-/**
- * Where a Visit sits on the day's grid, in minutes from midnight; a Visit
- * running past midnight is cut at the end of the day.
- */
-function span(visit: CalendarVisit) {
-  const start = visit.startsAt.slice(0, 10) === props.date ? minutesOf(visit.startsAt) : 0
-  const end = visit.endsAt.slice(0, 10) === props.date ? minutesOf(visit.endsAt) : 24 * 60
-  return { start, end: Math.max(end, start + SLOT_MINUTES) }
-}
-
-/**
- * The day grid runs 07:00–20:00 in half-hour slots, stretched to fit any
- * earlier or later Visit (night call-outs).
- */
-const grid = computed(() => {
-  const spans = props.visits.filter((visit) => visit.startsAt.slice(0, 10) === props.date).map(span)
-  const first = Math.min(7 * 60, ...spans.map((s) => Math.floor(s.start / 60) * 60))
-  const last = Math.max(20 * 60, ...spans.map((s) => Math.ceil(s.end / 60) * 60))
-  return { first, last: Math.min(last, 24 * 60) }
-})
+const grid = computed(() => gridHours(props.visits, props.date))
 const slots = computed(() =>
   Array.from(
     { length: (grid.value.last - grid.value.first) / SLOT_MINUTES },
@@ -84,46 +72,25 @@ function go(date: string, view = props.view) {
 
 const step = computed(() => (props.view === 'week' ? 7 : 1))
 
+/**
+ * The week view lists a Visit on its start day only: dropping a card keeps
+ * its start time on the new day.
+ */
 function visitsFor(technicianId: number, day: string) {
   return props.visits.filter(
     (visit) => visit.technicianIds.includes(technicianId) && visit.startsAt.slice(0, 10) === day
   )
 }
 
-/**
- * Overlapping Visits in one lane share its width side by side, so a double
- * booking is visible rather than hidden.
- */
-function layout(visits: CalendarVisit[]) {
-  const sorted = [...visits].sort((a, b) => span(a).start - span(b).start)
-  const placed = new Map<number, { column: number; columns: number }>()
-  let columnEnds: number[] = []
-  let cluster: CalendarVisit[] = []
-  let clusterEnd = -1
-
-  const close = () => {
-    const columns = Math.max(...cluster.map((visit) => placed.get(visit.id)!.column)) + 1
-    for (const visit of cluster) placed.get(visit.id)!.columns = columns
-    cluster = []
-    columnEnds = []
-  }
-
-  for (const visit of sorted) {
-    const { start, end } = span(visit)
-    if (cluster.length && start >= clusterEnd) close()
-    let column = columnEnds.findIndex((columnEnd) => columnEnd <= start)
-    if (column === -1) column = columnEnds.length
-    columnEnds[column] = end
-    placed.set(visit.id, { column, columns: 1 })
-    cluster.push(visit)
-    clusterEnd = Math.max(clusterEnd, end)
-  }
-  if (cluster.length) close()
-  return placed
+/** The day view shows a Visit across midnight on both days. */
+function visitsOn(technicianId: number) {
+  return props.visits.filter(
+    (visit) => visit.technicianIds.includes(technicianId) && onDay(visit, props.date)
+  )
 }
 
-function blockStyle(visit: CalendarVisit, placement?: { column: number; columns: number }) {
-  const { start, end } = span(visit)
+function blockStyle(visit: CalendarVisit, placement?: Placement) {
+  const { start, end } = span(visit, props.date)
   const { column = 0, columns = 1 } = placement ?? {}
   return {
     top: `${((start - grid.value.first) / SLOT_MINUTES) * SLOT_HEIGHT}px`,
@@ -149,8 +116,16 @@ function isOpen(visit: CalendarVisit) {
   return visit.movable
 }
 
-function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number) {
-  if (!isOpen(visit)) return
+/**
+ * Dragged only from the day it starts: on the next day a Visit across
+ * midnight is cut at 00:00, and a drop there would move its start.
+ */
+function canDrag(visit: CalendarVisit, day: string) {
+  return isOpen(visit) && startsOn(visit, day)
+}
+
+function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number, day: string) {
+  if (!canDrag(visit, day)) return
   // Firefox only starts a drag with some data set
   event.dataTransfer?.setData('text/plain', String(visit.id))
   // How far into the Visit it was grabbed, so dropping on another lane at
@@ -298,14 +273,14 @@ const weekday = (iso: string) =>
             @drop.prevent="onDayDrop($event, technician.id)"
           >
             <div
-              v-for="visit in visitsFor(technician.id, date)"
+              v-for="visit in visitsOn(technician.id)"
               :key="visit.id"
               class="agenda__visit"
               :class="`agenda__visit--${visit.status}`"
-              :style="blockStyle(visit, layout(visitsFor(technician.id, date)).get(visit.id))"
-              :draggable="isOpen(visit) ? 'true' : 'false'"
+              :style="blockStyle(visit, layout(visitsOn(technician.id), date).get(visit.id))"
+              :draggable="canDrag(visit, date) ? 'true' : 'false'"
               :data-visit="visit.id"
-              @dragstart="onDragStart($event, visit, technician.id)"
+              @dragstart="onDragStart($event, visit, technician.id, date)"
             >
               <strong>{{ time(visit.startsAt) }}–{{ time(visit.endsAt) }}</strong>
               <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{
@@ -353,9 +328,9 @@ const weekday = (iso: string) =>
                 :key="visit.id"
                 class="agenda__visit agenda__visit--card"
                 :class="`agenda__visit--${visit.status}`"
-                :draggable="isOpen(visit) ? 'true' : 'false'"
+                :draggable="canDrag(visit, day) ? 'true' : 'false'"
                 :data-visit="visit.id"
-                @dragstart="onDragStart($event, visit, technician.id)"
+                @dragstart="onDragStart($event, visit, technician.id, day)"
               >
                 <strong>{{ time(visit.startsAt) }}</strong>
                 <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{

@@ -188,6 +188,44 @@ test.group('Stock screens', () => {
     assert.lengthOf(await StockMovement.all(), 0)
   })
 
+  test('an adjustment keeps its reference, as a receipt does', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const item = await createItem()
+
+    await client
+      .post(`/items/${item.id}/adjustments`)
+      .form({
+        quantity: '-1',
+        reason: 'Reso al fornitore',
+        occurredOn: today.toISODate()!,
+        reference: ' DDT 42 ',
+      })
+      .withCsrfToken()
+      .loginAs(office)
+    const tooLong = await client
+      .post(`/items/${item.id}/adjustments`)
+      .form({
+        quantity: '-1',
+        reason: 'x',
+        occurredOn: today.toISODate()!,
+        reference: 'x'.repeat(256),
+      })
+      .header('referer', `/items/${item.id}`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    assert.properties(tooLong.flashMessage('inputErrorsBag'), ['reference'])
+    const [adjustment] = await StockMovement.all()
+    assert.deepInclude(adjustment.serialize(), {
+      kind: 'adjustment',
+      quantity: '-1.000',
+      reason: 'Reso al fornitore',
+      reference: 'DDT 42',
+    })
+    assert.lengthOf(await StockMovement.all(), 1)
+  })
+
   test('the Item page shows stock and history, newest first', async ({ client }) => {
     const office = await createUser('office')
     const item = await createItem()

@@ -10,6 +10,10 @@ export const SDI_FAILURE_CODES = [
   'noticeBeforeSubmission',
   'noFiscalId',
   'tooManyPages',
+  // Legal archiving of a Supplier Invoice (#214): SDI's identifier is
+  // needed and the file has none, or a send was cut off before its answer
+  'noSdiIdentifier',
+  'archivingInterrupted',
 ] as const
 export type SdiFailureCode = (typeof SDI_FAILURE_CODES)[number]
 
@@ -27,6 +31,7 @@ export const POLL_STEPS = [
   'received',
   'download',
   'handOver',
+  'archive',
 ] as const
 export type PollStep = (typeof POLL_STEPS)[number]
 

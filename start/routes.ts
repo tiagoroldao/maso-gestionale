@@ -429,6 +429,10 @@ router
             'spreadDiscounts',
           ])
           .where('id', router.matchers.number())
+        // Sending it to legal archiving again (#214)
+        router
+          .post('supplier-invoices/:id/legal-archiving', [controllers.SupplierInvoices, 'archive'])
+          .where('id', router.matchers.number())
         // Handling its lines (#199)
         router
           .post('supplier-invoice-lines/:id/receipt', [controllers.SupplierInvoiceLines, 'receive'])
@@ -556,6 +560,13 @@ router
         router
           .post('/instance/backups/run', [controllers.InstanceBackups, 'run'])
           .as('instance.backups.run')
+        // Queues the Supplier Invoices stored before legal archiving was on (#214)
+        router
+          .post('/instance/archive-supplier-invoices', [
+            controllers.Instance,
+            'archiveSupplierInvoices',
+          ])
+          .as('instance.archive_supplier_invoices')
         router
           .put('/instance/admins/:id/password', [controllers.Instance, 'setAdminPassword'])
           .where('id', router.matchers.number())

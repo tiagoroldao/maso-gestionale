@@ -1,19 +1,26 @@
 import vine from '@vinejs/vine'
 import { MAX_REPEATED_VISITS, REPEAT_FREQUENCIES, WEEKDAYS } from '#shared/visit_repeats'
 
-const technicianIds = () =>
-  vine
-    .array(
-      vine.number().exists({
-        table: 'users',
-        column: 'id',
-        filter: (db) => {
-          db.where('role', 'technician').where('is_active', true)
-        },
-      })
-    )
-    .minLength(1)
-    .distinct()
+/**
+ * Users who may be put on a Visit: active Technicians, and anyone already
+ * on it (`meta.technicianIds`: deactivated since, or no longer a
+ * Technician), who may stay.
+ */
+const assignable = () =>
+  vine.number().exists({
+    table: 'users',
+    column: 'id',
+    filter: (db, _, field) => {
+      const kept: number[] = field.meta?.technicianIds ?? []
+      db.where((q) =>
+        q
+          .where((technician) => technician.where('role', 'technician').where('is_active', true))
+          .orWhereIn('id', kept)
+      )
+    },
+  })
+
+const technicianIds = () => vine.array(assignable()).minLength(1).distinct()
 
 const date = () => vine.date({ formats: ['YYYY-MM-DD'] })
 
@@ -75,60 +82,20 @@ export const planVisitQueryValidator = vine.create({
  * Editing a Visit: as when planning it, except Technicians already on the
  * Visit may stay even if deactivated since.
  */
-export const editVisitValidator = vine.withMetaData<{ technicianIds: number[] }>().create({
-  date: vine.date({ formats: ['YYYY-MM-DD'] }),
-  startTime: vine.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
-  durationMinutes: vine
-    .number()
-    .withoutDecimals()
-    .min(15)
-    .max(24 * 60),
-  technicianIds: vine
-    .array(
-      vine.number().exists({
-        table: 'users',
-        column: 'id',
-        filter: (db, _, field) => {
-          // Anyone already on the Visit may stay (deactivated, or no longer
-          // a Technician); new members must be active Technicians
-          db.where((q) =>
-            q
-              .where((technician) =>
-                technician.where('role', 'technician').where('is_active', true)
-              )
-              .orWhereIn('id', field.meta.technicianIds)
-          )
-        },
-      })
-    )
-    .minLength(1)
-    .distinct(),
-  notes: vine.string().trim().maxLength(5000).optional(),
-  survey: vine.boolean().optional(),
-})
+export const editVisitValidator = vine
+  .withMetaData<{ technicianIds: number[] }>()
+  .create({ date: date(), ...plannedVisit })
 
 /**
- * A drag-and-drop move on the calendar.
+ * A drag-and-drop move on the calendar. Dropping on a lane hands the
+ * Visit to that user: an active Technician, or someone already on it
+ * (moving within the own lane of someone deactivated, or no longer a
+ * Technician, only changes the time).
  */
-export const moveVisitValidator = vine.create({
+export const moveVisitValidator = vine.withMetaData<{ technicianIds: number[] }>().create({
   startsAt: vine.date({ formats: ['YYYY-MM-DDTHH:mm'] }),
-  fromTechnicianId: vine.number().optional(),
-  toTechnicianId: vine
-    .number()
-    .exists({
-      table: 'users',
-      column: 'id',
-      // A new Technician must be active; dragging within the own lane of
-      // someone deactivated or no longer a Technician only changes the time
-      filter: (db, _, field) => {
-        db.where((q) =>
-          q
-            .where((technician) => technician.where('role', 'technician').where('is_active', true))
-            .orWhere('id', field.parent.fromTechnicianId ?? 0)
-        )
-      },
-    })
-    .optional(),
+  fromTechnicianId: vine.number().withoutDecimals().optional(),
+  toTechnicianId: assignable().optional(),
 })
 
 export const scheduleValidator = vine.create({

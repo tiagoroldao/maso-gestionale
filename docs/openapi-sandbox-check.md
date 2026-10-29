@@ -30,7 +30,7 @@ The report is Markdown on stdout, ready to paste as a comment on #204; progress 
 5. **Receive:** `POST /simulate/supplier-invoice`, then `GET /invoices?type=1` until it is listed, and its download. With an undeliverable callback URL (the placeholder) this answers option (a): listable although the callback can't be delivered. The report says so, and flags a run whose callback may be deliverable, since that run doesn't answer it.
 6. **Filters:** `invoiceDate[after|before]` and `createdAt[after]` on `GET /invoices` (sent and received), and the list's order. Lists are paged as the gateway pages them (up to 50 pages); a list cut off there is noted.
 7. **Notices:** a simulated RC on the invoice from check 3; is it stored at `GET /invoices_notifications/{uuid}`? ADR 0019 records that the sandbox doesn't store simulated notices, so when none is stored within `--wait` the check is INCONCLUSIVE, not FAIL. It fails when the simulation is refused, on an error, or when the notice is read as anything but delivered.
-8. **Import a received file:** `POST /supplier_invoice_imports_legal_storage` with the file from check 5 (and the `--p7m` file, if given, sent as it is, on purpose). Called directly until the gateway has a method for it (#214, #222).
+8. **Import a received file:** `POST /supplier_invoice_imports_legal_storage` with the file from check 5 (and the `--p7m` file, if given, sent as it is, on purpose). Called directly for now; the XML import is to move to the gateway's `archiveReceived` (#222), while the .p7m stays a raw call, since the gateway sends a .p7m as its extracted XML (`docs/follow-ups.md`).
 
 Checks that need an earlier one's result (6, 7, 8) are skipped when it has none. The test invoices stay in the sandbox account.
 

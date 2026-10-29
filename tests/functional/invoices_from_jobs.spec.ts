@@ -324,6 +324,8 @@ test.group('Invoices from Jobs with a Quote', () => {
     // Only the usage when Office confirmed it used (ADR 0016)
     assert.lengthOf(await StockMovement.query().where('itemId', item.id), 1)
     await invoice.load('lines', (l) => l.orderBy('position'))
+    // The correction was saved: two boilers now
+    assert.equal(invoice.lines[0].quantity, '2.000')
     assert.equal(invoice.lines[1].unit, 'h')
   })
 

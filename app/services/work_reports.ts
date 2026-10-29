@@ -6,6 +6,7 @@ import { formatDate, todayIso } from '#shared/dates'
 import type { TableData } from '#shared/document_templates'
 import { lineTotal } from '#shared/money'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
+import { WORK_STATE_SQL } from '#services/job_status'
 import {
   inPeriod,
   workReportTable,
@@ -74,6 +75,7 @@ export default class WorkReports {
     const charges = await Charge.query()
       .where('jobId', job.id)
       .whereNull('visitId')
+      .whereRaw(`${WORK_STATE_SQL('charges')} = 'done'`)
       .preload('events', (events) => events.orderBy('id'))
       .preload('invoiceLines', (lines) => lines.preload('invoice'))
       .preload('technician')
@@ -83,7 +85,6 @@ export default class WorkReports {
 
     return charges
       .filter((charge) => {
-        if (charge.workState !== 'done') return false
         const done = charge.events.findLast((event) => event.kind === 'done')!
         return inPeriod(todayIso(done.createdAt.toJSDate()), period)
       })
