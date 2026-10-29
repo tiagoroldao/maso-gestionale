@@ -5,10 +5,16 @@ import InstanceSettings from '#models/instance_settings'
 import { createUser } from '#tests/helpers/users'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
-const fields = { sdiMode: 'manual', pollingMinutes: '30', publicUrl: 'https://maso.example.it' }
+const fields = {
+  sdiMode: 'manual',
+  sdiEnvironment: 'sandbox',
+  pollingMinutes: '30',
+  publicUrl: 'https://maso.example.it',
+}
+const SECRET = 'whsec_4567890abcdef'
 
 test.group('Instance settings', () => {
-  test('the Superuser saves settings; the API key is stored encrypted and never shown', async ({
+  test('the Superuser saves settings; the Openapi token is stored encrypted and never shown', async ({
     client,
     assert,
   }) => {
@@ -16,33 +22,49 @@ test.group('Instance settings', () => {
 
     await client
       .put('/instance')
-      .form({ ...fields, invoicetronicApiKey: 'itk_secret_123', webhookEnabled: 'true' })
+      .form({
+        ...fields,
+        sdiMode: 'openapi',
+        sdiEnvironment: 'production',
+        openapiToken: 'oat_secret_123',
+        webhookEnabled: 'true',
+        webhookSecret: SECRET,
+      })
       .withCsrfToken()
       .loginAs(superuser)
 
     const settings = await InstanceSettings.findOrFail(1)
     assert.equal(settings.pollingMinutes, 30)
+    assert.equal(settings.sdiMode, 'openapi')
+    assert.equal(settings.sdiEnvironment, 'production')
     assert.isTrue(settings.webhookEnabled)
     assert.equal(settings.publicUrl, 'https://maso.example.it')
-    assert.equal(settings.apiKey, 'itk_secret_123')
+    assert.equal(settings.token, 'oat_secret_123')
     const raw = await db.from('instance_settings').where('id', 1).firstOrFail()
-    assert.notInclude(raw.invoicetronic_api_key, 'itk_secret_123')
+    assert.notInclude(raw.openapi_token, 'oat_secret_123')
 
     const page = await client.get('/instance').withInertia().loginAs(superuser)
-    page.assertInertiaPropsContains({ settings: { hasApiKey: true, pollingMinutes: 30 } })
-    assert.notInclude(JSON.stringify(page.inertiaProps), 'itk_secret')
+    page.assertInertiaPropsContains({
+      settings: {
+        hasToken: true,
+        pollingMinutes: 30,
+        webhookUrl: 'https://maso.example.it/sdi/webhook',
+      },
+    })
+    assert.notInclude(JSON.stringify(page.inertiaProps), 'oat_secret')
+    assert.notInclude(JSON.stringify(page.inertiaProps), SECRET)
 
     // A blank key keeps the stored one; clearing removes it
     await client.put('/instance').form(fields).withCsrfToken().loginAs(superuser)
     await settings.refresh()
-    assert.equal(settings.apiKey, 'itk_secret_123')
+    assert.equal(settings.token, 'oat_secret_123')
     await client
       .put('/instance')
-      .form({ ...fields, clearApiKey: 'true' })
+      .form({ ...fields, clearToken: 'true' })
       .withCsrfToken()
       .loginAs(superuser)
     await settings.refresh()
-    assert.isNull(settings.apiKey)
+    assert.isNull(settings.token)
   })
 
   test('the webhook secret is kept the same way', async ({ client, assert }) => {
@@ -50,20 +72,20 @@ test.group('Instance settings', () => {
 
     await client
       .put('/instance')
-      .form({ ...fields, webhookSecret: 'whsec_456' })
+      .form({ ...fields, webhookSecret: SECRET })
       .withCsrfToken()
       .loginAs(superuser)
     const settings = await InstanceSettings.findOrFail(1)
-    assert.equal(settings.secret, 'whsec_456')
+    assert.equal(settings.secret, SECRET)
     const raw = await db.from('instance_settings').where('id', 1).firstOrFail()
-    assert.notInclude(raw.webhook_secret, 'whsec_456')
+    assert.notInclude(raw.webhook_secret, SECRET)
     const page = await client.get('/instance').withInertia().loginAs(superuser)
     page.assertInertiaPropsContains({ settings: { hasWebhookSecret: true } })
-    assert.notInclude(JSON.stringify(page.inertiaProps), 'whsec')
+    assert.notInclude(JSON.stringify(page.inertiaProps), SECRET)
 
     await client.put('/instance').form(fields).withCsrfToken().loginAs(superuser)
     await settings.refresh()
-    assert.equal(settings.secret, 'whsec_456')
+    assert.equal(settings.secret, SECRET)
     await client
       .put('/instance')
       .form({ ...fields, clearWebhookSecret: 'true' })
@@ -73,18 +95,85 @@ test.group('Instance settings', () => {
     assert.isNull(settings.secret)
   })
 
-  test('Invoicetronic mode is not available yet', async ({ client, assert }) => {
+  test('Openapi needs a token, and the webhook a secret and the public URL', async ({
+    client,
+    assert,
+  }) => {
     const superuser = await createUser('superuser')
 
     const response = await client
       .put('/instance')
-      .form({ ...fields, sdiMode: 'invoicetronic' })
+      .form({
+        sdiMode: 'openapi',
+        sdiEnvironment: 'sandbox',
+        pollingMinutes: '30',
+        webhookEnabled: 'true',
+        webhookSecret: 'short',
+      })
+      .header('referer', '/instance')
       .withCsrfToken()
       .loginAs(superuser)
       .redirects(0)
-
-    response.assertFlashMessage('error', it('flash.invoicetronicNotAvailable'))
+    const errors = response.flashMessage('inputErrorsBag')
+    assert.properties(errors, ['openapiToken', 'webhookSecret', 'publicUrl'])
+    // The errors only: the secret typed never travels back in the cookie
+    assert.isUndefined(response.flashMessage('webhookSecret'))
     assert.isNull(await InstanceSettings.find(1))
+
+    // A webhook needs a secret even with none typed
+    const noSecret = await client
+      .put('/instance')
+      .form({ ...fields, webhookEnabled: 'true' })
+      .header('referer', '/instance')
+      .withCsrfToken()
+      .loginAs(superuser)
+      .redirects(0)
+    assert.properties(noSecret.flashMessage('inputErrorsBag'), ['webhookSecret'])
+
+    // Clearing the stored token while staying on Openapi is refused
+    await client
+      .put('/instance')
+      .form({ ...fields, sdiMode: 'openapi', openapiToken: 'oat_secret_123' })
+      .withCsrfToken()
+      .loginAs(superuser)
+    const clearing = await client
+      .put('/instance')
+      .form({ ...fields, sdiMode: 'openapi', clearToken: 'true' })
+      .header('referer', '/instance')
+      .withCsrfToken()
+      .loginAs(superuser)
+      .redirects(0)
+    assert.properties(clearing.flashMessage('inputErrorsBag'), ['openapiToken'])
+    const settings = await InstanceSettings.findOrFail(1)
+    assert.equal(settings.token, 'oat_secret_123')
+  })
+
+  test('a token stored under another APP_KEY reads as missing and is reported', async ({
+    client,
+    assert,
+  }) => {
+    const superuser = await createUser('superuser')
+    // As after a restore with a new key: the stored value no longer decrypts
+    await db.table('instance_settings').insert({
+      id: 1,
+      sdi_mode: 'openapi',
+      sdi_environment: 'sandbox',
+      openapi_token: 'not-decryptable-under-this-key',
+      polling_minutes: 60,
+    })
+
+    const page = await client.get('/instance').withInertia().loginAs(superuser)
+    page.assertInertiaPropsContains({ settings: { hasToken: false, tokenUnreadable: true } })
+
+    // Saving on Openapi asks for it again
+    const response = await client
+      .put('/instance')
+      .form({ ...fields, sdiMode: 'openapi' })
+      .header('referer', '/instance')
+      .withCsrfToken()
+      .loginAs(superuser)
+      .redirects(0)
+    assert.properties(response.flashMessage('inputErrorsBag'), ['openapiToken'])
   })
 
   test('the polling interval and the public URL are checked', async ({ client, assert }) => {
@@ -92,7 +181,7 @@ test.group('Instance settings', () => {
 
     const response = await client
       .put('/instance')
-      .form({ sdiMode: 'manual', pollingMinutes: '1', publicUrl: 'http://maso.example.it' })
+      .form({ ...fields, pollingMinutes: '1', publicUrl: 'http://maso.example.it' })
       .header('referer', '/instance')
       .withCsrfToken()
       .loginAs(superuser)

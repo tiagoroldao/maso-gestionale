@@ -7,7 +7,8 @@ import InvoiceSubmission, { type SubmissionOutcome } from '#models/invoice_submi
 import type User from '#models/user'
 import { buildFatturaPA, fatturaFileName, fatturaInputFor } from '#fiscal/fattura_pa'
 import { canTransition, transition, type InvoiceEvent } from '#shared/invoice_lifecycle'
-import { ManualSdiGateway, type SdiGateway } from '#services/sdi_gateway'
+import { SdiSendRefusedError, type SdiFile, type SdiGateway } from '#services/sdi_gateway'
+import SdiConnection, { manualGateway } from '#services/sdi_connection'
 
 /**
  * The Invoice isn't in a state where this Submission step applies.
@@ -18,6 +19,27 @@ export class SubmissionRefusedError extends Error {}
  * The notice is dated before the Submission was sent.
  */
 export class NoticeBeforeSubmissionError extends Error {}
+
+/**
+ * A send is under way, or its result is not known yet: the poller settles
+ * it (ADR 0019).
+ */
+export class SubmissionSendingError extends Error {}
+
+/**
+ * The intermediary refused the file; nothing reached SDI and it can be
+ * sent again.
+ */
+export class SubmissionSendRefusedError extends Error {}
+
+/**
+ * The send failed in a way that leaves it unknown whether the file went:
+ * the Submission stays "sending" until the poller finds out.
+ */
+export class SubmissionSendUncertainError extends Error {}
+
+/** How long an unanswered send waits before the poller looks for it */
+export const SENDING_GRACE_MINUTES = 10
 
 /**
  * SDI's notice of the outcome: its date (today if not given), SDI's
@@ -37,21 +59,26 @@ const OUTCOME_EVENTS: Record<SubmissionOutcome, InvoiceEvent> = {
 }
 
 /**
- * Sending finalised Invoices to SDI (ADR 0004). A Submission is prepared
+ * Sending finalised Invoices to SDI (ADR 0019). A Submission is prepared
  * (its progressive and file name reserved, so the XML can be downloaded),
  * confirmed once it went to SDI, and closed by SDI's outcome. Each one
  * has its own progressive, so a resubmission after a Rejection never
  * reuses a file name.
+ *
+ * Through an intermediary, confirming sends the file. The send happens
+ * outside the Invoice lock: the Submission is marked "sending" under the
+ * lock, the file goes, and the result is recorded under the lock again.
+ * A send whose result is unknown (the process stopped, the connection
+ * dropped) stays "sending" until the poller finds the file at the
+ * intermediary or concludes it never arrived.
  */
 export default class Submissions {
-  /** Manual until an intermediary is configured; tests swap in a fake */
-  static gateway: SdiGateway = new ManualSdiGateway()
-
   /**
    * The Submission in progress for a finalised or rejected Invoice,
    * prepared now if there is none yet.
    */
   static async prepare(invoice: Invoice, user: User | null = null) {
+    const gateway = await SdiConnection.gateway()
     return this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
       if (open) return open
@@ -66,7 +93,7 @@ export default class Submissions {
       return InvoiceSubmission.create(
         {
           invoiceId: locked.id,
-          channel: this.gateway.channel,
+          channel: gateway.channel,
           progressive,
           fileName: fatturaFileName(company.taxCode ?? company.vatNumber, progressive),
           preparedAt: DateTime.now(),
@@ -88,22 +115,158 @@ export default class Submissions {
   }
 
   /**
-   * The prepared Submission went to SDI (Office uploaded it, or the
-   * gateway sends it now): the Invoice is submitted.
+   * The prepared Submission goes to SDI: Office uploaded it by hand, or
+   * the intermediary sends it now. A Submission prepared by hand stays by
+   * hand, since Office may already have uploaded its file.
    */
-  static async confirm(invoice: Invoice, discountLabel: string, user: User | null = null) {
-    await this.locked(invoice, async (trx, locked) => {
+  static async confirm(
+    invoice: Invoice,
+    discountLabel: string,
+    user: User | null = null
+  ): Promise<'sent' | 'uploaded'> {
+    const current = await SdiConnection.gateway()
+    const sending = await this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
       // Already confirmed (a double click): nothing more to do
-      if (open?.submittedAt) return
+      if (open?.submittedAt) return null
       if (!open || !canTransition(locked.status, 'submit')) throw new SubmissionRefusedError()
+      if (open.sendingAt) throw new SubmissionSendingError()
+      const gateway = open.channel === manualGateway.channel ? manualGateway : current
       const xml = await this.xml(locked, open, discountLabel)
-      await this.gateway.submit({ fileName: open.fileName, xml })
-      // Kept as sent: legal archiving happens outside the app (ADR 0004)
-      open.merge({ xml, submittedAt: DateTime.now(), submittedBy: user?.id ?? null })
+
+      if (!gateway.automatic) {
+        // Kept as sent: legal archiving happens outside the app (ADR 0019)
+        open.merge({
+          channel: gateway.channel,
+          xml,
+          submittedAt: DateTime.now(),
+          submittedBy: user?.id ?? null,
+          sendFailure: null,
+        })
+        await open.save()
+        locked.status = transition(locked.status, 'submit')
+        await locked.save()
+        return null
+      }
+
+      open.merge({
+        channel: gateway.channel,
+        xml,
+        sendingAt: DateTime.now(),
+        submittedBy: user?.id ?? null,
+        sendFailure: null,
+      })
       await open.save()
+      return { gateway, submissionId: open.id, file: { fileName: open.fileName, xml } }
+    })
+    if (!sending) return 'uploaded'
+    await this.send(invoice, sending)
+    return 'sent'
+  }
+
+  /**
+   * Sends the file, outside the Invoice lock, and records the result.
+   */
+  private static async send(
+    invoice: Invoice,
+    { gateway, submissionId, file }: { gateway: SdiGateway; submissionId: number; file: SdiFile }
+  ) {
+    let remoteId: string | null
+    try {
+      const sent = await gateway.submit(file)
+      remoteId = sent.remoteId
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      if (error instanceof SdiSendRefusedError) {
+        await this.unsent(invoice, submissionId, message)
+        throw new SubmissionSendRefusedError(message)
+      }
+      await this.whileSending(invoice, submissionId, async (submission) => {
+        submission.sendFailure = message
+        await submission.save()
+      })
+      throw new SubmissionSendUncertainError(message)
+    }
+    await this.sent(invoice, submissionId, remoteId)
+  }
+
+  /**
+   * The intermediary has the file: the Invoice is submitted, as of the
+   * moment the send began.
+   */
+  static async sent(invoice: Invoice, submissionId: number, remoteId: string | null) {
+    await this.whileSending(invoice, submissionId, async (submission, locked) => {
+      submission.merge({ remoteId, submittedAt: submission.sendingAt, sendFailure: null })
+      await submission.save()
       locked.status = transition(locked.status, 'submit')
       await locked.save()
+    })
+  }
+
+  /**
+   * The file never reached the intermediary: the Submission is ready to
+   * be sent again.
+   */
+  static async unsent(invoice: Invoice, submissionId: number, failure: string) {
+    await this.whileSending(invoice, submissionId, async (submission) => {
+      submission.merge({ sendingAt: null, xml: null, submittedBy: null, sendFailure: failure })
+      await submission.save()
+    })
+  }
+
+  /**
+   * Submissions sent through `gateway` whose result is still unknown after
+   * the grace period, with their Invoices.
+   */
+  static async unsettled(gateway: SdiGateway) {
+    return InvoiceSubmission.query()
+      .where('channel', gateway.channel)
+      .whereNull('outcome')
+      .whereNull('submittedAt')
+      .where('sendingAt', '<', DateTime.now().minus({ minutes: SENDING_GRACE_MINUTES }).toSQL()!)
+      .preload('invoice')
+      .orderBy('sendingAt')
+  }
+
+  /**
+   * Settles a send whose result is unknown: the intermediary has a file
+   * for the Invoice that no other Submission accounts for, or the file
+   * never arrived.
+   */
+  static async settle(gateway: SdiGateway, submission: InvoiceSubmission) {
+    const invoice = submission.invoice
+    const found = await gateway.findSent({
+      number: invoice.formattedNumber!,
+      issuedOn: invoice.issuedOn!.toISODate()!,
+    })
+    const known = await InvoiceSubmission.query()
+      .where('channel', gateway.channel)
+      .whereIn('remoteId', found.length ? found : [''])
+      .select('remoteId')
+    const taken = new Set(known.map((row) => row.remoteId))
+    const remoteId = found.find((id) => !taken.has(id))
+    if (remoteId) await this.sent(invoice, submission.id, remoteId)
+    else await this.unsent(invoice, submission.id, 'not found at the intermediary')
+    return remoteId ? 'sent' : 'unsent'
+  }
+
+  /**
+   * Runs `work` on a Submission still "sending", under the Invoice lock;
+   * a Submission settled meanwhile is left alone.
+   */
+  private static whileSending(
+    invoice: Invoice,
+    submissionId: number,
+    work: (submission: InvoiceSubmission, locked: Invoice) => Promise<void>
+  ) {
+    return this.locked(invoice, async (trx, locked) => {
+      const submission = await InvoiceSubmission.query({ client: trx })
+        .where('id', submissionId)
+        .where('invoiceId', locked.id)
+        .forUpdate()
+        .first()
+      if (!submission?.sendingAt || submission.submittedAt || submission.outcome) return
+      await work(submission, locked)
     })
   }
 
@@ -111,9 +274,16 @@ export default class Submissions {
    * SDI's answer to the Submission in progress, dated by its notice (the
    * resubmission deadline counts from it).
    */
-  static async recordOutcome(invoice: Invoice, notice: SdiNotice, user: User | null = null) {
+  static async recordOutcome(
+    invoice: Invoice,
+    notice: SdiNotice,
+    user: User | null = null,
+    submissionId: number | null = null
+  ) {
     await this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
+      // A polled outcome belongs to that Submission only
+      if (submissionId !== null && open?.id !== submissionId) throw new SubmissionRefusedError()
       const event = OUTCOME_EVENTS[notice.outcome]
       if (!open?.submittedAt || !canTransition(locked.status, event)) {
         throw new SubmissionRefusedError()

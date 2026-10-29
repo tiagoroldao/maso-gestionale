@@ -74,7 +74,7 @@ docker compose exec -T db pg_restore --no-owner --no-privileges --exit-on-error 
   -U maso -d maso < /path/to/maso-restore/backup/database.dump
 ```
 
-Secrets stored in Instance settings (the Invoicetronic API key, the webhook secret, the bucket's secret key) are encrypted with `APP_KEY`. Put the old `APP_KEY` in `.env` to keep them. With a new one (`openssl rand -base64 32`) they read as missing, and the Superuser enters them again in step 7. Everything else, including the backup key and passphrase, is unaffected.
+Secrets stored in Instance settings (the Openapi token, the webhook secret, the bucket's secret key) are encrypted with `APP_KEY`. Put the old `APP_KEY` in `.env` to keep them. With a new one (`openssl rand -base64 32`) they read as missing, and the Superuser enters them again in step 7. Everything else, including the backup key and passphrase, is unaffected.
 
 ## 6. Restore the files and start the app
 

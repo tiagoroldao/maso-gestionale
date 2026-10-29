@@ -75,16 +75,28 @@
     "sdiMode": "Modalità",
     "sdiModes": {
       "manual": "Manuale (caricamento del file sul portale SDI)",
-      "invoicetronic": "Automatica tramite Invoicetronic"
+      "openapi": "Automatica tramite Openapi"
     },
-    "apiKey": "Chiave API Invoicetronic",
-    "secretStored": "Salvata. Lascia vuoto per mantenerla.",
-    "clearApiKey": "Rimuovi la chiave salvata",
-    "pollingMinutes": "Controllo esiti ogni (minuti)",
+    "sdiEnvironment": "Ambiente Openapi",
+    "sdiEnvironments": {
+      "sandbox": "Sandbox (prove, nessun invio reale)",
+      "production": "Produzione"
+    },
+    "token": "Token Openapi",
+    "secretStored": "Salvato. Lascia vuoto per mantenerlo.",
+    "secretUnreadable": "Il valore salvato non si può più leggere (la chiave APP_KEY è cambiata): inseriscilo di nuovo.",
+    "clearToken": "Rimuovi il token salvato",
+    "pollingMinutes": "Controllo esiti e fatture passive ogni (minuti)",
     "webhookEnabled": "Webhook attivo (avvia subito un controllo)",
-    "webhookSecret": "Segreto del webhook",
+    "webhookSecret": "Segreto del webhook (almeno 16 caratteri)",
     "clearWebhookSecret": "Rimuovi il segreto salvato",
     "publicUrl": "Indirizzo pubblico (https://…)",
+    "webhookUrl": "Indirizzo da indicare a Openapi per il webhook: {url}",
+    "pollStatus": "Ultimo controllo",
+    "lastPoll": "Ultimo controllo il {at}.",
+    "noPoll": "Nessun controllo eseguito: serve la modalità automatica con un token.",
+    "pollFailure": "L'ultimo controllo ha avuto errori:",
+    "receivedWaiting": "{count, plural, one {# fattura passiva ricevuta è} other {# fatture passive ricevute sono}} in attesa di essere registrate.",
     "save": "Salva impostazioni",
     "backups": {
       "section": "Backup",
@@ -890,6 +902,11 @@
     "downloadXml": "Scarica {file}",
     "confirmUpload": "Confermo di aver caricato il file su SDI",
     "confirmUploadConfirm": "Hai caricato questo file sul portale SDI? La fattura risulterà inviata.",
+    "send": "Invia a SDI tramite Openapi",
+    "sendConfirm": "Inviare questa fattura a SDI tramite Openapi?",
+    "sending": "Invio in corso o esito dell'invio non ancora noto: verrà verificato al prossimo controllo.",
+    "sendFailure": "Ultimo invio non riuscito. Dettaglio: {detail}",
+    "outcomePolled": "Inviata tramite Openapi: l'esito di SDI viene registrato da solo al prossimo controllo. Registralo a mano solo se serve.",
     "outcome": "Esito",
     "outcomes": {
       "delivered": "Consegnata",

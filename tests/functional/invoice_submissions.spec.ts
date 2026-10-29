@@ -8,7 +8,8 @@ import CompanySettings from '#models/company_settings'
 import Customer from '#models/customer'
 import Invoices from '#services/invoices'
 import Submissions, { NoticeBeforeSubmissionError } from '#services/submissions'
-import { FakeSdiGateway, ManualSdiGateway } from '#services/sdi_gateway'
+import { FakeSdiGateway } from '#services/sdi_gateway'
+import SdiConnection from '#services/sdi_connection'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
@@ -41,10 +42,8 @@ test.group('SDI Submissions', (group) => {
   let gateway: FakeSdiGateway
   group.each.setup(() => {
     gateway = new FakeSdiGateway()
-    Submissions.gateway = gateway
-    return () => {
-      Submissions.gateway = new ManualSdiGateway()
-    }
+    SdiConnection.use(gateway)
+    return () => SdiConnection.restore()
   })
 
   test('prepare, download, confirm the upload, then record delivery', async ({
@@ -414,15 +413,16 @@ test.group('SDI Submissions', (group) => {
       .redirects(0)
     frozen.assertFlashMessage('error', it('flash.invoiceNotEditable'))
 
-    // A double-clicked confirm is harmless
-    for (let i = 0; i < 2; i++) {
+    // A double-clicked confirm is harmless: sent once, then already recorded
+    for (const flash of ['flash.submissionSent', 'flash.submissionConfirmed']) {
       const confirm = await client
         .post(`/invoices/${invoice.id}/submissions/confirm`)
         .withCsrfToken()
         .loginAs(office)
         .redirects(0)
-      confirm.assertFlashMessage('success', it('flash.submissionConfirmed'))
+      confirm.assertFlashMessage('success', it(flash))
     }
+    assert.lengthOf(gateway.submitted, 2)
 
     // Rejected again, emptied: it can't be prepared
     await Submissions.recordOutcome(invoice, { outcome: 'rejected' })

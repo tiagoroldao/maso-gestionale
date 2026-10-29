@@ -51,7 +51,6 @@
   "backupSettingsSaved": "Impostazioni dei backup salvate.",
   "backupStarted": "Backup avviato. Ricarica la pagina tra qualche minuto per vederne l'esito.",
   "backupAlreadyRunning": "Un backup è già in corso.",
-  "invoicetronicNotAvailable": "L'invio automatico tramite Invoicetronic non è ancora disponibile: resta la modalità manuale.",
   "adminPasswordSet": "Nuova password impostata per {email}.",
   "vatCodeSaved": "Codice IVA salvato.",
   "vatCodeArchived": "Codice IVA «{name}» archiviato.",
@@ -154,6 +153,10 @@
     "frozen": "Un addebito dell'intervento è in una fattura emessa: stornalo con una nota di credito prima di annullare l'intervento."
   },
   "submissionConfirmed": "Invio a SDI registrato.",
+  "submissionSent": "Fattura inviata a SDI tramite Openapi: l'esito arriverà con il prossimo controllo.",
+  "submissionSending": "L'invio di questa fattura è in corso o il suo esito non è ancora noto: verrà verificato al prossimo controllo.",
+  "submissionSendRefused": "Openapi ha rifiutato il file, che non è stato inviato: correggi e riprova. Dettaglio: {detail}",
+  "submissionSendUncertain": "Non è stato possibile sapere se il file è arrivato a Openapi: verrà verificato al prossimo controllo, non inviarlo di nuovo. Dettaglio: {detail}",
   "submissionOutcome": {
     "delivered": "Fattura consegnata.",
     "not_deliverable": "Mancata consegna registrata: la fattura è nel cassetto fiscale del cliente.",

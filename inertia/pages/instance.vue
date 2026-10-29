@@ -3,18 +3,25 @@ import { Form } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
-import { SDI_MODES } from '@shared/instance'
+import { SDI_ENVIRONMENTS, SDI_MODES } from '@shared/instance'
 import { formatDateTime } from '@shared/dates'
 import { t } from '~/i18n'
 
 defineProps<{
   settings: {
     sdiMode: string
-    hasApiKey: boolean
+    sdiEnvironment: string
+    hasToken: boolean
+    tokenUnreadable: boolean
     pollingMinutes: number
     webhookEnabled: boolean
     hasWebhookSecret: boolean
+    secretUnreadable: boolean
     publicUrl: string | null
+    webhookUrl: string | null
+    polledAt: string | null
+    pollFailure: string | null
+    receivedWaiting: number
   }
   backups: {
     endpoint: string | null
@@ -53,21 +60,40 @@ defineProps<{
             </select>
           </div>
           <div class="field">
-            <label class="field__label" for="api-key">{{ t('ui.instance.apiKey') }}</label>
+            <label class="field__label" for="sdi-environment">{{
+              t('ui.instance.sdiEnvironment')
+            }}</label>
+            <select id="sdi-environment" name="sdiEnvironment" class="field__input">
+              <option
+                v-for="environment in SDI_ENVIRONMENTS"
+                :key="environment"
+                :value="environment"
+                :selected="environment === settings.sdiEnvironment"
+              >
+                {{ t(`ui.instance.sdiEnvironments.${environment}`) }}
+              </option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="field__label" for="openapi-token">{{ t('ui.instance.token') }}</label>
             <input
-              id="api-key"
-              name="invoicetronicApiKey"
+              id="openapi-token"
+              name="openapiToken"
               type="password"
               autocomplete="off"
               class="field__input"
             />
-            <template v-if="settings.hasApiKey">
+            <span v-if="settings.tokenUnreadable" class="field__error">{{
+              t('ui.instance.secretUnreadable')
+            }}</span>
+            <template v-if="settings.hasToken">
               <span class="field__hint">{{ t('ui.instance.secretStored') }}</span>
               <label>
-                <input type="checkbox" name="clearApiKey" value="true" />
-                {{ t('ui.instance.clearApiKey') }}
+                <input type="checkbox" name="clearToken" value="true" />
+                {{ t('ui.instance.clearToken') }}
               </label>
             </template>
+            <span v-if="errors.openapiToken" class="field__error">{{ errors.openapiToken }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="polling">{{ t('ui.instance.pollingMinutes') }}</label>
@@ -105,6 +131,9 @@ defineProps<{
               autocomplete="off"
               class="field__input"
             />
+            <span v-if="settings.secretUnreadable" class="field__error">{{
+              t('ui.instance.secretUnreadable')
+            }}</span>
             <template v-if="settings.hasWebhookSecret">
               <span class="field__hint">{{ t('ui.instance.secretStored') }}</span>
               <label>
@@ -112,6 +141,7 @@ defineProps<{
                 {{ t('ui.instance.clearWebhookSecret') }}
               </label>
             </template>
+            <span v-if="errors.webhookSecret" class="field__error">{{ errors.webhookSecret }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="public-url">{{ t('ui.instance.publicUrl') }}</label>
@@ -123,11 +153,26 @@ defineProps<{
               :value="settings.publicUrl ?? ''"
             />
             <span v-if="errors.publicUrl" class="field__error">{{ errors.publicUrl }}</span>
+            <span v-if="settings.webhookUrl" class="field__hint">{{
+              t('ui.instance.webhookUrl', { url: settings.webhookUrl })
+            }}</span>
           </div>
           <button type="submit" class="btn btn--primary" :disabled="processing">
             {{ t('ui.instance.save') }}
           </button>
         </Form>
+        <h3>{{ t('ui.instance.pollStatus') }}</h3>
+        <p v-if="settings.polledAt">
+          {{ t('ui.instance.lastPoll', { at: formatDateTime(settings.polledAt) }) }}
+        </p>
+        <p v-else>{{ t('ui.instance.noPoll') }}</p>
+        <template v-if="settings.pollFailure">
+          <p class="field__error">{{ t('ui.instance.pollFailure') }}</p>
+          <pre :style="{ whiteSpace: 'pre-wrap' }">{{ settings.pollFailure }}</pre>
+        </template>
+        <p v-if="settings.receivedWaiting">
+          {{ t('ui.instance.receivedWaiting', { count: settings.receivedWaiting }) }}
+        </p>
       </Section>
 
       <Section

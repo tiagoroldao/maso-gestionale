@@ -1,0 +1,160 @@
+{
+  "_source": "Openapi SDI API responses (ADR 0019). Bodies follow the examples of the official spec (console.openapi.com/oas/en/sdi.openapi.json, 2026-10-29); wrongToken is the sandbox's actual answer to a token it refused. No token or account identifier is recorded: fiscal ids are the spec's placeholders.",
+  "sent": {
+    "status": 200,
+    "body": {
+      "data": { "uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd" },
+      "message": "",
+      "success": true,
+      "error": null
+    }
+  },
+  "malformed": {
+    "status": 422,
+    "body": {
+      "success": false,
+      "message": "Parsing error: malformed XML",
+      "error": "802",
+      "data": null
+    }
+  },
+  "noCredit": {
+    "status": 402,
+    "body": {
+      "success": false,
+      "message": "Billing error message: Insufficient Credit in Wallet: 200 > 1.1935842939015E-12 code 810",
+      "error": 611,
+      "data": null
+    }
+  },
+  "wrongToken": {
+    "status": 401,
+    "body": { "success": false, "message": "Wrong Token", "error": 125.22, "data": null }
+  },
+  "unavailable": {
+    "status": 500,
+    "body": {
+      "success": "false",
+      "message": "service temporarily unavailable",
+      "error": "631"
+    }
+  },
+  "notificationsRejected": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "@id": "/invoices/cb1e9d7b-a7f5-49f4-8abb-9111467891fd/notifications/notification",
+          "@type": "Notification",
+          "uuid": "257af4c1-359d-4471-8dba-8c2788b61233",
+          "invoice_uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+          "created_at": "2026-10-29T23:13:57+00:00",
+          "type": "NS",
+          "message": {
+            "@type": "NotificaScartoType",
+            "@id": "_:2072",
+            "identificativo_sdi": "111",
+            "nome_file": "IT01234567890_11111.xml.p7m",
+            "data_ora_ricezione": "2026-10-29T23:00:00+00:00",
+            "riferimento_archivio": {
+              "@type": "RiferimentoArchivioType",
+              "@id": "_:2029",
+              "identificativo_sdi": "100",
+              "nome_file": "IT0111567890_11111.zip"
+            },
+            "lista_errori": {
+              "Errore": { "Codice": "00100", "Descrizione": "Certificato di firma scaduto" }
+            },
+            "message_id": "123456",
+            "note": "Note"
+          },
+          "downloaded": true,
+          "downloaded_at": "2026-10-29T23:14:06+00:00",
+          "file_name": "20261029_231357_294530_8a855ad77a4fe1111d22ac63465a2de1.xml"
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "notificationsDelivered": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "uuid": "8f0c1d2e-0000-4000-8000-000000000002",
+          "invoice_uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+          "created_at": "2026-10-30T09:00:00+00:00",
+          "type": "RC",
+          "message": { "identificativo_sdi": "4242", "nome_file": "IT01234567890_11111.xml" },
+          "downloaded": false,
+          "downloaded_at": null,
+          "file_name": "20261030_090000_000000_0000000000000000000000000000000002.xml"
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "notificationsNone": {
+    "status": 200,
+    "body": { "data": [], "success": true, "message": "", "error": null }
+  },
+  "receivedPage1": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "uuid": "9b8dddbd-7900-48c6-b159-0f60cc9b413c",
+          "created_at": "2026-10-28T10:39:14+00:00",
+          "type": 1,
+          "sdi_file_name": "IT12345678901_00001.xml",
+          "sdi_file_id": "1084646898320",
+          "marking": "received",
+          "downloaded": false
+        },
+        {
+          "uuid": "ffe8cdad-1a02-49fe-8cc6-f6b189eb6e5d",
+          "created_at": "2026-10-29T08:32:19+00:00",
+          "type": 1,
+          "sdi_file_name": "IT12345678901_00002.xml.p7m",
+          "sdi_file_id": "335228642533",
+          "marking": "received",
+          "downloaded": false
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "sentList": {
+    "status": 200,
+    "body": {
+      "data": [
+        {
+          "uuid": "cb1e9d7b-a7f5-49f4-8abb-9111467891fd",
+          "created_at": "2026-10-29T10:32:19+00:00",
+          "type": 0,
+          "sdi_file_name": "IT10442360961_0aH8.xml",
+          "marking": "sent",
+          "to_pa": false
+        }
+      ],
+      "success": true,
+      "message": "",
+      "error": null
+    }
+  },
+  "emptyPage": {
+    "status": 200,
+    "body": { "data": [], "success": true, "message": "", "error": null }
+  },
+  "supplierInvoiceXml": {
+    "status": 200,
+    "contentType": "application/octet-stream",
+    "text": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><p:FatturaElettronica versione=\"FPR12\" xmlns:p=\"http://ivaservizi.agenziaentrate.gov.it/docs/xsd/fatture/v1.2\"><FatturaElettronicaHeader><DatiTrasmissione><IdTrasmittente><IdPaese>IT</IdPaese><IdCodice>12345678901</IdCodice></IdTrasmittente><ProgressivoInvio>00001</ProgressivoInvio><FormatoTrasmissione>FPR12</FormatoTrasmissione><CodiceDestinatario>JKKZDGR</CodiceDestinatario></DatiTrasmissione></FatturaElettronicaHeader><FatturaElettronicaBody><DatiGenerali><DatiGeneraliDocumento><TipoDocumento>TD01</TipoDocumento><Divisa>EUR</Divisa><Data>2026-10-28</Data><Numero>1</Numero></DatiGeneraliDocumento></DatiGenerali></FatturaElettronicaBody></p:FatturaElettronica>"
+  }
+}

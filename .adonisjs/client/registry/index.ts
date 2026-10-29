@@ -30,6 +30,12 @@ const routes = {
     tokens: [[0,"login"]],
     types: placeholder as Registry['session.store']['types'],
   },
+  'sdi.webhook': {
+    methods: ["POST"],
+    pattern: '/sdi/webhook',
+    tokens: [[0,"sdi"],[0,"webhook"]],
+    types: placeholder as Registry['sdi.webhook']['types'],
+  },
   'session.destroy': {
     methods: ["POST"],
     pattern: '/logout',

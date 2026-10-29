@@ -4,28 +4,27 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 
 ## Tracked as issues
 
-| Issue | What                                                                                      | Waiting on                                        |
-| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------- |
-| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                      |
-| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                      |
-| #34   | How updates are applied                                                                   | The business (`needs-human`)                      |
-| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                      |
-| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                                |
-| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                           |
-| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17  |
-| #59   | Proposal: payment in instalments                                                          | Review of proposal                                |
-| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                                |
-| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                                |
-| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                       |
-| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                 |
-| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                       |
-| #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
-| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
-| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
-| #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
-| #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
-| #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                       |
+| Issue | What                                                                                      | Waiting on                                       |
+| ----- | ----------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| #17   | Commercialista review of VAT settings and invoicing assumptions                           | The business (`needs-human`)                     |
+| #28   | Bulk import from the old accounting software                                              | The business (`needs-human`)                     |
+| #34   | How updates are applied                                                                   | The business (`needs-human`)                     |
+| #35   | Cloudflare Tunnel and Access setup                                                        | The business (`needs-human`)                     |
+| #56   | Proposal: public administration invoicing (split payment, FPA12, CIG/CUP)                 | Review of proposal                               |
+| #57   | Proposal: withholding tax on condominium Invoices                                         | Review of proposal, #17                          |
+| #58   | Proposal: assisted _beni significativi_ VAT split                                         | Review of proposal; its rule is confirmed in #17 |
+| #59   | Proposal: payment in instalments                                                          | Review of proposal                               |
+| #60   | Proposal: virtual stamp duty                                                              | Review of proposal                               |
+| #61   | Proposal: tax bonus wording on Invoices                                                   | Review of proposal                               |
+| #64   | Per-row validation errors on Tariffe and Codici IVA (`ui-later`)                          | The UX pass                                      |
+| #65   | Review follow-ups: Natura DB check, field-work tests, functional leftovers moved from #73 | —                                                |
+| #73   | UX backlog: polish found in reviews (`ui-later`)                                          | The UX pass                                      |
+| #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                           |
+| #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                           |
+| #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                      |
+| #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                      |
+| #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                      |
+| #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                      |
 
 ## Added to existing issues
 
@@ -36,10 +35,17 @@ Review findings folded into planned work, so they are picked up with it:
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
+- **#198:** received Supplier Invoices are fetched by the SDI poller (#92) and wait in `sdi_received_files`: set `supplierInvoiceIntake.current` (TODO in `app/services/supplier_invoice_intake.ts`) to the intake service, which must take a file it already has without error. The waiting files are handed over on the next poll.
+- **#56:** Openapi's public administration notices NE (EC01/EC02) and DT aren't mapped to outcomes yet (`FINAL_NOTICES` in `openapi_sdi_gateway.ts`): a PA Invoice reads as delivered at RC.
+- **#35:** the SDI webhook (`POST /sdi/webhook`, optional) must get past Cloudflare Access, e.g. a bypass rule for that path; it is checked by its own secret.
 - **#34:** the update's backup is `docker compose run --rm backup backup:run` (non-zero exit on failure), taken before pulling the new image (not yet commented on #34).
 
 ## Not yet issues
 
+- **Openapi account set-up unverified** (#92, ADR 0019): the docs say receiving needs an API configuration with a `supplier-invoice` callback even though the files are then read with `GET /invoices`. Check in the sandbox whether polling alone works. The token provided on 2026-10-29 was refused by the sandbox (401 "Wrong Token"), so nothing has been tried live; the fake follows the spec's examples. Also confirm there the webhook header (`auth_header` sent as `Authorization`), `POST /simulate/supplier-invoice` vs `/simulate-supplier-invoice`, and that `GET /invoices?type=0&invoiceNumber=` finds a sent file by our number.
+- **A "sending" Submission when the connection is removed** (#92): only the poller settles a send whose result is unknown, and it doesn't run without a connection, so the Invoice waits. Restore the token, or add an Office action that settles it by hand if this happens.
+- **Poll and send failures show Openapi's own text** (#92): the Instance page's last poll errors and the Invoice's "last send failed" detail show the provider's message (often English) after an Italian label, as backup failures do.
+- **Live sandbox test only reads** (#92): `tests/functional/openapi_sandbox.spec.ts` lists files when `OPENAPI_SANDBOX_TOKEN` is set. Extend it to send a file and simulate its notice and a Supplier Invoice (`POST /simulate/…`) once a sandbox token works, and record real responses into `tests/fixtures/openapi`.
 - **"Issued invoice" wording:** ADRs 0008, 0011 and 0014 use "issued Invoice" informally, while the glossary lists "Issued invoice" under _Avoid_. Align the wording at some point.
 - **Sending a Quote while it is saved is untested under concurrency** (#137): `Quotes.send` and `Quotes.save` both lock the Job, then the Quote, so a save racing a send either lands before it or is refused. Tests share one connection, where locks are re-entrant, so none proves it; test it on separate connections with the other locking tests (#19).
 - **Quote numbers untested under concurrency** (#138): `Quotes.create` takes the Job's next Quote number under the Job's lock, and `(job_id, sequence)` is unique, so two Quotes written at once get different numbers or one fails. Tests share one connection; test it with the other locking tests (#19).
@@ -96,14 +102,12 @@ Review findings folded into planned work, so they are picked up with it:
 - **`'cancelled'` spelled out for Visits** (#157): `schedule.vue`, `create.vue` and `field/show.vue` compare `status === 'cancelled'` instead of calling `isCancelledVisit`, and the server hard-codes it in `WORK_VISIT_SQL`, `VISIT_TO_DO_SQL`, `SETTLED_VISIT_STATUSES` (job_status.ts), `MyVisitsController.index` and `VisitsController.toSchedule`. Put it in one shared constant next to `OPEN_VISIT_STATUSES` and use that and `isCancelledVisit` throughout (from the #163 review).
 - **The stock warning's "before" is read outside the Charge lock** (#158): correcting a Charge and marking it, or its Visit, done read the Items' quantities before the locked change. A concurrent change in between can make the warning show or not show wrongly. Only the flash message is affected, never stock.
 - **Admin password reset keeps old sessions** (#32): when the Superuser sets a new password for an Admin, sessions already open with the old one stay valid until they expire. Fine for a lost password; a compromised account would need sessions invalidated.
-- **Instance settings not read yet** (#32): polling interval, webhook and public URL are stored for #92 (Invoicetronic) and later work; nothing uses them yet.
-- **Secrets in flashed input** (#32): on a validation error, Adonis flashes the request input except `password`, `password_confirmation`, `_csrf` and `_method`, so `invoicetronicApiKey`, `webhookSecret` and camelCase `passwordConfirmation` sit (encrypted) in the session cookie for one request. Inertia requests are spared (the session middleware skips the input for them); plain form posts aren't. The backup settings route (#33) flashes only the errors, never the input (`flashValidationErrors(error, false)` in `InstanceBackupsController`), so the bucket secret and the passphrase never travel back in the cookie. Do the same for the Instance settings form, or exclude the fields in the exception handler (from the #109 review).
 - **Issued Document PDF when Gotenberg is down** (#31): an Issued Document's PDF is rendered and stored right after issuing, then served unchanged, so it keeps the logo and Base Layout of that day. If Gotenberg is down then, the first request for the PDF renders and stores it, with the logo and layout of that later day. Retry the rendering in the background if this matters.
 - **Nobody is told when a backup fails** (#33): the failure shows in Instance settings only. Send the Superuser an email (or similar) once the app sends mail.
 - **Every backup is a full copy** (#33): each night uploads the whole database and storage directory. Fine at a small business's size; if Visit photos make uploads slow or storage costly, move to incremental backups (e.g. restic, which also encrypts).
 - **Updating while a backup runs** (#65): the backup lock key changed (330_033 to 41_000_005), so during `docker compose up -d` a new `app` can briefly run beside an old `backup` using the old key. Don't update while a backup is running.
 - **One bucket per Instance** (#33): object names don't say which Instance they belong to, so two Instances (or an old server left running after a restore) sharing a bucket prune each other's backups. docs/restore.md warns; add an optional prefix in the settings if a bucket is ever shared.
-- **`APP_KEY` isn't in the backups** (#33): stored secrets (Invoicetronic key, webhook secret, bucket secret) are encrypted with it, so restoring with a new key means re-entering them (docs/restore.md, step 5). Instance settings and the restore doc tell the Superuser to keep `APP_KEY` offline with the passphrase; a secret that no longer decrypts shows as missing.
+- **`APP_KEY` isn't in the backups** (#33): stored secrets (Openapi token, webhook secret, bucket secret) are encrypted with it, so restoring with a new key means re-entering them (docs/restore.md, step 5). Instance settings and the restore doc tell the Superuser to keep `APP_KEY` offline with the passphrase; a secret that no longer decrypts shows as missing.
 - **`app` and `backup` build the same image** (#33): both services have `build: .` and the same `image`, so `docker compose up -d --build` builds it twice (the second from cache, but still a pass). Build once and let `backup` only use the image if the build time matters.
 - **Orphan Issued Document PDF** (#31): if the process stops between writing a PDF to storage and recording its path, the file stays with no row pointing to it, and the next request renders and stores another. Harmless; a cleanup sweep of unreferenced files under `issued-documents/` would remove it.
 - **Issued Document checks outside the lock** (#31): `TemplateData.resolve` reads the chosen Site, Job and Items, and `DocumentTemplates.current(template)` reads the template version, before `IssuedDocuments.issue` opens its transaction, so a concurrent archive, Job edit or template save can slip in between (a save means the document uses the version before it). Only the template's archive and the original's replacement are checked under lock. Same pattern as "Archived-reference check outside the lock".

@@ -119,7 +119,7 @@ An Invoice that has received its number and date and can no longer be edited, ex
 _Avoid_: Issued invoice, confirmed invoice
 
 **Submission**:
-The sending of a Finalised Invoice to SDI, either through the intermediary or as a manually confirmed upload of its XML.
+The sending of a Finalised Invoice to SDI, either through the intermediary (Openapi, ADR 0019) or as a manually confirmed upload of its XML. Through the intermediary it is _sending_ until the intermediary has the file, and its SDI Notice arrives by polling.
 _Avoid_: Upload, transmission, export
 
 **SDI Notice** (_Notifica SDI_):
