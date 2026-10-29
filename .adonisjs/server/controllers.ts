@@ -30,6 +30,7 @@ export const controllers = {
   Sites: () => import('#controllers/sites_controller'),
   Stock: () => import('#controllers/stock_controller'),
   StockMovements: () => import('#controllers/stock_movements_controller'),
+  SupplierInvoiceLines: () => import('#controllers/supplier_invoice_lines_controller'),
   SupplierInvoices: () => import('#controllers/supplier_invoices_controller'),
   Suppliers: () => import('#controllers/suppliers_controller'),
   TemplateChoices: () => import('#controllers/template_choices_controller'),

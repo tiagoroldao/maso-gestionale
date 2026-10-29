@@ -1918,30 +1918,43 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['file']>>>
     }
   }
-  'supplier_invoices.mark_handled': {
+  'supplier_invoice_lines.receive': {
     methods: ["POST"]
-    pattern: '/supplier-invoices/:id/handled'
+    pattern: '/supplier-invoice-lines/:id/receipt'
     types: {
-      body: {}
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').receiveLineValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markHandled']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markHandled']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markHandled']>>>
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').receiveLineValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['receive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['receive']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['receive']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
-  'supplier_invoices.mark_to_handle': {
+  'supplier_invoice_lines.mark_not_stock': {
     methods: ["POST"]
-    pattern: '/supplier-invoices/:id/to-handle'
+    pattern: '/supplier-invoice-lines/:id/not-stock'
     types: {
       body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
       query: {}
-      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markToHandle']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markToHandle']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markToHandle']>>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['markNotStock']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['markNotStock']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['markNotStock']>>>
+    }
+  }
+  'supplier_invoice_lines.undo': {
+    methods: ["POST"]
+    pattern: '/supplier-invoice-lines/:id/undo'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['undo']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['undo']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoice_lines_controller').default['undo']>>>
     }
   }
   'suppliers.index': {
