@@ -13,7 +13,11 @@ import { formatDateTime } from '#shared/dates'
 
 const PASSPHRASE = 'cavallo corretto batteria graffetta'
 
-test.group('Backup encryption', () => {
+test.group('Backup encryption', (group) => {
+  // A passphrase-protected key costs a slow scrypt on purpose; CI needs
+  // more than the unit suite's 2 s
+  group.each.timeout(30_000)
+
   test('a backup encrypted to the public key opens only with the passphrase', async ({
     assert,
   }) => {
