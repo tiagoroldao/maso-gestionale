@@ -38,7 +38,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **#20:** payment method (`ModalitaPagamento`) on Payment Terms; REA fields in Company settings; global discount written as one negative line per VAT rate, matching `invoiceTotals()`; summary rows grouped by rate and Natura vs. legal note (comments).
 - **#23:** signed VAT summary rows in the discount split, once deductions exist (comment).
 - **#75:** superseded by Charges (ADR 0010): #114–#117 replace per-Invoice links, and Credit Notes credit Charges (#146, done).
-- **#169:** the `noSite` equipment warning also reaches a Technician at the field close, but their advice ("correggilo / aggiungilo a mano nella scheda dell'immobile") is meant for Office: give the Technician a variant that says to tell the office ("avvisa l'ufficio") in the UX pass (from the #170 review).
 - **#34:** the update's backup is `docker compose run --rm backup backup:run` (non-zero exit on failure), taken before pulling the new image (not yet commented on #34).
 
 ## Not yet issues
@@ -65,7 +64,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Test file names** (#130): `invoices_from_time_and_materials.spec.ts` (functional and browser) now test Jobs without a Quote; rename them (from the #133 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).
 - **Charges from before #162** (migration 224 era): a Charge that created its equipment when recorded and is still planned gives no warning when its Item or quantity is corrected, and removing it in the field leaves its equipment behind (#176 kept its link, so done it reuses that equipment). Only dev data has any; no data migration (from the #167 review).
-- **An Item's Equipment flag changed later** (#176): the Item's flag at the moment a Charge becomes done decides, so a change also affects Charges already recorded and still planned (the issue said only later Charges). A planned Charge recorded in part pieces before its Item became Equipment creates its whole part (at least one).
+- **An Item's Equipment flag changed later** (#176): the Item's flag at the moment a Charge becomes done decides, so a change also affects Charges already recorded and still planned (confirmed by the business on 2026-10-29, comment on #176). A planned Charge recorded in part pieces before its Item became Equipment creates its whole part (at least one).
 - **Quote imports of Equipment Items in part pieces** (#176): whole pieces are checked in the field and on corrections, not on Quote imports; a Quote line of 1,5 boilers imports as is and creates one unit when done.
 - **A done Charge corrected onto an Equipment Item** (#176): correcting a done Charge from an Item that isn't Equipment to one that is creates no equipment (corrections never change equipment) and says nothing. Warn, as `noSite` does, that the equipment is to be added by hand on the Site page (from the #182 review).
 - **A quantity typo on an Equipment Item** (#176): a done Charge of 1000 boilers creates 1000 units in one go. Cap an Equipment Charge's quantity lower, or confirm large ones, if it happens (from the #182 review).

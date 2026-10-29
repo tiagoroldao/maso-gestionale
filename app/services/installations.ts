@@ -102,11 +102,20 @@ export default class Installations {
   }
 
   /**
-   * The warnings as flash sentences, in order.
+   * The warnings as flash sentences, in order. A Technician closing the
+   * Visit is told to let the office know rather than to fix it on the Site
+   * page, which is Office's (#169).
    */
-  static messages(i18n: I18n, warnings: EquipmentWarning[]): string[] {
+  static messages(
+    i18n: I18n,
+    warnings: EquipmentWarning[],
+    reader: 'office' | 'technician' = 'office'
+  ): string[] {
     return warnings.map(({ reason, equipment }) =>
-      i18n.t(`flash.equipmentWarning.${reason}`, { equipment })
+      i18n.t(
+        `flash.equipmentWarning.${reader === 'technician' && reason === 'noSite' ? 'noSiteTechnician' : reason}`,
+        { equipment }
+      )
     )
   }
 

@@ -1109,6 +1109,7 @@
     "workerName": "Nome",
     "item": "Articolo",
     "changeItem": "Cambia articolo",
+    "equipmentDetails": "È un apparecchio: quando l'addebito risulta eseguito viene registrato tra gli apparecchi dell'immobile, un pezzo per unità, con questi dati facoltativi. Dopo si gestisce nella scheda dell'immobile.",
     "saveCorrection": "Salva correzione",
     "billingSection": "Da fatturare",
     "billingHint": "Quello che va in fattura. Si può modificare finché nessuna fattura contiene l'addebito.",
@@ -1148,7 +1149,11 @@
       "description": "descrizione",
       "unit": "unità",
       "vatKind": "tipo per l'IVA",
-      "vatCode": "IVA del preventivo"
+      "vatCode": "IVA del preventivo",
+      "equipmentType": "tipo di apparecchio",
+      "make": "marca",
+      "model": "modello",
+      "serialNumber": "numero di serie"
     },
     "stockCorrection": "Correzione dell'addebito n. {id}",
     "change": "{field}: {before} → {after}",

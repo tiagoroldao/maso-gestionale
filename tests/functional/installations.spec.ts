@@ -438,7 +438,7 @@ test.group('Installed Equipment from Equipment Items (#162, #176)', () => {
 })
 
 test.group('Equipment Items on a Job without a Site (#168, #176)', () => {
-  test('recorded without a Site, closing creates nothing and names the equipment', async ({
+  test('recorded without a Site, closing creates nothing and tells the Technician to tell the office', async ({
     client,
     assert,
   }) => {
@@ -450,7 +450,7 @@ test.group('Equipment Items on a Job without a Site (#168, #176)', () => {
     const response = await close(client, anna, visit)
     response.assertFlashMessage(
       'warning',
-      warned('flash.visitStatusSaved', [['noSite', 'Caldaia murale — Vaillant ecoTEC']])
+      warned('flash.visitStatusSaved', [['noSiteTechnician', 'Caldaia murale — Vaillant ecoTEC']])
     )
     const kept = await equipmentAt(site)
     assert.deepEqual(
@@ -571,4 +571,204 @@ test.group('Equipment Items on the Job itself (#176)', () => {
       assert.isNotNull(charge.stockMovementId)
       assert.lengthOf(await InstalledEquipment.query().where('chargeId', charge.id), 0)
     })
+})
+
+/**
+ * Corrects the Charge as `user`, sending its Item, quantity and any
+ * details as the Charge page does.
+ */
+function correct(
+  client: ApiClient,
+  user: User,
+  charge: Charge,
+  body: { itemId: number; quantity: string } & Record<string, string | number>
+) {
+  return send(client, user, 'put', `/charges/${charge.id}/recorded`, body)
+}
+
+function detailsOf(charge: Charge) {
+  return [
+    charge.equipmentType,
+    charge.equipmentMake,
+    charge.equipmentModel,
+    charge.equipmentSerialNumber,
+  ]
+}
+
+test.group("An Equipment Charge's pending details (#169)", () => {
+  test('{$self} enters them on a Charge imported from a Quote, and it installs with them')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const site = await createSite()
+      const { boiler, charge } = await boilersOnJob(site)
+
+      const response = await correct(client, user, charge, {
+        itemId: boiler.id,
+        quantity: '1',
+        equipmentType: 'Caldaia a condensazione',
+        make: 'Vaillant',
+        model: 'ecoTEC',
+        serialNumber: 'SN-169',
+      })
+      response.assertFlashMessage('success', it('flash.chargeCorrected'))
+      await charge.refresh()
+      assert.deepEqual(detailsOf(charge), [
+        'Caldaia a condensazione',
+        'Vaillant',
+        'ecoTEC',
+        'SN-169',
+      ])
+
+      await send(client, user, 'post', `/charges/${charge.id}/done`)
+      const created = await equipmentAt(site)
+      assert.deepEqual(
+        created.map((unit) => [unit.description, unit.serialNumber, unit.chargeId]),
+        [['Caldaia a condensazione — Vaillant ecoTEC', 'SN-169', charge.id]]
+      )
+    })
+
+  test('{$self} corrects them on a planned Visit Charge: empty clears, left out stays')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const { anna, visit, boilerA } = await setup()
+      const charge = await recordBoiler(client, anna, visit, boilerA.id)
+
+      const response = await correct(client, user, charge, {
+        itemId: boilerA.id,
+        quantity: '1',
+        model: '',
+        serialNumber: 'SN-NEW',
+      })
+      response.assertFlashMessage('success', it('flash.chargeCorrected'))
+      await charge.refresh()
+      assert.deepEqual(detailsOf(charge), ['Caldaia murale', 'Vaillant', null, 'SN-NEW'])
+
+      // The history names what changed
+      const events = await charge.related('events').query().where('kind', 'corrected')
+      assert.deepEqual(
+        events.map((event) => event.changes),
+        [
+          {
+            before: { model: 'ecoTEC', serialNumber: 'SN-777' },
+            after: { model: null, serialNumber: 'SN-NEW' },
+          },
+        ]
+      )
+    })
+
+  test('{$self} corrects them on a not done Charge, and done again it installs with them')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const { anna, site, visit, boilerA } = await setup()
+      const charge = await recordBoiler(client, anna, visit, boilerA.id)
+      await close(client, anna, visit, [charge.id])
+
+      const response = await correct(client, user, charge, {
+        itemId: boilerA.id,
+        quantity: '1',
+        equipmentType: 'Caldaia',
+        make: 'Baxi',
+        model: 'Duo-tec',
+        serialNumber: 'BX-1',
+      })
+      response.assertFlashMessage('success', it('flash.chargeCorrected'))
+      await send(client, user, 'post', `/charges/${charge.id}/done`)
+
+      const [, created] = await equipmentAt(site)
+      assert.deepEqual(
+        [created.description, created.serialNumber],
+        ['Caldaia — Baxi Duo-tec', 'BX-1']
+      )
+    })
+
+  test('several pieces keep no serial number; an Item that is not Equipment keeps no details', async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, visit, boilerA, fitting } = await setup()
+    const charge = await recordBoiler(client, anna, visit, boilerA.id)
+
+    await correct(client, office, charge, {
+      itemId: boilerA.id,
+      quantity: '2',
+      serialNumber: 'SN-2',
+    })
+    await charge.refresh()
+    assert.deepEqual(detailsOf(charge), ['Caldaia murale', 'Vaillant', 'ecoTEC', null])
+
+    await correct(client, office, charge, {
+      itemId: fitting.id,
+      quantity: '2',
+      equipmentType: 'Caldaia',
+    })
+    await charge.refresh()
+    assert.deepEqual(detailsOf(charge), [null, null, null, null])
+  })
+
+  test('once done they stay as they are: the equipment is managed on the Site', async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, site, visit, boilerA } = await setup()
+    const charge = await recordBoiler(client, anna, visit, boilerA.id)
+    await close(client, anna, visit)
+
+    const response = await correct(client, office, charge, {
+      itemId: boilerA.id,
+      quantity: '1',
+      make: 'Baxi',
+      serialNumber: 'BX-2',
+    })
+    response.assertFlashMessage('success', it('flash.chargeCorrected'))
+    await charge.refresh()
+    assert.deepEqual(detailsOf(charge), ['Caldaia murale', 'Vaillant', 'ecoTEC', 'SN-777'])
+    const [, created] = await equipmentAt(site)
+    assert.deepEqual([created.make, created.serialNumber], ['Vaillant', 'SN-777'])
+  })
+
+  test('a detail over 100 characters is refused', async ({ client, assert }) => {
+    const { office, anna, visit, boilerA } = await setup()
+    const charge = await recordBoiler(client, anna, visit, boilerA.id)
+
+    const response = await correct(client, office, charge, {
+      itemId: boilerA.id,
+      quantity: '1',
+      make: 'x'.repeat(101),
+    })
+    assert.properties(response.flashMessage('inputErrorsBag'), ['make'])
+    await charge.refresh()
+    assert.equal(charge.equipmentMake, 'Vaillant')
+  })
+
+  test('the Charge page and the field Visit page show them until done', async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, visit, boilerA, fitting } = await setup()
+    const charge = await recordBoiler(client, anna, visit, boilerA.id)
+    await recordBoiler(client, anna, visit, fitting.id)
+    const details = {
+      equipmentType: 'Caldaia murale',
+      make: 'Vaillant',
+      model: 'ecoTEC',
+      serialNumber: 'SN-777',
+    }
+
+    const edit = await client.get(`/charges/${charge.id}/edit`).withInertia().loginAs(office)
+    edit.assertInertiaPropsContains({
+      charge: { recorded: { item: { equipment: true }, equipment: details } },
+    })
+
+    const shown = async () => {
+      const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
+      return (page.inertiaProps.items as { details: unknown }[]).map((line) => line.details)
+    }
+    assert.sameDeepMembers(await shown(), [details, null])
+
+    await close(client, anna, visit)
+    assert.deepEqual(await shown(), [null, null])
+  })
 })
