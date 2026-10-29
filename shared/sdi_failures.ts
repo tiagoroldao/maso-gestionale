@@ -9,6 +9,7 @@ export const SDI_FAILURE_CODES = [
   'submissionRefused',
   'noticeBeforeSubmission',
   'noFiscalId',
+  'tooManyPages',
 ] as const
 export type SdiFailureCode = (typeof SDI_FAILURE_CODES)[number]
 

@@ -1359,7 +1359,8 @@
     "noRemoteId": "Openapi ha accettato il file senza indicarne l'identificativo",
     "submissionRefused": "la fattura non è più in attesa di questo esito",
     "noticeBeforeSubmission": "la notifica di SDI è datata prima dell'invio",
-    "noFiscalId": "manca la Partita IVA (o il Codice Fiscale) nelle impostazioni dell'azienda"
+    "noFiscalId": "manca la Partita IVA (o il Codice Fiscale) nelle impostazioni dell'azienda",
+    "tooManyPages": "Openapi ha restituito troppe pagine di risultati: riprovato al prossimo controllo"
   },
   "supplierInvoices": {
     "title": "Fatture passive",

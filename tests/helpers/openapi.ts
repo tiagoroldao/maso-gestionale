@@ -40,11 +40,21 @@ export class FakeOpenapi {
    * Answers `api_configurations` as Openapi keeps them: one configuration
    * per fiscal id, each POST replacing it. The POSTs are in `requests`.
    */
-  keepsApiConfigurations(initial: { fiscal_id: string; callbacks: unknown[] } | null = null) {
+  keepsApiConfigurations(
+    initial: { fiscal_id: string; callbacks: Record<string, unknown>[] } | null = null
+  ) {
     let stored = initial
+    // Read as the spec answers: one item per callback, each under a
+    // singular `callback`, with Openapi's own provider_uuid
     this.on('GET', '/api_configurations', () => {
       const none = recorded('apiConfigurationsNone')
-      if (stored) none.body.data = [{ id: '000000000000000000000000', ...stored }]
+      if (stored) {
+        none.body.data = stored.callbacks.map((callback, index) => ({
+          id: `00000000000000000000000${index}`,
+          fiscal_id: stored!.fiscal_id,
+          callback: { ...callback, provider_uuid: `00000000-0000-4000-8000-00000000010${index}` },
+        }))
+      }
       return none
     })
     this.on('POST', '/api_configurations', (request) => {

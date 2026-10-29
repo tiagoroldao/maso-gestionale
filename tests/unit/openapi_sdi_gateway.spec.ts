@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import { OpenapiError } from '#services/openapi_sdi_gateway'
-import { SdiSendRefusedError } from '#services/sdi_gateway'
+import { SdiFailure, SdiSendRefusedError } from '#services/sdi_gateway'
 import { FakeOpenapi, recorded } from '#tests/helpers/openapi'
 
 const file = { fileName: 'IT01987654322_M0001.xml', xml: '<p:FatturaElettronica/>' }
@@ -160,7 +160,7 @@ test.group('Openapi SDI gateway', () => {
     const openapi = new FakeOpenapi().keepsApiConfigurations()
     const gateway = openapi.gateway()
     const callback = {
-      fiscalId: '02903752463',
+      fiscalId: '00000000000',
       url: 'https://invalid.invalid/sdi/webhook',
       authHeader: null,
     }
@@ -173,16 +173,83 @@ test.group('Openapi SDI gateway', () => {
 
     assert.deepEqual(openapi.configurations, [
       {
-        fiscal_id: '02903752463',
+        fiscal_id: '00000000000',
         callbacks: [{ event: 'supplier-invoice', url: 'https://invalid.invalid/sdi/webhook' }],
       },
       {
-        fiscal_id: '02903752463',
+        fiscal_id: '00000000000',
         callbacks: [{ event: 'supplier-invoice', url: 'https://maso.example.it/sdi/webhook' }],
       },
     ])
     const read = openapi.requests.find((request) => request.method === 'GET')!
-    assert.equal(read.query.get('fiscal_id'), '02903752463')
+    assert.equal(read.query.get('fiscal_id'), '00000000000')
     assert.equal(read.headers['authorization'], 'Bearer test-token')
+  })
+
+  test("reads the spec's configuration shape: an unchanged callback isn't written", async ({
+    assert,
+  }) => {
+    // One item per callback, under a singular `callback`, with provider_uuid
+    const openapi = new FakeOpenapi().on('GET', '/api_configurations', 'apiConfigurationsOne')
+
+    const changed = await openapi.gateway().ensureReceiving({
+      fiscalId: 'OPENAPI1234',
+      url: 'https://dev.console.openapi.com',
+      authHeader: 'Test 22345',
+    })
+
+    assert.isFalse(changed)
+    assert.deepEqual(
+      openapi.requests.map((request) => request.method),
+      ['GET']
+    )
+  })
+
+  test('a callback set by hand for another event survives, without provider_uuid', async ({
+    assert,
+  }) => {
+    const notification = {
+      event: 'customer-notification',
+      url: 'https://elsewhere.example/hook',
+      auth_header: 'Bearer by-hand',
+      field: 'data',
+    }
+    const openapi = new FakeOpenapi().keepsApiConfigurations({
+      fiscal_id: '00000000000',
+      callbacks: [notification],
+    })
+
+    await openapi.gateway().ensureReceiving({
+      fiscalId: '00000000000',
+      url: 'https://invalid.invalid/sdi/webhook',
+      authHeader: null,
+    })
+
+    assert.deepEqual(openapi.configurations, [
+      {
+        fiscal_id: '00000000000',
+        callbacks: [
+          notification,
+          { event: 'supplier-invoice', url: 'https://invalid.invalid/sdi/webhook' },
+        ],
+      },
+    ])
+  })
+
+  test('a list longer than the page limit fails rather than answer in part', async ({ assert }) => {
+    const page = recorded('receivedPage1')
+    const openapi = new FakeOpenapi().on('GET', '/invoices', () => ({
+      status: 200,
+      body: { ...page.body, hasMore: true },
+    }))
+
+    const error = await openapi
+      .gateway()
+      .findSent({ number: '92/2026', issuedOn: '2026-10-29' })
+      .catch((caught) => caught)
+
+    assert.instanceOf(error, SdiFailure)
+    assert.equal(error.code, 'tooManyPages')
+    assert.lengthOf(openapi.requests, 50)
   })
 })

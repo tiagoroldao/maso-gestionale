@@ -64,7 +64,11 @@ type ErrorEntry = { Codice?: string; Descrizione?: string }
 const RECEIVING_EVENT = 'supplier-invoice'
 
 type Callback = { event: string; url: string; auth_header?: string | null; field?: string | null }
-type ApiConfiguration = { id?: string; callbacks?: Callback[] | Callback | null }
+type ApiConfiguration = {
+  id?: string
+  fiscal_id?: string
+  callback?: (Callback & { provider_uuid?: string | null }) | null
+}
 
 type InvoiceRead = {
   uuid: string
@@ -200,14 +204,17 @@ export class OpenapiSdiGateway implements SdiGateway {
   async ensureReceiving(callback: ReceivingCallback) {
     const search = new URLSearchParams({ fiscal_id: callback.fiscalId })
     const response = await this.request('GET', `/api_configurations?${search}`)
+    // One item per callback, each under a singular `callback` (the spec's
+    // read shape); re-posted without Openapi's own `provider_uuid`
     const body = (await response.json()) as { data?: ApiConfiguration[] | null }
-    const callbacks = (body.data ?? []).flatMap((configuration) =>
-      Array.isArray(configuration.callbacks)
-        ? configuration.callbacks
-        : configuration.callbacks
-          ? [configuration.callbacks]
-          : []
-    )
+    const callbacks = (body.data ?? []).flatMap((configuration): Callback[] => {
+      const read = configuration.callback
+      if (!read?.event) return []
+      const kept: Callback = { event: read.event, url: read.url }
+      if (read.auth_header) kept.auth_header = read.auth_header
+      if (read.field) kept.field = read.field
+      return [kept]
+    })
     const wanted: Callback = {
       event: RECEIVING_EVENT,
       url: callback.url,
@@ -231,7 +238,9 @@ export class OpenapiSdiGateway implements SdiGateway {
   }
 
   /**
-   * A paged collection, read while Openapi says there is more.
+   * A paged collection, read while Openapi says there is more. Past
+   * MAX_PAGES it fails rather than answer in part: a partial list could
+   * miss a sent file and make it look never sent.
    */
   private async list(query: Record<string, string>) {
     const found: InvoiceRead[] = []
@@ -244,9 +253,9 @@ export class OpenapiSdiGateway implements SdiGateway {
       }
       const rows = body.data ?? []
       found.push(...rows)
-      if (!rows.length || body.hasMore === false) break
+      if (!rows.length || body.hasMore === false) return found
     }
-    return found
+    throw new SdiFailure('tooManyPages')
   }
 
   private async request(
