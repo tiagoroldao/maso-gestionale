@@ -123,6 +123,7 @@ export default class ItemsController {
     const item = await Item.query()
       .where('id', params.id)
       .preload('category')
+      .preload('supplier')
       .preload('documents', (documents) => documents.orderBy('title'))
       .firstOrFail()
     const movements = await StockMovement.query()
@@ -141,7 +142,8 @@ export default class ItemsController {
         description: item.description,
         unit: item.unit,
         category: item.category?.name ?? null,
-        supplierName: item.supplierName,
+        // The Supplier linked by a Supplier Invoice (#199), else the name typed on the Item
+        supplierName: item.supplier?.name ?? item.supplierName,
         supplierCode: item.supplierCode,
         purchasePrice: item.purchasePrice,
         resalePrice: item.resalePrice,

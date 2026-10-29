@@ -882,17 +882,23 @@ const routes = {
     tokens: [[0,"supplier-invoices"],[1,"id"],[0,"file"]],
     types: placeholder as Registry['supplier_invoices.file']['types'],
   },
-  'supplier_invoices.mark_handled': {
+  'supplier_invoice_lines.receive': {
     methods: ["POST"],
-    pattern: '/supplier-invoices/:id/handled',
-    tokens: [[0,"supplier-invoices"],[1,"id"],[0,"handled"]],
-    types: placeholder as Registry['supplier_invoices.mark_handled']['types'],
+    pattern: '/supplier-invoice-lines/:id/receipt',
+    tokens: [[0,"supplier-invoice-lines"],[1,"id"],[0,"receipt"]],
+    types: placeholder as Registry['supplier_invoice_lines.receive']['types'],
   },
-  'supplier_invoices.mark_to_handle': {
+  'supplier_invoice_lines.mark_not_stock': {
     methods: ["POST"],
-    pattern: '/supplier-invoices/:id/to-handle',
-    tokens: [[0,"supplier-invoices"],[1,"id"],[0,"to-handle"]],
-    types: placeholder as Registry['supplier_invoices.mark_to_handle']['types'],
+    pattern: '/supplier-invoice-lines/:id/not-stock',
+    tokens: [[0,"supplier-invoice-lines"],[1,"id"],[0,"not-stock"]],
+    types: placeholder as Registry['supplier_invoice_lines.mark_not_stock']['types'],
+  },
+  'supplier_invoice_lines.undo': {
+    methods: ["POST"],
+    pattern: '/supplier-invoice-lines/:id/undo',
+    tokens: [[0,"supplier-invoice-lines"],[1,"id"],[0,"undo"]],
+    types: placeholder as Registry['supplier_invoice_lines.undo']['types'],
   },
   'suppliers.index': {
     methods: ["GET","HEAD"],

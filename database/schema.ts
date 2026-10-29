@@ -602,7 +602,7 @@ export class ItemDocumentSchema extends BaseModel {
 }
 
 export class ItemSchema extends BaseModel {
-  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'equipment', 'groupable', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'significantGood', 'supplierCode', 'supplierName', 'unit', 'updatedAt', 'vatCodeId'] as const
+  static $columns = ['archivedAt', 'categoryId', 'code', 'createdAt', 'description', 'equipment', 'groupable', 'id', 'maintenanceIntervalMonths', 'purchasePrice', 'reorderLevel', 'resalePrice', 'significantGood', 'supplierCode', 'supplierId', 'supplierName', 'unit', 'updatedAt', 'vatCodeId'] as const
   $columns = ItemSchema.$columns
   @column.dateTime()
   declare archivedAt: DateTime | null
@@ -632,6 +632,8 @@ export class ItemSchema extends BaseModel {
   declare significantGood: boolean
   @column()
   declare supplierCode: string | null
+  @column()
+  declare supplierId: number | null
   @column()
   declare supplierName: string | null
   @column()
@@ -880,7 +882,7 @@ export class StockMovementSchema extends BaseModel {
 }
 
 export class SupplierInvoiceLineSchema extends BaseModel {
-  static $columns = ['code', 'createdAt', 'description', 'id', 'lineNumber', 'natura', 'position', 'quantity', 'supplierInvoiceId', 'total', 'unit', 'unitPrice', 'vatRate'] as const
+  static $columns = ['code', 'createdAt', 'description', 'handledAt', 'handledBy', 'id', 'itemId', 'lineNumber', 'natura', 'outcome', 'position', 'previousPurchasePrice', 'quantity', 'setSupplierCode', 'stockMovementId', 'supplierInvoiceId', 'total', 'unit', 'unitPrice', 'vatRate'] as const
   $columns = SupplierInvoiceLineSchema.$columns
   @column()
   declare code: string | null
@@ -888,16 +890,30 @@ export class SupplierInvoiceLineSchema extends BaseModel {
   declare createdAt: DateTime
   @column()
   declare description: string
+  @column.dateTime()
+  declare handledAt: DateTime | null
+  @column()
+  declare handledBy: number | null
   @column({ isPrimary: true })
   declare id: number
+  @column()
+  declare itemId: number | null
   @column()
   declare lineNumber: number
   @column()
   declare natura: string | null
   @column()
+  declare outcome: string | null
+  @column()
   declare position: number
   @column()
+  declare previousPurchasePrice: string | null
+  @column()
   declare quantity: string | null
+  @column()
+  declare setSupplierCode: boolean
+  @column()
+  declare stockMovementId: number | null
   @column()
   declare supplierInvoiceId: number
   @column()

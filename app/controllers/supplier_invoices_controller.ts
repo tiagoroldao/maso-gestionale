@@ -1,7 +1,11 @@
 import { existsSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
+import type Item from '#models/item'
 import SupplierInvoice from '#models/supplier_invoice'
+import SupplierInvoiceLines from '#services/supplier_invoice_lines'
 import SupplierInvoices, { SupplierInvoiceRefusedError } from '#services/supplier_invoices'
+import { todayIso } from '#shared/dates'
+import { lineReceiptRefusal } from '#shared/supplier_invoices'
 import { storagePath } from '#services/storage'
 import { pageValidator, supplierInvoiceUploadValidator } from '#validators/supplier'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -12,7 +16,8 @@ const PER_PAGE = 25
  * The Supplier Invoice inbox (#198), for Admin and Office: the invoices
  * received, newest first; uploading one (XML or signed .p7m, with no SDI
  * connection needed); its page with a readable rendering and the
- * original file; and marking it handled.
+ * original file, and its lines to handle (SupplierInvoiceLinesController,
+ * #199), which make it handled.
  */
 export default class SupplierInvoicesController {
   async index({ request, inertia }: HttpContext) {
@@ -66,12 +71,29 @@ export default class SupplierInvoicesController {
     }
   }
 
+  /**
+   * The invoice as read, and its lines to handle (#199): each received
+   * (onto which Item, how much, at what cost), marked not stock, or still
+   * to handle with the Item suggested for it and, when it can only be
+   * marked not stock, why.
+   */
   async show({ params, inertia }: HttpContext) {
     const invoice = await SupplierInvoice.query()
       .where('id', params.id)
       .preload('supplier')
-      .preload('lines', (lines) => lines.orderBy('position'))
+      .preload('lines', (lines) =>
+        lines.orderBy('position').preload('item').preload('stockMovement')
+      )
       .firstOrFail()
+    const suggestions = await SupplierInvoiceLines.suggestions(invoice, invoice.lines)
+    const pickable = (item: Item) => ({
+      id: item.id,
+      code: item.code,
+      description: item.description,
+      unit: item.unit,
+    })
+    const today = todayIso()
+    const issuedOn = invoice.issuedOn.toISODate()!
 
     return inertia.render('supplier_invoices/show', {
       invoice: {
@@ -101,8 +123,17 @@ export default class SupplierInvoicesController {
           total: line.total,
           vatRate: line.vatRate,
           natura: line.natura,
+          outcome: line.outcome,
+          item: line.item ? pickable(line.item) : null,
+          receipt: line.stockMovement
+            ? { quantity: line.stockMovement.quantity, unitCost: line.stockMovement.unitCost }
+            : null,
+          suggestion: suggestions.has(line.id) ? pickable(suggestions.get(line.id)!) : null,
+          refusal: line.outcome === null ? lineReceiptRefusal(invoice, line) : null,
         })),
       },
+      // The day goods are received on, unless Office changes it: the invoice's
+      receiveOn: issuedOn < today ? issuedOn : today,
     })
   }
 
@@ -117,19 +148,5 @@ export default class SupplierInvoicesController {
     response.header('x-content-type-options', 'nosniff')
     response.header('content-security-policy', 'sandbox')
     return response.attachment(path, invoice.fileName, 'attachment')
-  }
-
-  async markHandled({ params, response, auth, session, i18n }: HttpContext) {
-    const invoice = await SupplierInvoice.findOrFail(params.id)
-    await SupplierInvoices.setStatus(invoice, 'handled', auth.getUserOrFail())
-    session.flash('success', i18n.t('flash.supplierInvoiceHandled'))
-    return response.redirect().toRoute('supplier_invoices.show', { id: invoice.id })
-  }
-
-  async markToHandle({ params, response, auth, session, i18n }: HttpContext) {
-    const invoice = await SupplierInvoice.findOrFail(params.id)
-    await SupplierInvoices.setStatus(invoice, 'to_handle', auth.getUserOrFail())
-    session.flash('success', i18n.t('flash.supplierInvoiceToHandle'))
-    return response.redirect().toRoute('supplier_invoices.show', { id: invoice.id })
   }
 }

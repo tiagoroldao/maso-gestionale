@@ -13,7 +13,8 @@ import type {
  * An electronic invoice received from a Supplier (#198): its header and
  * lines read from the FatturaPA file, the rest of the document in
  * `details`, and the original file in the Instance's storage at
- * `filePath`. Office marks it handled once dealt with.
+ * `filePath`. It is handled once Office has received each of its lines
+ * into stock or marked it not stock (#199, SupplierInvoiceLines).
  */
 export default class SupplierInvoice extends SupplierInvoiceSchema {
   static table = 'supplier_invoices'

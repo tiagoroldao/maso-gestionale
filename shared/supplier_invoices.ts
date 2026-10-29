@@ -1,11 +1,14 @@
 /**
  * Supplier Invoices (#198): received from suppliers, uploaded by Office or
- * delivered by the SDI intermediary (#92), and dealt with in an inbox.
+ * delivered by the SDI intermediary (#92), and dealt with in an inbox,
+ * their lines received into stock or marked not stock (#199).
  */
+import Big from 'big.js'
+import { UNIT_PRICE_DECIMALS } from './money.js'
 
 /**
- * An inbox entry is to handle until Office marks it handled (and can set
- * it back).
+ * An inbox entry is to handle until every line has an outcome
+ * (LINE_OUTCOMES), then handled; undoing a line's outcome sets it back.
  */
 export const SUPPLIER_INVOICE_STATUSES = ['to_handle', 'handled'] as const
 export type SupplierInvoiceStatus = (typeof SUPPLIER_INVOICE_STATUSES)[number]
@@ -81,4 +84,92 @@ export type SupplierInvoiceDetails = {
   }[]
   payments: { method: string; dueOn: string | null; amount: string; iban: string | null }[]
   notes: string[]
+}
+
+/**
+ * What became of a Supplier Invoice line (#199): received into stock onto
+ * an Item, or marked not stock (shipping, services, untracked
+ * consumables). A line with neither is still to handle; the invoice is
+ * handled once none is.
+ */
+export const LINE_OUTCOMES = ['received', 'not_stock'] as const
+export type LineOutcome = (typeof LINE_OUTCOMES)[number]
+
+/**
+ * Why a line can't be received into stock, only marked not stock: it is
+ * on a credit note (TD04: goods going back, not coming in), in another
+ * currency than euro (ADR 0007: purchase prices are in euro), or its
+ * amount is negative (a discount or a return).
+ */
+export type LineReceiptRefusal = 'creditNote' | 'currency' | 'negativeTotal'
+
+/** Why the line can't be received (LineReceiptRefusal), or null when it can */
+export function lineReceiptRefusal(
+  invoice: { documentType: string; currency: string },
+  line: { total: string }
+): LineReceiptRefusal | null {
+  if (invoice.documentType === 'TD04') return 'creditNote'
+  if (invoice.currency !== 'EUR') return 'currency'
+  if (new Big(line.total).lt(0)) return 'negativeTotal'
+  return null
+}
+
+/**
+ * The unit cost of a line received as `quantity` of the Item's unit: the
+ * line's amount (PrezzoTotale, after the supplier's discounts) divided by
+ * the quantity received, half-up to unit-price precision. Null for a line
+ * of zero (free goods), which leaves the purchase price as it is.
+ */
+export function receiptUnitCost(lineTotal: string, quantity: string) {
+  const total = new Big(lineTotal)
+  if (total.eq(0)) return null
+  return total
+    .div(quantity)
+    .round(UNIT_PRICE_DECIMALS, Big.roundHalfUp)
+    .toFixed(UNIT_PRICE_DECIMALS)
+}
+
+/**
+ * Units of measure written differently for the same thing: what suppliers
+ * write (UnitaMisura) next to what Items use.
+ */
+const UNIT_ALIASES: Record<string, string> = {
+  n: 'pz',
+  nr: 'pz',
+  num: 'pz',
+  pezzo: 'pz',
+  pezzi: 'pz',
+  pc: 'pz',
+  pcs: 'pz',
+  mt: 'm',
+  metro: 'm',
+  metri: 'm',
+  lt: 'l',
+  litro: 'l',
+  litri: 'l',
+}
+
+function unitKey(unit: string) {
+  const key = unit.toLowerCase().replace(/[\s.]/g, '')
+  return UNIT_ALIASES[key] ?? key
+}
+
+/**
+ * Whether a line's unit of measure differs from the Item's ("CF" against
+ * "pz"), ignoring case, dots and common spellings ("PZ", "nr." and "pz"
+ * agree). A line without a unit never differs. When they differ, Office
+ * gives the quantity received in the Item's unit.
+ */
+export function unitsDiffer(lineUnit: string | null, itemUnit: string) {
+  if (lineUnit === null || !lineUnit.trim()) return false
+  return unitKey(lineUnit) !== unitKey(itemUnit)
+}
+
+/**
+ * A description as compared when suggesting an Item: spaces collapsed,
+ * lower case. DESCRIPTION_KEY_SQL (app/services/supplier_invoice_lines.ts)
+ * says the same in SQL.
+ */
+export function descriptionKey(description: string) {
+  return description.replace(/\s+/g, ' ').trim().toLowerCase()
 }

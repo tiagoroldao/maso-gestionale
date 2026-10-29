@@ -88,23 +88,7 @@ export default class StockLedger {
       )
 
       if (created.unitCost) {
-        const newer = await StockMovement.query({ client: trx })
-          .where('itemId', item.id)
-          .where('kind', 'receipt')
-          .whereNotNull('unitCost')
-          .whereNot('id', created.id)
-          .where((query) => {
-            query
-              .where('occurredOn', '>', created.occurredOn.toISODate()!)
-              .orWhere((sameDay) =>
-                sameDay
-                  .where('occurredOn', created.occurredOn.toISODate()!)
-                  .where('id', '>', created.id)
-              )
-          })
-          .first()
-
-        if (!newer) {
+        if (!(await this.hasNewerCostedReceipt(created, trx))) {
           await Item.query({ client: trx })
             .where('id', item.id)
             .update({ purchase_price: created.unitCost, updated_at: new Date() })
@@ -115,6 +99,27 @@ export default class StockLedger {
 
     if (movement.unitCost && !input.client) await item.refresh()
     return movement
+  }
+
+  /**
+   * Whether a receipt with a unit cost more recent than `receipt` (by
+   * date, then entry order) exists for its Item: if so, `receipt` isn't
+   * the one the Item's purchase price comes from.
+   */
+  static async hasNewerCostedReceipt(receipt: StockMovement, client: TransactionClientContract) {
+    const day = receipt.occurredOn.toISODate()!
+    const newer = await StockMovement.query({ client })
+      .where('itemId', receipt.itemId)
+      .where('kind', 'receipt')
+      .whereNotNull('unitCost')
+      .whereNot('id', receipt.id)
+      .where((query) => {
+        query
+          .where('occurredOn', '>', day)
+          .orWhere((sameDay) => sameDay.where('occurredOn', day).where('id', '>', receipt.id))
+      })
+      .first()
+    return newer !== null
   }
 
   /**

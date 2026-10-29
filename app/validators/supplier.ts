@@ -3,6 +3,7 @@ import type { FieldContext } from '@vinejs/vine/types'
 import db from '@adonisjs/lucid/services/db'
 import { isValidVatNumber } from '#fiscal/italian_ids'
 import { taxCodeRule } from '#validators/rules/italian_ids'
+import { quantityRule } from '#validators/rules/quantity'
 
 /**
  * A Supplier's VAT number: an Italian Partita IVA when the country is
@@ -94,6 +95,17 @@ const fatturaFileName = vine.createRule((value: unknown, _: undefined, field: Fi
  */
 export const supplierInvoiceUploadValidator = vine.create({
   invoice: vine.file({ size: '10mb' }).use(fatturaFileName()),
+})
+
+/**
+ * A Supplier Invoice line received onto an Item (#199): the quantity in
+ * the Item's unit, with the 3 decimals stock keeps, and the day the goods
+ * came in.
+ */
+export const receiveLineValidator = vine.create({
+  itemId: vine.number().exists({ table: 'items', column: 'id' }),
+  quantity: vine.string().use(quantityRule({ allowNegative: false })),
+  occurredOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
 })
 
 /** A page of the inbox or the Supplier list */

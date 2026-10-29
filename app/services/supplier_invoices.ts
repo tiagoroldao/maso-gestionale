@@ -20,7 +20,7 @@ import {
 } from '#fiscal/fattura_pa_reader'
 import { isUniqueViolation } from '#services/database_errors'
 import { storagePath } from '#services/storage'
-import type { SupplierInvoiceDetails, SupplierInvoiceStatus } from '#shared/supplier_invoices'
+import type { SupplierInvoiceDetails } from '#shared/supplier_invoices'
 
 /**
  * Why a received file is refused: it can't be read (FatturaReadRefusal),
@@ -151,25 +151,6 @@ export default class SupplierInvoices {
       if (isUniqueViolation(error)) throw new SupplierInvoiceRefusedError('duplicate')
       throw error
     }
-  }
-
-  /**
-   * Marks a Supplier Invoice handled, or sets it back to handle.
-   */
-  static async setStatus(invoice: SupplierInvoice, status: SupplierInvoiceStatus, user: User) {
-    await db.transaction(async (trx) => {
-      const locked = await SupplierInvoice.query({ client: trx })
-        .where('id', invoice.id)
-        .forUpdate()
-        .firstOrFail()
-      if (locked.status === status) return
-      locked.merge(
-        status === 'handled'
-          ? { status, handledAt: DateTime.now(), handledBy: user.id }
-          : { status, handledAt: null, handledBy: null }
-      )
-      await locked.save()
-    })
   }
 
   private static read(contents: Buffer) {

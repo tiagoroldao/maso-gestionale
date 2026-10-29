@@ -150,8 +150,9 @@ export type ScannedRoutes = {
     'supplier_invoices.store': { paramsTuple?: []; params?: {} }
     'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'supplier_invoices.mark_handled': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'supplier_invoices.mark_to_handle': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.mark_not_stock': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.undo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.index': { paramsTuple?: []; params?: {} }
     'suppliers.create': { paramsTuple?: []; params?: {} }
     'suppliers.store': { paramsTuple?: []; params?: {} }
@@ -428,8 +429,9 @@ export type ScannedRoutes = {
     'items.unarchive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.store': { paramsTuple?: []; params?: {} }
-    'supplier_invoices.mark_handled': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
-    'supplier_invoices.mark_to_handle': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.mark_not_stock': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.undo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.store': { paramsTuple?: []; params?: {} }
     'categories.store': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
