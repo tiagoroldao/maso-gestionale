@@ -22,7 +22,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #162  | Installed Equipment when an installed Item's Charge is marked not done                    | The business (`needs-human`)                      |
 
 ## Added to existing issues
 
@@ -52,11 +51,9 @@ Review findings folded into planned work, so they are picked up with it:
 - **Dev seed timing:** the seeder starts today's boiler Visit (09–13) whatever the time, so seeding early or late gives an in-progress Visit outside its hours. Harmless. Its test can also fail if midnight passes between seeding and loading My Visits (milliseconds; no action).
 - **Release image is amd64 only** (#36): add `docker/setup-qemu-action` and `platforms: linux/amd64,linux/arm64` if the server turns out to be ARM (ADR 0002: whatever hardware the business owns) (from the #100 review).
 - **`latest` follows the newest tag pushed** (#36): a hotfix on an older line (`v1.0.1` after `v1.1.0`) moves `latest` back. Only matters once old lines get patches; pin `APP_VERSION` meanwhile (from the #100 review).
-- **Concurrent equipment removal untested:** `FieldWork.removeItem` locks the equipment it created before checking whether another line or Visit uses it. Only reading the code checks this; no test runs two connections against it (from the #98 review).
 - **Charge history deletes** (#114): the `charge_events` trigger blocks updates only. Deletes stay possible so that removing a Charge in the field cascades, but a raw delete of an event would silently change the Charge's derived state. Allow a delete only when the parent Charge is gone, if this ever matters (from the #121 review).
 - **Office removing a Charge through the field route** (#114): `viewVisit` lets Admin and Office use `DELETE /charges/:id` on an open Visit's unreviewed Charge, which leaves no history. This was already possible with Visit hours (from the #121 review).
 - **Archived Item or VAT Code allowed on any line** of an Invoice once one line uses it. Now that lines have ids, narrow it to the line that holds it (from the #122 review).
-- **Equipment moved with a corrected Item** (#123): a description or interval counts as "set by hand" when it differs from the old Item's _current_ one, so editing that Item after the install makes an untouched value look manual and it is kept. No test corrects the Item after the Visit is closed. Any service blocks the move, even the installing Visit marking its own new equipment as serviced, so Office can't correct the Item then (from the #125 review).
 - **Call-out Fee wording** (ADR 0012): the glossary calls it a price for attending a Visit, while an imported Quote call-out becomes a Job Charge. Revisit if it confuses anyone (from the #131 review).
 - **Test file names** (#130): `invoices_from_time_and_materials.spec.ts` (functional and browser) now test Jobs without a Quote; rename them (from the #133 review).
 - **Equipment edit lock untested** (#99): only reading the code shows the edit's `FOR UPDATE` against a closing Visit works; no test runs two connections. The race tests also omit the empty form fields the page sends and don't assert the redirect target (from the #104 review).

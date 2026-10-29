@@ -13,7 +13,7 @@ A physical address where work is done and equipment is installed, independent of
 _Avoid_: Location, address, property
 
 **Installed Equipment** (_Apparecchio_):
-A specific piece of equipment (boiler, AC unit, water heater…) installed at a Site, which outlives changes of Customer and may refer to the Item it was sold as.
+A specific piece of equipment (boiler, AC unit, water heater…) installed at a Site, which outlives changes of Customer and may refer to the Item it was sold as. Registered at the Site by hand, or when the Charge for an installed Item becomes done; after that it is managed by hand.
 _Avoid_: Product, asset, impianto (when meaning a single unit), installation
 
 **Maintenance Interval** (_Intervallo di manutenzione_):

@@ -4,13 +4,14 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Charge from '#models/charge'
 import ChargeEvent, { type ChargeChanges } from '#models/charge_event'
-import InstalledEquipment from '#models/installed_equipment'
+import type InstalledEquipment from '#models/installed_equipment'
 import Item from '#models/item'
 import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
 import VatCode from '#models/vat_code'
+import Installations from '#services/installations'
 import StockLedger from '#stock/stock_ledger'
 import {
   BILLING_EVENT_KINDS,
@@ -30,8 +31,7 @@ import { CHARGE_STATE_SQL, WORK_FROZEN_SQL } from '#services/job_status'
  * billed or credited Charge is set back to bill; a
  * new Charge on a closed or cancelled Job, which takes no new work (ADR
  * 0015); or a correction picked an archived Labour Rate or Item, or a
- * Technician who is inactive or not on the Visit; or it would change the
- * Item of equipment the Charge doesn't own alone. Its work state and
+ * Technician who is inactive or not on the Visit. Its work state and
  * recorded quantity are frozen while an issued Invoice bills it and no
  * Credit Note credited that ('frozen'), its work state while a draft holds
  * it ('inDraft'), and a Visit's Charges are planned until the Visit closes
@@ -49,7 +49,6 @@ export class ChargeRefusedError extends Error {
       | 'cancelled'
       | 'archived'
       | 'worker'
-      | 'installed'
       | 'frozen'
       | 'inDraft'
       | 'visitOpen'
@@ -130,7 +129,10 @@ export default class Charges {
    * done and not done; a Charge on the Job itself at any time, confirming
    * planned work used (done) or not. Stock follows: an Item becoming done
    * leaves stock (a usage dated today, referencing the Job), one done
-   * becoming not done comes back (an adjustment). Refused while a draft
+   * becoming not done comes back (an adjustment). An installed Item
+   * becoming done creates or updates its equipment, as closing the Visit
+   * does (#162); becoming not done leaves the equipment as it is and
+   * returns it, for Office to be warned. Refused while a draft
    * holds the Charge, and while an issued Invoice bills it and no Credit
    * Note credited that. Like corrections, it plays no part in the Job's
    * status: a closed or cancelled Job's Charges are still reviewed (#111).
@@ -140,14 +142,14 @@ export default class Charges {
     work: 'done' | 'not_done',
     user: User,
     stockReason: string
-  ): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
+  ): Promise<InstalledEquipment | null> {
+    return this.whileLocked(charge, async (trx, locked, job) => {
       const events = await ChargeEvent.query({ client: trx })
         .where('chargeId', locked.id)
         .orderBy('id')
-      if (workState(events) === work) return
-      if (locked.visitId) {
-        const visit = await Visit.findOrFail(locked.visitId, { client: trx })
+      if (workState(events) === work) return null
+      const visit = locked.visitId ? await Visit.findOrFail(locked.visitId, { client: trx }) : null
+      if (visit) {
         // A cancelled Visit's Charges are not done until it is restored (#157)
         if (isCancelledVisit(visit.status)) throw new ChargeRefusedError('visitCancelled')
         if (!isClosedVisit(visit.status)) throw new ChargeRefusedError('visitOpen')
@@ -177,8 +179,11 @@ export default class Charges {
           locked.stockMovementId = null
         }
         await locked.save()
+        // Installed on a Visit: done on the Visit's day
+        if (work === 'done' && visit) await Installations.install(trx, locked, visit, job.siteId)
       }
       await this.addEvent(trx, locked, work, user, null)
+      return work === 'not_done' ? Installations.left(trx, locked, events) : null
     })
   }
 
@@ -224,15 +229,19 @@ export default class Charges {
    * nothing billed it and Office never edited its billing, what is billed
    * follows: the quantity, the description and, for a new Labour Rate or
    * Item, its current price. Its Job's status plays no part: a closed or
-   * cancelled Job's Charges are still billed (#111).
+   * cancelled Job's Charges are still billed (#111). A new Item never
+   * changes Installed Equipment (#162): it returns the equipment the
+   * Charge installed, if any, for Office to be warned, and a Charge not
+   * yet done installs the new Item when it becomes done.
    */
   static async correct(
     charge: Charge,
     input: Recorded,
     user: User,
     stockReason: string
-  ): Promise<void> {
-    await this.whileLocked(charge, async (trx, locked, job) => {
+  ): Promise<InstalledEquipment | null> {
+    return this.whileLocked(charge, async (trx, locked, job) => {
+      let left: InstalledEquipment | null = null
       const changesStock =
         !new Big(input.quantity).eq(locked.quantity) ||
         (locked.kind === 'item' && input.itemId !== locked.itemId)
@@ -278,8 +287,9 @@ export default class Charges {
       } else if (locked.kind === 'item') {
         const item = await Item.findOrFail(input.itemId, { client: trx })
         if (item.archivedAt && item.id !== locked.itemId) throw new ChargeRefusedError('archived')
-        if (item.id !== locked.itemId && locked.installedEquipmentId) {
-          await this.moveEquipment(trx, locked, item)
+        if (item.id !== locked.itemId) {
+          const events = await ChargeEvent.query({ client: trx }).where('chargeId', locked.id)
+          left = await Installations.left(trx, locked, events)
         }
         if (locked.stockMovementId) {
           await this.moveStock(trx, locked, item, input.quantity, { job, user, stockReason })
@@ -293,6 +303,7 @@ export default class Charges {
 
       const changes = diff(before, await this.recordedValues(trx, locked))
       if (changes) await this.addEvent(trx, locked, 'corrected', user, changes)
+      return left
     })
   }
 
@@ -498,50 +509,6 @@ export default class Charges {
       .select(db.raw(`${CHARGE_STATE_SQL('charges')} AS state`))
       .firstOrFail()
     return row.state
-  }
-
-  /**
-   * An installed Item replaced by another: the equipment this Charge
-   * created now is the new Item, with its description and maintenance
-   * interval unless those were set by hand. Equipment this Charge only
-   * linked to, or that another Charge has installed onto or a Visit
-   * serviced since, isn't this Charge's alone to change.
-   */
-  private static async moveEquipment(trx: TransactionClientContract, charge: Charge, item: Item) {
-    if (!charge.createdEquipment) throw new ChargeRefusedError('installed')
-    // Locked after the Visit and Job, as removing the Charge does
-    const equipment = await InstalledEquipment.query({ client: trx })
-      .where('id', charge.installedEquipmentId!)
-      .forUpdate()
-      .first()
-    if (!equipment) return
-    const sharedSince =
-      equipment.itemId !== charge.itemId ||
-      (await trx
-        .from('charges')
-        .where('installed_equipment_id', equipment.id)
-        .whereNot('id', charge.id)
-        .first()) ||
-      (await trx
-        .from('visit_serviced_equipment')
-        .where('installed_equipment_id', equipment.id)
-        .first())
-    if (sharedSince) throw new ChargeRefusedError('installed')
-
-    const previous = await Item.findOrFail(charge.itemId, { client: trx })
-    const type = (description: string) => description.slice(0, 100)
-    equipment.merge({
-      itemId: item.id,
-      equipmentType:
-        equipment.equipmentType === type(previous.description)
-          ? type(item.description)
-          : equipment.equipmentType,
-      maintenanceIntervalMonths:
-        equipment.maintenanceIntervalMonths === previous.maintenanceIntervalMonths
-          ? item.maintenanceIntervalMonths
-          : equipment.maintenanceIntervalMonths,
-    })
-    await equipment.useTransaction(trx).save()
   }
 
   /**

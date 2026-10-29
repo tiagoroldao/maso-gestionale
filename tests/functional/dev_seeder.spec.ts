@@ -8,6 +8,7 @@ import User from '#models/user'
 import Visit from '#models/visit'
 import StockLedger from '#stock/stock_ledger'
 import Item from '#models/item'
+import { WORK_STATE_SQL } from '#services/job_status'
 
 test.group('Development seed data', () => {
   test('fills a fresh database with every role, status and screen populated', async ({
@@ -75,5 +76,13 @@ test.group('Development seed data', () => {
       toReorder.map((item) => item.code),
       ['FLX-30']
     )
+
+    // Equipment is registered by hand, or by a done installed Item (#162)
+    const pending = await db
+      .from('charges')
+      .where('created_equipment', true)
+      .whereRaw(`${WORK_STATE_SQL('charges')} <> 'done'`)
+    assert.lengthOf(pending, 0)
+    assert.isNotEmpty(await db.from('installed_equipment'))
   })
 })
