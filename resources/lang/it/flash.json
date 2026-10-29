@@ -180,7 +180,12 @@
   },
   "servicedSaved": "Apparecchi revisionati salvati.",
   "chargeCorrected": "Addebito corretto.",
-  "equipmentLeft": "L'apparecchio «{equipment}» installato con questo addebito non è stato modificato: se serve, correggilo o segnalalo come rimosso nella scheda dell'immobile.",
+  "equipmentWarning": {
+    "left": "L'apparecchio «{equipment}» installato con questo addebito non è stato modificato: se serve, correggilo o segnalo come rimosso nella scheda dell'immobile.",
+    "removed": "L'apparecchio «{equipment}» era segnato come rimosso: è stato aggiornato comunque e resta rimosso. Se serve, correggilo nella scheda dell'immobile.",
+    "elsewhere": "L'apparecchio «{equipment}» non è nell'immobile della commessa: è stato aggiornato comunque. Se serve, correggilo nella scheda del suo immobile.",
+    "noSite": "L'apparecchio «{equipment}» non è stato registrato perché la commessa non ha più un immobile: se serve, aggiungilo a mano nella scheda dell'immobile."
+  },
   "chargeBillingSaved": "Fatturazione dell'addebito salvata.",
   "chargeNotBillable": "Addebito segnato come non fatturabile.",
   "chargeBillable": "Addebito di nuovo fatturabile.",

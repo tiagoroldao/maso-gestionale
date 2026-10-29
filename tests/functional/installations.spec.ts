@@ -3,6 +3,7 @@ import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import Charge from '#models/charge'
+import Job from '#models/job'
 import InstalledEquipment from '#models/installed_equipment'
 import type Site from '#models/site'
 import type User from '#models/user'
@@ -229,7 +230,7 @@ test.group('Installed Equipment from installed Items (#162)', () => {
       const notDone = await send(client, user, 'post', `/charges/${charge.id}/not-done`)
       notDone.assertFlashMessage(
         'warning',
-        `${it('flash.chargeWork.not_done')} ${it('flash.equipmentLeft', {
+        `${it('flash.chargeWork.not_done')} ${it('flash.equipmentWarning.left', {
           equipment: 'Caldaia murale — Vaillant ecoTEC',
         })}`
       )
@@ -273,7 +274,7 @@ test.group('Installed Equipment from installed Items (#162)', () => {
     const response = await send(client, office, 'post', `/charges/${charge.id}/not-done`)
     response.assertFlashMessage(
       'warning',
-      `${it('flash.chargeWork.not_done')} ${it('flash.equipmentLeft', { equipment: 'Caldaia' })}`
+      `${it('flash.chargeWork.not_done')} ${it('flash.equipmentWarning.left', { equipment: 'Caldaia' })}`
     )
     await old.refresh()
     assert.equal(old.itemId, boilerA.id)
@@ -293,7 +294,7 @@ test.group('Installed Equipment from installed Items (#162)', () => {
     })
     response.assertFlashMessage(
       'warning',
-      `${it('flash.chargeCorrected')} ${it('flash.equipmentLeft', {
+      `${it('flash.chargeCorrected')} ${it('flash.equipmentWarning.left', {
         equipment: 'Caldaia murale — Vaillant ecoTEC',
       })}`
     )
@@ -393,4 +394,193 @@ test.group('Installed Equipment from installed Items (#162)', () => {
     await charge.refresh()
     assert.equal(charge.itemId, boilerA.id)
   })
+})
+
+/**
+ * Anna's installed boiler goes onto the old one at the Site.
+ */
+function recordOntoOld(visit: Visit, itemId: number, old: InstalledEquipment) {
+  return FieldWork.recordItem(visit, {
+    itemId,
+    quantity: '1',
+    installed: true,
+    equipmentId: old.id,
+    serialNumber: 'SN-9',
+  })
+}
+
+/**
+ * Anna closes the Visit with everything done, as `status`.
+ */
+async function closeAllDone(
+  client: ApiClient,
+  anna: User,
+  visit: Visit,
+  status: 'done' | 'needs_return' = 'done'
+) {
+  const charges = await Charge.query().where('visitId', visit.id)
+  const ids = charges.map((charge) => charge.id)
+  return send(client, anna, 'post', `/my-visits/${visit.id}/status`, {
+    status,
+    reviewed: ids,
+    done: ids,
+  })
+}
+
+/**
+ * The flash: `success`, then a warning naming each equipment in turn.
+ */
+function warned(success: string, warnings: [string, string][]) {
+  return [
+    it(success),
+    ...warnings.map(([reason, equipment]) => it(`flash.equipmentWarning.${reason}`, { equipment })),
+  ].join(' ')
+}
+
+test.group('Equipment changed between recording and done (#168)', () => {
+  test('the unit marked removed meanwhile: closing updates it, it stays removed, with a warning', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, boilerA, old } = await setup()
+    await recordOntoOld(visit, boilerA.id, old)
+    old.removedOn = DateTime.fromISO('2026-10-19')
+    await old.save()
+
+    const response = await closeAllDone(client, anna, visit)
+    response.assertFlashMessage(
+      'warning',
+      warned('flash.visitStatusSaved', [['removed', 'Caldaia']])
+    )
+    await old.refresh()
+    assert.deepEqual(
+      [old.itemId, old.serialNumber, old.removedOn?.toISODate()],
+      [boilerA.id, 'SN-9', '2026-10-19']
+    )
+  })
+
+  test("the Job's Site changed meanwhile: closing updates the unit where it is, with a warning", async ({
+    client,
+    assert,
+  }) => {
+    const { anna, site, job, visit, boilerA, old } = await setup()
+    await recordOntoOld(visit, boilerA.id, old)
+    const other = await createSite({ street: 'Via Verdi' })
+    job.siteId = other.id
+    await job.save()
+
+    const response = await closeAllDone(client, anna, visit, 'needs_return')
+    response.assertFlashMessage(
+      'warning',
+      warned('flash.visitStatusSaved', [['elsewhere', 'Caldaia']])
+    )
+    await old.refresh()
+    assert.deepEqual([old.itemId, old.siteId], [boilerA.id, site.id])
+    assert.lengthOf(await equipmentAt(other), 0)
+  })
+
+  test("the Job's Site cleared meanwhile: closing creates nothing, naming the new unit", async ({
+    client,
+    assert,
+  }) => {
+    const { anna, site, job, visit, boilerA, old } = await setup()
+    const charge = await recordNewBoiler(client, anna, visit, boilerA.id)
+    job.siteId = null
+    await job.save()
+
+    const response = await closeAllDone(client, anna, visit)
+    response.assertFlashMessage(
+      'warning',
+      warned('flash.visitStatusSaved', [['noSite', 'Caldaia murale — Vaillant ecoTEC']])
+    )
+    const kept = await equipmentAt(site)
+    assert.deepEqual(
+      kept.map((equipment) => equipment.id),
+      [old.id]
+    )
+    // Done all the same: off stock, with nothing installed
+    await charge.refresh()
+    assert.isNotNull(charge.stockMovementId)
+    assert.isNull(charge.installedEquipmentId)
+  })
+
+  test('nothing changed: closing warns of nothing', async ({ client }) => {
+    const { anna, visit, boilerA, old } = await setup()
+    await recordOntoOld(visit, boilerA.id, old)
+    const response = await closeAllDone(client, anna, visit)
+    response.assertFlashMessage('success', it('flash.visitStatusSaved'))
+  })
+
+  test('{$self} marking a Charge done is warned of each case, never refused')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const { anna, site, job, visit, boilerA, boilerB, old } = await setup()
+      const onto = await recordOntoOld(visit, boilerA.id, old)
+      const created = await recordNewBoiler(client, anna, visit, boilerB.id)
+      await close(client, anna, visit, [onto.id, created.id])
+
+      // Removed, and at another Site than the Job's: both said, still updated
+      old.removedOn = DateTime.fromISO('2026-10-21')
+      await old.save()
+      const other = await createSite({ street: 'Via Verdi' })
+      job.siteId = other.id
+      await job.save()
+      const ontoDone = await send(client, user, 'post', `/charges/${onto.id}/done`)
+      ontoDone.assertFlashMessage(
+        'warning',
+        warned('flash.chargeWork.done', [
+          ['removed', 'Caldaia'],
+          ['elsewhere', 'Caldaia'],
+        ])
+      )
+      await old.refresh()
+      assert.deepEqual(
+        [old.itemId, old.siteId, old.removedOn?.toISODate()],
+        [boilerA.id, site.id, '2026-10-21']
+      )
+
+      // No Site: the new unit isn't created, and is named
+      job.siteId = null
+      await job.save()
+      const createdDone = await send(client, user, 'post', `/charges/${created.id}/done`)
+      createdDone.assertFlashMessage(
+        'warning',
+        warned('flash.chargeWork.done', [['noSite', 'Caldaia murale — Vaillant ecoTEC']])
+      )
+      await created.refresh()
+      assert.isNotNull(created.stockMovementId)
+      assert.isNull(created.installedEquipmentId)
+      assert.lengthOf(await equipmentAt(site), 1)
+      assert.lengthOf(await equipmentAt(other), 0)
+    })
+
+  test('{$self} marking done a Visit on a cancelled Job is warned too')
+    .with(['office', 'admin'] as const)
+    .run(async ({ client, assert }, role) => {
+      const user = await createUser(role)
+      const { anna, site, job, visit, boilerA, boilerB, old } = await setup()
+      const onto = await recordOntoOld(visit, boilerA.id, old)
+      const created = await recordNewBoiler(client, anna, visit, boilerB.id)
+      await send(client, user, 'post', `/jobs/${job.id}/cancel`)
+      old.removedOn = DateTime.fromISO('2026-10-21')
+      await old.save()
+      await Job.query().where('id', job.id).update({ site_id: null })
+
+      const response = await send(client, user, 'post', `/visits/${visit.id}/done`, {
+        reviewed: [onto.id, created.id],
+        done: [onto.id, created.id],
+      })
+      response.assertFlashMessage(
+        'warning',
+        warned('flash.visitMarkedDone', [
+          ['removed', 'Caldaia'],
+          ['elsewhere', 'Caldaia'],
+          ['noSite', 'Caldaia murale — Vaillant ecoTEC'],
+        ])
+      )
+      await old.refresh()
+      assert.equal(old.itemId, boilerA.id)
+      assert.lengthOf(await equipmentAt(site), 1)
+    })
 })
