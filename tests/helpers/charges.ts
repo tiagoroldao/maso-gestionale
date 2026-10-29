@@ -7,6 +7,15 @@ import { CHARGE_STATE_SQL, WORK_STATE_SQL } from '#services/job_status'
 import { createUser } from '#tests/helpers/users'
 
 /**
+ * Records the Charge as done (ADR 0016), as closing its Visit or
+ * confirming it used does, without moving stock.
+ */
+export async function markDone(charge: Charge) {
+  await ChargeEvent.create({ chargeId: charge.id, kind: 'done' })
+  return charge
+}
+
+/**
  * Office confirms used every Charge on the Job itself (imported from a
  * Quote, planned until then; ADR 0016).
  */

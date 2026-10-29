@@ -244,9 +244,9 @@ export default class TemplateData {
   }
 
   /**
-   * The Items used on a Job, from its Item Charges (ADR 0010) except those
-   * not done (ADR 0016): each once, in the order first recorded, with the
-   * quantities recorded summed.
+   * The Items used on a Job, from its done Item Charges (ADR 0010, 0016:
+   * planned ones aren't used yet, nor are those not done): each once, in
+   * the order first recorded, with the quantities recorded summed.
    */
   static async itemsUsed(job: Job): Promise<ItemUsed[]> {
     const rows = await db
@@ -254,7 +254,7 @@ export default class TemplateData {
       .join('items', 'items.id', 'charges.item_id')
       .where('charges.job_id', job.id)
       .where('charges.kind', 'item')
-      .whereRaw(`${WORK_STATE_SQL('charges')} <> 'not_done'`)
+      .whereRaw(`${WORK_STATE_SQL('charges')} = 'done'`)
       .groupBy('items.id')
       .select('items.id', 'items.code', 'items.description', 'items.unit')
       .sum('charges.quantity as quantity')

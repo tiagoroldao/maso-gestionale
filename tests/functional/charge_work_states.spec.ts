@@ -20,7 +20,12 @@ import Quotes from '#services/quotes'
 import Submissions from '#services/submissions'
 import StockLedger from '#stock/stock_ledger'
 import TemplateData from '#services/template_data'
-import { migrateWorkStates } from '#database/migrations/1761885935224_charge_work_states'
+import {
+  keepWorkEvents,
+  migrateWorkStates,
+  restoreWorkEvents,
+} from '#database/migrations/1761885935224_charge_work_states'
+import { VISIT_BILLED_SQL } from '#services/job_status'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
@@ -177,7 +182,7 @@ async function invoiced(job: Job) {
  * A Credit Note crediting in full the line of `invoice` that bills
  * `charge`, finalised and delivered.
  */
-async function creditInFull(invoice: Invoice, charge: Charge) {
+async function creditInFull(invoice: Invoice, charge: Charge, deliver = true) {
   const row = await db
     .from('invoice_line_charges as lc')
     .join('invoice_lines as l', 'l.id', 'lc.invoice_line_id')
@@ -201,7 +206,16 @@ async function creditInFull(invoice: Invoice, charge: Charge) {
   await note.refresh()
   await Invoices.finalise(note)
   await note.refresh()
-  return delivered(note)
+  return deliver ? delivered(note) : note
+}
+
+async function visitBilledSql(visit: Visit) {
+  const row = await db
+    .from('visits as v')
+    .where('v.id', visit.id)
+    .select(db.raw(`${VISIT_BILLED_SQL('v')} AS billed`))
+    .firstOrFail()
+  return Boolean(row.billed)
 }
 
 test.group('Work state: closing a Visit reviews its Charges', () => {
@@ -485,6 +499,54 @@ test.group('Work state: Office switches done and not done', () => {
   })
 })
 
+test.group('Work state: billing in TypeScript and SQL', () => {
+  test('a closed Visit is billed once its done Charges are, whatever is not done', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, visit, valves, pumpLine } = await closedVisit()
+    await Charges.setWorkState(valves, 'not_done', office, 'Non usato')
+    await Charges.setWorkState(pumpLine, 'not_done', office, 'Non usato')
+    const billedOnPage = async () => {
+      const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+      return page.inertiaProps.visits.find((row: { id: number }) => row.id === visit.id).billed
+    }
+    assert.isFalse(await billedOnPage())
+    assert.isFalse(await visitBilledSql(visit))
+
+    // The hours, its only done Charge, billed: nothing is left
+    await invoiced(job)
+    assert.isTrue(await billedOnPage())
+    assert.isTrue(await visitBilledSql(visit))
+    assert.isFalse(await billingOpen(job))
+  })
+
+  test('a Credit Note unfreezes the Charge only once SDI delivers it', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, valve, valves } = await closedVisit()
+    const invoice = await invoiced(job)
+    const note = await creditInFull(invoice, valves, false)
+    const finalised = await post(client, office, `/charges/${valves.id}/not-done`)
+    finalised.assertFlashMessage('error', it('flash.chargeRefused.frozen'))
+
+    // Rejected, it may yet be corrected below the line
+    await Submissions.prepare(note)
+    await Submissions.confirm(note, 'Sconto')
+    await Submissions.recordOutcome(note, { outcome: 'rejected' })
+    const rejected = await post(client, office, `/charges/${valves.id}/not-done`)
+    rejected.assertFlashMessage('error', it('flash.chargeRefused.frozen'))
+    assert.equal(await workOf(assert, valves), 'done')
+
+    await note.refresh()
+    await delivered(note)
+    const credited = await post(client, office, `/charges/${valves.id}/not-done`)
+    credited.assertFlashMessage('success', it('flash.chargeWork.not_done'))
+    assert.equal(await StockLedger.levelOf(valve), '10.000')
+  })
+})
+
 test.group('Work state: Charges on the Job itself', () => {
   test("Office's costs start done; imported ones are planned until confirmed used", async ({
     client,
@@ -560,8 +622,13 @@ test.group('Work state: Charges on the Job itself', () => {
     frozen.assertFlashMessage('error', it('flash.chargeRefused.frozen'))
   })
 
-  test('a Job with only planned Charges has nothing to draft yet', async ({ assert }) => {
-    const { job } = await quotedJob()
+  test('a Job with only planned Charges has nothing to draft yet', async ({ client, assert }) => {
+    const { office, job } = await quotedJob()
+    // The page doesn't offer a draft fromJob would refuse
+    const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ canInvoice: false })
+    // Nor do documents list the boiler: it isn't used yet
+    assert.deepEqual(await TemplateData.itemsUsed(job), [])
     try {
       await Invoices.fromJob(job)
       assert.fail('expected a refusal')
@@ -658,5 +725,71 @@ test.group('Work state: existing data (migration)', () => {
     const before = await db.from('charge_events').count('* as total')
     await migrateWorkStates(db)
     assert.deepEqual(await db.from('charge_events').count('* as total'), before)
+  })
+
+  test('rolled back and migrated again, every work state and the stock come back', async ({
+    assert,
+  }) => {
+    // Billed, credited in full, then not done: the valves came back
+    const closed = await closedVisit()
+    const invoice = await invoiced(closed.job)
+    await creditInFull(invoice, closed.valves)
+    await Charges.setWorkState(closed.valves, 'not_done', closed.office, 'Reso')
+    // Not done after the close: hours never worked; a Job cost never spent
+    await Charges.setWorkState(closed.hours, 'done', closed.office, 'Usato')
+    const other = await closedVisit()
+    await Charges.setWorkState(other.hours, 'not_done', other.office, 'Non usato')
+    const quoted = await quotedJob()
+    await Charges.setWorkState(quoted.callOut, 'not_done', quoted.office, 'Non usato')
+    await Charges.setWorkState(quoted.boilerCharge, 'done', quoted.office, 'Usato')
+    const open = await openVisit()
+
+    const charges = [
+      closed.valves,
+      closed.hours,
+      closed.pumpLine,
+      other.hours,
+      other.valves,
+      quoted.callOut,
+      quoted.boilerCharge,
+      quoted.labour,
+      open.valves,
+    ]
+    const states = async () => {
+      const found = []
+      for (const charge of charges) found.push(await workOf(assert, charge))
+      return found
+    }
+    const stock = async () =>
+      [
+        await StockLedger.levelOf(closed.valve),
+        await StockLedger.levelOf(closed.pump),
+        await StockLedger.levelOf(quoted.boiler),
+      ].join(' ')
+    const statesBefore = await states()
+    const stockBefore = await stock()
+    assert.deepEqual(statesBefore, [
+      'not_done',
+      'done',
+      'done',
+      'not_done',
+      'done',
+      'not_done',
+      'done',
+      'planned',
+      'planned',
+    ])
+
+    // down
+    await keepWorkEvents(db)
+    assert.lengthOf(await ChargeEvent.query().whereIn('kind', ['planned', 'done', 'not_done']), 0)
+    // up
+    await restoreWorkEvents(db)
+    await migrateWorkStates(db)
+
+    assert.deepEqual(await states(), statesBefore)
+    assert.equal(await stock(), stockBefore)
+    const kept = await db.rawQuery(`SELECT to_regclass('charge_work_events_kept') AS kept`)
+    assert.isNull(kept.rows[0].kept)
   })
 })

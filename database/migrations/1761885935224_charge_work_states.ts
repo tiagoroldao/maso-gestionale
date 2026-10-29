@@ -38,7 +38,7 @@ type Row = {
  * happened so far:
  * - on a Visit: planned while the Visit is open; once closed, done, except
  *   an Item that never left stock and no Invoice ever held, which is not
- *   done (only a Charge this migration's down made planned again);
+ *   done (closing always took done Items off stock);
  * - on the Job itself: done (Office's costs, imported hours and call-outs),
  *   except an Item, only ever imported from a Quote, which is planned
  *   until Office confirms it used, unless an Invoice billed it or a draft
@@ -97,6 +97,60 @@ export async function migrateWorkStates(db: Pick<QueryClientContract, 'rawQuery'
 }
 
 /**
+ * Where down() keeps the work events it takes out of the history, for up()
+ * to put back.
+ */
+const KEPT = 'charge_work_events_kept'
+const WORK_KINDS_SQL = WORK_KINDS.map((kind) => `'${kind}'`).join(', ')
+
+/**
+ * Takes the work events out of the Charges' history, keeping them in
+ * their order, with a "planned" one for each Charge planned without any
+ * (down).
+ */
+export async function keepWorkEvents(db: Pick<QueryClientContract, 'rawQuery'>) {
+  await db.rawQuery(`CREATE TABLE IF NOT EXISTS ${KEPT} (
+    id serial PRIMARY KEY,
+    charge_id integer NOT NULL,
+    kind varchar(20) NOT NULL,
+    user_id integer,
+    created_at timestamptz NOT NULL)`)
+  await db.rawQuery(`INSERT INTO ${KEPT} (charge_id, kind, user_id, created_at)
+    SELECT charge_id, kind, user_id, created_at FROM charge_events
+    WHERE kind IN (${WORK_KINDS_SQL}) ORDER BY id`)
+  await db.rawQuery(`INSERT INTO ${KEPT} (charge_id, kind, user_id, created_at)
+    SELECT c.id, 'planned', NULL, now() FROM charges c
+    WHERE NOT EXISTS (SELECT 1 FROM charge_events e
+      WHERE e.charge_id = c.id AND e.kind IN (${WORK_KINDS_SQL}))
+    ORDER BY c.id`)
+  await db.rawQuery(`DELETE FROM charge_events WHERE kind IN (${WORK_KINDS_SQL})`)
+}
+
+/**
+ * Puts back the work events down() kept, in their order, for the Charges
+ * still there. One left planned whose Visit closed since, or that an
+ * Invoice billed or a draft took since, is worked out again by
+ * migrateWorkStates() instead (up).
+ */
+export async function restoreWorkEvents(db: Pick<QueryClientContract, 'rawQuery'>) {
+  const found = await db.rawQuery(`SELECT to_regclass('${KEPT}') AS kept`)
+  if (!found.rows[0].kept) return
+  await db.rawQuery(`INSERT INTO charge_events (charge_id, kind, user_id, created_at)
+    SELECT k.charge_id, k.kind, (SELECT u.id FROM users u WHERE u.id = k.user_id), k.created_at
+    FROM ${KEPT} k
+    JOIN charges c ON c.id = k.charge_id
+    LEFT JOIN visits v ON v.id = c.visit_id
+    WHERE (SELECT l.kind FROM ${KEPT} l WHERE l.charge_id = k.charge_id
+        ORDER BY l.id DESC LIMIT 1) <> 'planned'
+      OR (coalesce(v.status NOT IN ('done', 'needs_return'), true)
+        AND NOT EXISTS (SELECT 1 FROM charge_events e
+          WHERE e.charge_id = c.id AND e.kind = 'billed')
+        AND NOT EXISTS (SELECT 1 FROM invoice_line_charges lc WHERE lc.charge_id = c.id))
+    ORDER BY k.id`)
+  await db.rawQuery(`DROP TABLE ${KEPT}`)
+}
+
+/**
  * Charges have a work state (#156, ADR 0016): planned, done or not done,
  * kept as "planned", "done" and "not done" events in their history.
  */
@@ -104,20 +158,21 @@ export default class extends BaseSchema {
   async up() {
     this.schema.raw('ALTER TABLE charge_events DROP CONSTRAINT charge_events_kind_check')
     this.schema.raw(kindCheck([...OLD_KINDS, ...WORK_KINDS]))
-    this.defer((db) => migrateWorkStates(db))
+    this.defer(async (db) => {
+      await restoreWorkEvents(db)
+      await migrateWorkStates(db)
+    })
   }
 
   /**
-   * Drops the work events. Stock Movements stay: they record what left
-   * the Warehouse, and an Item linked to one counts as done if migrated
-   * up again. A not done Charge on a closed Visit (never off stock) comes
-   * back not done; on the Job itself, an Item not done comes back planned
-   * and any other cost done.
+   * Takes the work events out of the history, keeping them aside so that
+   * migrating up again puts them back (keepWorkEvents). Stock Movements
+   * stay as they are: they record what left the Warehouse, and every
+   * Charge's link to its usage stays, so a Charge back done isn't taken
+   * off stock twice and one back not done isn't taken off at all.
    */
   async down() {
-    this.schema.raw(
-      `DELETE FROM charge_events WHERE kind IN (${WORK_KINDS.map((kind) => `'${kind}'`).join(', ')})`
-    )
+    this.defer((db) => keepWorkEvents(db))
     this.schema.raw('ALTER TABLE charge_events DROP CONSTRAINT charge_events_kind_check')
     this.schema.raw(kindCheck(OLD_KINDS))
   }

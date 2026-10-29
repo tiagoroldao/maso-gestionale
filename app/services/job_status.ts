@@ -131,8 +131,10 @@ export const OUTSTANDING_SQL = (alias: string) =>
  * An issued Invoice line bills the Charge `alias` and no Credit Notes
  * credited that line in full (creditedInFull()): its work state and
  * recorded quantity are frozen, even once Office sets it back to bill
- * (ADR 0016). A draft's line doesn't freeze it, nor does a line removed
- * from a rejected Invoice, whose link goes with it.
+ * (ADR 0016). Only Credit Notes SDI delivered (or couldn't deliver) count:
+ * one merely finalised may still be rejected and corrected below the line,
+ * giving the Charge its billing back. A draft's line doesn't freeze it,
+ * nor does a line removed from a rejected Invoice, whose link goes with it.
  */
 export const WORK_FROZEN_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice_line_charges flc
   JOIN invoice_lines fl ON fl.id = flc.invoice_line_id
@@ -140,7 +142,8 @@ export const WORK_FROZEN_SQL = (alias: string) => `EXISTS (SELECT 1 FROM invoice
   WHERE flc.charge_id = ${alias}.id AND fi.status <> 'draft'
     AND NOT coalesce((SELECT sum(cl.line_total) >= fl.line_total FROM invoice_lines cl
       JOIN invoices cn ON cn.id = cl.invoice_id
-      WHERE cl.credits_line_id = fl.id AND cn.status <> 'draft'), false))`
+      WHERE cl.credits_line_id = fl.id
+        AND cn.status IN ('delivered', 'not_deliverable')), false))`
 
 /**
  * The SQL equivalent of isVisitBilled() for the Visit `alias`.
