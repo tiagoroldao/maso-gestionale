@@ -16,6 +16,9 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit && vue-tsc --noEmit --project inertia/tsconfig.json",
     "codegen": "node ace codegen && node ace schema:generate",
+    "sdi:sandbox-check": "node ace sdi:sandbox-check",
+    "sdi:sandbox-check:setup": "node ace sdi:sandbox-check --setup",
+    "sdi:sandbox-check:cleanup": "node ace sdi:sandbox-check --cleanup",
     "check:issue-refs": "node scripts/check_issue_refs.mjs",
     "dev:reset": "node ace migration:fresh && node ace db:seed"
   },

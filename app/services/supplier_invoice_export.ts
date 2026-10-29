@@ -200,11 +200,21 @@ export default class SupplierInvoiceExport {
   }
 }
 
-/** A name made unique among `taken` (ignoring case) with -2, -3… before its extension */
-function unique(path: string, taken: Set<string>) {
+/**
+ * A path made unique among `taken` (ignoring case) with -2, -3… before
+ * its extension, its file name still within MAX_NAME_LENGTH: the name is
+ * cut to make room for the suffix.
+ */
+export function unique(path: string, taken: Set<string>) {
+  const folder = path.slice(0, path.lastIndexOf('/') + 1)
+  const name = path.slice(folder.length)
+  const extension = /(\.xml\.p7m|\.p7m|\.xml|\.pdf)?$/i.exec(name)![1] ?? ''
+  const stem = name.slice(0, name.length - extension.length)
   let candidate = path
   for (let n = 2; taken.has(candidate.toLowerCase()); n++) {
-    candidate = path.replace(/(\.xml\.p7m|\.p7m|\.xml|\.pdf)?$/i, `-${n}$1`)
+    const suffix = `-${n}`
+    const room = MAX_NAME_LENGTH - extension.length - suffix.length
+    candidate = `${folder}${stem.slice(0, room).replace(/[.\s]+$/, '')}${suffix}${extension}`
   }
   taken.add(candidate.toLowerCase())
   return candidate

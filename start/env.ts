@@ -44,4 +44,7 @@ export default await Env.create(new URL('../', import.meta.url), {
 
   // PDF conversion
   GOTENBERG_URL: Env.schema.string({ format: 'url', tld: false }),
+
+  // Openapi's sandbox, only for `node ace sdi:sandbox-check` (docs/openapi-sandbox-check.md)
+  OPENAPI_SANDBOX_TOKEN: Env.schema.string.optional(),
 })

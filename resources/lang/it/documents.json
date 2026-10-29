@@ -47,7 +47,8 @@
       "other": "Altro",
       "job": "Commessa",
       "visit": "Intervento del {date}",
-      "visitAt": "Intervento del {date} ({time})"
+      "visitAt": "Intervento del {date} ({time})",
+      "visitAtWith": "Intervento del {date} ({time}, {names})"
     }
   },
   "creditNote": {

@@ -5,6 +5,7 @@ import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
 import { createJob } from '#tests/helpers/jobs'
+import { RECENT_JOBS } from '#services/job_rows'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 test.group('Jobs', () => {
@@ -174,12 +175,69 @@ test.group('Jobs', () => {
     const job = await createJob(customer, { siteId: site.id, title: 'Caldaia' })
 
     const customerPage = await client.get(`/customers/${customer.id}`).withInertia().loginAs(office)
-    customerPage.assertInertiaPropsContains({ jobs: [{ id: job.id, number: job.number }] })
+    customerPage.assertInertiaPropsContains({
+      jobs: { rows: [{ id: job.id, number: job.number }], total: 1 },
+    })
 
     const sitePage = await client.get(`/sites/${site.id}`).withInertia().loginAs(office)
     sitePage.assertInertiaPropsContains({
-      jobs: [{ id: job.id, customer: { id: customer.id } }],
+      jobs: { rows: [{ id: job.id, customer: { id: customer.id } }], total: 1 },
     })
+  })
+
+  test('the Customer and Site pages show their newest Jobs; the Jobs list shows them all', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    const site = await createSite()
+    const other = await createCustomer({ name: 'Altro cliente' })
+    await createJob(other, { title: 'Altrui' })
+    const jobs = []
+    for (let i = 0; i <= RECENT_JOBS; i++) {
+      jobs.push(await createJob(customer, { siteId: site.id }))
+    }
+    const oldest = jobs[0]
+    oldest.status = 'closed'
+    await oldest.save()
+    const newestFirst = jobs.map((job) => job.id).reverse()
+
+    for (const url of [`/customers/${customer.id}`, `/sites/${site.id}`]) {
+      const page = await client.get(url).withInertia().loginAs(office)
+      const shown = page.inertiaProps.jobs as { rows: { id: number }[]; total: number }
+      assert.deepEqual(
+        shown.rows.map((row) => row.id),
+        newestFirst.slice(0, RECENT_JOBS)
+      )
+      assert.equal(shown.total, RECENT_JOBS + 1)
+    }
+
+    const listed = async (qs: Record<string, string | number>) => {
+      const response = await client.get('/jobs').qs(qs).withInertia().loginAs(office)
+      return response
+    }
+    const byCustomer = await listed({ customerId: customer.id, status: 'all' })
+    byCustomer.assertInertiaPropsContains({
+      customer: { id: customer.id, displayName: customer.displayName },
+      site: null,
+      pagination: { total: RECENT_JOBS + 1, lastPage: 2 },
+    })
+    const secondPage = await listed({ customerId: customer.id, status: 'all', page: 2 })
+    assert.deepEqual(
+      (secondPage.inertiaProps.jobs as { id: number }[]).map((row) => row.id),
+      [oldest.id]
+    )
+    const bySite = await listed({ siteId: site.id })
+    bySite.assertInertiaPropsContains({
+      customer: null,
+      site: { id: site.id },
+      // The active list, so without the closed one
+      pagination: { total: RECENT_JOBS },
+    })
+
+    const unknown = await client.get('/jobs').qs({ customerId: 999999 }).loginAs(office)
+    unknown.assertStatus(404)
   })
 
   test('the Customer picker finds Customers by name', async ({ client }) => {

@@ -1,5 +1,29 @@
-import type Job from '#models/job'
+import Job from '#models/job'
 import { jobIndicators } from '#services/job_status'
+
+/** How many Jobs the Customer and Site pages show; the rest are on the filtered Jobs list */
+export const RECENT_JOBS = 25
+
+/**
+ * A Customer's or a Site's newest Jobs, at most `RECENT_JOBS`, as rows,
+ * with how many it has in all.
+ */
+export async function recentJobs(owner: { customerId: number } | { siteId: number }) {
+  const query = Job.query()
+    .withScopes((scopes) => scopes.withBillingState())
+    .preload('customer')
+    .preload('site')
+    .preload('visits')
+    .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
+    .orderBy([
+      { column: 'year', order: 'desc' },
+      { column: 'sequence', order: 'desc' },
+    ])
+  if ('customerId' in owner) query.where('customerId', owner.customerId)
+  else query.where('siteId', owner.siteId)
+  const results = await query.paginate(1, RECENT_JOBS)
+  return { rows: results.all().map((job) => jobRow(job)), total: results.total }
+}
 
 /**
  * A Job as shown in lists (Jobs, Customer and Site pages): its stored

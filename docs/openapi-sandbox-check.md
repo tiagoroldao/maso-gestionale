@@ -4,14 +4,15 @@
 
 ## Running it
 
-From a checkout with dependencies installed, and the sandbox token in the environment (never in a committed file):
+From a checkout with dependencies installed, with the sandbox token (from Openapi's console, sandbox scopes) in `.env` as `OPENAPI_SANDBOX_TOKEN=…` (`.env` is never committed; an exported variable works too):
 
 ```sh
-export OPENAPI_SANDBOX_TOKEN=…            # from Openapi's console, sandbox scopes
-node ace sdi:sandbox-check --setup > sandbox-report.md   # set the account up, then check
-node ace sdi:sandbox-check > sandbox-report.md           # check again, set-up unchanged
-node ace sdi:sandbox-check --cleanup                     # remove the callback configuration
+npm run -s sdi:sandbox-check:setup > sandbox-report.md   # set the account up, then check
+npm run -s sdi:sandbox-check > sandbox-report.md         # check again, set-up unchanged
+npm run -s sdi:sandbox-check:cleanup                     # remove the callback configuration
 ```
+
+`-s` keeps npm's own header out of the report. The scripts run `node ace sdi:sandbox-check` with `--setup`, nothing or `--cleanup`; other options go after `--` (e.g. `npm run -s sdi:sandbox-check -- --p7m file.p7m`).
 
 - **Sandbox only.** The host is `https://test.sdi.openapi.it`, hard-coded; anything else is refused. The token and the `Authorization` header are never printed.
 - **`--setup`** creates the Business Registry Configuration for `--fiscal-id` (default `02903752463`, the one already in the sandbox) if missing, and registers the `supplier-invoice` callback, to `https://invalid.invalid/sdi/webhook` unless `--callback-url` says otherwise. Each callback write replaces the whole configuration; other events' callbacks are kept.
@@ -30,10 +31,10 @@ The report is Markdown on stdout, ready to paste as a comment on #204; progress 
 5. **Receive:** `POST /simulate/supplier-invoice`, then `GET /invoices?type=1` until it is listed, and its download. With an undeliverable callback URL (the placeholder) this answers option (a): listable although the callback can't be delivered. The report says so, and flags a run whose callback may be deliverable, since that run doesn't answer it.
 6. **Filters:** `invoiceDate[after|before]` and `createdAt[after]` on `GET /invoices` (sent and received), and the list's order. Lists are paged as the gateway pages them (up to 50 pages); a list cut off there is noted.
 7. **Notices:** a simulated RC on the invoice from check 3; is it stored at `GET /invoices_notifications/{uuid}`? ADR 0019 records that the sandbox doesn't store simulated notices, so when none is stored within `--wait` the check is INCONCLUSIVE, not FAIL. It fails when the simulation is refused, on an error, or when the notice is read as anything but delivered.
-8. **Import a received file:** `POST /supplier_invoice_imports_legal_storage` with the file from check 5 (and the `--p7m` file, if given, sent as it is, on purpose). Called directly for now; the XML import is to move to the gateway's `archiveReceived` (#222), while the .p7m stays a raw call, since the gateway sends a .p7m as its extracted XML (`docs/follow-ups.md`).
+8. **Import a received file:** the file from check 5 through the gateway's `archiveReceived`, as the app archives a Supplier Invoice (#214): a .p7m as its extracted XML. It notes how many uuids the gateway read from the answer, and fails when the import is refused or answers none. A .p7m (the received file, or the `--p7m` file) is also sent as it is to `POST /supplier_invoice_imports_legal_storage`, in a raw call under its own SDI id, to learn whether Openapi takes it whole.
 
 Checks that need an earlier one's result (6, 7, 8) are skipped when it has none. The test invoices stay in the sandbox account.
 
 ## Tests
 
-`tests/functional/sdi_sandbox_check.spec.ts` runs the command against `FakeOpenapi`, never the network; CI never calls the sandbox.
+`tests/functional/sdi_sandbox_check.spec.ts` runs the command against `FakeOpenapi`, never the network, setting the token itself whatever `.env` holds; CI never calls the sandbox. `tests/functional/openapi_sandbox.spec.ts` reads the real sandbox only when asked with `OPENAPI_SANDBOX_LIVE=1` (and the token set); a token in `.env` alone doesn't run it.

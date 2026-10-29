@@ -11,7 +11,7 @@ import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_
 defineProps<{
   site: { id: number; summary: string; accessNotes: string | null; archived: boolean }
   customers: { id: number; displayName: string }[]
-  jobs: JobRow[]
+  jobs: { rows: JobRow[]; total: number }
   issuedDocuments: IssuedDocumentRow[]
   installedEquipment: {
     id: number
@@ -73,8 +73,13 @@ const confirm = (message: string) => window.confirm(message)
       </Section>
 
       <Section :title="t('ui.jobs.title')">
-        <JobList v-if="jobs.length" :jobs="jobs" :show-site="false" />
+        <JobList v-if="jobs.rows.length" :jobs="jobs.rows" :show-site="false" />
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.jobs.empty') }}</p>
+        <p v-if="jobs.total > jobs.rows.length">
+          <Link route="jobs.index" :qs="{ siteId: site.id, status: 'all' }">{{
+            t('ui.jobs.allOf', { total: jobs.total })
+          }}</Link>
+        </p>
       </Section>
 
       <Section :title="t('ui.equipment.sectionTitle')">
