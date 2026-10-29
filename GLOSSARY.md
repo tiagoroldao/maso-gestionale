@@ -138,8 +138,12 @@ _Avoid_: Refund, correction invoice
 An Invoice for part of a Job, billed up front and taken back, partly or fully, by the Job's later Invoices (usually its final one) as Office sets on each (ADR 0011).
 _Avoid_: Deposit, partial invoice, SAL
 
+**Supplier** (_Fornitore_):
+A business the company buys from, known by its VAT number; created by Office, or the first time one of its Supplier Invoices arrives.
+_Avoid_: Vendor, provider
+
 **Supplier Invoice** (_Fattura passiva_):
-An electronic invoice received from a supplier through SDI, used to record purchases of Items.
+An electronic invoice received from a Supplier, either through the SDI intermediary or uploaded by Office as the XML or signed (.p7m) file SDI delivered, kept with its original file in an inbox until Office has handled it; used to record purchases of Items. The same invoice (by the Supplier's VAT number, number and date, or by SDI identifier) is received only once.
 _Avoid_: Purchase invoice, incoming invoice
 
 **Legacy Invoice**:

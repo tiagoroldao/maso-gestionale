@@ -81,6 +81,13 @@ export const manageInvoices = Bouncer.ability((user: User) => {
 })
 
 /**
+ * Purchases: Suppliers and the Supplier Invoice inbox (#198).
+ */
+export const managePurchases = Bouncer.ability((user: User) => {
+  return user.role === 'admin' || user.role === 'office'
+})
+
+/**
  * Seeing purchase and resale prices. Technicians never do (PRD).
  */
 export const seePrices = Bouncer.ability((user: User) => {

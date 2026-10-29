@@ -145,6 +145,17 @@ export type ScannedRoutes = {
     'item_documents.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.index': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.store': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.mark_handled': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.mark_to_handle': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'suppliers.index': { paramsTuple?: []; params?: {} }
+    'suppliers.create': { paramsTuple?: []; params?: {} }
+    'suppliers.store': { paramsTuple?: []; params?: {} }
+    'suppliers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'suppliers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'categories.store': { paramsTuple?: []; params?: {} }
     'categories.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -249,6 +260,12 @@ export type ScannedRoutes = {
     'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.index': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'suppliers.index': { paramsTuple?: []; params?: {} }
+    'suppliers.create': { paramsTuple?: []; params?: {} }
+    'suppliers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'letterhead_preview.show': { paramsTuple?: []; params?: {} }
@@ -325,6 +342,12 @@ export type ScannedRoutes = {
     'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.index': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'suppliers.index': { paramsTuple?: []; params?: {} }
+    'suppliers.create': { paramsTuple?: []; params?: {} }
+    'suppliers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'letterhead_preview.show': { paramsTuple?: []; params?: {} }
@@ -402,6 +425,10 @@ export type ScannedRoutes = {
     'items.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.unarchive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.store': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.mark_handled': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.mark_to_handle': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'suppliers.store': { paramsTuple?: []; params?: {} }
     'categories.store': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
     'rates.store': { paramsTuple?: []; params?: {} }
@@ -440,6 +467,7 @@ export type ScannedRoutes = {
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'suppliers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update_call_out_fee': { paramsTuple?: []; params?: {} }

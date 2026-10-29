@@ -50,6 +50,10 @@ declare module '@adonisjs/inertia/types' {
     'sites/index': ExtractProps<(typeof import('../../inertia/pages/sites/index.vue'))['default']>
     'sites/show': ExtractProps<(typeof import('../../inertia/pages/sites/show.vue'))['default']>
     'stock/index': ExtractProps<(typeof import('../../inertia/pages/stock/index.vue'))['default']>
+    'supplier_invoices/index': ExtractProps<(typeof import('../../inertia/pages/supplier_invoices/index.vue'))['default']>
+    'supplier_invoices/show': ExtractProps<(typeof import('../../inertia/pages/supplier_invoices/show.vue'))['default']>
+    'suppliers/form': ExtractProps<(typeof import('../../inertia/pages/suppliers/form.vue'))['default']>
+    'suppliers/index': ExtractProps<(typeof import('../../inertia/pages/suppliers/index.vue'))['default']>
     'users/create': ExtractProps<(typeof import('../../inertia/pages/users/create.vue'))['default']>
     'users/edit': ExtractProps<(typeof import('../../inertia/pages/users/edit.vue'))['default']>
     'users/index': ExtractProps<(typeof import('../../inertia/pages/users/index.vue'))['default']>
