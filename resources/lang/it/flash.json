@@ -245,5 +245,18 @@
     "credited": "La fattura ha delle note di credito: non si può modificare né eliminare.",
     "changed": "La fattura è stata appena modificata: ricarica la pagina e riprova."
   },
-  "legacyInvoiceCustomerArchived": "Il cliente della commessa è archiviato: ripristinalo per registrare una fattura pregressa."
+  "legacyInvoiceCustomerArchived": "Il cliente della commessa è archiviato: ripristinalo per registrare una fattura pregressa.",
+  "supplierInvoiceUploaded": "{count, plural, one {Fattura passiva ricevuta.} other {Ricevute # fatture passive dal file.}}",
+  "supplierInvoiceRefused": {
+    "unreadable": "Il file non è una fattura elettronica FatturaPA leggibile.",
+    "unsupported": "Questo tipo di fattura elettronica (ad esempio la fattura semplificata) non è gestito.",
+    "signature": "Non è stato possibile estrarre la fattura dal file firmato (.p7m).",
+    "duplicate": "Questa fattura è già stata ricevuta.",
+    "notForCompany": "La fattura non è intestata all'azienda: il destinatario ha un'altra Partita IVA o Codice Fiscale."
+  },
+  "supplierInvoiceHandled": "Fattura segnata come gestita.",
+  "supplierInvoiceToHandle": "Fattura riportata tra quelle da gestire.",
+  "supplierCreated": "Fornitore creato.",
+  "supplierSaved": "Fornitore salvato.",
+  "supplierExists": "Esiste già un fornitore con questa Partita IVA."
 }

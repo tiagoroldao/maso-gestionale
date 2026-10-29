@@ -11,8 +11,11 @@ import SdiPolling, { isPollDue } from '#services/sdi_polling'
 import { OpenapiSdiGateway } from '#services/openapi_sdi_gateway'
 import {
   supplierInvoiceIntake,
+  supplierInvoicesIntake,
   type IncomingSupplierInvoice,
 } from '#services/supplier_invoice_intake'
+import SupplierInvoice from '#models/supplier_invoice'
+import { FIXTURE, supplierInvoiceXml } from '#tests/helpers/supplier_invoices'
 import { FakeOpenapi, sentListWith } from '#tests/helpers/openapi'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -66,9 +69,11 @@ test.group('SDI through Openapi', (group) => {
       .keepsApiConfigurations()
     SdiConnection.use(openapi.gateway())
     SdiPolling.registered = null
+    // Received files wait unless a test hands them over
+    supplierInvoiceIntake.current = null
     return () => {
       SdiConnection.restore()
-      supplierInvoiceIntake.current = null
+      supplierInvoiceIntake.current = supplierInvoicesIntake
     }
   })
 
@@ -330,6 +335,25 @@ test.group('SDI through Openapi', (group) => {
         ['IT12345678901_00002.xml.p7m', '335228642533'],
       ]
     )
+    assert.lengthOf(await SdiReceivedFile.query().whereNull('handedAt'), 0)
+  })
+
+  test('received files land in the Supplier Invoice inbox, once', async ({ assert }) => {
+    await completeCompany()
+    supplierInvoiceIntake.current = supplierInvoicesIntake
+    openapi.on('GET', '/invoices', lists('emptyPage', 'receivedPage1'))
+    // Both files hold the same invoice: the second is a duplicate
+    const xml = { status: 200, text: supplierInvoiceXml(), contentType: 'application/octet-stream' }
+    for (const id of RECEIVED) openapi.on('GET', `/invoices_download/${id}`, xml)
+
+    const report = await SdiPolling.poll()
+
+    assert.deepInclude(report, { received: 2, handed: 2, failures: [] })
+    const invoices = await SupplierInvoice.all()
+    assert.lengthOf(invoices, 1)
+    assert.equal(invoices[0].number, FIXTURE.number)
+    assert.equal(invoices[0].receivedVia, 'sdi')
+    assert.equal(invoices[0].sdiIdentifier, '1084646898320')
     assert.lengthOf(await SdiReceivedFile.query().whereNull('handedAt'), 0)
   })
 

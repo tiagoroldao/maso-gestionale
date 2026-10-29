@@ -918,6 +918,115 @@ export class StockMovementSchema extends BaseModel {
   declare unitCost: string | null
 }
 
+export class SupplierInvoiceLineSchema extends BaseModel {
+  static $columns = ['code', 'createdAt', 'description', 'id', 'lineNumber', 'natura', 'position', 'quantity', 'supplierInvoiceId', 'total', 'unit', 'unitPrice', 'vatRate'] as const
+  $columns = SupplierInvoiceLineSchema.$columns
+  @column()
+  declare code: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare description: string
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare lineNumber: number
+  @column()
+  declare natura: string | null
+  @column()
+  declare position: number
+  @column()
+  declare quantity: string | null
+  @column()
+  declare supplierInvoiceId: number
+  @column()
+  declare total: string
+  @column()
+  declare unit: string | null
+  @column()
+  declare unitPrice: string
+  @column()
+  declare vatRate: string
+}
+
+export class SupplierInvoiceSchema extends BaseModel {
+  static $columns = ['createdAt', 'currency', 'details', 'documentType', 'fileName', 'filePath', 'handledAt', 'handledBy', 'id', 'issuedOn', 'number', 'receivedBy', 'receivedVia', 'sdiIdentifier', 'status', 'supplierId', 'taxable', 'total', 'updatedAt', 'vat'] as const
+  $columns = SupplierInvoiceSchema.$columns
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare currency: string
+  @column()
+  declare details: any
+  @column()
+  declare documentType: string
+  @column()
+  declare fileName: string
+  @column()
+  declare filePath: string
+  @column.dateTime()
+  declare handledAt: DateTime | null
+  @column()
+  declare handledBy: number | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column.date()
+  declare issuedOn: DateTime
+  @column()
+  declare number: string
+  @column()
+  declare receivedBy: number | null
+  @column()
+  declare receivedVia: string
+  @column()
+  declare sdiIdentifier: string | null
+  @column()
+  declare status: string
+  @column()
+  declare supplierId: number
+  @column()
+  declare taxable: string
+  @column()
+  declare total: string
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare vat: string
+}
+
+export class SupplierSchema extends BaseModel {
+  static $columns = ['city', 'country', 'createdAt', 'email', 'id', 'name', 'phone', 'postalCode', 'province', 'street', 'taxCode', 'updatedAt', 'vatCountry', 'vatNumber'] as const
+  $columns = SupplierSchema.$columns
+  @column()
+  declare city: string | null
+  @column()
+  declare country: string | null
+  @column.dateTime({ autoCreate: true })
+  declare createdAt: DateTime
+  @column()
+  declare email: string | null
+  @column({ isPrimary: true })
+  declare id: number
+  @column()
+  declare name: string
+  @column()
+  declare phone: string | null
+  @column()
+  declare postalCode: string | null
+  @column()
+  declare province: string | null
+  @column()
+  declare street: string | null
+  @column()
+  declare taxCode: string | null
+  @column.dateTime({ autoCreate: true, autoUpdate: true })
+  declare updatedAt: DateTime
+  @column()
+  declare vatCountry: string
+  @column()
+  declare vatNumber: string
+}
+
 export class UserSchema extends BaseModel {
   static $columns = ['createdAt', 'email', 'fullName', 'id', 'isActive', 'password', 'role', 'updatedAt'] as const
   $columns = UserSchema.$columns

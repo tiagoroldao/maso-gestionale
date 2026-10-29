@@ -38,4 +38,4 @@ From Openapi's official documentation and OpenAPI spec (console.openapi.com/apis
 
 - The app doesn't turn on legal archiving: it sends with plain `POST /invoices` and keeps each file as sent. Archiving stays outside the app (ADR 0002), either through Openapi's paid option or the Agenzia delle Entrate's free service.
 - The Openapi account is set up once, outside the app: the Business Registry Configuration and the recipient code `JKKZDGR` at the Agenzia delle Entrate. The app keeps the `supplier-invoice` callback registered itself, replacing any `supplier-invoice` callback set by hand.
-- Received files are kept in `sdi_received_files` until the Supplier Invoice intake (#198) takes them.
+- Received files are kept in `sdi_received_files` and handed to the Supplier Invoice intake (#198), the same way in as Office's uploads. A `duplicate` refusal counts as already received.

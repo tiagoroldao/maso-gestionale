@@ -52,7 +52,9 @@
       "templateFields.equipmentNeedsSite": "Un campo apparecchio richiede un campo immobile",
       "templateFields.workReportNeedsJob": "Un campo rapportino richiede un campo commessa",
       "fields.*.columns.distinct": "Due colonne hanno lo stesso codice",
-      "columnSource": "Questo dato della commessa non si adatta al tipo della colonna"
+      "columnSource": "Questo dato della commessa non si adatta al tipo della colonna",
+      "supplierVatNumber.taken": "Esiste già un fornitore con questa Partita IVA",
+      "invoice.file.extname": "Il file deve essere una fattura elettronica XML o firmata (.p7m)"
     },
     "fields": {
       "email": "email",
@@ -197,7 +199,9 @@
       "advance": "acconto",
       "vatRows": "righe IVA",
       "paid": "già pagata",
-      "pdf": "PDF"
+      "pdf": "PDF",
+      "vatCountry": "paese",
+      "invoice": "fattura"
     }
   }
 }

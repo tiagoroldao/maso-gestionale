@@ -16,6 +16,7 @@ type RouteAbility = Extract<
   | 'manageItems'
   | 'manageJobs'
   | 'manageInvoices'
+  | 'managePurchases'
   | 'workInField'
 >
 

@@ -4,6 +4,12 @@ import { test } from '@japa/runner'
 import app from '@adonisjs/core/services/app'
 import { ROLES } from '#models/user'
 import { CUSTOMER_TYPES } from '#models/customer'
+import {
+  ALL_PAYMENT_METHODS,
+  DOCUMENT_TYPES,
+  SUPPLIER_INVOICE_SOURCES,
+  SUPPLIER_INVOICE_STATUSES,
+} from '#shared/supplier_invoices'
 
 async function catalogue() {
   const directory = app.makePath('resources/lang/it')
@@ -61,6 +67,13 @@ test.group('Translations', () => {
         'waterSoftener',
         'pressurePump',
       ].map((key) => `ui.equipment.commonTypes.${key}`),
+      ...SUPPLIER_INVOICE_STATUSES.map((status) => `ui.supplierInvoices.statuses.${status}`),
+      ...SUPPLIER_INVOICE_SOURCES.map((source) => `ui.supplierInvoices.sources.${source}`),
+      ...DOCUMENT_TYPES.map((type) => `ui.supplierInvoices.documentTypes.${type}`),
+      ...ALL_PAYMENT_METHODS.map((method) => `ui.supplierInvoices.paymentMethods.${method}`),
+      ...['unreadable', 'unsupported', 'signature', 'duplicate', 'notForCompany'].map(
+        (reason) => `flash.supplierInvoiceRefused.${reason}`
+      ),
     ]
 
     assert.deepEqual(

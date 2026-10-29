@@ -179,8 +179,9 @@ export default class SdiPolling {
   }
 
   /**
-   * Hands the files waiting to the Supplier Invoice intake (#198); with
-   * none yet, they wait.
+   * Hands the files waiting to the Supplier Invoice intake (#198), the
+   * same way in as Office's uploads; a file it refuses waits for the next
+   * poll.
    */
   private static async handOver(gateway: SdiGateway, failures: PollFailure[]) {
     const intake = supplierInvoiceIntake.current

@@ -43,7 +43,7 @@ export default class extends BaseSchema {
     )
 
     // Supplier Invoice files received through the intermediary, kept until
-    // the Supplier Invoice intake (#198) takes them
+    // the Supplier Invoice intake (#198) takes them (retried each poll)
     this.schema.createTable('sdi_received_files', (table) => {
       table.increments('id').notNullable()
       table.string('channel', 20).notNullable()
