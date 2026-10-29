@@ -36,6 +36,9 @@ type Responder = Answer | ((request: RecordedRequest) => Answer | Promise<Answer
  */
 export type ReadShape = 'callback' | 'callbacksArray' | 'callbacksObject'
 
+/** A callback configuration, as `POST /api_configurations` writes it */
+type Configuration = { fiscal_id: string; callbacks: Record<string, unknown>[] }
+
 /**
  * Openapi's SDI API in memory, answering with the recorded responses in
  * tests/fixtures/openapi (never the network). Each route answers what it
@@ -52,48 +55,61 @@ export class FakeOpenapi {
 
   /**
    * Answers `api_configurations` as Openapi keeps them: one configuration
-   * per fiscal id, each POST replacing it. The POSTs are in `requests`.
-   * By default the read ignores the `fiscal_id` filter and carries
-   * `fiscal_id` on each item; `honoursFilter` lists nothing for another
-   * fiscal id, and `withFiscalId: false` leaves it out, as the spec's
-   * ApiConfiguration-read does.
+   * per fiscal id, each POST replacing that fiscal id's. The POSTs are in
+   * `requests`. By default the read ignores the `fiscal_id` filter and
+   * carries `fiscal_id` on each item; `honoursFilter` lists only the
+   * fiscal id asked, and `withFiscalId: false` leaves it out, as the spec's
+   * ApiConfiguration-read does. With `registered`, a fiscal id it refuses
+   * answers 404 with error 420, as the sandbox does for one without a
+   * Business Registry Configuration (ADR 0019).
    */
   keepsApiConfigurations(
-    initial: { fiscal_id: string; callbacks: Record<string, unknown>[] } | null = null,
+    initial: Configuration | null = null,
     shape: ReadShape = 'callback',
-    options: { honoursFilter?: boolean; withFiscalId?: boolean } = {}
+    options: {
+      honoursFilter?: boolean
+      withFiscalId?: boolean
+      registered?: (fiscalId: string) => boolean
+    } = {}
   ) {
-    const { honoursFilter = false, withFiscalId = true } = options
-    let stored = initial
+    const { honoursFilter = false, withFiscalId = true, registered } = options
+    const stored = new Map<string, Configuration>()
+    if (initial) stored.set(initial.fiscal_id, initial)
     // Read back in one of the shapes the spec shows, with Openapi's own
     // read-only fields (ids, provider_uuid)
     this.on('GET', '/api_configurations', (request) => {
-      const none = recorded('apiConfigurationsNone')
       const filter = request.query.get('fiscal_id')
-      if (stored && !(honoursFilter && filter && filter !== stored.fiscal_id)) {
-        const read = stored.callbacks.map((callback, index) => ({
-          ...callback,
-          id: `00000000000000000000010${index}`,
-          provider_uuid: `00000000-0000-4000-8000-00000000010${index}`,
-        }))
-        const item = (index: number) => ({
-          id: `00000000000000000000000${index}`,
-          ...(withFiscalId ? { fiscal_id: stored!.fiscal_id } : {}),
-        })
-        none.body.data =
-          shape === 'callbacksArray'
+      if (filter && registered && !registered(filter)) return recorded('fiscalIdNotRegistered')
+      const none = recorded('apiConfigurationsNone')
+      const listed = [...stored.values()].filter(
+        (configuration) => !(honoursFilter && filter && filter !== configuration.fiscal_id)
+      )
+      if (listed.length) {
+        none.body.data = listed.flatMap((configuration) => {
+          const read = configuration.callbacks.map((callback, index) => ({
+            ...callback,
+            id: `00000000000000000000010${index}`,
+            provider_uuid: `00000000-0000-4000-8000-00000000010${index}`,
+          }))
+          const item = (index: number) => ({
+            id: `00000000000000000000000${index}`,
+            ...(withFiscalId ? { fiscal_id: configuration.fiscal_id } : {}),
+          })
+          return shape === 'callbacksArray'
             ? [{ ...item(0), callbacks: read }]
             : read.map((callback, index) => ({
                 ...item(index),
                 [shape === 'callback' ? 'callback' : 'callbacks']: callback,
               }))
+        })
       }
       return none
     })
     this.on('POST', '/api_configurations', (request) => {
-      stored = JSON.parse(request.body!)
+      const configuration: Configuration = JSON.parse(request.body!)
+      stored.set(configuration.fiscal_id, configuration)
       const configured = recorded('apiConfigured')
-      configured.body.data[0].callbacks = stored!.callbacks
+      configured.body.data[0].callbacks = configuration.callbacks
       return configured
     })
     return this

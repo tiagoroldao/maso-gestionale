@@ -7,7 +7,12 @@ import { TIME_ZONE } from '#shared/dates'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import { extractXmlBytes, isSigned } from '#fiscal/fattura_pa_reader'
 import { OPENAPI_BASE_URLS, OpenapiError, OpenapiSdiGateway } from '#services/openapi_sdi_gateway'
-import { SdiFailure, type ReceivedFile, type ReceivedRef } from '#services/sdi_gateway'
+import {
+  SdiFailure,
+  SdiSendRefusedError,
+  type ReceivedFile,
+  type ReceivedRef,
+} from '#services/sdi_gateway'
 
 /**
  * The fiscal id the sandbox's Business Registry Configuration was made
@@ -20,6 +25,15 @@ const OTHER_PARTY_VAT = '11111111115'
 
 /** A fiscal id no one can hold, to probe the `fiscal_id` filter */
 const NOBODY = '00000000000'
+
+/** How long a check waits for Openapi, unless `--wait` says otherwise */
+export const DEFAULT_WAIT_SECONDS = 120
+
+/**
+ * How long receiving waits when the callback can't be delivered: the
+ * sandbox listed such an invoice after about 7 minutes (ADR 0019)
+ */
+export const RECEIVE_WAIT_SECONDS = 600
 
 /** How often a check asks again while it waits for Openapi */
 const POLL_INTERVAL_MS = 5_000
@@ -35,16 +49,21 @@ const SHOWN = new Set([
   'page',
   'itemsPerPage',
   'legally_stored',
+  'apply_legal_storage',
+  'downloaded',
   'event',
   'url',
   'notification',
 ])
 
 /**
- * INCONCLUSIVE: the sandbox can't show it (a known limitation), so it
- * neither passes nor fails
+ * INCONCLUSIVE: the run can't show it (archiving not seen within the
+ * wait), so it neither passes nor fails
  */
 export type CheckResult = 'PASS' | 'FAIL' | 'SKIP' | 'INCONCLUSIVE'
+
+/** Received files described in check 5's diagnostics, newest first */
+const NEWEST_SHOWN = 3
 
 /** Pages read at most, as the gateway reads them */
 const MAX_PAGES = 50
@@ -73,16 +92,39 @@ type Target = { baseUrl: string; fetch: typeof fetch }
 
 type Raw = { status: number; body: any }
 
+/** A file as `GET /invoices` lists it, as far as the checks read it */
+type Listed = {
+  uuid: string
+  created_at?: string
+  marking?: unknown
+  downloaded?: unknown
+  downloaded_at?: unknown
+  recipient?: { business_vat_number_code?: string } | null
+}
+
+/** Left to Openapi's console: the check never deletes a registration (#223) */
+const DELETING_REGISTRATIONS =
+  "Deleting a Business Registry Configuration is left to Openapi's console; `--cleanup --fiscal-id <id>` removes only its callback configuration"
+
 export type SandboxCheckOptions = {
   token: string
   fiscalId: string
   callbackUrl: string
   /** Create the Business Registry Configuration and the callback first */
   setup: boolean
-  /** How long to wait for Openapi to list or store something, in seconds */
-  waitSeconds: number
+  /**
+   * How long to wait for Openapi to list or store something, in seconds;
+   * null for the defaults (DEFAULT_WAIT_SECONDS, or RECEIVE_WAIT_SECONDS
+   * for receiving with an undeliverable callback)
+   */
+  waitSeconds: number | null
   /** A signed file to try importing as it is (check 8) */
   p7mPath: string | null
+  /**
+   * With `setup`: a second fiscal id, registered with
+   * `apply_legal_storage`, for checks 9 to 11
+   */
+  legalStorageFiscalId?: string | null
   /** A line about what is being done, for the person waiting */
   progress?: (line: string) => void
 }
@@ -96,7 +138,8 @@ export class SandboxOnlyError extends Error {}
  * Checks Openapi's sandbox against what the app assumes (ADR 0019, #204):
  * the token, the callback configuration's shape, sending, finding sent
  * files, legal archiving, receiving, the list filters, notices and the
- * import of a received file. It goes through the app's
+ * import of a received file; with a second, legal-storage registration,
+ * how archiving follows `apply_legal_storage` (#223). It goes through the app's
  * `OpenapiSdiGateway` wherever the gateway has the call, and makes raw
  * calls only for the rest. The report is Markdown, with each call's status
  * and the shape of its answer (values hidden but for a few fields), and
@@ -119,6 +162,10 @@ export class SdiSandboxCheck {
   private sent: { uuid: string; number: string }[] = []
   private received: { ref: ReceivedRef; file: ReceivedFile } | null = null
   private callbackUrl: string | null = null
+  /** `apply_legal_storage` on the fiscal id's Business Registry Configuration, as read */
+  private legalStorageFlag: unknown = undefined
+  /** Whether the legal-storage registration is ready for checks 9 to 11 */
+  private legalStorageReady = false
 
   constructor(options: SandboxCheckOptions) {
     this.options = options
@@ -139,11 +186,19 @@ export class SdiSandboxCheck {
   }
 
   /**
-   * Runs the set-up (if asked) and checks 1 to 8; the Markdown report.
+   * Runs the set-up (if asked) and checks 1 to 8, then 9 to 11 with a
+   * legal-storage fiscal id; the Markdown report.
    */
   async run() {
-    if (this.options.setup)
+    const legal = this.options.legalStorageFiscalId ?? null
+    if (this.options.setup) {
       await this.check('Setup: Business Registry Configuration and callback', () => this.setup())
+      if (legal) {
+        await this.check('Setup: legal-storage Business Registry Configuration and callback', () =>
+          this.setupLegalStorage(legal)
+        )
+      }
+    }
     await this.check('1. The token works', () => this.token())
     await this.check('2. `GET /api_configurations` shape', () => this.apiConfigurations())
     await this.check('3. Send, then find by date and number', () => this.send(false))
@@ -154,7 +209,21 @@ export class SdiSandboxCheck {
     await this.check('6. List filters are honoured; list order', () => this.filters())
     await this.check('7. A simulated RC is stored for polling', () => this.notification())
     await this.check('8. Import a received file to legal storage', () => this.importReceived())
-    return this.report(this.options.setup ? '--setup' : null)
+    if (legal) {
+      await this.check('9. A plain send is archived for a legal-storage registration', () =>
+        this.legalPlainSend(legal)
+      )
+      await this.check('10. `/invoices_legal_storage` for a legal-storage registration', () =>
+        this.legalEndpoint(legal)
+      )
+      await this.check('11. A received invoice is archived for a legal-storage registration', () =>
+        this.legalReceived(legal)
+      )
+    }
+    return this.report([
+      ...(this.options.setup ? ['--setup'] : []),
+      ...(legal ? [`--legal-storage-fiscal-id ${legal}`] : []),
+    ])
   }
 
   /**
@@ -163,6 +232,9 @@ export class SdiSandboxCheck {
   async cleanup() {
     await this.check('Cleanup: callback configuration removed', async () => {
       const read = await this.raw('GET', `/api_configurations?${this.fiscalQuery()}`)
+      if (notRegistered(read)) {
+        return this.skip(`${this.options.fiscalId} is not registered: nothing to remove`)
+      }
       if (read.status !== 200) return this.fail(`Couldn't read the configuration (${read.status})`)
       const items = asArray(read.body?.data) as { id?: string; fiscal_id?: string }[]
       // The read carries no fiscal id (ApiConfiguration-read): if Openapi
@@ -186,9 +258,10 @@ export class SdiSandboxCheck {
         if (removed.status < 200 || removed.status >= 300) failed.push(String(removed.status))
       }
       if (failed.length) return this.fail(`${failed.length} of ${ids.length} not removed`)
+      this.note(DELETING_REGISTRATIONS)
       return this.pass(`${ids.length} configuration(s) removed`)
     })
-    return this.report('--cleanup')
+    return this.report(['--cleanup', `--fiscal-id ${this.options.fiscalId}`])
   }
 
   /** Whether any check failed */
@@ -199,29 +272,65 @@ export class SdiSandboxCheck {
   // The checks: each answers its result, with notes
 
   private async setup() {
-    const fiscalId = this.options.fiscalId
+    if (!(await this.ensureRegistration(this.options.fiscalId, false))) return 'FAIL'
+    await this.ensureCallback(this.options.fiscalId)
+    return this.pass()
+  }
+
+  /**
+   * A second Business Registry Configuration, with `apply_legal_storage`,
+   * which Openapi sets only when one is created (#223)
+   */
+  private async setupLegalStorage(fiscalId: string) {
+    if (!(await this.ensureRegistration(fiscalId, true))) return 'FAIL'
+    await this.ensureCallback(fiscalId)
+    this.note(DELETING_REGISTRATIONS)
+    this.legalStorageReady = true
+    return this.pass()
+  }
+
+  /** Reads the fiscal id's Business Registry Configuration, or creates it; whether it is fit */
+  private async ensureRegistration(fiscalId: string, legalStorage: boolean) {
     const existing = await this.raw(
       'GET',
       `/business_registry_configurations/${encodeURIComponent(fiscalId)}`
     )
     if (existing.status === 200) {
-      this.note(`Business Registry Configuration for ${fiscalId}: already there`)
-    } else if (existing.status === 404) {
-      const created = await this.raw('POST', '/business_registry_configurations', {
-        fiscal_id: fiscalId,
-        name: 'Maso sandbox check',
-        email: 'sandbox-check@example.com',
-        apply_signature: false,
-        apply_legal_storage: false,
-      })
-      if (created.status < 200 || created.status >= 300) {
-        return this.fail(`Business Registry Configuration not created (${created.status})`)
+      const flag = existing.body?.data?.apply_legal_storage
+      this.note(
+        `Business Registry Configuration for ${fiscalId}: already there, \`apply_legal_storage\`: ${show(flag)}`
+      )
+      if (legalStorage && flag !== true) {
+        this.fail(
+          `${fiscalId} is registered without \`apply_legal_storage\`, which Openapi sets only when a registration is created: delete it in Openapi's console, or use another fiscal id`
+        )
+        return false
       }
-      this.note(`Business Registry Configuration for ${fiscalId}: created`)
-    } else {
-      return this.fail(`Business Registry Configuration not readable (${existing.status})`)
+      return true
     }
+    if (existing.status !== 404) {
+      this.fail(`Business Registry Configuration not readable (${existing.status})`)
+      return false
+    }
+    const created = await this.raw('POST', '/business_registry_configurations', {
+      fiscal_id: fiscalId,
+      name: legalStorage ? 'Maso sandbox check, legal storage' : 'Maso sandbox check',
+      email: 'sandbox-check@example.com',
+      apply_signature: false,
+      apply_legal_storage: legalStorage,
+    })
+    if (created.status < 200 || created.status >= 300) {
+      this.fail(`Business Registry Configuration not created (${created.status})`)
+      return false
+    }
+    this.note(
+      `Business Registry Configuration for ${fiscalId}: created, \`apply_legal_storage\`: ${legalStorage}`
+    )
+    return true
+  }
 
+  /** The `supplier-invoice` callback, through the gateway as the app keeps it */
+  private async ensureCallback(fiscalId: string) {
     const changed = await this.gateway.ensureReceiving({
       fiscalId,
       url: this.options.callbackUrl,
@@ -230,19 +339,20 @@ export class SdiSandboxCheck {
     this.note(
       `\`supplier-invoice\` callback to ${this.options.callbackUrl}: ${changed ? 'registered' : 'already registered'}`
     )
-    return this.pass()
+    if (deliverable(this.options.callbackUrl)) this.note(optionA(this.options.callbackUrl))
   }
 
   private async token() {
     const list = await this.raw('GET', '/business_registry_configurations')
     if (list.status === 401) return this.fail('The token is refused')
     if (list.status !== 200) return this.fail(`Unexpected answer (${list.status})`)
-    const configured = asArray(list.body?.data).some(
+    const configured = asArray(list.body?.data).find(
       (item) => (item as { fiscal_id?: string })?.fiscal_id === this.options.fiscalId
-    )
+    ) as { apply_legal_storage?: unknown } | undefined
+    this.legalStorageFlag = configured?.apply_legal_storage
     this.note(
       configured
-        ? `A Business Registry Configuration exists for ${this.options.fiscalId}`
+        ? `A Business Registry Configuration exists for ${this.options.fiscalId}, \`apply_legal_storage\`: ${show(this.legalStorageFlag)}`
         : `No Business Registry Configuration for ${this.options.fiscalId}: run with \`--setup\``
     )
     return this.pass()
@@ -250,6 +360,9 @@ export class SdiSandboxCheck {
 
   private async apiConfigurations() {
     const read = await this.raw('GET', `/api_configurations?${this.fiscalQuery()}`)
+    if (notRegistered(read)) {
+      return this.skip(`${this.options.fiscalId} is not registered: run with \`--setup\``)
+    }
     if (read.status !== 200) return this.fail(`Unexpected answer (${read.status})`)
     const items = asArray(read.body?.data) as Record<string, unknown>[]
     this.note(
@@ -288,12 +401,24 @@ export class SdiSandboxCheck {
   private async send(legalArchiving: boolean) {
     const number = `S${this.stamp}/${legalArchiving ? 2 : 1}`
     const progressive = `${legalArchiving ? 'B' : 'A'}${this.stamp.slice(-4)}`
-    const file = {
-      fileName: fatturaFileName(this.options.fiscalId, progressive),
-      xml: this.fattura(number, progressive),
+    let uuid: string
+    try {
+      uuid = await this.submit(this.options.fiscalId, number, progressive, legalArchiving)
+    } catch (error) {
+      // Known (ADR 0019): the endpoint needs the registration's flag
+      if (
+        legalArchiving &&
+        this.legalStorageFlag !== true &&
+        error instanceof SdiSendRefusedError &&
+        error.message.startsWith('Openapi 412:')
+      ) {
+        this.note(`Refused: ${error.message}`)
+        return this.skip(
+          `\`/invoices_legal_storage\` needs \`apply_legal_storage\` on the Business Registry Configuration (ADR 0019), here ${show(this.legalStorageFlag)}: checks 9 to 11 try a registration with it (\`--legal-storage-fiscal-id\`)`
+        )
+      }
+      throw error
     }
-    const { remoteId } = await this.gateway.submit(file, { legalArchiving })
-    const uuid = remoteId!
     this.sent.push({ uuid, number })
     this.note(`Invoice ${number} sent; Openapi answered a uuid`)
 
@@ -322,9 +447,7 @@ export class SdiSandboxCheck {
       if (notices.status !== 200) return this.fail('Its notices are not readable for polling')
     }
     if (!found) {
-      return this.fail(
-        `Not found by date and number (\`findSent\`) within ${this.options.waitSeconds}s`
-      )
+      return this.fail(`Not found by date and number (\`findSent\`) within ${this.wait}s`)
     }
     return this.pass(`${found.length} match(es) for the number`)
   }
@@ -333,19 +456,25 @@ export class SdiSandboxCheck {
     const since = this.startedAt.minus({ minutes: 1 })
     const earlier = await this.gateway.received(since)
     const before = new Set(earlier.map((ref) => ref.remoteId))
-    const simulated = await this.raw('POST', '/simulate/supplier-invoice', this.supplierInvoice())
+    const invoice = this.supplierInvoice(this.options.fiscalId, `F${this.stamp}`)
+    const simulated = await this.raw('POST', '/simulate/supplier-invoice', invoice)
+    this.note(simulation(invoice))
     if (simulated.status < 200 || simulated.status >= 300) {
       return this.fail(`The simulation was refused (${simulated.status})`)
     }
     this.note(optionA(this.callbackUrl))
 
-    const { value: ref } = await this.until(async () => {
+    const wait = this.receiveWait
+    const listing = await this.until(async () => {
       const refs = await this.gateway.received(since)
       return refs.find((candidate) => !before.has(candidate.remoteId)) ?? null
-    })
+    }, wait)
+    const ref = listing.value
+    await this.describeReceived(ref?.remoteId ?? null)
     if (!ref) {
-      return this.fail(`Not listed by \`GET /invoices?type=1\` within ${this.options.waitSeconds}s`)
+      return this.fail(`Not listed by \`GET /invoices?type=1\` within ${wait}s`)
     }
+    this.note(`Listed after ${listing.attempts} attempt(s), ${listing.seconds}s`)
     const file = await this.gateway.download(ref)
     this.received = { ref, file }
     const signed = isSigned(file.content)
@@ -425,13 +554,8 @@ export class SdiSandboxCheck {
     const detail = await this.raw('GET', `/invoices/${sent.uuid}`)
     this.note(`\`marking\` afterwards: ${show(detail.body?.data?.marking)}`)
     if (!report) {
-      this.note(
-        `Not stored at \`GET /invoices_notifications/{uuid}\` within ${this.options.waitSeconds}s`
-      )
-      this.note(
-        "ADR 0019 records that the sandbox's simulated notices go only to callbacks and aren't stored for polling: a known sandbox limitation, not a failure"
-      )
-      return 'INCONCLUSIVE'
+      // Stored in the 2026-10-29 runs (ADR 0019), so no longer a known limitation
+      return this.fail(`Not stored at \`GET /invoices_notifications/{uuid}\` within ${this.wait}s`)
     }
     this.note(`Read by the gateway as ${report.outcome}, with ${report.sdiId ? 'an' : 'no'} SDI id`)
     return report.outcome === 'delivered' ? this.pass() : this.fail(`Read as ${report.outcome}`)
@@ -499,6 +623,131 @@ export class SdiSandboxCheck {
     )
   }
 
+  /**
+   * Check 9: whether a plain `POST /invoices` is archived when the
+   * registration has `apply_legal_storage`
+   */
+  private async legalPlainSend(fiscalId: string) {
+    if (!this.legalStorageReady) return this.skip('The legal-storage registration is not ready')
+    const number = `S${this.stamp}/3`
+    const uuid = await this.submit(fiscalId, number, `C${this.stamp.slice(-4)}`, false)
+    this.note(`Invoice ${number} sent from ${fiscalId} with plain \`POST /invoices\``)
+    return this.archived(uuid, 'Archived after a plain send')
+  }
+
+  /** Check 10: whether the per-file endpoint is taken when the registration has the flag */
+  private async legalEndpoint(fiscalId: string) {
+    if (!this.legalStorageReady) return this.skip('The legal-storage registration is not ready')
+    const number = `S${this.stamp}/4`
+    let uuid: string
+    try {
+      uuid = await this.submit(fiscalId, number, `D${this.stamp.slice(-4)}`, true)
+    } catch (error) {
+      if (error instanceof SdiSendRefusedError) return this.fail(`Refused: ${error.message}`)
+      throw error
+    }
+    const detail = await this.raw('GET', `/invoices/${uuid}`)
+    const data = detail.body?.data ?? {}
+    this.note(
+      `Invoice ${number} accepted; \`legally_stored\`: ${show(data.legally_stored)}; \`preserved_document\`: ${kind(data.preserved_document)}`
+    )
+    return this.pass()
+  }
+
+  /** Check 11: whether a received invoice is archived when the registration has the flag */
+  private async legalReceived(fiscalId: string) {
+    if (!this.legalStorageReady) return this.skip('The legal-storage registration is not ready')
+    const query = { 'type': '1', 'createdAt[after]': utc(this.startedAt.minus({ minutes: 1 })) }
+    const earlier = await this.listAll(query)
+    const before = new Set(earlier.map((row) => row.uuid))
+    const invoice = this.supplierInvoice(fiscalId, `F${this.stamp}/L`)
+    const simulated = await this.raw('POST', '/simulate/supplier-invoice', invoice)
+    this.note(simulation(invoice))
+    if (simulated.status < 200 || simulated.status >= 300) {
+      return this.fail(`The simulation was refused (${simulated.status})`)
+    }
+    const wait = this.receiveWait
+    const listing = await this.until(async () => {
+      const rows = await this.listAll(query)
+      // Check 5's invoice, listed late, is another fiscal id's
+      return (
+        rows.find((candidate) => {
+          const code = candidate.recipient?.business_vat_number_code
+          return !before.has(candidate.uuid) && (!code || code === fiscalId)
+        }) ?? null
+      )
+    }, wait)
+    const row = listing.value
+    if (!row) {
+      return this.fail(`Not listed by \`GET /invoices?type=1\` within ${wait}s`)
+    }
+    this.note(
+      `Listed by \`GET /invoices?type=1\` after ${listing.attempts} attempt(s), ${listing.seconds}s`
+    )
+    return this.archived(row.uuid, 'Archived on receipt')
+  }
+
+  /**
+   * Waits for Openapi to mark a file `legally_stored`: PASS when it does,
+   * INCONCLUSIVE when not within the wait, since archiving may come later
+   */
+  private async archived(uuid: string, archivedNote: string): Promise<CheckResult> {
+    let last: Record<string, unknown> = {}
+    const { value, seconds } = await this.until(async () => {
+      const detail = await this.raw('GET', `/invoices/${uuid}`)
+      last = detail.body?.data ?? {}
+      return last.legally_stored === true ? last : null
+    })
+    this.note(
+      `\`legally_stored\`: ${show(last.legally_stored)}; \`preserved_document\`: ${kind(last.preserved_document)} (after ${seconds}s)`
+    )
+    if (value) return this.pass(archivedNote)
+    this.note(
+      `Not marked \`legally_stored\` within ${this.wait}s: archiving may come later, so this neither confirms nor rules it out`
+    )
+    return 'INCONCLUSIVE'
+  }
+
+  /**
+   * Check 5's diagnostics: what `GET /invoices?type=1` lists without
+   * `createdAt`, and the newest few, values hidden
+   */
+  private async describeReceived(ours: string | null) {
+    try {
+      const rows = await this.listAll({ type: '1' })
+      this.note(
+        `Without \`createdAt\`, \`GET /invoices?type=1\` lists ${rows.length} received file(s)${rows.cut ? ` (cut off after ${MAX_PAGES} pages)` : ''}`
+      )
+      const newest = [...rows]
+        .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+        .slice(0, NEWEST_SHOWN)
+      for (const row of newest) {
+        this.note(
+          `${row.uuid === ours ? "This run's" : 'Listed'}: ${describeRow(row, this.options.fiscalId)}`
+        )
+      }
+    } catch (error) {
+      this.note(
+        `Received files not listed: ${error instanceof Error ? error.message : String(error)}`
+      )
+    }
+  }
+
+  /** A test FatturaPA from the fiscal id, through the gateway; its uuid */
+  private async submit(
+    fiscalId: string,
+    number: string,
+    progressive: string,
+    legalArchiving: boolean
+  ) {
+    const file = {
+      fileName: fatturaFileName(fiscalId, progressive),
+      xml: this.fattura(fiscalId, number, progressive),
+    }
+    const { remoteId } = await this.gateway.submit(file, { legalArchiving })
+    return remoteId!
+  }
+
   // Running and reporting
 
   private async check(title: string, body: () => Promise<CheckResult>) {
@@ -535,14 +784,14 @@ export class SdiSandboxCheck {
     return 'SKIP'
   }
 
-  private report(flag: '--setup' | '--cleanup' | null) {
+  private report(flags: string[]) {
     const counts = (['PASS', 'FAIL', 'SKIP', 'INCONCLUSIVE'] as const)
       .map((result) => `${this.checks.filter((check) => check.result === result).length} ${result}`)
       .join(', ')
     const lines = [
       '## Openapi sandbox check',
       '',
-      `Run on ${this.startedAt.setZone(TIME_ZONE).toFormat('yyyy-MM-dd HH:mm')} (Europe/Rome) with \`node ace sdi:sandbox-check${flag ? ` ${flag}` : ''}\`, against \`${this.target.baseUrl}\` for fiscal id \`${this.options.fiscalId}\`, waiting up to ${this.options.waitSeconds}s. Values in answers are hidden but for ${[...SHOWN].map((key) => `\`${key}\``).join(', ')}.`,
+      `Run on ${this.startedAt.setZone(TIME_ZONE).toFormat('yyyy-MM-dd HH:mm')} (Europe/Rome) with \`node ace sdi:sandbox-check${flags.map((flag) => ` ${flag}`).join('')}\`, against \`${this.target.baseUrl}\` for fiscal id \`${this.options.fiscalId}\`, waiting up to ${this.wait}s${this.options.waitSeconds === null ? ` (${RECEIVE_WAIT_SECONDS}s to receive with an undeliverable callback)` : ''}. Values in answers are hidden but for ${[...SHOWN].map((key) => `\`${key}\``).join(', ')}.`,
       '',
       '| Check | Result |',
       '| --- | --- |',
@@ -640,14 +889,14 @@ export class SdiSandboxCheck {
    * or `hasMore` is false, at most MAX_PAGES; `cut` when there was more
    */
   private async listAll(query: Record<string, string>) {
-    const rows: { uuid: string; created_at?: string }[] & { cut?: boolean } = []
+    const rows: Listed[] & { cut?: boolean } = []
     for (let page = 1; page <= MAX_PAGES; page++) {
       const list = await this.raw(
         'GET',
         `/invoices?${new URLSearchParams({ ...query, page: String(page) })}`
       )
       if (list.status !== 200) throw new Error(`\`GET /invoices\` answered ${list.status}`)
-      const data = asArray(list.body?.data) as { uuid: string; created_at?: string }[]
+      const data = asArray(list.body?.data) as Listed[]
       rows.push(...data)
       if (!data.length || list.body?.hasMore === false) return rows
     }
@@ -655,10 +904,27 @@ export class SdiSandboxCheck {
     return rows
   }
 
+  /** How long a check waits for Openapi, in seconds */
+  private get wait() {
+    return this.options.waitSeconds ?? DEFAULT_WAIT_SECONDS
+  }
+
+  /**
+   * How long receiving waits: longer by default when the callback seen in
+   * check 2 can't be delivered, since Openapi then lists the invoice only
+   * after minutes (ADR 0019)
+   */
+  private get receiveWait() {
+    if (this.options.waitSeconds !== null) return this.options.waitSeconds
+    return this.callbackUrl && !deliverable(this.callbackUrl)
+      ? RECEIVE_WAIT_SECONDS
+      : DEFAULT_WAIT_SECONDS
+  }
+
   /** Tries until it has an answer or the wait is over; the answer, attempts and seconds taken */
-  private async until<T>(attempt: () => Promise<T | null>) {
+  private async until<T>(attempt: () => Promise<T | null>, waitSeconds = this.wait) {
     const start = Date.now()
-    const deadline = start + this.options.waitSeconds * 1000
+    const deadline = start + waitSeconds * 1000
     for (let attempts = 1; ; attempts++) {
       const value = await attempt()
       const left = deadline - Date.now()
@@ -671,10 +937,12 @@ export class SdiSandboxCheck {
 
   /**
    * Whether `GET /api_configurations` honours its `fiscal_id` filter: asked
-   * for a fiscal id no one holds, it must list nothing. The read carries no
-   * fiscal id, so this is the only way to tell. Honoured only for a 200
-   * whose `data` is an empty array: any other answer proves nothing. It
-   * assumes the filter treats every fiscal id the same way.
+   * for a fiscal id no one holds, it must list nothing. The read may carry
+   * no fiscal id, so this is the only way to tell. Honoured for a 200
+   * whose `data` is an empty array, or for the sandbox's 404 with error
+   * 420 ("Fiscal ID not found or not registered"), which shows the filter
+   * is validated (#223): any other answer proves nothing. It assumes the
+   * filter treats every fiscal id the same way.
    */
   private async probeFilter(): Promise<'honoured' | 'ignored' | 'unconfirmed'> {
     const nobody = this.options.fiscalId === NOBODY ? '99999999999' : NOBODY
@@ -684,6 +952,12 @@ export class SdiSandboxCheck {
     )
     const data = read.body?.data
     const listed = Array.isArray(data) ? data.length : 0
+    if (notRegistered(read)) {
+      this.note(
+        `\`fiscal_id\` filter: honoured (fiscal id ${nobody}, which no one holds, answers 404 with error 420: the filter is validated)`
+      )
+      return 'honoured'
+    }
     const result =
       read.status !== 200 || !Array.isArray(data) ? 'unconfirmed' : listed ? 'ignored' : 'honoured'
     this.note(
@@ -703,7 +977,7 @@ export class SdiSandboxCheck {
   // Test documents
 
   /** A FatturaPA file from the app's own builder, from the fiscal id to an invented customer */
-  private fattura(number: string, progressive: string) {
+  private fattura(fiscalId: string, number: string, progressive: string) {
     const line = {
       quantity: '1',
       unitPrice: '100',
@@ -721,7 +995,7 @@ export class SdiSandboxCheck {
       credits: null,
       company: {
         name: 'Maso sandbox check',
-        vatNumber: this.options.fiscalId,
+        vatNumber: fiscalId,
         taxCode: null,
         taxRegime: 'RF01',
         street: 'Via di Qua',
@@ -765,7 +1039,7 @@ export class SdiSandboxCheck {
   }
 
   /** A Supplier Invoice to simulate, as JSON, addressed to the fiscal id */
-  private supplierInvoice() {
+  private supplierInvoice(fiscalId: string, numero: string) {
     const address = {
       indirizzo: 'Via di La, 2',
       cap: '38100',
@@ -786,7 +1060,7 @@ export class SdiSandboxCheck {
         },
         cessionario_committente: {
           dati_anagrafici: {
-            id_fiscale_iva: { id_paese: 'IT', id_codice: this.options.fiscalId },
+            id_fiscale_iva: { id_paese: 'IT', id_codice: fiscalId },
             anagrafica: { denominazione: 'Maso sandbox check' },
           },
           sede: { ...address, indirizzo: 'Via di Qua, 1' },
@@ -799,7 +1073,7 @@ export class SdiSandboxCheck {
               tipo_documento: 'TD01',
               divisa: 'EUR',
               data: this.today,
-              numero: `F${this.stamp}`,
+              numero,
             },
           },
           dati_beni_servizi: {
@@ -898,21 +1172,66 @@ function scrubPath(pathname: string) {
   return segments.join('/').replace(UUID, '{uuid}')
 }
 
-/**
- * Whether check 5 answers option (a), "listable although the callback
- * can't be delivered": only with an undeliverable callback URL.
- */
-function optionA(callbackUrl: string | null) {
-  if (!callbackUrl) {
-    return 'No `supplier-invoice` callback seen in check 2: this run does not answer option (a)'
-  }
+/** A sandbox answer for a fiscal id without a Business Registry Configuration */
+function notRegistered(read: Raw) {
+  return read.status === 404 && read.body?.error === 420
+}
+
+/** Whether Openapi could deliver to a callback URL: not the placeholder, nor any `.invalid` host */
+function deliverable(callbackUrl: string) {
   let host = ''
   try {
     host = new URL(callbackUrl).hostname
   } catch {
     // Not a URL: Openapi can't deliver to it either
   }
-  return !host || host === 'invalid' || host.endsWith('.invalid')
-    ? `The \`supplier-invoice\` callback (${callbackUrl}) can't be delivered, so this answers option (a)`
-    : `**The \`supplier-invoice\` callback (${callbackUrl}) may be deliverable: this run does NOT answer option (a)**`
+  return !!host && host !== 'invalid' && !host.endsWith('.invalid')
+}
+
+/**
+ * Whether check 5 answers option (a), "listable although the callback
+ * can't be delivered": only with an undeliverable callback URL. With a
+ * reachable one, the run tests delivery instead.
+ */
+function optionA(callbackUrl: string | null) {
+  if (!callbackUrl) {
+    return 'No `supplier-invoice` callback seen in check 2: this run does not answer option (a)'
+  }
+  return deliverable(callbackUrl)
+    ? `**The \`supplier-invoice\` callback (${callbackUrl}) may be deliverable: this run tests delivery to it, not option (a)**`
+    : `The \`supplier-invoice\` callback (${callbackUrl}) can't be delivered, so this answers option (a)`
+}
+
+type Party = { dati_anagrafici: { id_fiscale_iva: { id_paese: string; id_codice: string } } }
+
+/** What a simulated Supplier Invoice was sent as: its keys, and whom it was for */
+function simulation(invoice: {
+  fattura_elettronica_header: {
+    dati_trasmissione: { codice_destinatario: string }
+    cedente_prestatore: Party
+    cessionario_committente: Party
+  }
+}) {
+  const header = invoice.fattura_elettronica_header
+  const party = (who: Party) =>
+    `${who.dati_anagrafici.id_fiscale_iva.id_paese}${who.dati_anagrafici.id_fiscale_iva.id_codice}`
+  return `Simulated with a JSON body \`${outline(invoice)}\`: \`codice_destinatario\` ${header.dati_trasmissione.codice_destinatario}, buyer (\`cessionario_committente\`) ${party(header.cessionario_committente)}, supplier ${party(header.cedente_prestatore)}`
+}
+
+/** An object's keys, two levels deep, without values */
+function outline(value: unknown, depth = 0): string {
+  if (Array.isArray(value)) return `[${value.length} × ${outline(value[0], depth)}]`
+  if (!value || typeof value !== 'object') return ''
+  const keys = Object.entries(value).map(([key, inner]) => {
+    const below = depth < 1 ? outline(inner, depth + 1) : ''
+    return below ? `${key}: ${below}` : key
+  })
+  return `{ ${keys.join(', ')} }`
+}
+
+/** A received file as listed, values hidden but for a few */
+function describeRow(row: Listed, fiscalId: string) {
+  const code = row.recipient?.business_vat_number_code
+  const recipient = !code ? 'absent' : code === fiscalId ? 'our fiscal id' : 'another fiscal id'
+  return `created ${row.created_at ?? 'absent'}, \`marking\` ${show(row.marking)}, \`downloaded\` ${show(row.downloaded)}, \`downloaded_at\` ${row.downloaded_at ? 'set' : 'absent'}, recipient ${recipient}`
 }

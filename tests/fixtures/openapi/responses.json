@@ -483,5 +483,32 @@
       "message": "",
       "error": null
     }
+  },
+  "fiscalIdNotRegistered": {
+    "status": 404,
+    "body": {
+      "success": false,
+      "message": "Fiscal ID not found or not registered",
+      "error": 420,
+      "data": null
+    }
+  },
+  "legalStorageNotAllowed": {
+    "status": 412,
+    "body": {
+      "success": false,
+      "message": "Your current configuration for this fiscal_id does not allow requests on this endpoint. Please use: /invoices",
+      "error": 387,
+      "data": null
+    }
+  },
+  "importUseSupplierInvoiceImports": {
+    "status": 403,
+    "body": {
+      "success": false,
+      "message": "Please use /supplier_invoice_imports for importing invoice to legal storage for: 02903752463",
+      "error": 456,
+      "data": null
+    }
   }
 }
