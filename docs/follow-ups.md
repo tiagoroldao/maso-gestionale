@@ -22,7 +22,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #92   | Automatic SDI Submission through Invoicetronic (send outside the Invoice lock)            | The business (`needs-human`): account and API key |
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
-| #168  | Warn when an installed Item's unit was removed, or the Job's Site changed, before done    | —                                                 |
 | #169  | Pending equipment details on a Charge shown and correctable (`ui-later`)                  | The UX pass                                       |
 
 ## Added to existing issues

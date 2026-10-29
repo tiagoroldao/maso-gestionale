@@ -1,11 +1,11 @@
 import db from '@adonisjs/lucid/services/db'
 import Charge from '#models/charge'
-import type InstalledEquipment from '#models/installed_equipment'
 import Job from '#models/job'
 import Visit from '#models/visit'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Charges, { ChargeRefusedError } from '#services/charges'
+import Installations from '#services/installations'
 import { localDateTime } from '#services/dates'
 import StockLedger from '#stock/stock_ledger'
 import { flashWithStockWarning } from '#stock/stock_warning'
@@ -158,7 +158,7 @@ export default class ChargesController {
         itemIds,
         i18n.t('flash.chargeCorrected'),
         before,
-        equipmentLeft(i18n, left)
+        Installations.messages(i18n, left)
       )
     })
   }
@@ -225,7 +225,7 @@ export default class ChargesController {
       charge,
       { response, session, i18n },
       async () => {
-        const left = await Charges.setWorkState(
+        const warnings = await Charges.setWorkState(
           charge,
           work,
           auth.getUserOrFail(),
@@ -236,7 +236,7 @@ export default class ChargesController {
           itemIds,
           i18n.t(`flash.chargeWork.${work}`),
           before,
-          equipmentLeft(i18n, left)
+          Installations.messages(i18n, warnings)
         )
       },
       true
@@ -262,14 +262,4 @@ export default class ChargesController {
     if (back) return response.redirect().back()
     return response.redirect().toRoute('charges.edit', { id: charge.id })
   }
-}
-
-/**
- * The warning that equipment an installed Item's Charge installed was left
- * as it was (#162), naming it so Office can correct it or mark it removed
- * on its Site.
- */
-function equipmentLeft(i18n: HttpContext['i18n'], equipment: InstalledEquipment | null) {
-  if (!equipment) return []
-  return [i18n.t('flash.equipmentLeft', { equipment: equipment.description })]
 }

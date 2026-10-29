@@ -9,6 +9,7 @@ import Charge from '#models/charge'
 import IssuedDocument from '#models/issued_document'
 import LabourRate from '#models/labour_rate'
 import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import Installations from '#services/installations'
 import { isOpenVisit } from '#shared/visits'
 import { localDateTime } from '#services/dates'
 import { flashWithStockWarning } from '#stock/stock_warning'
@@ -167,8 +168,20 @@ export default class MyVisitsController {
     const { status, ...review } = await request.validateUsing(visitStatusValidator)
 
     return this.refusable(visit, { response, session, i18n }, async () => {
-      await FieldWork.setStatus(visit, status, auth.getUserOrFail(), notDoneIn(review))
-      session.flash('success', i18n.t('flash.visitStatusSaved'))
+      const warnings = await FieldWork.setStatus(
+        visit,
+        status,
+        auth.getUserOrFail(),
+        notDoneIn(review)
+      )
+      // Equipment changed since it was recorded: told, as Office is (#168)
+      await flashWithStockWarning(
+        { session, i18n },
+        [],
+        i18n.t('flash.visitStatusSaved'),
+        undefined,
+        Installations.messages(i18n, warnings)
+      )
     })
   }
 

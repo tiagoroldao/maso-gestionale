@@ -4,14 +4,13 @@ import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Charge from '#models/charge'
 import ChargeEvent, { type ChargeChanges } from '#models/charge_event'
-import type InstalledEquipment from '#models/installed_equipment'
 import Item from '#models/item'
 import Job from '#models/job'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Visit from '#models/visit'
 import VatCode from '#models/vat_code'
-import Installations from '#services/installations'
+import Installations, { type EquipmentWarning } from '#services/installations'
 import StockLedger from '#stock/stock_ledger'
 import {
   BILLING_EVENT_KINDS,
@@ -131,10 +130,10 @@ export default class Charges {
    * leaves stock (a usage dated today, referencing the Job), one done
    * becoming not done comes back (an adjustment). An installed Item
    * becoming done creates or updates its equipment, as closing the Visit
-   * does (#162); becoming not done leaves the equipment as it is and
-   * returns it, for Office to be warned. Refused while a draft
-   * holds the Charge, and while an issued Invoice bills it and no Credit
-   * Note credited that. Like corrections, it plays no part in the Job's
+   * does (#162); becoming not done leaves the equipment as it is. Either
+   * way it returns what Office is warned about the equipment (#168).
+   * Refused while a draft holds the Charge, and while an issued Invoice
+   * bills it and no Credit Note credited that. Like corrections, it plays no part in the Job's
    * status: a closed or cancelled Job's Charges are still reviewed (#111).
    */
   static async setWorkState(
@@ -142,12 +141,12 @@ export default class Charges {
     work: 'done' | 'not_done',
     user: User,
     stockReason: string
-  ): Promise<InstalledEquipment | null> {
+  ): Promise<EquipmentWarning[]> {
     return this.whileLocked(charge, async (trx, locked, job) => {
       const events = await ChargeEvent.query({ client: trx })
         .where('chargeId', locked.id)
         .orderBy('id')
-      if (workState(events) === work) return null
+      if (workState(events) === work) return []
       const visit = locked.visitId ? await Visit.findOrFail(locked.visitId, { client: trx }) : null
       if (visit) {
         // A cancelled Visit's Charges are not done until it is restored (#157)
@@ -159,6 +158,7 @@ export default class Charges {
         throw new ChargeRefusedError('inDraft')
       }
 
+      let warnings: EquipmentWarning[] = []
       if (locked.kind === 'item') {
         const item = await Item.findOrFail(locked.itemId, { client: trx })
         const common = {
@@ -180,10 +180,12 @@ export default class Charges {
         }
         await locked.save()
         // Installed on a Visit: done on the Visit's day
-        if (work === 'done' && visit) await Installations.install(trx, locked, visit, job.siteId)
+        if (work === 'done' && visit) {
+          warnings = await Installations.install(trx, locked, visit, job.siteId)
+        }
       }
       await this.addEvent(trx, locked, work, user, null)
-      return work === 'not_done' ? Installations.left(trx, locked, events) : null
+      return work === 'not_done' ? Installations.left(trx, locked, events) : warnings
     })
   }
 
@@ -230,8 +232,8 @@ export default class Charges {
    * follows: the quantity, the description and, for a new Labour Rate or
    * Item, its current price. Its Job's status plays no part: a closed or
    * cancelled Job's Charges are still billed (#111). A new Item never
-   * changes Installed Equipment (#162): it returns the equipment the
-   * Charge installed, if any, for Office to be warned, and a Charge not
+   * changes Installed Equipment (#162): it returns a warning naming the
+   * equipment the Charge installed, if any, and a Charge not
    * yet done installs the new Item when it becomes done.
    */
   static async correct(
@@ -239,9 +241,9 @@ export default class Charges {
     input: Recorded,
     user: User,
     stockReason: string
-  ): Promise<InstalledEquipment | null> {
+  ): Promise<EquipmentWarning[]> {
     return this.whileLocked(charge, async (trx, locked, job) => {
-      let left: InstalledEquipment | null = null
+      let left: EquipmentWarning[] = []
       const changesStock =
         !new Big(input.quantity).eq(locked.quantity) ||
         (locked.kind === 'item' && input.itemId !== locked.itemId)
