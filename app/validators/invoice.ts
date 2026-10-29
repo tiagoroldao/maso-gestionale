@@ -154,7 +154,8 @@ export const paymentValidator = vine.create({
  * VAT Codes can't be picked, but one already kept stays (`customerId`,
  * `vatCodeIds`). The PDF is required when it is first recorded; when it
  * is changed, a new one replaces it. With `paid`, a Payment for its total
- * is recorded on `paidOn`, by default its date.
+ * is recorded on `paidOn`, by default its date; a day before it is warned
+ * about, never refused (ADR 0014).
  */
 export const legacyInvoiceValidator = vine
   .withMetaData<{ customerId: number | null; vatCodeIds: number[]; creating: boolean }>()
@@ -167,7 +168,8 @@ export const legacyInvoiceValidator = vine
       },
     }),
     jobId: vine.number().exists({ table: 'jobs', column: 'id' }).optional(),
-    number: vine.string().trim().minLength(1).maxLength(50),
+    // As printed; a Credit Note refers to it in FatturaPA's 20 characters
+    number: vine.string().trim().minLength(1).maxLength(20),
     issuedOn: vine.date({ formats: ['YYYY-MM-DD'] }).beforeOrEqual('today'),
     dueOn: vine
       .date({ formats: ['YYYY-MM-DD'] })
@@ -197,7 +199,6 @@ export const legacyInvoiceValidator = vine
     paid: vine.boolean().optional(),
     paidOn: vine
       .date({ formats: ['YYYY-MM-DD'] })
-      .afterOrSameAs('issuedOn')
       .beforeOrEqual('today')
       .optional(),
     pdf: vine

@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { legacyAmountsRefusal, legacyRowVat } from '#shared/legacy_invoices'
+import { legacyAmountsRefusal, legacyCreditRefusal, legacyRowVat } from '#shared/legacy_invoices'
 import { creditRefusal } from '#shared/credit_notes'
 
 const advance = (overrides: Partial<Parameters<typeof legacyAmountsRefusal>[0]> = {}) => ({
@@ -60,8 +60,44 @@ test.group('Legacy Invoices', () => {
     )
   })
 
-  test('a Legacy Invoice is never credited', ({ assert }) => {
-    assert.equal(creditRefusal({ documentType: 'legacy', status: 'delivered' }), 'legacy')
+  test('a Legacy Invoice can be credited (it is issued)', ({ assert }) => {
+    assert.isNull(creditRefusal({ documentType: 'legacy', status: 'delivered' }))
     assert.isNull(creditRefusal({ documentType: 'invoice', status: 'delivered' }))
+  })
+
+  test('a Credit Note credits a Legacy Invoice by amounts', ({ assert }) => {
+    const line = (vatRate: string, amount: string) => ({
+      vatRate,
+      natura: null,
+      unitPrice: amount,
+      lineTotal: amount,
+    })
+    const rows = [
+      { vatRate: '22.00', natura: null, taxable: '500.00' },
+      { vatRate: '10.00', natura: null, taxable: '200.00' },
+    ]
+    const taken = [{ vatRate: '22', natura: null, taxable: '100.00' }]
+    // An advance: by VAT row, with what was taken back at each
+    assert.isNull(legacyCreditRefusal({ rows, taxable: '700', lines: [line('22', '400')], taken }))
+    assert.equal(
+      legacyCreditRefusal({ rows, taxable: '700', lines: [line('22', '400.01')], taken }),
+      'lineCreditTooLarge'
+    )
+    assert.equal(
+      legacyCreditRefusal({ rows, taxable: '700', lines: [line('4', '1')], taken }),
+      'legacyVatRow'
+    )
+    assert.equal(
+      legacyCreditRefusal({ rows, taxable: '700', lines: [line('10', '-1')], taken: [] }),
+      'negativeCredit'
+    )
+    // Otherwise: within the printed taxable, at any VAT
+    assert.isNull(
+      legacyCreditRefusal({ rows: null, taxable: '100', lines: [line('4', '60')], taken: [] })
+    )
+    assert.equal(
+      legacyCreditRefusal({ rows: null, taxable: '100', lines: [line('4', '60')], taken }),
+      'lineCreditTooLarge'
+    )
   })
 })

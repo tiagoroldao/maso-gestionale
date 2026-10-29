@@ -278,6 +278,8 @@ export default class InvoicesController {
         credits: credited
           ? {
               id: credited.id,
+              // A Legacy Invoice is credited by amounts, its lines free (#27)
+              legacy: credited.isLegacy,
               number: credited.formattedNumber!,
               issuedOn: credited.issuedOn!.toISODate()!,
               total: credited.total!,

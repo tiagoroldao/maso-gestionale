@@ -24,10 +24,18 @@ import {
  * (legacyAmountsRefusal()); a Job of another Customer
  * (`customerNotOfJob`); a number another Legacy Invoice of that year has
  * (`duplicateNumber`); or, to change or delete it, Payments recorded on it
- * (`paid`) or an Invoice taking it back, draft or issued (`takenBack`).
+ * (`paid`), an Invoice taking it back, draft or issued (`takenBack`), or
+ * a Credit Note, draft or not (`credited`); or a change in the meantime
+ * that moved it to another Job (`changed`).
  */
 export type LegacyRefusal =
-  LegacyAmountsRefusal | 'customerNotOfJob' | 'duplicateNumber' | 'paid' | 'takenBack'
+  | LegacyAmountsRefusal
+  | 'customerNotOfJob'
+  | 'duplicateNumber'
+  | 'paid'
+  | 'takenBack'
+  | 'credited'
+  | 'changed'
 
 export class LegacyInvoiceRefusedError extends Error {
   constructor(readonly reason: LegacyRefusal) {
@@ -125,8 +133,9 @@ export default class LegacyInvoices {
     try {
       const updated = await db.transaction(async (trx) => {
         const current = await trx.from('invoices').where('id', invoice.id).select('job_id').first()
-        await this.lockJobs(trx, [current?.job_id ?? null, input.jobId])
-        const locked = await this.lockLegacy(trx, invoice.id)
+        const jobIds = [current?.job_id ?? null, input.jobId]
+        await this.lockJobs(trx, jobIds)
+        const locked = await this.lockLegacy(trx, invoice.id, jobIds)
         await this.refuseInUse(trx, locked.id)
         const values = await this.values(trx, input, locked.id)
         if (stored) {
@@ -154,7 +163,7 @@ export default class LegacyInvoices {
     const path = await db.transaction(async (trx) => {
       const current = await trx.from('invoices').where('id', invoice.id).select('job_id').first()
       await this.lockJobs(trx, [current?.job_id ?? null])
-      const locked = await this.lockLegacy(trx, invoice.id)
+      const locked = await this.lockLegacy(trx, invoice.id, [current?.job_id ?? null])
       await this.refuseInUse(trx, locked.id)
       await locked.delete()
       return locked.pdfPath!
@@ -166,7 +175,8 @@ export default class LegacyInvoices {
    * Refuses to change or delete a Legacy Invoice something depends on:
    * a Payment (recorded with the Invoice locked), or an Invoice taking it
    * back, a draft included, since its deduction lines were built from the
-   * VAT rows (written with the Job locked).
+   * VAT rows (written with the Job locked), or a Credit Note (drafted
+   * with the Invoice locked).
    */
   private static async refuseInUse(trx: TransactionClientContract, invoiceId: number) {
     const payment = await trx.from('payments').where('invoice_id', invoiceId).first()
@@ -174,6 +184,9 @@ export default class LegacyInvoices {
     const deduction = await trx.from('advance_deductions').where('advance_id', invoiceId).first()
     const line = await trx.from('invoice_lines').where('deducts_invoice_id', invoiceId).first()
     if (deduction || line) throw new LegacyInvoiceRefusedError('takenBack')
+    // Its Credit Notes, drafts included, credit what it says now
+    const creditNote = await trx.from('invoices').where('credits_invoice_id', invoiceId).first()
+    if (creditNote) throw new LegacyInvoiceRefusedError('credited')
   }
 
   /**
@@ -266,12 +279,24 @@ export default class LegacyInvoices {
     for (const id of jobIds) await trx.from('jobs').where('id', id).forUpdate().first()
   }
 
-  private static async lockLegacy(trx: TransactionClientContract, invoiceId: number) {
+  /**
+   * Locks the Legacy Invoice, after the Jobs `jobIds`. Refused when a
+   * change in between moved it to another Job, which isn't locked
+   * (`changed`).
+   */
+  private static async lockLegacy(
+    trx: TransactionClientContract,
+    invoiceId: number,
+    jobIds: (number | null)[]
+  ) {
     const locked = await Invoice.query({ client: trx })
       .where('id', invoiceId)
       .where('documentType', 'legacy')
       .forUpdate()
       .firstOrFail()
+    if (locked.jobId && !jobIds.includes(locked.jobId)) {
+      throw new LegacyInvoiceRefusedError('changed')
+    }
     return locked.useTransaction(trx)
   }
 

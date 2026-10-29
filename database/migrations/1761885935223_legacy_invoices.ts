@@ -35,8 +35,9 @@ const replace = (name: string, check: string) => [
 export default class extends BaseSchema {
   async up() {
     this.schema.alterTable('invoices', (table) => {
-      // The number the old software gave it, as printed
-      table.string('legacy_number', 50).nullable()
+      // The number the old software gave it, as printed; at most 20
+      // characters, as a Credit Note refers to it (FatturaPA IdDocumento)
+      table.string('legacy_number', 20).nullable()
       // Its taxable amount and VAT, as printed; the grand total is `total`
       table.decimal('taxable', 14, 2).nullable()
       table.decimal('vat', 14, 2).nullable()

@@ -53,3 +53,53 @@ export function legacyAmountsRefusal(input: {
   if (!new Big(input.taxable).plus(input.vat).eq(input.total)) return 'advanceTotal'
   return null
 }
+
+/**
+ * A Credit Note on a Legacy Invoice credits amounts, since the Legacy
+ * Invoice has no lines: each line is free, at a VAT treatment, and
+ * never negative (`negativeCredit`). On a Legacy advance each line has
+ * the VAT of one of its VAT rows (`legacyVatRow`), and what is credited
+ * at a row, with what was already taken back there (`taken`: deductions
+ * and other Credit Notes), never exceeds that row's taxable; otherwise
+ * every line together, with the other Credit Notes, never exceeds the
+ * printed taxable (`lineCreditTooLarge`). The total is capped as on any
+ * Invoice (exceedsCredit()).
+ */
+export type LegacyCreditRefusal = 'negativeCredit' | 'legacyVatRow' | 'lineCreditTooLarge'
+
+type Treatment = { vatRate: string; natura: string | null }
+
+export function legacyCreditRefusal(input: {
+  /** The Legacy advance's VAT rows; null when it isn't an advance */
+  rows: (Treatment & { taxable: string })[] | null
+  /** The Legacy Invoice's taxable, as printed */
+  taxable: string
+  /** The Credit Note's lines */
+  lines: (Treatment & { unitPrice: string; lineTotal: string })[]
+  /** Taxable already taken back, by VAT treatment */
+  taken: (Treatment & { taxable: string })[]
+}): LegacyCreditRefusal | null {
+  const negative = input.lines.some(
+    (line) => new Big(line.unitPrice).lt(0) || new Big(line.lineTotal).lt(0)
+  )
+  if (negative) return 'negativeCredit'
+  const key = (row: Treatment) => `${new Big(row.vatRate).toFixed(2)}|${row.natura ?? ''}`
+  const sum = (values: string[]) => values.reduce((total, value) => total.plus(value), new Big(0))
+  if (!input.rows) {
+    const credited = sum([
+      ...input.lines.map((line) => line.lineTotal),
+      ...input.taken.map((row) => row.taxable),
+    ])
+    return credited.gt(input.taxable) ? 'lineCreditTooLarge' : null
+  }
+  const rows = new Map(input.rows.map((row) => [key(row), row]))
+  if (input.lines.some((line) => !rows.has(key(line)))) return 'legacyVatRow'
+  for (const [rowKey, row] of rows) {
+    const credited = sum([
+      ...input.lines.filter((line) => key(line) === rowKey).map((line) => line.lineTotal),
+      ...input.taken.filter((other) => key(other) === rowKey).map((other) => other.taxable),
+    ])
+    if (credited.gt(row.taxable)) return 'lineCreditTooLarge'
+  }
+  return null
+}

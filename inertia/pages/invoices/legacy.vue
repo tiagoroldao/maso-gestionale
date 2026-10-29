@@ -10,8 +10,7 @@ import CustomerPicker from '~/components/customer_picker.vue'
 import InvoicePayments from '~/components/invoice_payments.vue'
 import { urlFor } from '~/client'
 import { formatDate, formatMoney, t, todayIso } from '~/i18n'
-import { amountForInput, parseAmount } from '@shared/money'
-import { legacyRowVat } from '@shared/legacy_invoices'
+import { amountForInput } from '@shared/money'
 import type { AdvanceState } from '@shared/advances'
 
 type VatRow = {
@@ -45,6 +44,9 @@ const props = defineProps<{
   vatCodes: { id: number; name: string; rate: string }[]
   // Changed or deleted only while it has no Payments and no Invoice takes it back
   editable: boolean
+  // A Credit Note credits it by amounts (#27)
+  canCredit: boolean
+  creditNotes: { id: number; number: string | null; status: string; total: string | null }[]
   advanceState: { state: AdvanceState; deducted: string; left: string } | null
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
   paymentSummary: {
@@ -70,13 +72,6 @@ const rows = ref(
 )
 const addRow = () => rows.value.push({ key: nextKey++, vatCodeId: null, taxable: '' })
 const removeRow = (key: number) => (rows.value = rows.value.filter((row) => row.key !== key))
-// Each row's VAT as the server works it out, to compare with the PDF
-const rowVat = (row: { vatCodeId: number | null; taxable: string }) => {
-  const code = props.vatCodes.find((option) => option.id === row.vatCodeId)
-  const taxable = parseAmount(row.taxable)
-  if (!code || !taxable) return null
-  return legacyRowVat({ vatRate: code.rate, taxable: taxable.toFixed(2) })
-}
 
 const title = computed(() =>
   props.invoice
@@ -97,6 +92,11 @@ const confirmDelete = () => window.confirm(t('ui.legacyInvoices.deleteConfirm'))
   <AppLayout>
     <Page :title="title" :description="description">
       <template v-if="invoice" #actions>
+        <Form v-if="canCredit" route="invoices.store_credit_note" :params="{ id: invoice.id }">
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.invoices.newCreditNote') }}
+          </button>
+        </Form>
         <a
           :href="urlFor('legacy_invoices.pdf', { id: invoice.id })"
           target="_blank"
@@ -283,7 +283,6 @@ const confirmDelete = () => window.confirm(t('ui.legacyInvoices.deleteConfirm'))
                   <tr>
                     <th>{{ t('ui.legacyInvoices.vatCode') }}</th>
                     <th>{{ t('ui.legacyInvoices.rowTaxable') }}</th>
-                    <th :style="{ textAlign: 'right' }">{{ t('ui.legacyInvoices.rowVat') }}</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -309,9 +308,6 @@ const confirmDelete = () => window.confirm(t('ui.legacyInvoices.deleteConfirm'))
                         class="field__input"
                         :aria-label="t('ui.legacyInvoices.rowTaxableOf', { position: index + 1 })"
                       />
-                    </td>
-                    <td :style="{ textAlign: 'right' }">
-                      {{ rowVat(row) === null ? '' : formatMoney(rowVat(row)!) }}
                     </td>
                     <td class="table__actions">
                       <button
@@ -384,6 +380,26 @@ const confirmDelete = () => window.confirm(t('ui.legacyInvoices.deleteConfirm'))
               })
             }}
           </p>
+        </Section>
+
+        <Section v-if="creditNotes.length" :title="t('ui.invoices.creditNotesTitle')">
+          <table class="table">
+            <tbody>
+              <tr v-for="note in creditNotes" :key="note.id">
+                <td>
+                  <Link route="invoices.edit" :params="{ id: note.id }" class="il">
+                    {{ note.number ?? t('ui.invoices.creditNoteDraftTitle') }}
+                  </Link>
+                </td>
+                <td>
+                  <span class="tag">{{ t(`ui.invoices.statuses.${note.status}`) }}</span>
+                </td>
+                <td :style="{ textAlign: 'right' }">
+                  {{ note.total ? formatMoney(note.total) : '' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </Section>
 
         <InvoicePayments

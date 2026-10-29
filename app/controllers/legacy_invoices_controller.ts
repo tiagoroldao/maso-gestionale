@@ -12,6 +12,8 @@ import LegacyInvoices, {
 } from '#services/legacy_invoices'
 import { storagePath } from '#services/storage'
 import { advanceState } from '#shared/advances'
+import { creditRefusal } from '#shared/credit_notes'
+import { formatDate } from '#shared/dates'
 import { overpaidBy, owed, paymentStatus } from '#shared/payment_status'
 import { legacyInvoiceValidator, newLegacyInvoiceValidator } from '#validators/invoice'
 import type { Infer } from '@vinejs/vine/types'
@@ -28,11 +30,17 @@ export default class LegacyInvoicesController {
    * The form for a new Legacy Invoice: for a Customer (`customerId`), or
    * for a Job (`jobId`), its Customer's.
    */
-  async create({ request, inertia }: HttpContext) {
+  async create({ request, inertia, response, session, i18n }: HttpContext) {
     const { customerId, jobId } = await newLegacyInvoiceValidator.validate(request.qs())
     const job = jobId ? await Job.find(jobId) : null
+    const jobCustomer = job ? await Customer.find(job.customerId) : null
+    // An archived Customer can't be picked: say so on the Job
+    if (job && jobCustomer?.archivedAt) {
+      session.flash('error', i18n.t('flash.legacyInvoiceCustomerArchived'))
+      return response.redirect().withQs(false).toRoute('jobs.show', { id: job.id })
+    }
     const customer = job
-      ? await Customer.find(job.customerId)
+      ? jobCustomer
       : customerId
         ? await Customer.query().where('id', customerId).whereNull('archivedAt').first()
         : null
@@ -44,6 +52,8 @@ export default class LegacyInvoicesController {
       jobs: customer ? await jobsOf(customer.id) : [],
       vatCodes: await vatCodeOptions([]),
       editable: true,
+      canCredit: false,
+      creditNotes: [],
       advanceState: null,
       payments: [],
       paymentSummary: null,
@@ -55,12 +65,24 @@ export default class LegacyInvoicesController {
       meta: { customerId: null, vatCodeIds: [], creating: true },
     })
     try {
+      const paidOn = data.paid ? (data.paidOn ?? data.issuedOn) : null
       const invoice = await LegacyInvoices.create(
         inputOf(data),
         data.pdf!,
-        data.paid ? (data.paidOn ?? data.issuedOn) : null,
+        paidOn,
         auth.getUserOrFail()
       )
+      // A Payment dated before the invoice is recorded, with a warning
+      // (ADR 0014)
+      if (paidOn && paidOn < data.issuedOn) {
+        session.flash(
+          'warning',
+          `${i18n.t('flash.legacyInvoiceCreated')} ${i18n.t('flash.paymentWarning.beforeIssued', {
+            date: formatDate(data.issuedOn.toISODate()!),
+          })}`
+        )
+        return response.redirect().toRoute('legacy_invoices.show', { id: invoice.id })
+      }
       session.flash('success', i18n.t('flash.legacyInvoiceCreated'))
       return response.redirect().toRoute('legacy_invoices.show', { id: invoice.id })
     } catch (error) {
@@ -78,7 +100,7 @@ export default class LegacyInvoicesController {
       .preload('job')
       .preload('legacyVatRows', (rows) => rows.orderBy('position'))
       .preload('payments', (payments) => payments.orderBy('paidOn'))
-      .preload('creditNotes')
+      .preload('creditNotes', (notes) => notes.orderBy('id'))
       .firstOrFail()
     // As an advance: how much the Job's issued Invoices took back (ADR 0011)
     const advances =
@@ -116,7 +138,15 @@ export default class LegacyInvoicesController {
       jobs: await jobsOf(invoice.customerId),
       vatCodes: await vatCodeOptions(invoice.legacyVatRows.map((row) => row.vatCodeId)),
       // Changed or deleted only while nothing depends on it
-      editable: !invoice.payments.length && !takenBack && !deducted,
+      editable: !invoice.payments.length && !takenBack && !deducted && !invoice.creditNotes.length,
+      // Credited by amounts (#27); an advance only for what is left of it
+      canCredit: creditRefusal(invoice) === null && (!advance || Number(advance.left) > 0),
+      creditNotes: invoice.creditNotes.map((note) => ({
+        id: note.id,
+        number: note.formattedNumber,
+        status: note.status,
+        total: note.total,
+      })),
       advanceState: advance
         ? {
             state: advanceState(invoice.total!, advance.deducted, advance.credited),

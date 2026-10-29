@@ -23,6 +23,7 @@ import { vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 import { formatMoney } from '#shared/money'
+import { formatDate } from '#shared/dates'
 
 const pdf = app.makePath('tests/fixtures/manual.pdf')
 const notPdf = app.makePath('tests/fixtures/logo.png')
@@ -285,6 +286,22 @@ test.group('Legacy Invoices', (group) => {
     const [later] = await Payment.query().where('invoiceId', onDay.id)
     assert.equal(later.paidOn.toISODate(), '2025-12-01')
 
+    // Paid before its date: recorded, with a warning (ADR 0014)
+    const early = await post(
+      client,
+      office,
+      legacyFields(customer, { number: '129/2025', paid: true, paidOn: '2025-10-30' })
+    )
+    early.assertFlashMessage(
+      'warning',
+      `${it('flash.legacyInvoiceCreated')} ${it('flash.paymentWarning.beforeIssued', {
+        date: formatDate('2025-11-03'),
+      })}`
+    )
+    const earlyInvoice = await created(early, '129/2025')
+    const [earlyPayment] = await Payment.query().where('invoiceId', earlyInvoice.id)
+    assert.equal(earlyPayment.paidOn.toISODate(), '2025-10-30')
+
     const page = await client.get(`/invoices/${paid.id}/legacy`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
       paymentSummary: { status: 'paid', paid: '122.00', owed: '0.00' },
@@ -350,7 +367,7 @@ test.group('Legacy Invoices', (group) => {
     )
   })
 
-  test('every SDI action, Credit Notes and line edits are refused', async ({ client, assert }) => {
+  test('every SDI action and line edits are refused', async ({ client, assert }) => {
     const office = await createUser('office')
     await completeCompany()
     const legacy = await enter(client, legacyFields(await createCustomer()))
@@ -358,8 +375,6 @@ test.group('Legacy Invoices', (group) => {
     const send = (request: ReturnType<ApiClient['post']>) =>
       request.header('referer', '/').withCsrfToken().loginAs(office).redirects(0)
 
-    const credit = await send(client.post(`/invoices/${legacy.id}/credit-notes`))
-    credit.assertFlashMessage('error', it('flash.creditNoteRefused.legacy'))
     const lines = await send(
       client.put(`/invoices/${legacy.id}`).json({
         lines: [{ description: 'Riga', quantity: '1', unitPrice: '10', vatCodeId: standard.id }],
@@ -384,7 +399,6 @@ test.group('Legacy Invoices', (group) => {
     // The services refuse it too, whatever the entry point
     await assert.rejects(() => Submissions.prepare(legacy), SubmissionRefusedError)
     await assert.rejects(() => Invoices.finalise(legacy))
-    await assert.rejects(() => Invoices.createCreditNote(legacy))
     assert.throws(() => fatturaInputFor(legacy, '00001', 'Sconto'))
 
     // Nothing changed
@@ -393,7 +407,6 @@ test.group('Legacy Invoices', (group) => {
     assert.lengthOf(after.lines, 0)
     assert.equal(after.total, '122.00')
     assert.lengthOf(await InvoiceSubmission.query().where('invoiceId', legacy.id), 0)
-    assert.lengthOf(await Invoice.query().where('creditsInvoiceId', legacy.id), 0)
   })
 
   test('on a Job: invoiced so far, the indicators and what closing lists', async ({ client }) => {
@@ -407,6 +420,17 @@ test.group('Legacy Invoices', (group) => {
       .withInertia()
       .loginAs(office)
     form.assertInertiaPropsContains({ customer: { id: customer.id }, jobId: job.id })
+
+    // A Job of an archived Customer: said on the Job page
+    const archived = await createCustomer({ name: 'Archiviato', archivedAt: DateTime.now() })
+    const archivedJob = await createJob(archived)
+    const refused = await client
+      .get('/invoices/legacy/create')
+      .qs({ jobId: archivedJob.id })
+      .loginAs(office)
+      .redirects(0)
+    refused.assertHeader('location', `/jobs/${archivedJob.id}`)
+    refused.assertFlashMessage('error', it('flash.legacyInvoiceCustomerArchived'))
 
     const legacy = await enter(client, legacyFields(customer, { jobId: job.id }))
     let page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)

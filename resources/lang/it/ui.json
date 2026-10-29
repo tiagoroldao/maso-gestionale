@@ -1168,8 +1168,6 @@
     "delete": "Elimina",
     "deleteConfirm": "Eliminare questa fattura pregressa e il suo PDF?",
     "locked": "Ha incassi o è detratta da una fattura: non si può modificare né eliminare.",
-    "advanceState": "Acconto: {state}, da detrarre {left}.",
-    "invoicesTitle": "Fatture",
-    "noInvoices": "Nessuna fattura emessa."
+    "advanceState": "Acconto: {state}, da detrarre {left}."
   }
 }

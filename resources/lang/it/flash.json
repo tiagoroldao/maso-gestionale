@@ -107,14 +107,14 @@
     "lineCreditTooLarge": "Una riga storna più di quanto resta della riga della fattura (il suo importo meno quanto già stornato da altre note di credito emesse): riduci l'importo.",
     "negativeCredit": "Le righe di una nota di credito non possono avere prezzi o importi negativi.",
     "partialDeduction": "Una detrazione d'acconto si restituisce per intero: tieni tutte le sue righe o nessuna.",
-    "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata."
+    "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata.",
+    "legacyVatRow": "Ogni riga deve avere l'IVA di una riga IVA dell'acconto pregresso che storna."
   },
   "creditNoteCreated": "Bozza di nota di credito creata: riduci gli importi a quanto va stornato.",
   "creditNoteRefused": {
     "creditNote": "Una nota di credito non si storna con un'altra nota di credito.",
     "notIssued": "Si può stornare solo una fattura consegnata o non recapitabile: una bozza o una fattura non ancora consegnata no, e una scartata si corregge.",
-    "advanceTakenBack": "Dell'acconto non resta nulla da stornare: è già stato detratto o stornato per intero.",
-    "legacy": "Una fattura pregressa è fuori dal flusso SDI: una sua nota di credito si emette con il vecchio gestionale."
+    "advanceTakenBack": "Dell'acconto non resta nulla da stornare: è già stato detratto o stornato per intero."
   },
   "creditNoteFinalised": "Nota di credito {number} emessa.",
   "creditNoteOverpaid": "La fattura {number} risulta ora pagata in eccesso di {amount}: rimborsa il cliente.",
@@ -194,6 +194,9 @@
     "customerNotOfJob": "La commessa scelta è di un altro cliente.",
     "duplicateNumber": "Una fattura pregressa dello stesso anno ha già questo numero.",
     "paid": "La fattura ha degli incassi: rimuovili prima di modificarla o eliminarla.",
-    "takenBack": "Una fattura detrae questo acconto: togli la detrazione prima di modificarlo o eliminarlo."
-  }
+    "takenBack": "Una fattura detrae questo acconto: togli la detrazione prima di modificarlo o eliminarlo.",
+    "credited": "La fattura ha delle note di credito: non si può modificare né eliminare.",
+    "changed": "La fattura è stata appena modificata: ricarica la pagina e riprova."
+  },
+  "legacyInvoiceCustomerArchived": "Il cliente della commessa è archiviato: ripristinalo per registrare una fattura pregressa."
 }

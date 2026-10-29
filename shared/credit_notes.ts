@@ -33,11 +33,12 @@ export type NumberingSeries = 'invoice' | 'credit_note'
  * - `advanceTakenBack`: an Advance Invoice with nothing left to take back,
  *   all of it deducted by issued Invoices or credited already (ADR 0014);
  *   checked when the Credit Note is drafted, since it needs what was
- *   deducted;
- * - `legacy`: a Legacy Invoice (#27), issued by the previous software and
- *   outside the SDI flow; a Credit Note for it is the old software's.
+ *   deducted.
+ * A Legacy Invoice (#27) is issued (stored as delivered), so it can be
+ * credited: it has no lines, so its Credit Note credits amounts, by VAT
+ * row (legacyCreditRefusal()).
  */
-export type CreditRefusal = 'creditNote' | 'notIssued' | 'advanceTakenBack' | 'legacy'
+export type CreditRefusal = 'creditNote' | 'notIssued' | 'advanceTakenBack'
 
 /** SDI delivered it, or reported it not deliverable: either way it is issued */
 export const CREDITABLE_STATUSES: readonly InvoiceStatus[] = ['delivered', 'not_deliverable']
@@ -47,7 +48,6 @@ export function creditRefusal(invoice: {
   status: InvoiceStatus
 }): CreditRefusal | null {
   if (invoice.documentType === 'credit_note') return 'creditNote'
-  if (invoice.documentType === 'legacy') return 'legacy'
   if (!CREDITABLE_STATUSES.includes(invoice.status)) return 'notIssued'
   return null
 }

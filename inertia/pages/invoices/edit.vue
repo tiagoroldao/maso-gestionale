@@ -59,7 +59,15 @@ const props = defineProps<{
     advance: boolean
     documentType: DocumentType
     // A Credit Note's Invoice, and what is left of it to credit
-    credits: { id: number; number: string; issuedOn: string; total: string; left: string } | null
+    credits: {
+      id: number
+      // A Legacy Invoice: no lines, so the Credit Note's lines are free
+      legacy: boolean
+      number: string
+      issuedOn: string
+      total: string
+      left: string
+    } | null
     discountPercent: string
     notes: string | null
     lines: {
@@ -145,6 +153,9 @@ function linesFromProps(): Line[] {
 }
 
 const creditNote = computed(() => props.invoice.documentType === 'credit_note')
+// A Credit Note's lines credit its Invoice's, at their VAT; on a Legacy
+// Invoice (no lines) they are free, at a VAT Code Office picks (#27)
+const fixedLines = computed(() => creditNote.value && !props.invoice.credits?.legacy)
 
 const lines = reactive<Line[]>(linesFromProps())
 const discountPercent = ref(
@@ -207,7 +218,7 @@ function totalsLine(line: Line): TotalsLine | null {
   const discount = line.discountPercent ? parseAmount(line.discountPercent) : null
   // A Credit Note line keeps the VAT its Invoice charged
   const code =
-    creditNote.value && line.vatRate !== null
+    fixedLines.value && line.vatRate !== null
       ? { rate: line.vatRate, natura: line.natura }
       : codes.value.get(line.vatCodeId)
   if (!quantity || !price || !code || (line.discountPercent && !discount)) return null
@@ -545,7 +556,7 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
               </td>
               <td>
                 <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
-                <span v-if="creditNote" data-testid="credited-vat">
+                <span v-if="fixedLines" data-testid="credited-vat">
                   {{ codes.get(line.vatCodeId)?.name ?? '' }}
                   ({{ vatLabel({ vatRate: line.vatRate ?? '0', natura: line.natura }) }})
                 </span>
@@ -663,8 +674,8 @@ const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '
       </Section>
 
       <!-- A Credit Note's lines are the credited Invoice's, lowered -->
-      <Section v-if="editable && !creditNote" :title="t('ui.invoices.addTitle')">
-        <ItemPicker :label="t('ui.invoices.addItem')" @select="addItem" />
+      <Section v-if="editable && !fixedLines" :title="t('ui.invoices.addTitle')">
+        <ItemPicker v-if="!creditNote" :label="t('ui.invoices.addItem')" @select="addItem" />
         <button type="button" class="btn btn--secondary btn--sm" @click="addFreeLine">
           {{ t('ui.invoices.addFreeLine') }}
         </button>
