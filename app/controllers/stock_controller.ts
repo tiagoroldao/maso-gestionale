@@ -1,12 +1,13 @@
-import Big from 'big.js'
 import Item from '#models/item'
 import StockLedger from '#stock/stock_ledger'
 import { isBelowMarkup } from '#shared/money'
+import { reorderReason } from '#shared/stock'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
- * Items that need attention: negative stock, stock at or below the
- * reorder level, and resale prices now below the Category markup.
+ * Items that need attention: available below zero, or at or below the
+ * reorder level (ADR 0016: what is committed to planned work is already
+ * spoken for), and resale prices now below the Category markup.
  */
 export default class StockController {
   async index({ inertia }: HttpContext) {
@@ -14,22 +15,21 @@ export default class StockController {
       .withScopes((scopes) => scopes.active())
       .preload('category')
       .orderBy(['code', 'id'])
-    const levels = await StockLedger.levels()
+    const quantities = await StockLedger.quantities(items.map((item) => item.id))
 
     const rows = items.map((item) => {
-      const stock = levels.get(item.id) ?? '0.000'
+      const stock = quantities.get(item.id)!
       return {
         id: item.id,
         code: item.code,
         description: item.description,
         unit: item.unit,
-        stock,
+        ...stock,
         reorderLevel: item.reorderLevel,
+        reorder: reorderReason(stock.available, item.reorderLevel),
         purchasePrice: item.purchasePrice,
         resalePrice: item.resalePrice,
         markupPercent: item.category?.markupPercent ?? null,
-        negative: new Big(stock).lt(0),
-        low: item.reorderLevel !== null && new Big(stock).lte(item.reorderLevel),
         belowMarkup: item.category
           ? isBelowMarkup(item.purchasePrice, item.resalePrice, item.category.markupPercent)
           : false,
@@ -37,7 +37,7 @@ export default class StockController {
     })
 
     return inertia.render('stock/index', {
-      toReorder: rows.filter((row) => row.negative || row.low),
+      toReorder: rows.filter((row) => row.reorder !== null),
       belowMarkup: rows.filter((row) => row.belowMarkup),
     })
   }

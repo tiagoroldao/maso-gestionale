@@ -688,6 +688,8 @@ test.group('Charges for installed Items', () => {
     await job.save()
     const boiler = await createItem({ description: 'Caldaia A', maintenanceIntervalMonths: 12 })
     const other = await createItem({ description: 'Caldaia B', maintenanceIntervalMonths: 24 })
+    await StockLedger.receive(boiler, { quantity: '1', occurredOn: DateTime.now() })
+    await StockLedger.receive(other, { quantity: '1', occurredOn: DateTime.now() })
     const charge = await FieldWork.recordItem(visit, {
       itemId: boiler.id,
       quantity: '1',
@@ -782,6 +784,7 @@ test.group('Charges for installed Items', () => {
     await job.save()
     const boiler = await createItem({ description: 'Caldaia A' })
     const other = await createItem({ description: 'Caldaia B' })
+    await StockLedger.receive(boiler, { quantity: '2', occurredOn: DateTime.now() })
     const existing = await InstalledEquipment.create({
       siteId: site.id,
       equipmentType: 'Caldaia',

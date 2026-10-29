@@ -10,6 +10,7 @@ import IssuedDocument from '#models/issued_document'
 import LabourRate from '#models/labour_rate'
 import FieldWork, { CLOSED_VISIT_STATUSES, FieldWorkRefusedError } from '#services/field_work'
 import { localDateTime } from '#services/dates'
+import { flashWithStockWarning } from '#stock/stock_warning'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import { storagePath } from '#services/storage'
 import {
@@ -255,7 +256,8 @@ export default class MyVisitsController {
 
     return this.refusable(visit, { response, session, i18n }, async () => {
       await FieldWork.recordItem(visit, data, auth.getUserOrFail())
-      session.flash('success', i18n.t('flash.visitItemAdded'))
+      // Planned until the Visit closes, so committed: warn when short
+      await flashWithStockWarning({ session, i18n }, [data.itemId], i18n.t('flash.visitItemAdded'))
     })
   }
 

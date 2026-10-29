@@ -79,6 +79,7 @@
   "visitMarkedDone": "Intervento segnato come completato: i materiali sono stati scaricati dal magazzino e il lavoro si può fatturare.",
   "visitHoursAdded": "Ore registrate.",
   "visitItemAdded": "Materiale registrato.",
+  "belowAvailable": "Disponibilità a magazzino sotto zero: {items}. Riordina o rivedi gli addebiti previsti.",
   "fieldWorkRefused": {
     "done": "L'intervento è chiuso e non si può più modificare.",
     "closed": "La commessa è chiusa: l'intervento non si può più modificare.",

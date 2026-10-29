@@ -4,6 +4,7 @@ import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { amountForInput } from '@shared/money'
+import { formatQuantity as quantity } from '@shared/stock'
 import { formatUnitPrice, t } from '~/i18n'
 
 type Row = {
@@ -11,20 +12,17 @@ type Row = {
   code: string
   description: string
   unit: string
-  stock: string
+  inStock: string
+  committed: string
+  available: string
   reorderLevel: string | null
+  reorder: 'negative' | 'low' | null
   purchasePrice: string
   resalePrice: string
   markupPercent: string | null
-  negative: boolean
-  low: boolean
 }
 
 defineProps<{ toReorder: Row[]; belowMarkup: Row[] }>()
-
-function quantity(value: string) {
-  return amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
-}
 </script>
 
 <template>
@@ -40,6 +38,8 @@ function quantity(value: string) {
               <th>{{ t('ui.items.code') }}</th>
               <th>{{ t('ui.items.description') }}</th>
               <th :style="{ textAlign: 'right' }">{{ t('ui.items.stock') }}</th>
+              <th :style="{ textAlign: 'right' }">{{ t('ui.items.committed') }}</th>
+              <th :style="{ textAlign: 'right' }">{{ t('ui.items.available') }}</th>
               <th :style="{ textAlign: 'right' }">{{ t('ui.items.reorderLevel') }}</th>
             </tr>
           </thead>
@@ -49,10 +49,12 @@ function quantity(value: string) {
                 <Link route="items.show" :params="{ id: row.id }" class="il">{{ row.code }}</Link>
               </td>
               <td>{{ row.description }}</td>
+              <td :style="{ textAlign: 'right' }">{{ quantity(row.inStock) }} {{ row.unit }}</td>
+              <td :style="{ textAlign: 'right' }">{{ quantity(row.committed) }} {{ row.unit }}</td>
               <td :style="{ textAlign: 'right' }">
-                {{ quantity(row.stock) }} {{ row.unit }}
+                {{ quantity(row.available) }} {{ row.unit }}
                 <span class="tag">{{
-                  row.negative ? t('ui.stock.negative') : t('ui.stock.low')
+                  row.reorder === 'negative' ? t('ui.stock.negative') : t('ui.stock.low')
                 }}</span>
               </td>
               <td :style="{ textAlign: 'right' }">

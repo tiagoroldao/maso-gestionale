@@ -6,6 +6,8 @@ import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Charges, { ChargeRefusedError } from '#services/charges'
 import { localDateTime } from '#services/dates'
+import StockLedger from '#stock/stock_ledger'
+import { flashWithStockWarning } from '#stock/stock_warning'
 import { isClosedVisit } from '#shared/visits'
 import {
   chargeBillingValidator,
@@ -139,6 +141,10 @@ export default class ChargesController {
           ? await request.validateUsing(itemCorrectionValidator)
           : await request.validateUsing(otherCorrectionValidator)
 
+    // More of an Item, or another one, may leave it short
+    const itemIds = 'itemId' in data && typeof data.itemId === 'number' ? [data.itemId] : []
+    const before = await StockLedger.quantities(itemIds)
+
     return this.refusable(charge, { response, session, i18n }, async () => {
       await Charges.correct(
         charge,
@@ -146,7 +152,12 @@ export default class ChargesController {
         auth.getUserOrFail(),
         i18n.t('ui.charges.stockCorrection', { id: charge.id })
       )
-      session.flash('success', i18n.t('flash.chargeCorrected'))
+      await flashWithStockWarning(
+        { session, i18n },
+        itemIds,
+        i18n.t('flash.chargeCorrected'),
+        before
+      )
     })
   }
 

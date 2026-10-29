@@ -2,12 +2,32 @@ import Big from 'big.js'
 import type { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
+import Charge from '#models/charge'
 import Item from '#models/item'
+import Job from '#models/job'
 import type User from '#models/user'
 import StockMovement from '#models/stock_movement'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
+import { QUANTITY_DECIMALS, stockQuantities, type StockQuantities } from '#shared/stock'
+import { WORK_STATE_SQL } from '#services/job_status'
 
-const QUANTITY_DECIMALS = 3
+/**
+ * The SQL equivalents of inStock(), committed() and available() for the
+ * Item `alias`: the sum of its Stock Movements; the quantity on its
+ * planned Item Charges on Jobs that take new work (isCommitted()), on
+ * Visits and on the Job alike; and the first less the second.
+ */
+export const IN_STOCK_SQL = (alias: string) => `(SELECT coalesce(sum(sm.quantity), 0)
+  FROM stock_movements sm WHERE sm.item_id = ${alias}.id)`
+
+export const COMMITTED_SQL = (alias: string) => `(SELECT coalesce(sum(cc.quantity), 0)
+  FROM charges cc JOIN jobs cj ON cj.id = cc.job_id
+  WHERE cc.item_id = ${alias}.id AND cc.kind = 'item'
+    AND cj.status IN (${ACTIVE_JOB_STATUSES.map((status) => `'${status}'`).join(', ')})
+    AND ${WORK_STATE_SQL('cc')} = 'planned')`
+
+export const AVAILABLE_SQL = (alias: string) => `(${IN_STOCK_SQL(alias)} - ${COMMITTED_SQL(alias)})`
 
 type Common = {
   occurredOn: DateTime
@@ -181,5 +201,78 @@ export default class StockLedger {
   static async levelOf(item: Item) {
     const levels = await this.levels([item.id])
     return levels.get(item.id) ?? '0.000'
+  }
+
+  /**
+   * In stock, committed and available for each of the given Items (all
+   * Items when omitted), read with IN_STOCK_SQL, COMMITTED_SQL and
+   * AVAILABLE_SQL, for lists.
+   */
+  static async quantities(itemIds?: number[]) {
+    const query = db
+      .from('items')
+      .select('items.id')
+      .select(db.raw(`${IN_STOCK_SQL('items')} AS in_stock`))
+      .select(db.raw(`${COMMITTED_SQL('items')} AS committed`))
+      .select(db.raw(`${AVAILABLE_SQL('items')} AS available`))
+    if (itemIds) query.whereIn('items.id', itemIds)
+
+    const rows: { id: number; in_stock: string; committed: string; available: string }[] =
+      await query
+    const fixed = (value: string) => new Big(value).toFixed(QUANTITY_DECIMALS)
+    return new Map<number, StockQuantities>(
+      rows.map((row) => [
+        row.id,
+        {
+          inStock: fixed(row.in_stock),
+          committed: fixed(row.committed),
+          available: fixed(row.available),
+        },
+      ])
+    )
+  }
+
+  /**
+   * In stock, committed and available for one Item, worked out in
+   * TypeScript (stockQuantities()) from its Stock Movements and Item
+   * Charges, for its page.
+   */
+  static async quantitiesOf(item: Item): Promise<StockQuantities> {
+    const movements = await StockMovement.query().where('itemId', item.id).select('quantity')
+    const charges = await Charge.query()
+      .where('itemId', item.id)
+      .where('kind', 'item')
+      .preload('events', (events) => events.orderBy('id'))
+    const jobIds = [...new Set(charges.map((charge) => charge.jobId))]
+    const jobs = jobIds.length ? await Job.query().whereIn('id', jobIds) : []
+    const statusOf = new Map(jobs.map((job) => [job.id, job.status]))
+    return stockQuantities(
+      movements,
+      charges.map((charge) => ({
+        quantity: charge.quantity,
+        work: charge.workState,
+        jobStatus: statusOf.get(charge.jobId)!,
+      }))
+    )
+  }
+
+  /**
+   * The given Items whose available quantity is below zero, by code, and
+   * lower than `before` (their quantities before the change) when given:
+   * the warning shown when planning, recording or importing work takes
+   * them there (ADR 0016). Never a refusal.
+   */
+  static async shortages(itemIds: number[], before?: Map<number, StockQuantities>) {
+    if (!itemIds.length) return []
+    const quantities = await this.quantities(itemIds)
+    const items = await Item.query().whereIn('id', itemIds).orderBy(['code', 'id'])
+    return items.flatMap((item) => {
+      const available = new Big(quantities.get(item.id)!.available)
+      const was = before?.get(item.id)?.available
+      const short = available.lt(0) && (was === undefined || available.lt(was))
+      return short
+        ? [{ code: item.code, unit: item.unit, available: available.toFixed(QUANTITY_DECIMALS) }]
+        : []
+    })
   }
 }

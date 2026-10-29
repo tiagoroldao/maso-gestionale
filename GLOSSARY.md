@@ -93,7 +93,7 @@ A recorded change to an Item's quantity in the Warehouse: a receipt (_carico_), 
 _Avoid_: Transaction, stock change, scarico (ambiguous between usage, sale and adjustment)
 
 **Committed** (_Impegnato_):
-The quantity of an Item on planned Charges: still in stock but spoken for. Available is stock less committed.
+The quantity of an Item on planned Charges of Jobs open or in progress: still in stock but spoken for. Available (_disponibile_) is in stock less committed; reorder alerts use it.
 _Avoid_: Reserved, allocated
 
 ## Invoicing

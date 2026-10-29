@@ -23,7 +23,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #118  | Labour Rates whose hours are not billable by default (`proposal`)                         | Review                                            |
 | #119  | Quote lines show which were added as Charges (`proposal`)                                 | Review                                            |
 | #157  | Cancelled Visits (ADR 0016)                                                               | —                                                 |
-| #158  | Committed stock (ADR 0016)                                                                | —                                                 |
 
 ## Added to existing issues
 
@@ -74,6 +73,7 @@ Review findings folded into planned work, so they are picked up with it:
 - **Untranslated structural validation messages:** a malformed VAT rules body gets English messages such as "The rules field must be an array"; the UI can't trigger them (from the #108 review).
 - **Credit Notes' own series starts at 1** (#145): the Admin sets where the Invoice sequence starts each year, but not the Credit Notes' own series. Add it next to the Invoice numbers if Credit Notes must continue a series from the old software.
 - **Credit Note Items don't come back on stock** (#145): finalising a Credit Note never moves stock, even for goods the Customer returned. Since #156 (ADR 0016), once a Credit Note credits a Job's Item Charge (its line in full), Office can mark it not done, which brings the Item back on stock. An Item on a line credited in part stays billed, and so frozen, and an Item sold on an Invoice without a Job has no Charge: record a stock adjustment by hand for those.
+- **Reopening a Job commits its planned Items without a warning** (#158): a closed or cancelled Job's planned Item Charges commit nothing, so reopening a closed Job commits them again, and can take an Item's available quantity below zero with no warning. The warning covers recording Items in the field, importing Quote lines and correcting a Charge. Restoring a cancelled Visit (#157, in a parallel PR) will do the same. The Stock page lists the Item to reorder either way; add the warning to those two if Office misses it.
 - **Admin password reset keeps old sessions** (#32): when the Superuser sets a new password for an Admin, sessions already open with the old one stay valid until they expire. Fine for a lost password; a compromised account would need sessions invalidated.
 - **Instance settings not read yet** (#32): polling interval, webhook and public URL are stored for #92 (Invoicetronic) and later work; nothing uses them yet.
 - **Secrets in flashed input** (#32): on a validation error, Adonis flashes the request input except `password`, `password_confirmation`, `_csrf` and `_method`, so `invoicetronicApiKey`, `webhookSecret` and camelCase `passwordConfirmation` sit (encrypted) in the session cookie for one request. Exclude them in the exception handler or session config (from the #109 review).

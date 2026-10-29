@@ -388,8 +388,10 @@
     "delete": "Elimina",
     "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli.",
     "stock": "Giacenza",
+    "committed": "Impegnato",
+    "available": "Disponibile",
     "reorderLevel": "Scorta minima",
-    "reorderLevelHint": "Facoltativa. Sotto questa quantità l'articolo compare tra quelli da riordinare.",
+    "reorderLevelHint": "Facoltativa. Quando la disponibilità scende a questa quantità l'articolo compare tra quelli da riordinare.",
     "details": "Dati",
     "prices": "Prezzi",
     "belowMarkup": "Il prezzo di vendita è sotto il ricarico della categoria ({markup} %): rivedi il prezzo.",
@@ -416,6 +418,7 @@
     "adjustmentDescription": "Inventario, rotture o smarrimenti. Usa un numero negativo per togliere merce.",
     "adjust": "Registra rettifica",
     "negativeStock": "Giacenza negativa",
+    "negativeAvailable": "Disponibilità negativa",
     "picker": {
       "label": "Cerca un articolo",
       "placeholder": "Codice, descrizione o codice fornitore",
@@ -435,7 +438,7 @@
   "stock": {
     "title": "Magazzino",
     "toReorderTitle": "Da riordinare",
-    "toReorderDescription": "Articoli con giacenza negativa o pari o inferiore alla scorta minima.",
+    "toReorderDescription": "Articoli la cui disponibilità (giacenza meno impegnato) è negativa, o pari o inferiore alla scorta minima.",
     "belowMarkupTitle": "Prezzi da rivedere",
     "belowMarkupDescription": "Articoli il cui prezzo di vendita è sotto il ricarico della categoria dopo un acquisto più caro.",
     "nothing": "Niente da segnalare.",
