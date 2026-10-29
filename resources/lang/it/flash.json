@@ -263,6 +263,13 @@
   "supplierInvoiceLineUndone": "Riga riportata tra quelle da gestire.",
   "supplierInvoiceSpread": "Sconti della fattura ripartiti sulle righe: i costi proposti sono aggiornati.",
   "supplierInvoiceNotSpread": "Sconti della fattura non più ripartiti: i costi proposti sono quelli delle righe.",
+  "supplierInvoiceArchived": "Fattura inviata alla conservazione a norma tramite l'intermediario.",
+  "supplierInvoiceArchivingFailed": "Invio alla conservazione a norma non riuscito: {detail}",
+  "supplierInvoiceArchivingRefused": {
+    "notOffered": "La conservazione a norma tramite l'intermediario non è attiva.",
+    "notWaiting": "La fattura è già stata inviata alla conservazione a norma, o è in invio."
+  },
+  "supplierInvoicesQueued": "{count, plural, =0 {Nessuna fattura passiva da inviare alla conservazione a norma.} one {# fattura passiva verrà inviata alla conservazione a norma al prossimo controllo.} other {# fatture passive verranno inviate alla conservazione a norma al prossimo controllo.}}",
   "supplierInvoiceLineRefused": {
     "handled": "La riga è già stata gestita: annullala prima di cambiarla.",
     "notHandled": "La riga è ancora da gestire.",

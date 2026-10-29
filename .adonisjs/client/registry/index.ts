@@ -900,6 +900,12 @@ const routes = {
     tokens: [[0,"supplier-invoices"],[1,"id"],[0,"spread-discounts"]],
     types: placeholder as Registry['supplier_invoices.spread_discounts']['types'],
   },
+  'supplier_invoices.archive': {
+    methods: ["POST"],
+    pattern: '/supplier-invoices/:id/legal-archiving',
+    tokens: [[0,"supplier-invoices"],[1,"id"],[0,"legal-archiving"]],
+    types: placeholder as Registry['supplier_invoices.archive']['types'],
+  },
   'supplier_invoice_lines.receive': {
     methods: ["POST"],
     pattern: '/supplier-invoice-lines/:id/receipt',
@@ -1199,6 +1205,12 @@ const routes = {
     pattern: '/instance/backups/run',
     tokens: [[0,"instance"],[0,"backups"],[0,"run"]],
     types: placeholder as Registry['instance.backups.run']['types'],
+  },
+  'instance.archive_supplier_invoices': {
+    methods: ["POST"],
+    pattern: '/instance/archive-supplier-invoices',
+    tokens: [[0,"instance"],[0,"archive-supplier-invoices"]],
+    types: placeholder as Registry['instance.archive_supplier_invoices']['types'],
   },
   'instance.admin_password': {
     methods: ["PUT"],

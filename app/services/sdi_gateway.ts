@@ -42,6 +42,13 @@ export type ReceivedRef = {
 export type ReceivedFile = { fileName: string; content: Buffer }
 
 /**
+ * A received Supplier Invoice to hand to legal archiving (#214): its
+ * FatturaPA XML as bytes (extracted from a signed .p7m), the name the
+ * file came with, and SDI's identifier for it.
+ */
+export type ReceivedForArchiving = { fileName: string; xml: Buffer; sdiId: string }
+
+/**
  * Where the intermediary should call when a Supplier Invoice arrives, for
  * our fiscal id. Polling stays the source of truth; the call only needs to
  * be registered for the intermediary to receive at all (ADR 0019).
@@ -77,6 +84,8 @@ export interface SdiGateway {
   readonly automatic: boolean
   /** Whether it can also hand sent files to legal archiving (ADR 0019) */
   readonly legalArchiving: boolean
+  /** Whether it can hand received Supplier Invoices to legal archiving (#214) */
+  readonly receivedArchiving: boolean
   /** Hands the file to SDI; the intermediary's id for it, if it has one */
   submit(file: SdiFile, options?: SubmitOptions): Promise<{ remoteId: string | null }>
   /** SDI's final notice for a file sent, or null while there is none */
@@ -89,6 +98,11 @@ export interface SdiGateway {
   download(ref: ReceivedRef): Promise<ReceivedFile>
   /** Keeps the receiving callback registered as given; whether it had to change it */
   ensureReceiving(callback: ReceivingCallback): Promise<boolean>
+  /**
+   * Hands a received Supplier Invoice to legal archiving; the
+   * intermediary's id(s) for it (one per invoice in the file)
+   */
+  archiveReceived(file: ReceivedForArchiving): Promise<{ remoteIds: string[] }>
 }
 
 /**
@@ -100,6 +114,7 @@ export class ManualSdiGateway implements SdiGateway {
   readonly channel = 'manual'
   readonly automatic = false
   readonly legalArchiving = ManualSdiGateway.legalArchiving
+  readonly receivedArchiving = false
   async submit() {
     return { remoteId: null }
   }
@@ -118,17 +133,27 @@ export class ManualSdiGateway implements SdiGateway {
   async ensureReceiving() {
     return false
   }
+  async archiveReceived(): Promise<{ remoteIds: string[] }> {
+    throw new Error('Nothing is archived without an intermediary')
+  }
 }
 
 /**
  * An intermediary in memory, for tests: keeps what it is sent, answers
  * the outcomes and serves the files it is given. It offers no legal
- * archiving unless a test says so.
+ * archiving, of sent or received files, unless a test says so.
  */
 export class FakeSdiGateway implements SdiGateway {
   readonly channel = 'fake'
   readonly automatic = true
   legalArchiving = false
+  receivedArchiving = false
+  /** Received Supplier Invoices handed to legal archiving */
+  readonly archived: ReceivedForArchiving[] = []
+  /** Makes the next archiving fail with this error */
+  failNextArchive: Error | null = null
+  /** Runs while an archiving is in flight, before it answers */
+  duringArchive: (() => Promise<void>) | null = null
   readonly submitted: (SdiFile & SubmitOptions)[] = []
   readonly outcomes = new Map<string, SdiOutcomeReport>()
   readonly files = new Map<string, ReceivedFile & ReceivedRef>()
@@ -175,5 +200,17 @@ export class FakeSdiGateway implements SdiGateway {
     const same = JSON.stringify(this.receiving) === JSON.stringify(callback)
     this.receiving = callback
     return !same
+  }
+
+  async archiveReceived(file: ReceivedForArchiving) {
+    if (this.duringArchive) await this.duringArchive()
+    if (this.failNextArchive) {
+      const error = this.failNextArchive
+      this.failNextArchive = null
+      throw error
+    }
+    if (!this.receivedArchiving) throw new Error('No legal archiving here')
+    this.archived.push(file)
+    return { remoteIds: [`fake-archive-${this.archived.length}`] }
   }
 }

@@ -5,6 +5,7 @@ import type { SubmissionOutcome } from '#shared/invoice_lifecycle'
 import {
   SdiFailure,
   SdiSendRefusedError,
+  type ReceivedForArchiving,
   type ReceivedRef,
   type ReceivingCallback,
   type SdiFile,
@@ -100,6 +101,9 @@ function readCallbacks(configuration: ApiConfiguration): Callback[] {
     })
 }
 
+/** What an import answers: a uuid, or one per invoice in the file */
+type ImportAnswer = { uuid?: string | string[] | null }
+
 type InvoiceRead = {
   uuid: string
   created_at: string
@@ -123,6 +127,11 @@ export class OpenapiSdiGateway implements SdiGateway {
   readonly channel = 'openapi'
   readonly automatic = true
   readonly legalArchiving = OpenapiSdiGateway.legalArchiving
+  /**
+   * It archives received Supplier Invoices too, as imports, through
+   * `POST /supplier_invoice_imports_legal_storage` (#214)
+   */
+  readonly receivedArchiving = true
   readonly baseUrl: string
   private readonly token: string
   private readonly fetch: Fetch
@@ -267,6 +276,34 @@ export class OpenapiSdiGateway implements SdiGateway {
       contentType: 'application/json',
     })
     return true
+  }
+
+  /**
+   * POST /supplier_invoice_imports_legal_storage: imports a Supplier
+   * Invoice already received from SDI into legal archiving (#214, ADR
+   * 0019). The spec takes the invoice XML in base64 (a .p7m is sent as its
+   * extracted XML), with SDI's file name and identifier in place of the
+   * metadata file, and answers its uuid, or an array of uuids for a file
+   * with several invoices. The answer is read as the spec's `{ uuid }` or
+   * as `{ data: { uuid } }`, the way Openapi answers its other POSTs: the
+   * real shape is to confirm under #204.
+   */
+  async archiveReceived(file: ReceivedForArchiving) {
+    const response = await this.request('POST', '/supplier_invoice_imports_legal_storage', {
+      body: JSON.stringify({
+        invoice: file.xml.toString('base64'),
+        invoice_file_name: file.fileName,
+        sdi_id: file.sdiId,
+      }),
+      contentType: 'application/json',
+    })
+    const body = (await response.json()) as ImportAnswer & { data?: ImportAnswer | null }
+    const uuid = body.data?.uuid ?? body.uuid
+    const remoteIds = (Array.isArray(uuid) ? uuid : [uuid]).filter(
+      (id): id is string => typeof id === 'string' && id !== ''
+    )
+    if (!remoteIds.length) throw new SdiFailure('noRemoteId')
+    return { remoteIds }
   }
 
   /**

@@ -6,14 +6,19 @@ import SupplierInvoice from '#models/supplier_invoice'
 import SupplierInvoiceLines from '#services/supplier_invoice_lines'
 import SupplierInvoices, { SupplierInvoiceRefusedError } from '#services/supplier_invoices'
 import SupplierInvoiceExport from '#services/supplier_invoice_export'
+import SupplierInvoiceArchiving, {
+  ArchivingRefusedError,
+} from '#services/supplier_invoice_archiving'
+import { isSdiFailureCode } from '#shared/sdi_failures'
 import StockLedger from '#stock/stock_ledger'
-import { lineReceiptRefusal } from '#shared/supplier_invoices'
+import { isArchivingWaiting, lineReceiptRefusal } from '#shared/supplier_invoices'
 import { storagePath } from '#services/storage'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { TIME_ZONE, todayIso } from '#shared/dates'
 import {
   pageValidator,
   spreadDiscountsValidator,
+  supplierInvoiceArchivingValidator,
   supplierInvoiceExportValidator,
   supplierInvoicePageValidator,
   supplierInvoiceUploadValidator,
@@ -27,7 +32,8 @@ const PER_PAGE = 25
  * received, newest first; uploading one (XML or signed .p7m, with no SDI
  * connection needed); its page with a readable rendering and the
  * original file, and its lines to handle (SupplierInvoiceLinesController,
- * #199), which make it handled.
+ * #199), which make it handled; its legal archiving through the SDI
+ * intermediary, sent again from its page after a failure (#214).
  */
 export default class SupplierInvoicesController {
   async index({ request, inertia }: HttpContext) {
@@ -130,6 +136,8 @@ export default class SupplierInvoicesController {
     })
     const today = todayIso()
     const issuedOn = invoice.issuedOn.toISODate()!
+    // Whether it can be sent to legal archiving now: the setting is on (#214)
+    const archivingOffered = (await SupplierInvoiceArchiving.gateway()) !== null
 
     return inertia.render('supplier_invoices/show', {
       invoice: {
@@ -149,6 +157,18 @@ export default class SupplierInvoicesController {
         supplier: { id: invoice.supplier.id, name: invoice.supplier.name },
         details: invoice.details,
         spreadDiscounts: invoice.spreadDiscounts,
+        // Its file's legal archiving through the intermediary (#214)
+        legalArchiving: invoice.legalArchiving
+          ? {
+              state: invoice.legalArchiving,
+              at: invoice.legalArchivingAt!.toISO()!,
+              ids: invoice.legalArchivingIds ?? [],
+              failure: invoice.legalArchivingFailure,
+            }
+          : null,
+        archivingOffered,
+        // Office can send it now: waiting, with the setting on (#214)
+        archivingRetryable: archivingOffered && isArchivingWaiting(invoice.legalArchiving),
         // The discount on the whole invoice, and whether it can be spread over its lines
         discount,
         spreadable,
@@ -206,6 +226,31 @@ export default class SupplierInvoicesController {
       'success',
       i18n.t(spreadDiscounts ? 'flash.supplierInvoiceSpread' : 'flash.supplierInvoiceNotSpread')
     )
+    return response.redirect().toRoute('supplier_invoices.show', { id: invoice.id })
+  }
+
+  /**
+   * Sends the invoice's file to legal archiving again, after a failure or
+   * before the poller does (#214), with SDI's identifier when it has
+   * none. The send happens outside any lock.
+   */
+  async archive({ params, request, response, session, i18n }: HttpContext) {
+    const invoice = await SupplierInvoice.findOrFail(params.id)
+    const { sdiId } = await request.validateUsing(supplierInvoiceArchivingValidator)
+    try {
+      const result = await SupplierInvoiceArchiving.retry(invoice, sdiId ?? null)
+      if (result.outcome === 'requested') {
+        session.flash('success', i18n.t('flash.supplierInvoiceArchived'))
+      } else {
+        const detail = isSdiFailureCode(result.failure)
+          ? i18n.t(`ui.sdiFailures.${result.failure}`)
+          : result.failure
+        session.flash('error', i18n.t('flash.supplierInvoiceArchivingFailed', { detail }))
+      }
+    } catch (error) {
+      if (!(error instanceof ArchivingRefusedError)) throw error
+      session.flash('error', i18n.t(`flash.supplierInvoiceArchivingRefused.${error.reason}`))
+    }
     return response.redirect().toRoute('supplier_invoices.show', { id: invoice.id })
   }
 

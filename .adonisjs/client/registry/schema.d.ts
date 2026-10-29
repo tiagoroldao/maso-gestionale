@@ -1944,6 +1944,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['spreadDiscounts']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'supplier_invoices.archive': {
+    methods: ["POST"]
+    pattern: '/supplier-invoices/:id/legal-archiving'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').supplierInvoiceArchivingValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').supplierInvoiceArchivingValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['archive']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['archive']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['archive']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'supplier_invoice_lines.receive': {
     methods: ["POST"]
     pattern: '/supplier-invoice-lines/:id/receipt'
@@ -2592,6 +2605,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['run']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['run']>>>
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['run']>>>
+    }
+  }
+  'instance.archive_supplier_invoices': {
+    methods: ["POST"]
+    pattern: '/instance/archive-supplier-invoices'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['archiveSupplierInvoices']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['archiveSupplierInvoices']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['archiveSupplierInvoices']>>>
     }
   }
   'instance.admin_password': {

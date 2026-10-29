@@ -7,6 +7,9 @@ import { sdiWebhookUrl } from '#shared/instance'
 import { isSdiFailureCode, type PollFailure } from '#shared/sdi_failures'
 import SdiConnection, { supportsLegalArchiving } from '#services/sdi_connection'
 import SdiReceiving from '#services/sdi_receiving'
+import SupplierInvoiceArchiving, {
+  ArchivingRefusedError,
+} from '#services/supplier_invoice_archiving'
 import type { HttpContext } from '@adonisjs/core/http'
 import { errors as vineErrors } from '@vinejs/vine'
 
@@ -45,6 +48,9 @@ export default class InstanceController {
         pollFailures: pollFailures(settings.sdiPollFailure),
         // Supplier Invoice files received and not yet taken by the intake (#198)
         receivedWaiting: Number(waiting?.$extras.total ?? 0),
+        // Supplier Invoices stored before legal archiving was on, for the
+        // one-off action that queues them (#214): a count, no business data
+        receivedNotArchived: await SupplierInvoiceArchiving.neverQueued(),
       },
       backups: {
         endpoint: settings.backupEndpoint ?? null,
@@ -126,6 +132,21 @@ export default class InstanceController {
     }
     if (warning) session.flash('warning', warning)
     else session.flash('success', i18n.t('flash.instanceSaved'))
+    response.redirect().toRoute('instance')
+  }
+
+  /**
+   * The one-off action (#214): queues for legal archiving every Supplier
+   * Invoice stored before the setting was on; the next poll sends them.
+   */
+  async archiveSupplierInvoices({ response, session, i18n }: HttpContext) {
+    try {
+      const count = await SupplierInvoiceArchiving.queueExisting()
+      session.flash('success', i18n.t('flash.supplierInvoicesQueued', { count }))
+    } catch (error) {
+      if (!(error instanceof ArchivingRefusedError)) throw error
+      session.flash('error', i18n.t('flash.supplierInvoiceArchivingRefused.notOffered'))
+    }
     response.redirect().toRoute('instance')
   }
 

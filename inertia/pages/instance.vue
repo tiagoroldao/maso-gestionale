@@ -25,6 +25,7 @@ defineProps<{
     polledAt: string | null
     pollFailures: PollFailure[]
     receivedWaiting: number
+    receivedNotArchived: number
   }
   backups: {
     endpoint: string | null
@@ -46,6 +47,9 @@ defineProps<{
 /** A code the app names in Italian, or Openapi's own message as it is */
 const sdiFailure = (detail: string) =>
   isSdiFailureCode(detail) ? t(`ui.sdiFailures.${detail}`) : detail
+
+// Each Supplier Invoice archived is paid for: asked first (#214)
+const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExistingConfirm'))
 </script>
 
 <template>
@@ -202,6 +206,19 @@ const sdiFailure = (detail: string) =>
         <p v-if="settings.receivedWaiting">
           {{ t('ui.instance.receivedWaiting', { count: settings.receivedWaiting }) }}
         </p>
+        <Form
+          v-if="settings.legalArchiving && settings.receivedNotArchived"
+          v-slot="{ processing }"
+          route="instance.archive_supplier_invoices"
+          :on-before="confirmArchiveExisting"
+        >
+          <p>
+            {{ t('ui.instance.archiveExistingHint', { count: settings.receivedNotArchived }) }}
+          </p>
+          <button type="submit" class="btn btn--secondary" :disabled="processing">
+            {{ t('ui.instance.archiveExisting') }}
+          </button>
+        </Form>
       </Section>
 
       <Section

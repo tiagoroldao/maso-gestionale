@@ -20,6 +20,7 @@ import {
 } from '#fiscal/fattura_pa_reader'
 import { isUniqueViolation } from '#services/database_errors'
 import { storagePath } from '#services/storage'
+import SupplierInvoiceArchiving from '#services/supplier_invoice_archiving'
 import type { SupplierInvoiceDetails } from '#shared/supplier_invoices'
 
 /**
@@ -74,18 +75,25 @@ export default class SupplierInvoices {
    * there is one, and always by the Supplier's number and date) is refused
    * with `duplicate`, so a poll that sees it again can treat that as
    * already done.
+   *
+   * With legal archiving on (#214), the file is sent to archiving once
+   * stored, outside the lock; a failure is recorded on the invoices and
+   * retried, and never refuses them.
    */
   static async receive(file: ReceivedFile, arrival: Arrival): Promise<SupplierInvoice[]> {
     const fattura = this.read(file.contents)
     await this.refuseIfNotForCompany(fattura)
     this.refuseRepeatsWithin(fattura)
 
+    // Archived through the intermediary when the setting is on and it can (#214)
+    const archiving = await SupplierInvoiceArchiving.gateway()
     const signed = isSigned(file.contents)
     const path = `${DIRECTORY}/${randomUUID()}.${signed ? 'xml.p7m' : 'xml'}`
     await mkdir(storagePath(DIRECTORY), { recursive: true })
     await writeFile(storagePath(path), file.contents)
+    let stored: SupplierInvoice[]
     try {
-      return await db.transaction(async (trx) => {
+      stored = await db.transaction(async (trx) => {
         const supplier = await this.lockSupplier(trx, fattura.supplier)
         await this.refuseDuplicates(trx, supplier, fattura, arrival)
         const created: SupplierInvoice[] = []
@@ -123,6 +131,8 @@ export default class SupplierInvoices {
               filePath: path,
               fileName: fileNameOf(file.name, signed),
               details,
+              legalArchiving: archiving ? 'queued' : null,
+              legalArchivingAt: archiving ? DateTime.now() : null,
             },
             { client: trx }
           )
@@ -153,6 +163,11 @@ export default class SupplierInvoices {
       if (isUniqueViolation(error)) throw new SupplierInvoiceRefusedError('duplicate')
       throw error
     }
+    if (archiving) {
+      await SupplierInvoiceArchiving.sendStored(archiving, path)
+      for (const record of stored) await record.refresh()
+    }
+    return stored
   }
 
   private static read(contents: Buffer) {
