@@ -22,6 +22,10 @@ router
   })
   .use(middleware.guest())
 
+// The SDI intermediary's webhook (ADR 0019): no session, checked by its
+// own secret, and it only asks for an earlier poll
+router.post('sdi/webhook', [controllers.SdiWebhook, 'notify']).as('sdi.webhook')
+
 router
   .group(() => {
     router.get('/', ({ auth, response }) => response.redirect(User.homePath(auth.getUserOrFail())))

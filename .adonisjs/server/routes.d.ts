@@ -8,6 +8,7 @@ export type ScannedRoutes = {
     'setup.store': { paramsTuple?: []; params?: {} }
     'session.create': { paramsTuple?: []; params?: {} }
     'session.store': { paramsTuple?: []; params?: {} }
+    'sdi.webhook': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
@@ -371,6 +372,7 @@ export type ScannedRoutes = {
   POST: {
     'setup.store': { paramsTuple?: []; params?: {} }
     'session.store': { paramsTuple?: []; params?: {} }
+    'sdi.webhook': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
     'my_visits.update_status': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'my_visits.add_note': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

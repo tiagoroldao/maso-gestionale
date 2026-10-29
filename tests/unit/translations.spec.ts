@@ -4,6 +4,7 @@ import { test } from '@japa/runner'
 import app from '@adonisjs/core/services/app'
 import { ROLES } from '#models/user'
 import { CUSTOMER_TYPES } from '#models/customer'
+import { POLL_STEPS, SDI_FAILURE_CODES } from '#shared/sdi_failures'
 import {
   ALL_PAYMENT_METHODS,
   DOCUMENT_TYPES,
@@ -85,5 +86,15 @@ test.group('Translations', () => {
       dynamic.filter((key) => !keys.has(key)),
       []
     )
+  })
+
+  test('every SDI failure code and poll step has its Italian text', async ({ assert }) => {
+    // Pages build these keys at run time, so the usage check above can't see them
+    const keys = await catalogue()
+    const missing = [
+      ...SDI_FAILURE_CODES.map((code) => `ui.sdiFailures.${code}`),
+      ...POLL_STEPS.map((step) => `ui.instance.pollSteps.${step}`),
+    ].filter((key) => !keys.has(key))
+    assert.deepEqual(missing, [])
   })
 })

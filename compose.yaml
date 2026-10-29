@@ -44,6 +44,23 @@ services:
       app:
         condition: service_started
 
+  # The SDI poller (#92, ADR 0019): polls the intermediary for outcomes and
+  # Supplier Invoices on the interval set in Instance settings. With no
+  # connection configured it only waits.
+  sdi:
+    build: .
+    image: ${APP_IMAGE:-ghcr.io/tiagoroldao/maso-gestionale}:${APP_VERSION:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment: *app-environment
+    entrypoint: ['node', 'ace']
+    command: ['sdi:poll']
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
   db:
     image: postgres:17-alpine
     restart: unless-stopped

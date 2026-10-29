@@ -285,13 +285,13 @@ test.group('Backup settings', () => {
       .where('id', 1)
       .update({
         backup_secret_access_key: undecryptable('scw-secret-123'),
-        invoicetronic_api_key: undecryptable('itk_secret'),
+        openapi_token: undecryptable('oat_secret'),
         webhook_secret: undecryptable('whsec'),
       })
 
     const page = await client.get('/instance').withInertia().loginAs(superuser)
     page.assertInertiaPropsContains({
-      settings: { hasApiKey: false, hasWebhookSecret: false },
+      settings: { hasToken: false, tokenUnreadable: true, hasWebhookSecret: false },
       backups: { hasSecret: false },
     })
 

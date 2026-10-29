@@ -25,7 +25,12 @@ import InvoiceSubmission from '#models/invoice_submission'
 import Submissions, {
   NoticeBeforeSubmissionError,
   SubmissionRefusedError,
+  SubmissionSendingError,
+  SubmissionSendRefusedError,
+  SubmissionSendUncertainError,
 } from '#services/submissions'
+import SdiConnection from '#services/sdi_connection'
+import { isSdiFailureCode } from '#shared/sdi_failures'
 import { formatMoney, sumAmounts } from '#shared/money'
 import { formatDate, TIME_ZONE } from '#shared/dates'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
@@ -250,7 +255,7 @@ export default class InvoicesController {
     }
   }
 
-  async edit({ params, inertia, response }: HttpContext) {
+  async edit({ params, inertia, response, i18n }: HttpContext) {
     // A Legacy Invoice has its own page: no lines, no SDI (#27)
     const found = await Invoice.findOrFail(params.id)
     if (found.isLegacy) return response.redirect().toRoute('legacy_invoices.show', { id: found.id })
@@ -281,6 +286,7 @@ export default class InvoicesController {
         )
       : null
     const open = invoice.submissions.find((submission) => !submission.outcome) ?? null
+    const { automatic: sdiAutomatic } = await SdiConnection.gateway()
     const lastRejection = invoice.submissions.findLast(
       (submission) => submission.outcome === 'rejected'
     )
@@ -393,7 +399,16 @@ export default class InvoicesController {
         hasFile: submission.xml !== null,
       })),
       openSubmission: open
-        ? { id: open.id, fileName: open.fileName, submitted: Boolean(open.submittedAt) }
+        ? {
+            id: open.id,
+            fileName: open.fileName,
+            submitted: Boolean(open.submittedAt),
+            // Sent by the app through the intermediary, or uploaded by Office
+            automatic: open.channel !== 'manual' && sdiAutomatic,
+            sending: Boolean(open.sendingAt) && !open.submittedAt,
+            sendFailure: open.sendFailure && sdiFailure(i18n, open.sendFailure),
+            sentByApp: Boolean(open.remoteId),
+          }
         : null,
       // SDI's window to resubmit after a Rejection, from its notice
       resubmitBy:
@@ -621,10 +636,35 @@ export default class InvoicesController {
    */
   async confirmSubmission({ params, response, session, i18n, auth }: HttpContext) {
     const invoice = await Invoice.findOrFail(params.id)
-    const done = await this.refusable({ session, i18n }, () =>
-      Submissions.confirm(invoice, discountLabel(invoice, i18n), auth.getUserOrFail())
-    )
-    if (done) session.flash('success', i18n.t('flash.submissionConfirmed'))
+    try {
+      let how = 'uploaded' as 'sent' | 'uploaded'
+      const done = await this.refusable({ session, i18n }, async () => {
+        how = await Submissions.confirm(invoice, discountLabel(invoice, i18n), auth.getUserOrFail())
+      })
+      if (done) {
+        session.flash(
+          'success',
+          i18n.t(how === 'sent' ? 'flash.submissionSent' : 'flash.submissionConfirmed')
+        )
+      }
+    } catch (error) {
+      // Sending through the intermediary (ADR 0019)
+      if (error instanceof SubmissionSendingError) {
+        session.flash('error', i18n.t('flash.submissionSending'))
+      } else if (error instanceof SubmissionSendRefusedError) {
+        session.flash(
+          'error',
+          i18n.t('flash.submissionSendRefused', { detail: sdiFailure(i18n, error.message) })
+        )
+      } else if (error instanceof SubmissionSendUncertainError) {
+        session.flash(
+          'error',
+          i18n.t('flash.submissionSendUncertain', { detail: sdiFailure(i18n, error.message) })
+        )
+      } else {
+        throw error
+      }
+    }
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }
 
@@ -730,4 +770,12 @@ export default class InvoicesController {
     session.flash('success', i18n.t('flash.invoiceDeleted'))
     response.redirect().toRoute('invoices.index')
   }
+}
+
+/**
+ * Why a send failed, for Office: a code the app names in Italian, or
+ * Openapi's own message as it is (ADR 0019).
+ */
+function sdiFailure(i18n: HttpContext['i18n'], detail: string) {
+  return isSdiFailureCode(detail) ? i18n.t(`ui.sdiFailures.${detail}`) : detail
 }
