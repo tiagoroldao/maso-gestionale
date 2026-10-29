@@ -34,6 +34,8 @@ import { CLOSED_VISIT_STATUSES, OPEN_VISIT_STATUSES } from '#shared/visits'
 import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
 import { keptVatTreatment } from '#shared/vat'
+import { combineCharges, workPeriod } from '#shared/combined_lines'
+import i18nManager from '@adonisjs/i18n/services/main'
 import {
   legacyCreditRefusal,
   legacyRowVat,
@@ -872,17 +874,23 @@ export default class Invoices {
 
   /**
    * A draft Invoice for a Job, from its Charges, whether or not it has a
-   * Quote (ADR 0012): one line per done Charge to bill (ADR 0016) on its
-   * closed Visits and on the Job itself, with what Office set
-   * to bill (quantity, price, description; ADR 0010). The Job page's
-   * running total also counts what is still planned, held by a draft or
-   * billed, so it isn't this draft's total. Each line gets the VAT Code
-   * of the default rules for its kind (labour, material or significant
-   * good), and holds its Charge: finalising bills it, removing the line or
-   * deleting the draft releases it. While a draft is open it is returned
-   * instead of starting another.
+   * Quote (ADR 0012): the done Charges to bill (ADR 0016) on its closed
+   * Visits and on the Job itself, with what Office set to bill (quantity,
+   * price, description; ADR 0010). Alike Charges share a line unless
+   * `combine` is off, when each gets its own (ADR 0017, combineCharges()).
+   * With `upTo` (an ISO date), only Visits whose work day is on or before
+   * it are billed, plus the Job's own Charges. The Job page's running total
+   * also counts what is still planned, held by a draft or billed, so it
+   * isn't this draft's total. Each line gets the VAT Code of the default
+   * rules for its kind (labour, material or significant good), and holds
+   * its Charges: finalising bills them, removing the line or deleting the
+   * draft releases them. While a draft is open it is returned instead of
+   * starting another.
    */
-  static async fromJob(job: Job) {
+  static async fromJob(
+    job: Job,
+    { combine = true, upTo = null }: { combine?: boolean; upTo?: string | null } = {}
+  ) {
     return db.transaction(async (trx) => {
       // Recorded work is billed whatever the Job's status (#111)
       const locked = await Job.query({ client: trx }).where('id', job.id).forUpdate().firstOrFail()
@@ -895,27 +903,34 @@ export default class Invoices {
 
       // Closed Visits' Charges are final in the field; Office's edits and
       // other drafts wait on the Job lock
-      const visits = await Visit.query({ client: trx })
+      const closed = await Visit.query({ client: trx })
         .where('jobId', locked.id)
         .whereIn('status', [...CLOSED_VISIT_STATUSES])
         .preload('charges', (charges) =>
           charges
             .withScopes((scopes) => scopes.toBill())
             .preload('item')
+            .preload('labourRate')
             .orderByRaw("kind = 'item', created_at, id")
         )
         .orderBy('startsAt')
+      const now = DateTime.now()
+      const dayOf = (visit: Visit) => visit.workDay(now).toISODate()!
+      const visits = upTo ? closed.filter((visit) => dayOf(visit) <= upTo) : closed
+      // Work after the date is left for a later Invoice
+      const leftOut = closed.some((visit) => !visits.includes(visit) && visit.charges.length)
       const onJob = await Charge.query({ client: trx })
         .withScopes((scopes) => scopes.toBill())
         .where('jobId', locked.id)
         .whereNull('visitId')
         .preload('item')
+        .preload('labourRate')
         .orderBy(['createdAt', 'id'])
       const work = [
         ...visits.flatMap((visit) =>
-          visit.charges.map((charge) => ({ day: visit.startsAt.toFormat('dd/MM'), charge }))
+          visit.charges.map((charge) => ({ visitId: visit.id, day: dayOf(visit), charge }))
         ),
-        ...onJob.map((charge) => ({ day: null, charge })),
+        ...onJob.map((charge) => ({ visitId: null, day: null, charge })),
       ]
       if (!work.length) throw new JobNotInvoiceableError()
 
@@ -931,22 +946,54 @@ export default class Invoices {
       const codeOf = (charge: Charge) =>
         quoted.find((code) => code.id === charge.vatCodeId) ?? defaults[charge.lineKind]
 
+      const drafted = combineCharges(
+        work.map((entry) => ({
+          ...entry,
+          kind: entry.charge.kind,
+          labourRateId: entry.charge.labourRateId,
+          itemId: entry.charge.itemId,
+          groupable: entry.charge.item?.groupable ?? false,
+          unitPrice: entry.charge.unitPrice,
+          vatCodeId: codeOf(entry.charge).id,
+          billQuantity: entry.charge.billQuantity,
+        })),
+        { combine }
+      )
+      // A line of its own for an Equipment Item names the pieces it
+      // installed by their serial numbers, as recorded at the Site now
+      const singles = drafted.flatMap((line) =>
+        line.charges.length === 1 && line.charges[0].kind === 'item'
+          ? [line.charges[0].charge.id]
+          : []
+      )
+      const installed = singles.length
+        ? await trx
+            .from('installed_equipment')
+            .whereIn('charge_id', singles)
+            .whereNotNull('serial_number')
+            .orderBy('id')
+            .select('charge_id', 'serial_number')
+        : []
+      const serials = (chargeId: number) =>
+        installed.flatMap((row) => (row.charge_id === chargeId ? [row.serial_number] : []))
+
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
         { client: trx }
       )
       const lines = await InvoiceLine.createMany(
-        work.map(({ day, charge }, position) => {
+        drafted.map((line, position) => {
+          const { charge } = line.charges[0]
           const code = codeOf(charge)
-          // The Visit's day fits after the description on the line
-          const suffix = day ? ` (${day})` : ''
           return {
             invoiceId: invoice.id,
             position,
             itemId: charge.itemId,
             description:
-              charge.description.slice(0, CHARGE_DESCRIPTION_MAX - suffix.length) + suffix,
-            quantity: charge.billQuantity,
+              line.charges.length === 1
+                ? this.chargeLine(charge, line.charges[0].day, serials(charge.id))
+                : this.combinedLine(charge, line.charges),
+            quantity: line.quantity,
             unit: charge.billUnit,
             unitPrice: charge.unitPrice,
             discountPercent: '0',
@@ -954,20 +1001,23 @@ export default class Invoices {
             vatRate: code.rate,
             natura: code.natura,
             legalNote: code.legalNote,
-            lineTotal: invoiceLineTotal(charge.billQuantity, charge.unitPrice),
+            lineTotal: invoiceLineTotal(line.quantity, charge.unitPrice),
           }
         }),
         { client: trx }
       )
       await this.hold(
         trx,
-        lines.map((line, index) => ({ lineId: line.id, chargeId: work[index].charge.id }))
+        lines.flatMap((line, index) =>
+          drafted[index].charges.map(({ charge }) => ({ lineId: line.id, chargeId: charge.id }))
+        )
       )
       // A draft that bills everything outstanding (no Visit still to come,
       // no planned Charge on the Job, ADR 0016) takes back what is left of
       // each advance; others start with none, and Office can change both
       // (ADR 0011)
       const moreWork =
+        leftOut ||
         (await Visit.query({ client: trx })
           .where('jobId', locked.id)
           .whereIn('status', [...OPEN_VISIT_STATUSES])
@@ -979,9 +1029,49 @@ export default class Invoices {
           .whereRaw(OUTSTANDING_SQL('charges'))
           .first())
       if (!moreWork) {
-        await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), work.length)
+        await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), lines.length)
       }
       return invoice
+    })
+  }
+
+  /**
+   * A draft line billing one Charge: its description, the Visit's day
+   * after it, and the serial numbers of the equipment it installed.
+   */
+  private static chargeLine(charge: Charge, day: string | null, serials: string[]) {
+    const i18n = i18nManager.locale(i18nManager.defaultLocale)
+    const suffix =
+      (day ? ` (${DateTime.fromISO(day).toFormat('dd/MM')})` : '') +
+      (serials.length
+        ? i18n.t('documents.invoice.serialNumbers', { serials: serials.join(', ') })
+        : '')
+    return charge.description.slice(0, CHARGE_DESCRIPTION_MAX - suffix.length) + suffix
+  }
+
+  /**
+   * A draft line combining alike Charges (ADR 0017): the Labour Rate or
+   * the Item, and the Visits its work spans, e.g. "Manodopera idraulico
+   * (12 interventi, 03/11–28/11)".
+   */
+  private static combinedLine(
+    first: Charge,
+    charges: { visitId: number | null; day: string | null }[]
+  ) {
+    const i18n = i18nManager.locale(i18nManager.defaultLocale)
+    const name = (first.kind === 'labour' ? first.labourRate.name : first.item.description).slice(
+      0,
+      CHARGE_DESCRIPTION_MAX - 100
+    )
+    const period = workPeriod(charges)
+    if (!period) return name
+    const day = (iso: string) => DateTime.fromISO(iso).toFormat('dd/MM')
+    if (period.from === period.to) return `${name} (${day(period.from)})`
+    return i18n.t('documents.invoice.combinedLine', {
+      name,
+      visits: period.visits,
+      from: day(period.from),
+      to: day(period.to),
     })
   }
 

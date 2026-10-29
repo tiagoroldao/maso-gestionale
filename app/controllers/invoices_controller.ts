@@ -27,11 +27,12 @@ import Submissions, {
   SubmissionRefusedError,
 } from '#services/submissions'
 import { formatMoney, sumAmounts } from '#shared/money'
-import { formatDate } from '#shared/dates'
+import { formatDate, TIME_ZONE } from '#shared/dates'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import type { I18n } from '@adonisjs/i18n'
 import {
   paymentValidator,
+  invoiceFromJobValidator,
   invoiceStageValidator,
   invoiceValidator,
   newInvoiceValidator,
@@ -157,12 +158,18 @@ export default class InvoicesController {
 
   /**
    * A draft Invoice from a Job's Charges to bill, whether or not it has
-   * Quotes (ADR 0012), or the Job's existing draft.
+   * Quotes (ADR 0012), alike ones combined when asked (ADR 0017) and up to
+   * a day if given, or the Job's existing draft.
    */
-  async storeFromJob({ params, response, session, i18n }: HttpContext) {
+  async storeFromJob({ params, request, response, session, i18n }: HttpContext) {
     const job = await Job.findOrFail(params.id)
+    const { combine, upTo } = await request.validateUsing(invoiceFromJobValidator)
     try {
-      const invoice = await Invoices.fromJob(job)
+      const invoice = await Invoices.fromJob(job, {
+        // A checkbox: left out when unticked
+        combine: combine ?? false,
+        upTo: upTo ? upTo.setZone(TIME_ZONE).toISODate() : null,
+      })
       session.flash('success', i18n.t('flash.invoiceCreated'))
       return response.redirect().toRoute('invoices.edit', { id: invoice.id })
     } catch (error) {
@@ -315,6 +322,7 @@ export default class InvoicesController {
           discountPercent: line.discountPercent,
           vatCodeId: line.vatCodeId,
           significantGood: line.item?.significantGood ?? false,
+          groupable: line.item?.groupable ?? false,
           deductsInvoiceId: line.deductsInvoiceId,
           chargeIds: line.charges.map((charge) => charge.id),
         })),

@@ -622,7 +622,31 @@ function confirmCancel() {
             {{ t('ui.invoices.newAdvance') }}
           </button>
         </Form>
-        <Form v-if="canInvoice" route="invoices.store_from_job" :params="{ id: job.id }">
+        <Form
+          v-if="canInvoice"
+          v-slot="{ errors: draftErrors }"
+          route="invoices.store_from_job"
+          :params="{ id: job.id }"
+        >
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input type="checkbox" name="combine" value="true" checked />
+              {{ t('ui.invoices.combineCharges') }}
+            </label>
+            <span class="field__hint">{{ t('ui.invoices.combineChargesHint') }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="invoice-up-to">{{ t('ui.invoices.upTo') }}</label>
+            <input
+              id="invoice-up-to"
+              name="upTo"
+              type="date"
+              class="field__input"
+              :style="{ maxWidth: '200px' }"
+            />
+            <span class="field__hint">{{ t('ui.invoices.upToHint') }}</span>
+            <span v-if="draftErrors.upTo" class="field__error">{{ draftErrors.upTo }}</span>
+          </div>
           <button type="submit" class="btn btn--secondary btn--sm">
             {{ t('ui.invoices.fromCharges') }}
           </button>

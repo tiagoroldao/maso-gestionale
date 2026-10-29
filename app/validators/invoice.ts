@@ -21,6 +21,16 @@ const LINE_PRICE_MAX = '9999999'
 // A Legacy Invoice's totals, as Payments are capped
 const LEGACY_AMOUNT_MAX = '9999999999'
 
+/**
+ * How a draft from a Job's Charges is made (ADR 0017): alike Charges
+ * combined (the checkbox, sent only when ticked) and the last work day it
+ * bills.
+ */
+export const invoiceFromJobValidator = vine.create({
+  combine: vine.boolean().optional(),
+  upTo: vine.date({ formats: ['YYYY-MM-DD'] }).optional(),
+})
+
 export const newInvoiceValidator = vine.create({
   customerId: vine.number().exists({
     table: 'customers',
