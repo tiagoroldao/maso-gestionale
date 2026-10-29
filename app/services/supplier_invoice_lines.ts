@@ -64,7 +64,8 @@ export default class SupplierInvoiceLines {
    * (CodiceArticolo), for the invoice's Supplier, else one not linked to
    * any Supplier; otherwise the Item an earlier line of the Supplier with
    * the same description was received onto; otherwise an active Item with
-   * the same description. Office confirms or picks another.
+   * the same description. Never an Item linked to another Supplier. Office
+   * confirms or picks another.
    */
   static async suggestions(invoice: SupplierInvoice, lines: SupplierInvoiceLine[]) {
     const open = lines.filter((line) => line.outcome === null)
@@ -88,6 +89,9 @@ export default class SupplierInvoiceLines {
           .where('i.supplier_id', invoice.supplierId)
           .where('l.outcome', 'received')
           .whereNull('items.archived_at')
+          .where((query) =>
+            query.where('items.supplier_id', invoice.supplierId).orWhereNull('items.supplier_id')
+          )
           .whereRaw(
             `${DESCRIPTION_KEY_SQL('l.description')} IN (${descriptions.map(() => '?').join(', ')})`,
             descriptions
@@ -107,7 +111,9 @@ export default class SupplierInvoiceLines {
             `${DESCRIPTION_KEY_SQL('description')} IN (${descriptions.map(() => '?').join(', ')})`,
             descriptions
           )
-          .orderByRaw('(supplier_id = ?) IS NOT TRUE, code, id', [invoice.supplierId])
+          .where((query) => query.where('supplierId', invoice.supplierId).orWhereNull('supplierId'))
+          // This Supplier's Items first
+          .orderByRaw('supplier_id IS NULL, code, id')
       : []
 
     const earlierIds = [...new Set(earlier.map((row) => row.item_id))]

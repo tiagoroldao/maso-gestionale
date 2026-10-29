@@ -115,8 +115,13 @@ test.group('Supplier Invoice lines', (group) => {
       supplierId: invoice.supplierId,
       supplierCode: ' vlv-034',
     })
-    // The description, spaces and case aside; never an archived Item
+    // The description, spaces and case aside; never an archived Item nor another Supplier's
     await createItem({ description: 'Raccordi e guarnizioni', archivedAt: DateTime.now() })
+    await createItem({
+      code: 'A-OTHER',
+      supplierId: other.id,
+      description: 'Raccordi e guarnizioni',
+    })
     const fittings = await createItem({ description: ' RACCORDI  e guarnizioni ' })
 
     let [valve, fitting] = await pageLines(client, office, invoice)
@@ -143,6 +148,13 @@ test.group('Supplier Invoice lines', (group) => {
     ;[, fitting] = await pageLines(client, office, invoice)
     assert.equal(fitting.suggestion?.id, earlierItem.id)
     assert.lengthOf(lines, 2)
+
+    // A later line received onto another Supplier's Item isn't suggested from history either
+    const othersItem = await createItem({ code: 'OTHERS', supplierId: other.id })
+    const later = await invoiceWith(office, supplierInvoiceXml({ number: 'FV-LATER' }))
+    await receive(client, office, later.lines[1], { itemId: othersItem.id, quantity: '1' })
+    ;[, fitting] = await pageLines(client, office, invoice)
+    assert.equal(fitting.suggestion?.id, earlierItem.id)
   })
 
   test('receiving a line: a receipt at its unit cost, the Item’s prices and Supplier', async ({

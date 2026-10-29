@@ -250,7 +250,7 @@
     "duplicate": "Questa fattura è già stata ricevuta.",
     "notForCompany": "La fattura non è intestata all'azienda: il destinatario ha un'altra Partita IVA o Codice Fiscale."
   },
-  "supplierInvoiceLineReceived": "Caricati {quantity} {unit} di {code}.",
+  "supplierInvoiceLineReceived": "Carico registrato: {quantity} {unit} di {code}.",
   "supplierInvoiceLineUnits": "La riga è in {lineUnit}, l'articolo in {unit}: controlla la quantità caricata.",
   "supplierInvoiceLineBelowMarkup": "Il prezzo di vendita di {code} è ora sotto il ricarico della categoria ({markup} %): rivedi il prezzo.",
   "supplierInvoiceLineNotStock": "Riga segnata come non di magazzino.",

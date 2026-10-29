@@ -52,8 +52,9 @@ export default class extends BaseSchema {
         'supplier_invoice_lines_outcome_check'
       )
       table.check(
-        `(outcome = 'received') = (item_id IS NOT NULL AND stock_movement_id IS NOT NULL)
-          AND (outcome = 'received'
+        `(outcome IS NOT DISTINCT FROM 'received') = (item_id IS NOT NULL)
+          AND (outcome IS NOT DISTINCT FROM 'received') = (stock_movement_id IS NOT NULL)
+          AND (outcome IS NOT DISTINCT FROM 'received'
             OR (previous_purchase_price IS NULL AND NOT set_supplier_code))
           AND (outcome IS NULL) = (handled_at IS NULL)
           AND (handled_by IS NULL OR handled_at IS NOT NULL)`,
@@ -74,9 +75,18 @@ export default class extends BaseSchema {
   }
 
   async down() {
-    // Receipts and adjustments stay in the ledger; only the links to them
-    // go. Invoices stay handled or to handle as they are. The checks go
-    // with their columns.
+    this.defer(async (db) => {
+      // A received line would lose its receipt and could be received again
+      // after a re-run: refuse rather than forget it (undo the lines first)
+      const received = await db.rawQuery(
+        `SELECT id FROM supplier_invoice_lines WHERE outcome = 'received' LIMIT 1`
+      )
+      if (received.rows.length) {
+        throw new Error('Some Supplier Invoice lines are received into stock: undo them first')
+      }
+    })
+    // Lines marked not stock go back to plain lines; invoices stay handled
+    // or to handle as they are. The checks go with their columns.
     this.schema.alterTable('supplier_invoice_lines', (table) => {
       table.dropColumn('handled_by')
       table.dropColumn('handled_at')

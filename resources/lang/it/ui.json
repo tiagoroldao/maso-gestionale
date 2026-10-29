@@ -1369,7 +1369,7 @@
     "receiveQuantity": "Quantità in {unit}",
     "receiveDate": "Data di carico",
     "receive": "Carica a magazzino",
-    "markNotStock": "Non di magazzino",
+    "markNotStock": "Segna come non di magazzino",
     "notStock": "Non di magazzino",
     "receivedAs": "Caricati {quantity} {unit} di {code}",
     "receivedAt": "a {cost}/{unit}",
