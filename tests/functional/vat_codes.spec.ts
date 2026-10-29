@@ -1,8 +1,13 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import VatCode from '#models/vat_code'
 import { createUser } from '#tests/helpers/users'
 import { createItem, vatCode } from '#tests/helpers/items'
+import { createCustomer } from '#tests/helpers/customers'
+import { createJob } from '#tests/helpers/jobs'
+import { createQuote } from '#tests/helpers/quotes'
+import { NATURA_CODES } from '#shared/vat'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 test.group('VAT Codes', () => {
@@ -57,6 +62,8 @@ test.group('VAT Codes', () => {
       [{ name: '22%', rate: '22' }, 'name'],
       [{ name: 'Troppo', rate: '100' }, 'rate'],
       [{ name: 'Illeggibile', rate: 'abc', natura: 'N4' }, 'rate'],
+      // FatturaPA's RiferimentoNormativo takes 100 characters
+      [{ name: 'Nota lunga', rate: '0', natura: 'N4', legalNote: 'x'.repeat(101) }, 'legalNote'],
     ] as const) {
       const response = await client
         .post('/settings/vat-codes')
@@ -69,6 +76,50 @@ test.group('VAT Codes', () => {
       assert.deepEqual(Object.keys(errors), [field], form.name)
     }
     assert.lengthOf(await VatCode.all(), 8)
+  })
+
+  test('the database takes only the FatturaPA Natura codes, wherever one is kept', async ({
+    assert,
+  }) => {
+    // Each write in a savepoint, so a refused one leaves the test usable
+    const insert = (natura: string) =>
+      db.transaction((trx) =>
+        trx.table('vat_codes').insert({
+          name: `Codice ${natura}`,
+          rate: 0,
+          natura,
+          created_at: new Date(),
+          updated_at: new Date(),
+        })
+      )
+    await assert.rejects(() => insert('N8'), /vat_codes_natura_check/)
+    await assert.rejects(() => insert('n4'), /vat_codes_natura_check/)
+    for (const code of NATURA_CODES) await insert(code)
+
+    const { rows } = await db.rawQuery(
+      `SELECT conrelid::regclass::text AS name FROM pg_constraint
+       WHERE conname LIKE '%_natura_check' ORDER BY 1`
+    )
+    assert.deepEqual(
+      rows.map((row: { name: string }) => row.name),
+      ['invoice_lines', 'legacy_vat_rows', 'quote_lines', 'vat_codes']
+    )
+  })
+
+  test("a Quote's text line carries no legal note", async ({ assert }) => {
+    const quote = await createQuote(await createJob(await createCustomer()))
+    const textLine = (legalNote: string | null) =>
+      db.transaction((trx) =>
+        trx.table('quote_lines').insert({
+          quote_id: quote.id,
+          position: 1,
+          kind: 'text',
+          description: 'Smaltimento incluso',
+          legal_note: legalNote,
+        })
+      )
+    await assert.rejects(() => textLine('Art. 10'), /quote_lines_vat_check/)
+    await textLine(null)
   })
 
   test('archived codes leave the list and pickers, but Items keep theirs', async ({

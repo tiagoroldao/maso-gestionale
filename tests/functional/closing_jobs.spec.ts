@@ -33,7 +33,7 @@ function post(client: ApiClient, user: User, url: string) {
 }
 
 function visitOf(job: Job, attributes: Partial<Visit> = {}, days = 0) {
-  const startsAt = DateTime.fromISO('2026-11-03T09:00').plus({ days })
+  const startsAt = DateTime.fromISO('2026-10-03T09:00').plus({ days })
   return Visit.create({
     jobId: job.id,
     startsAt,
@@ -343,7 +343,7 @@ test.group('A closed Job takes no new work', () => {
     }
 
     await visit.refresh()
-    assert.equal(visit.startsAt.toISO(), DateTime.fromISO('2026-11-03T09:00').toISO())
+    assert.equal(visit.startsAt.toISO(), DateTime.fromISO('2026-10-03T09:00').toISO())
     assert.lengthOf(await Visit.query().where('jobId', job.id), 1)
     assert.lengthOf(await Charge.query().where('jobId', job.id), 0)
     assert.lengthOf(await Quote.query().where('jobId', job.id), 2)

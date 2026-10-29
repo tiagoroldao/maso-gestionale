@@ -1,7 +1,7 @@
 import vine from '@vinejs/vine'
 import type { FieldContext } from '@vinejs/vine/types'
 import { parseAmount } from '#shared/money'
-import { NATURA_CODES } from '#shared/vat'
+import { LEGAL_NOTE_MAX, NATURA_CODES } from '#shared/vat'
 import { amountRule } from '#validators/rules/amount'
 
 const rateOf = (field: FieldContext) => parseAmount(String(field.parent.rate ?? ''))
@@ -36,5 +36,5 @@ export const vatCodeValidator = vine.withMetaData<{ id?: number }>().create({
     .use(onlyWithoutVat())
     .optional()
     .requiredWhen((field) => Boolean(rateOf(field)?.eq(0))),
-  legalNote: vine.string().trim().maxLength(500).optional(),
+  legalNote: vine.string().trim().maxLength(LEGAL_NOTE_MAX).optional(),
 })

@@ -2,6 +2,7 @@ import vine from '@vinejs/vine'
 import { TAX_REGIMES, type TaxRegime } from '#fiscal/tax_regimes'
 import { italianIbanRule, taxCodeRule, vatNumberRule } from '#validators/rules/italian_ids'
 import { amountRule } from '#validators/rules/amount'
+import { fatturaEmail } from '#validators/rules/email'
 import { LIQUIDATION_STATUSES, SOLE_SHAREHOLDER } from '#shared/company'
 
 /**
@@ -46,7 +47,7 @@ export const companySettingsValidator = vine.create({
   liquidationStatus: vine.enum(LIQUIDATION_STATUSES).optional(),
 
   iban: vine.string().use(italianIbanRule()).optional(),
-  email: vine.string().trim().email().maxLength(254).optional(),
+  email: fatturaEmail().optional(),
   phone: vine.string().trim().maxLength(32).optional(),
 
   logo: vine.file({ size: '2mb', extnames: ['png', 'jpg', 'jpeg', 'webp'] }).optional(),

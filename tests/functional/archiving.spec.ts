@@ -3,7 +3,8 @@ import { DateTime } from 'luxon'
 import InstalledEquipment from '#models/installed_equipment'
 import Visit from '#models/visit'
 import Jobs from '#services/jobs'
-import { ArchivedRecordError } from '#services/archiving'
+import { errors as lucidErrors } from '@adonisjs/lucid'
+import Archiving, { ArchivedRecordError } from '#services/archiving'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
@@ -283,6 +284,17 @@ test.group('Removing Installed Equipment', () => {
     response.assertFlashMessage('error', it('flash.invalidRemoval'))
     await boiler.refresh()
     assert.isNull(boiler.removedOn)
+  })
+
+  test('equipment gone since it was read is not found, not a server error', async ({ assert }) => {
+    const site = await createSite()
+    const boiler = await InstalledEquipment.create({ siteId: site.id, equipmentType: 'Caldaia' })
+    await InstalledEquipment.query().where('id', boiler.id).delete()
+
+    await assert.rejects(
+      () => Archiving.removeEquipment(boiler, { removedOn: DateTime.now() }),
+      lucidErrors.E_ROW_NOT_FOUND
+    )
   })
 
   test("removed equipment leaves the Technician's Visit page", async ({ client, assert }) => {

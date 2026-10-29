@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
@@ -32,5 +33,32 @@ test.group('Sites in the browser', () => {
     await page.getByRole('cell', { name: /int\. 7/ }).waitFor()
     await customer.load('sites')
     assert.lengthOf(customer.sites, 2)
+  })
+
+  test('a Site archived after it was offered is not linked, and the page says why', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer({ name: 'Condominio Verdi' })
+    const site = await createSite({
+      label: 'Centrale termica',
+      street: 'Via Verdi',
+      city: 'Milano',
+    })
+
+    const page = await visit(`/customers/${customer.id}`)
+    await page.getByLabel(it('ui.customers.linkSite')).fill('centrale')
+    const option = page.getByRole('option', { name: /Centrale termica/ })
+    await option.waitFor()
+    await site.merge({ archivedAt: DateTime.now() }).save()
+    await option.click()
+
+    await page
+      .getByText(it('validator.shared.messages.database.exists', { field: 'immobile' }))
+      .waitFor()
+    await customer.load('sites')
+    assert.lengthOf(customer.sites, 0)
   })
 })

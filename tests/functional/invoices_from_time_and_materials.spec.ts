@@ -151,7 +151,7 @@ test.group('Invoices from Jobs without a Quote', () => {
     const office = await createUser('office')
     await completeCompany()
     const { job, anna, rate } = await workedJob()
-    const start = DateTime.now().plus({ days: 1 })
+    const start = DateTime.now().minus({ hours: 1 })
     const followUp = await Visit.create({
       jobId: job.id,
       startsAt: start,

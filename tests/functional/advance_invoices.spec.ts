@@ -625,8 +625,8 @@ test.group('Advance Invoices', () => {
     await FieldWork.setStatus(done, 'done', anna)
     const followUp = await Visit.create({
       jobId: job.id,
-      startsAt: start.plus({ days: 3 }),
-      endsAt: start.plus({ days: 3, hours: 2 }),
+      startsAt: start.plus({ hours: 3 }),
+      endsAt: start.plus({ hours: 5 }),
       status: 'planned',
     })
     await issuedAdvance(job, '50')

@@ -26,6 +26,12 @@ export type PaymentWarning =
   | { reason: 'beforeIssued'; date: string }
 
 /**
+ * What is unusual about a Payment just removed (ADR 0014): it leaves the
+ * Invoice overpaid, or owing (`amount` each).
+ */
+export type PaymentRemovalWarning = { reason: 'overpaid' | 'owing'; amount: string }
+
+/**
  * Recording Payments against Invoices. Payments and refunds (negative
  * Payments) are records of what happened: anything unusual is recorded
  * with a warning, never refused (ADR 0014). Each change locks the
@@ -112,12 +118,33 @@ export default class Payments {
   }
 
   /**
-   * Removes a Payment entered by mistake.
+   * Removes a Payment entered by mistake. Like recording, it is never
+   * refused but warned about (ADR 0014): removing a refund that leaves the
+   * Invoice overpaid (`overpaid`), or a Payment that leaves something
+   * owed on it (`owing`).
    */
-  static async remove(payment: Payment) {
-    await db.transaction(async (trx) => {
-      await Invoice.query({ client: trx }).where('id', payment.invoiceId).forUpdate().firstOrFail()
-      await Payment.query({ client: trx }).where('id', payment.id).delete()
+  static async remove(payment: Payment): Promise<PaymentRemovalWarning[]> {
+    return db.transaction(async (trx) => {
+      const locked = await Invoice.query({ client: trx })
+        .where('id', payment.invoiceId)
+        .forUpdate()
+        .firstOrFail()
+      const removed = await Payment.query({ client: trx }).where('id', payment.id).first()
+      if (!removed) return []
+      await removed.useTransaction(trx).delete()
+      if (!locked.total) return []
+      const left = owed({
+        total: locked.total,
+        credited: await this.credited(trx, locked.id),
+        paid: await this.paid(trx, locked.id),
+      })
+      // As recording its opposite: a refund taken away adds to what was
+      // paid, a Payment taken away to what is owed
+      const owedNow = new Big(left)
+      if (new Big(removed.amount).lt(0)) {
+        return owedNow.lt(0) ? [{ reason: 'overpaid', amount: owedNow.abs().toFixed(2) }] : []
+      }
+      return owedNow.gt(0) ? [{ reason: 'owing', amount: left }] : []
     })
   }
 }

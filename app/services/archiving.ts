@@ -1,5 +1,6 @@
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
+import { errors as lucidErrors } from '@adonisjs/lucid'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Customer from '#models/customer'
 import InstalledEquipment from '#models/installed_equipment'
@@ -122,7 +123,9 @@ export default class Archiving {
         .whereIn('id', ids)
         .orderBy('id')
         .forUpdate()
-      const locked = rows.find((row) => row.id === equipment.id)!
+      // Gone since it was read: a 404, as when it was never there
+      const locked = rows.find((row) => row.id === equipment.id)
+      if (!locked) throw new lucidErrors.E_ROW_NOT_FOUND()
       if (locked.removedOn) throw new InvalidRemovalError()
       if (locked.installedOn && input.removedOn < locked.installedOn) {
         throw new InvalidRemovalError()

@@ -88,6 +88,8 @@ function useSuggestion() {
 
 const percent = (value: string) => amountForInput(value).replace(/,00$/, '')
 const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
+// Deleting can't be undone: confirmed first
+const confirmDelete = (key: string) => window.confirm(t(key))
 </script>
 
 <template>
@@ -311,7 +313,11 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
                 </span>
               </td>
               <td class="table__actions">
-                <Form route="item_documents.destroy" :params="{ id: document.id }">
+                <Form
+                  route="item_documents.destroy"
+                  :params="{ id: document.id }"
+                  :on-before="() => confirmDelete('ui.items.deleteDocumentConfirm')"
+                >
                   <button type="submit" class="btn btn--ghost btn--sm">
                     {{ t('ui.common.delete') }}
                   </button>
@@ -368,7 +374,11 @@ const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
               {{ item.archived ? t('ui.items.unarchive') : t('ui.items.archive') }}
             </button>
           </Form>
-          <Form route="items.destroy" :params="{ id: item.id }">
+          <Form
+            route="items.destroy"
+            :params="{ id: item.id }"
+            :on-before="() => confirmDelete('ui.items.deleteConfirm')"
+          >
             <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.items.delete') }}</button>
           </Form>
         </div>

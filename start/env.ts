@@ -12,7 +12,8 @@
 import { Env } from '@adonisjs/core/env'
 
 export default await Env.create(new URL('../', import.meta.url), {
-  // Node
+  // Node; dates and "today" are Europe/Rome's, from the process zone (ADR 0006)
+  TZ: Env.schema.enum(['Europe/Rome'] as const),
   NODE_ENV: Env.schema.enum(['development', 'production', 'test'] as const),
   PORT: Env.schema.number(),
   HOST: Env.schema.string({ format: 'host' }),

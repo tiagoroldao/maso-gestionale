@@ -38,7 +38,7 @@ function post(client: ApiClient, user: User, url: string, body: Record<string, u
 }
 
 function visitOf(job: Job, attributes: Partial<Visit> = {}, days = 0) {
-  const startsAt = DateTime.fromISO('2026-11-03T09:00').plus({ days })
+  const startsAt = DateTime.fromISO('2026-10-03T09:00').plus({ days })
   return Visit.create({
     jobId: job.id,
     startsAt,
@@ -395,7 +395,7 @@ test.group('Cancelled Visits (#157)', () => {
     // The Agenda: still there, as cancelled, and it doesn't move
     const agenda = await client
       .get('/agenda')
-      .qs({ date: '2026-11-03' })
+      .qs({ date: '2026-10-03' })
       .withInertia()
       .loginAs(office)
     agenda.assertInertiaPropsContains({
@@ -403,7 +403,7 @@ test.group('Cancelled Visits (#157)', () => {
     })
     const moved = await client
       .patch(`/visits/${visit.id}/move`)
-      .json({ startsAt: '2026-11-04T09:00' })
+      .json({ startsAt: '2026-10-04T09:00' })
       .header('referer', '/')
       .withCsrfToken()
       .loginAs(office)
@@ -412,7 +412,7 @@ test.group('Cancelled Visits (#157)', () => {
     const updated = await client
       .put(`/visits/${visit.id}`)
       .json({
-        date: '2026-11-04',
+        date: '2026-10-04',
         startTime: '09:00',
         durationMinutes: 120,
         technicianIds: [anna.id],
@@ -431,7 +431,7 @@ test.group('Cancelled Visits (#157)', () => {
     deleted.assertFlashMessage('error', it('flash.visitNotEditable'))
     await visit.refresh()
     assert.equal(visit.status, 'cancelled')
-    assert.equal(visit.startsAt.toISODate(), '2026-11-03')
+    assert.equal(visit.startsAt.toISODate(), '2026-10-03')
 
     // Its Charges stay not done until it is restored
     const done = await post(client, office, `/charges/${valves.id}/done`)

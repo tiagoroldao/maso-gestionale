@@ -3,20 +3,20 @@
  * hours, Items, status and time become final. "Needs another visit" closes
  * this Visit too; the follow-up is a new Visit.
  */
-export const CLOSED_VISIT_STATUSES: readonly string[] = ['done', 'needs_return']
+export const CLOSED_VISIT_STATUSES = ['done', 'needs_return'] as const
 
 /**
  * Statuses of a Visit still to happen or under way: the only ones that
  * take field work, move on the Agenda, or can be cancelled.
  */
-export const OPEN_VISIT_STATUSES: readonly string[] = ['planned', 'in_progress']
+export const OPEN_VISIT_STATUSES = ['planned', 'in_progress'] as const
 
 export function isClosedVisit(status: string) {
-  return CLOSED_VISIT_STATUSES.includes(status)
+  return (CLOSED_VISIT_STATUSES as readonly string[]).includes(status)
 }
 
 export function isOpenVisit(status: string) {
-  return OPEN_VISIT_STATUSES.includes(status)
+  return (OPEN_VISIT_STATUSES as readonly string[]).includes(status)
 }
 
 /**

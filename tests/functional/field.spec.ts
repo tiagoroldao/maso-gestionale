@@ -116,7 +116,7 @@ test.group('Technician screens', (group) => {
 
   test('saves status changes and notes', async ({ client, assert }) => {
     const anna = await createUser('technician')
-    const visit = await visitFor([anna.id])
+    const visit = await visitFor([anna.id], DateTime.now().minus({ hours: 1 }))
 
     await client
       .post(`/my-visits/${visit.id}/status`)

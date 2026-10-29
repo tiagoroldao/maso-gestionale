@@ -33,6 +33,19 @@ test.group('Item Documents in the browser', (group) => {
     await edit.getByRole('link', { name: 'Manuale di installazione' }).waitFor()
     assert.lengthOf(await ItemDocument.all(), 1)
 
+    // Deleting asks first: dismissed, the document stays
+    const messages: string[] = []
+    edit.once('dialog', (dialog) => {
+      messages.push(dialog.message())
+      return dialog.dismiss()
+    })
+    await edit
+      .getByRole('row', { name: /Manuale di installazione/ })
+      .getByRole('button', { name: it('ui.common.delete') })
+      .click()
+    assert.deepEqual(messages, [it('ui.items.deleteDocumentConfirm')])
+    assert.lengthOf(await ItemDocument.all(), 1)
+
     const form = await visit(`/sites/${site.id}/equipment/create`)
     await form.getByLabel(it('ui.equipment.type')).fill('Caldaia')
     await form.getByLabel(it('ui.equipment.serialNumber')).fill('SN-123')
