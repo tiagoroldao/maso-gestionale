@@ -283,6 +283,7 @@ test.group('Legal archiving: Instance setting', (group) => {
       .loginAs(superuser)
       .redirects(0)
     assert.isUndefined(again.flashMessage('warning'))
+    again.assertFlashMessage('success', it('flash.instanceSaved'))
     const page = await client.get('/instance').withInertia().loginAs(superuser)
     page.assertInertiaPropsContains({
       settings: { legalArchivingOffered: false, legalArchiving: false },
