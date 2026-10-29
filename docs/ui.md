@@ -1,17 +1,17 @@
 # UI conventions ("Carbonio", ADR 0020)
 
-Rules for every screen moved to the new UI. The mockups they come from are on the design canvas "Maso Gestionale UI directions", page Carbonio. Screens not yet moved follow "UI scope" in `CODING_STANDARDS.md` (ADR 0009) instead.
+Rules for every screen on the new UI: a screen is on it once it renders inside the new app shell, and once the shell exists new screens start there. Other screens follow "Reachable, not designed" in `CODING_STANDARDS.md` (ADR 0009); the rest of its "UI scope" applies to every screen. The mockups these rules come from are on the design canvas "Maso Gestionale UI directions", page Carbonio.
 
 ## Screen sizes
 
-- **Phone:** under 768px. **Tablet:** 768–1023px, phone headers and actions, desktop menu folded to icons. **Desktop:** 1024px and up.
+- **Phone:** under 768px. **Tablet:** 768–1023px, the desktop rules with the sidebar folded to icons. **Desktop:** 1024px and up.
 - Every screen works on a phone. No drag and drop: an explicit action, with a preview of the result where it changes a time or an order.
 
 ## Kinds of screen
 
 - **List:** a collection of one kind of record (Commesse, Clienti, Fatture). Its layout and filters are still to be decided.
 - **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode.
-- **Bespoke:** Agenda, Oggi, dashboards. Only the header and menu rules apply.
+- **Bespoke:** Agenda, dashboards. Only the header and menu rules apply.
 
 ## Header
 
@@ -30,11 +30,11 @@ A screen declares its actions once, each ranked **primary** (at most one), **sec
 
 |                                  | Desktop                                | Phone                                                   |
 | -------------------------------- | -------------------------------------- | ------------------------------------------------------- |
-| Primary                          | Black button, rightmost in the header  | Black bar fixed at the bottom of the screen             |
+| Primary                          | Black button, after the secondary ones | Black bar fixed at the bottom of the screen             |
 | Secondary                        | Up to 2 bordered buttons in the header | Up to 2 buttons in the black header's action row        |
-| Overflow, and secondary beyond 2 | "⋯" button after the header's buttons  | Square "⋯" button at the end of the header's action row |
+| Overflow, and secondary beyond 2 | "⋯" button, last                       | Square "⋯" button at the end of the header's action row |
 
-Destructive actions (delete, cancel, set back to bill) are always overflow and always confirmed. Contact actions (Mappa, Chiama) are secondary.
+On desktop the header's buttons read: secondary, primary, "⋯". Destructive actions (delete, cancel, set back to bill) are always overflow and always confirmed; irreversible ones (finalise) are confirmed too; nothing else is. Contact actions (Mappa, Chiama) are secondary.
 
 ## Entity screen body
 
@@ -45,7 +45,7 @@ Destructive actions (delete, cancel, set back to bill) are always overflow and a
 
 - **Desktop:** the black sidebar, grouped by area (Lavoro, Fatturazione, Magazzino, Anagrafiche, Impostazioni at the end), showing only what the role can open. The active item is marked with the red cut.
 - **Phone:** the same sidebar, as a drawer from the right, opened by "☰". Same groups, same items, plus search and the user at the bottom.
-- A Technician's menu is short: Oggi, I miei interventi, Agenda.
+- A Technician's menu is short: I miei interventi. Whether Technicians also get an Agenda (read-only) or a screen for today is still to be decided.
 
 ## Hierarchy and references
 
