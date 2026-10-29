@@ -80,7 +80,7 @@ export default class extends BaseSchema {
     // replaced_by_id and pdf_path, each once (from NULL), with every other
     // column unchanged
     this.schema.raw(`
-      CREATE FUNCTION issued_documents_frozen() RETURNS trigger AS $$
+      CREATE OR REPLACE FUNCTION issued_documents_frozen() RETURNS trigger AS $$
       BEGIN
         IF TG_OP = 'UPDATE'
           AND (NEW.replaced_by_id IS NOT DISTINCT FROM OLD.replaced_by_id
@@ -107,6 +107,6 @@ export default class extends BaseSchema {
 
   async down() {
     this.schema.dropTable('issued_documents')
-    this.schema.raw('DROP FUNCTION issued_documents_frozen()')
+    this.schema.raw('DROP FUNCTION IF EXISTS issued_documents_frozen()')
   }
 }

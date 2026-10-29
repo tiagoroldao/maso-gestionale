@@ -89,7 +89,7 @@ export default class extends BaseSchema {
       table.index(['charge_id'])
     })
     this.schema.raw(`
-      CREATE FUNCTION charge_events_frozen() RETURNS trigger AS $$
+      CREATE OR REPLACE FUNCTION charge_events_frozen() RETURNS trigger AS $$
       BEGIN
         RAISE EXCEPTION 'Charge history can not be changed';
       END;
@@ -203,7 +203,7 @@ export default class extends BaseSchema {
       FROM charges WHERE kind = 'item' AND visit_id IS NOT NULL
       ORDER BY id`)
     this.schema.dropTable('charge_events')
-    this.schema.raw('DROP FUNCTION charge_events_frozen()')
+    this.schema.raw('DROP FUNCTION IF EXISTS charge_events_frozen()')
     this.schema.dropTable('charges')
   }
 }
