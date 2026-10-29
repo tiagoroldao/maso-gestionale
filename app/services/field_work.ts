@@ -373,7 +373,7 @@ export default class FieldWork {
             .select('installed_equipment_id')
         )
         .where((q) => q.whereNull('last_serviced_on').orWhere('last_serviced_on', '<', day))
-        .update({ last_serviced_on: day })
+        .update({ last_serviced_on: day, updated_at: new Date() })
     }
 
     locked.status = status

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { QuoteStatus } from '@shared/quotes'
+import { QUOTE_VALIDITY_DAYS, type QuoteStatus } from '@shared/quotes'
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
@@ -11,7 +11,7 @@ import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { urlFor } from '~/client'
 import { formatMoney, formatUnitPrice, t } from '~/i18n'
 import { amountForInput, lineTotal, parseAmount, parseQuantity } from '@shared/money'
-import { lineKindOf, needsSignificantGoodSplit, type LineKind } from '@shared/vat'
+import { lineKindOf, needsSignificantGoodSplit, vatLabel, type LineKind } from '@shared/vat'
 import { invoiceTotals } from '@shared/invoice_totals'
 import { formatDate } from '@shared/dates'
 
@@ -160,9 +160,6 @@ const totals = computed(() =>
     })
   )
 )
-
-const vatLabel = (row: { vatRate: string; natura: string | null }) =>
-  row.natura ?? `${trim(row.vatRate)}%`
 
 function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }) {
   lines.push({
@@ -588,8 +585,8 @@ function importLines() {
             id="validity-days"
             v-model="validityDays"
             type="number"
-            min="1"
-            max="365"
+            :min="QUOTE_VALIDITY_DAYS.min"
+            :max="QUOTE_VALIDITY_DAYS.max"
             class="field__input"
             :disabled="!editable"
             :style="{ maxWidth: '120px' }"

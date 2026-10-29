@@ -42,6 +42,8 @@ test.group('Servicing equipment', () => {
     assert,
   }) => {
     const { anna, visit, boiler } = await setup()
+    const lastYear = new Date('2025-10-01T08:00:00Z')
+    await db.from('installed_equipment').where('id', boiler.id).update({ updated_at: lastYear })
 
     await client
       .post(`/my-visits/${visit.id}/serviced`)
@@ -55,6 +57,8 @@ test.group('Servicing equipment', () => {
     await boiler.refresh()
     assert.equal(boiler.lastServicedOn?.toISODate(), '2026-10-20')
     assert.equal(boiler.nextDueOn?.toISODate(), '2027-10-20')
+    // The raw write still records when the row changed
+    assert.isAbove(boiler.updatedAt?.toMillis() ?? 0, lastYear.getTime())
   })
 
   test('an older Visit never moves a later service date back', async ({ assert }) => {
@@ -152,6 +156,8 @@ test.group('Servicing equipment', () => {
         maintenanceIntervalMonths: 6,
       },
       { siteId: site.id, equipmentType: 'C', installedOn: DateTime.fromISO('2023-05-01') },
+      // An interval with no date to count from
+      { siteId: site.id, equipmentType: 'D', maintenanceIntervalMonths: 12 },
     ])
 
     const rows = await db

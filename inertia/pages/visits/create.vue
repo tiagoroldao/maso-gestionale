@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Trash2 } from 'lucide-vue-next'
 import Page from '~/components/page.vue'
@@ -52,7 +52,15 @@ const props = defineProps<{
     notes: string | null
     survey: boolean
     truncated: boolean
-    dates: { date: string; weekday: number; holiday: string | null; clashes: string[] }[]
+    /** Why the confirmation was refused, the list shown again as Office left it */
+    refusal: string | null
+    dates: {
+      date: string
+      weekday: number
+      holiday: string | null
+      clashes: string[]
+      ticked: boolean
+    }[]
   } | null
   maxRepeated: number
 }>()
@@ -75,17 +83,26 @@ const durations = [...new Set([30, 60, 90, 120, 180, 240, 480, durationMinutes.v
 )
 const repeat = ref(props.draft?.repeat ?? 'none')
 const repeating = computed(() => !props.visit && repeat.value !== 'none')
-// Repeating first lists the dates (the same page, with the repeat in the
-// query); otherwise the Visit is planned or saved straight away
+// Repeating first lists the dates (the same page, posted back with the
+// repeat); otherwise the Visit is planned or saved straight away
 const action = computed(() => {
   if (props.visit) {
     return { url: urlFor('visits.update', { id: props.visit.id }), method: 'put' as const }
   }
   if (repeating.value) {
-    return { url: urlFor('visits.create', { id: props.job.id }), method: 'get' as const }
+    return { url: urlFor('visits.repeat_dates', { id: props.job.id }), method: 'post' as const }
   }
   return { url: urlFor('visits.store', { id: props.job.id }), method: 'post' as const }
 })
+// The dates ticked in the list: confirming needs at least one
+const chosenDates = ref<string[]>([])
+watch(
+  () => props.preview,
+  (preview) => {
+    chosenDates.value = preview?.dates.filter((day) => day.ticked).map((day) => day.date) ?? []
+  },
+  { immediate: true }
+)
 const confirmDelete = () => window.confirm(t('ui.visits.deleteConfirm'))
 const confirmDone = () => window.confirm(t('ui.visits.markDoneConfirm'))
 const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
@@ -289,7 +306,7 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
 
       <Form
         v-if="preview"
-        v-slot="{ processing, errors }"
+        v-slot="{ processing }"
         route="visits.store_repeated"
         :params="{ id: job.id }"
       >
@@ -304,6 +321,20 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
             :value="id"
           />
           <input type="hidden" name="notes" :value="preview.notes ?? ''" />
+          <template v-if="draft">
+            <!-- The repeat itself, to list the dates again if refused -->
+            <input type="hidden" name="date" :value="draft.date" />
+            <input type="hidden" name="repeat" :value="draft.repeat ?? ''" />
+            <input
+              v-for="weekday in draft.weekdays"
+              :key="weekday"
+              type="hidden"
+              name="weekdays[]"
+              :value="weekday"
+            />
+            <input type="hidden" name="until" :value="draft.until ?? ''" />
+            <input type="hidden" name="count" :value="draft.count ?? ''" />
+          </template>
           <input v-if="preview.survey" type="hidden" name="survey" value="true" />
 
           <p v-if="preview.dates.length === 0" class="field__hint">
@@ -316,7 +347,12 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
                 <tr v-for="day in preview.dates" :key="day.date">
                   <td>
                     <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-                      <input type="checkbox" name="dates[]" :value="day.date" checked />
+                      <input
+                        v-model="chosenDates"
+                        type="checkbox"
+                        name="dates[]"
+                        :value="day.date"
+                      />
                       {{ t(`ui.visits.weekdayNames.${day.weekday}`) }}
                       {{ formatDate(day.date) }}
                     </label>
@@ -337,11 +373,17 @@ const confirmCancel = () => window.confirm(t('ui.visits.cancelConfirm'))
             <p v-if="preview.truncated" class="field__hint">
               {{ t('ui.visits.truncated', { max: maxRepeated }) }}
             </p>
-            <span v-if="errors.dates" class="field__error">{{ errors.dates }}</span>
+            <p v-if="preview.refusal" class="field__error" data-testid="repeat-refusal">
+              {{ preview.refusal }}
+            </p>
           </template>
         </Section>
         <Section v-if="preview.dates.length">
-          <button type="submit" class="btn btn--primary" :disabled="processing">
+          <button
+            type="submit"
+            class="btn btn--primary"
+            :disabled="processing || chosenDates.length === 0"
+          >
             {{ t('ui.visits.planDates') }}
           </button>
         </Section>
