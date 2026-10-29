@@ -689,6 +689,7 @@
       "workReportPeriodHint": "Lascia vuote le date per tutta la commessa.",
       "workReportPrices": "Mostra i prezzi",
       "workReportNotes": "Mostra le note degli interventi",
+      "workReportJobCharges": "Includi le altre voci della commessa",
       "noJobYet": "Scegli prima la commessa."
     },
     "archivedTitle": "Modelli archiviati",

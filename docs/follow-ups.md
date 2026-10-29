@@ -25,7 +25,6 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
 | #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 | #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
-| #192  | Work report: show the Job's other costs, or label the total as Visits only                | The business (`needs-human`)                      |
 | #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                       |
 
 ## Added to existing issues

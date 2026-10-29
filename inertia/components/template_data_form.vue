@@ -20,7 +20,13 @@ import type { WorkReportOptions } from '@shared/work_report'
 type Choice = { id: number; label: string }
 type ItemUsed = { id: number; code: string; description: string; unit: string; quantity: string }
 // A work report's options as the inputs hold them: an open end is ''
-type ReportInput = { from: string; to: string; prices: boolean; notes: boolean }
+type ReportInput = {
+  from: string
+  to: string
+  prices: boolean
+  notes: boolean
+  jobCharges: boolean
+}
 
 const props = defineProps<{
   fields: TemplateField[]
@@ -41,7 +47,7 @@ const rows = store<string[][]>()
 const reports = store<ReportInput>()
 for (const field of props.fields) {
   if (field.type === 'work_report') {
-    reports[field.key] = { from: '', to: '', prices: false, notes: false }
+    reports[field.key] = { from: '', to: '', prices: false, notes: false, jobCharges: true }
   }
 }
 
@@ -382,6 +388,10 @@ defineExpose({ input })
         <label>
           <input v-model="reports[field.key].notes" type="checkbox" />
           {{ t('ui.documentTemplates.fill.workReportNotes') }}
+        </label>
+        <label>
+          <input v-model="reports[field.key].jobCharges" type="checkbox" />
+          {{ t('ui.documentTemplates.fill.workReportJobCharges') }}
         </label>
       </div>
 
