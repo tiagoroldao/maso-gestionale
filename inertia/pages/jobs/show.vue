@@ -13,6 +13,7 @@ import type { AdvanceState } from '@shared/advances'
 import { LINE_KINDS } from '@shared/vat'
 import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
 import { isOpenVisit } from '@shared/visits'
+import { DEFAULT_ORGANISE_BY, ORGANISE_BY } from '@shared/invoice_sections'
 import { computed, ref } from 'vue'
 import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 import IssuedDocumentList, { type IssuedDocumentRow } from '~/components/issued_document_list.vue'
@@ -637,6 +638,27 @@ function confirmCancel() {
         >
           <!-- Sent either way, so the choice is always explicit -->
           <input type="hidden" name="combine" :value="combine ? 'true' : 'false'" />
+          <div class="field">
+            <label class="field__label" for="invoice-organise-by">
+              {{ t('ui.invoices.organiseBy') }}
+            </label>
+            <select
+              id="invoice-organise-by"
+              name="organiseBy"
+              class="field__input"
+              :style="{ maxWidth: '360px' }"
+            >
+              <option
+                v-for="option in ORGANISE_BY"
+                :key="option"
+                :value="option"
+                :selected="option === DEFAULT_ORGANISE_BY"
+              >
+                {{ t(`ui.invoices.organiseOptions.${option}`) }}
+              </option>
+            </select>
+            <span class="field__hint">{{ t('ui.invoices.organiseByHint') }}</span>
+          </div>
           <div class="field">
             <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
               <input v-model="combine" type="checkbox" />

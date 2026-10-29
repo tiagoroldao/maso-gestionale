@@ -38,7 +38,16 @@
     "globalDiscountLine": "Sconto {percent}% sul totale",
     "combinedLine": "{name} ({visits, plural, one {# intervento} other {# interventi}}, {from}–{to})",
     "serialNumbers": " — matr. {serials}",
-    "consumablesLine": "Materiale di consumo"
+    "consumablesLine": "Materiale di consumo",
+    "sectionSubtotal": "Totale {title}",
+    "sections": {
+      "labour": "Manodopera",
+      "materials": "Materiali",
+      "equipment": "Apparecchi",
+      "other": "Altro",
+      "job": "Commessa",
+      "visit": "Intervento del {date}"
+    }
   },
   "creditNote": {
     "title": "Nota di credito {number}",

@@ -29,10 +29,12 @@ import Submissions, {
 import { formatMoney, sumAmounts } from '#shared/money'
 import { formatDate, TIME_ZONE } from '#shared/dates'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
+import { DEFAULT_ORGANISE_BY } from '#shared/invoice_sections'
 import type { I18n } from '@adonisjs/i18n'
 import {
   paymentValidator,
   invoiceFromJobValidator,
+  invoiceOrganiseValidator,
   invoiceStageValidator,
   invoiceValidator,
   newInvoiceValidator,
@@ -158,15 +160,18 @@ export default class InvoicesController {
 
   /**
    * A draft Invoice from a Job's Charges to bill, whether or not it has
-   * Quotes (ADR 0012), alike ones combined when asked (ADR 0017) and up to
-   * a day if given, or the Job's existing draft.
+   * Quotes (ADR 0012), organised into sections as asked (ADR 0018), alike
+   * ones combined when asked (ADR 0017) and up to a day if given, or the
+   * Job's existing draft.
    */
   async storeFromJob({ params, request, response, session, i18n }: HttpContext) {
     const job = await Job.findOrFail(params.id)
-    const { combine, upTo } = await request.validateUsing(invoiceFromJobValidator)
+    const { organiseBy, combine, upTo } = await request.validateUsing(invoiceFromJobValidator)
     try {
       const invoice = await Invoices.fromJob(job, {
-        // The page always sends it; combined by default, as the service
+        // The page always sends both; by kind and combined by default, as
+        // the service
+        organiseBy: organiseBy ?? DEFAULT_ORGANISE_BY,
         combine: combine ?? true,
         upTo: upTo ? upTo.setZone(TIME_ZONE).toISODate() : null,
       })
@@ -182,6 +187,29 @@ export default class InvoicesController {
       }
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
+  }
+
+  /**
+   * Organises a draft from a Job again (ADR 0018): its sections are
+   * replaced and its lines billing Charges drafted again, after Office
+   * confirmed on the page.
+   */
+  async organise({ params, request, response, session, i18n }: HttpContext) {
+    const invoice = await Invoice.findOrFail(params.id)
+    const { organiseBy, combine } = await request.validateUsing(invoiceOrganiseValidator)
+    try {
+      await Invoices.organise(invoice, { organiseBy, combine })
+      session.flash('success', i18n.t('flash.invoiceOrganised'))
+    } catch (error) {
+      if (error instanceof InvoiceNotEditableError) {
+        session.flash('error', i18n.t('flash.invoiceNotEditable'))
+      } else if (error instanceof InvoiceNotFinalisableError) {
+        session.flash('error', i18n.t(`flash.invoiceNotFinalisable.${error.reason}`))
+      } else {
+        throw error
+      }
+    }
+    response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }
 
   /**
@@ -240,6 +268,7 @@ export default class InvoicesController {
       .preload('payments', (payments) => payments.orderBy('paidOn'))
       .preload('creditNotes', (notes) => notes.orderBy('id'))
       .preload('creditedInvoice', (credited) => credited.preload('creditNotes'))
+      .preload('sections', (sections) => sections.orderBy('position'))
       .firstOrFail()
     // A Credit Note's Invoice, and what is left of it to credit besides
     // this Credit Note
@@ -309,8 +338,14 @@ export default class InvoicesController {
           : null,
         discountPercent: invoice.discountPercent,
         notes: invoice.notes,
+        sections: invoice.sections.map((section) => ({
+          id: section.id,
+          title: section.title,
+          showSubtotal: section.showSubtotal,
+        })),
         lines: invoice.lines.map((line) => ({
           id: line.id,
+          sectionId: line.sectionId,
           creditsLineId: line.creditsLineId,
           vatRate: line.vatRate,
           natura: line.natura,
@@ -329,6 +364,12 @@ export default class InvoicesController {
       },
       // Not while a prepared Submission's file may already be on SDI
       editable: isEditable(invoice.status) && !open,
+      // A draft from a Job can be organised again (ADR 0018)
+      organisable:
+        invoice.status === 'draft' &&
+        invoice.jobId !== null &&
+        !invoice.advance &&
+        !invoice.isCreditNote,
       // An Invoice's Credit Notes, and whether another can be issued
       creditNotes: invoice.isCreditNote
         ? null
@@ -419,6 +460,7 @@ export default class InvoicesController {
           discountPercent: data.discountPercent,
           notes: data.notes ?? null,
           lines: data.lines,
+          sections: data.sections,
           deductions: data.deductions,
         },
         auth.getUserOrFail()
@@ -507,6 +549,7 @@ export default class InvoicesController {
     const invoice = await Invoice.query()
       .where('id', params.id)
       .preload('lines', (lines) => lines.orderBy('position'))
+      .preload('sections')
       .firstOrFail()
     if (invoice.status === 'draft') return response.notFound()
     // A Legacy Invoice's PDF is the original, as uploaded (#27)

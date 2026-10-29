@@ -9,6 +9,7 @@ import Customer from '#models/customer'
 import Invoice, { type CompanySnapshot } from '#models/invoice'
 import InvoiceSequence from '#models/invoice_sequence'
 import InvoiceLine from '#models/invoice_line'
+import InvoiceSection from '#models/invoice_section'
 import Item from '#models/item'
 import Job from '#models/job'
 import Visit from '#models/visit'
@@ -35,6 +36,15 @@ import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
 import { keptVatTreatment } from '#shared/vat'
 import { combineCharges, workPeriod } from '#shared/combined_lines'
+import {
+  DEFAULT_ORGANISE_BY,
+  handLinesHeading,
+  inSectionOrder,
+  organiseCharges,
+  sameHeading,
+  type Heading,
+  type OrganiseBy,
+} from '#shared/invoice_sections'
 import i18nManager from '@adonisjs/i18n/services/main'
 import {
   legacyCreditRefusal,
@@ -148,7 +158,27 @@ export type InvoiceLineInput = {
   // On a Credit Note, the credited Invoice's line this line credits; a
   // kept line sent without it keeps its own
   creditsLineId?: number
+  // The position in `sections` of the section it sits in; outside any
+  // when left out (ADR 0018)
+  section?: number
 }
+
+/**
+ * A section of the Invoice as edited (ADR 0018): an existing one, kept
+ * with its identity, or a new one.
+ */
+export type InvoiceSectionInput = { id?: number; title: string; showSubtotal: boolean }
+
+/**
+ * A Charge to draft, with its Visit and the Visit's work day (ISO), or
+ * none for the Job's own.
+ */
+type WorkEntry = { visitId: number | null; day: string | null; charge: Charge }
+
+/**
+ * The VAT treatment a drafted line takes.
+ */
+type VatTreatment = { id: number; rate: string; natura: string | null; legalNote: string | null }
 
 /**
  * The longest list of serial numbers a draft line names (ADR 0017), well
@@ -263,10 +293,28 @@ export default class Invoices {
       const lines = await InvoiceLine.query({ client: trx })
         .where('invoiceId', original.id)
         .orderBy('position')
+      // It starts with the Invoice's sections, for Office to change (ADR 0018)
+      const sections = await InvoiceSection.query({ client: trx })
+        .where('invoiceId', original.id)
+        .orderBy('position')
+      const copied = new Map<number, number>()
+      for (const section of sections) {
+        const copy = await InvoiceSection.create(
+          {
+            invoiceId: creditNote.id,
+            position: section.position,
+            title: section.title,
+            showSubtotal: section.showSubtotal,
+          },
+          { client: trx }
+        )
+        copied.set(section.id, copy.id)
+      }
       const credited = await this.lineCredits(trx, original.id)
       const values = lines.flatMap((line) => {
         const copy = {
           invoiceId: creditNote.id,
+          sectionId: line.sectionId ? (copied.get(line.sectionId) ?? null) : null,
           creditsLineId: line.id,
           deductsInvoiceId: line.deductsInvoiceId,
           itemId: line.itemId,
@@ -882,9 +930,10 @@ export default class Invoices {
    * A draft Invoice for a Job, from its Charges, whether or not it has a
    * Quote (ADR 0012): the done Charges to bill (ADR 0016) on its closed
    * Visits and on the Job itself, with what Office set to bill (quantity,
-   * price, description; ADR 0010). Alike Charges share a line unless
-   * `combine` is off, when each gets its own (ADR 0017, combineCharges()).
-   * With `upTo` (an ISO date), only Visits whose work day is on or before
+   * price, description; ADR 0010). Lines are organised into sections by
+   * `organiseBy` (by kind unless asked otherwise, ADR 0018), and alike
+   * Charges share a line within each section unless `combine` is off, when
+   * each gets its own (ADR 0017, see draftLines()). With `upTo` (an ISO date), only Visits whose work day is on or before
    * it are billed, plus the Job's own Charges. The Job page's running total
    * also counts what is still planned, held by a draft or billed, so it
    * isn't this draft's total. Each line gets the VAT Code of the default
@@ -895,7 +944,11 @@ export default class Invoices {
    */
   static async fromJob(
     job: Job,
-    { combine = true, upTo = null }: { combine?: boolean; upTo?: string | null } = {}
+    {
+      combine = true,
+      upTo = null,
+      organiseBy = DEFAULT_ORGANISE_BY,
+    }: { combine?: boolean; upTo?: string | null; organiseBy?: OrganiseBy } = {}
   ) {
     return db.transaction(async (trx) => {
       // Recorded work is billed whatever the Job's status (#111)
@@ -915,7 +968,7 @@ export default class Invoices {
         .preload('charges', (charges) =>
           charges
             .withScopes((scopes) => scopes.toBill())
-            .preload('item')
+            .preload('item', (item) => item.preload('category'))
             .preload('labourRate')
             .orderByRaw("kind = 'item', created_at, id")
         )
@@ -929,10 +982,10 @@ export default class Invoices {
         .withScopes((scopes) => scopes.toBill())
         .where('jobId', locked.id)
         .whereNull('visitId')
-        .preload('item')
+        .preload('item', (item) => item.preload('category'))
         .preload('labourRate')
         .orderBy(['createdAt', 'id'])
-      const work = [
+      const work: WorkEntry[] = [
         ...visits.flatMap((visit) =>
           visit.charges.map((charge) => ({ visitId: visit.id, day: dayOf(visit), charge }))
         ),
@@ -952,76 +1005,11 @@ export default class Invoices {
       const codeOf = (charge: Charge) =>
         quoted.find((code) => code.id === charge.vatCodeId) ?? defaults[charge.lineKind]
 
-      const drafted = combineCharges(
-        work.map((entry) => ({
-          ...entry,
-          kind: entry.charge.kind,
-          labourRateId: entry.charge.labourRateId,
-          itemId: entry.charge.itemId,
-          groupable: entry.charge.item?.groupable ?? false,
-          unitPrice: entry.charge.unitPrice,
-          vatCodeId: codeOf(entry.charge).id,
-          billQuantity: entry.charge.billQuantity,
-        })),
-        { combine }
-      )
-      // A line of its own for an Equipment Item names the pieces it
-      // installed by their serial numbers, as recorded at the Site now
-      const singles = drafted.flatMap((line) =>
-        line.charges.length === 1 && line.charges[0].kind === 'item'
-          ? [line.charges[0].charge.id]
-          : []
-      )
-      const installed = singles.length
-        ? await trx
-            .from('installed_equipment')
-            .whereIn('charge_id', singles)
-            .orderBy('id')
-            .select('charge_id', 'serial_number')
-        : []
-      // Without equipment (a Job without a Site installs none), the serial
-      // number recorded on the Charge
-      const serials = (charge: Charge) => {
-        const own = installed.filter((row) => row.charge_id === charge.id)
-        if (!own.length) return charge.equipmentSerialNumber ? [charge.equipmentSerialNumber] : []
-        return own.flatMap((row) => (row.serial_number ? [row.serial_number as string] : []))
-      }
-
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
         { client: trx }
       )
-      const lines = await InvoiceLine.createMany(
-        drafted.map((line, position) => {
-          const { charge } = line.charges[0]
-          const code = codeOf(charge)
-          return {
-            invoiceId: invoice.id,
-            position,
-            itemId: charge.itemId,
-            description:
-              line.charges.length === 1
-                ? this.chargeLine(charge, line.charges[0].day, serials(charge))
-                : this.combinedLine(charge, line.charges),
-            quantity: line.quantity,
-            unit: charge.billUnit,
-            unitPrice: charge.unitPrice,
-            discountPercent: '0',
-            vatCodeId: code.id,
-            vatRate: code.rate,
-            natura: code.natura,
-            legalNote: code.legalNote,
-            lineTotal: invoiceLineTotal(line.quantity, charge.unitPrice),
-          }
-        }),
-        { client: trx }
-      )
-      await this.hold(
-        trx,
-        lines.flatMap((line, index) =>
-          drafted[index].charges.map(({ charge }) => ({ lineId: line.id, chargeId: charge.id }))
-        )
-      )
+      const count = await this.draftLines(trx, invoice.id, work, { combine, organiseBy }, codeOf)
       // A draft that bills everything outstanding (no Visit still to come,
       // no planned Charge on the Job, ADR 0016) takes back what is left of
       // each advance; others start with none, and Office can change both
@@ -1039,9 +1027,253 @@ export default class Invoices {
           .whereRaw(OUTSTANDING_SQL('charges'))
           .first())
       if (!moreWork) {
-        await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), lines.length)
+        await this.deduct(trx, invoice, await this.allLeft(trx, locked.id), count)
       }
       return invoice
+    })
+  }
+
+  /**
+   * Organises a draft Job Invoice again (ADR 0018), replacing its sections:
+   * its lines billing Charges are drafted again from the Charges it holds,
+   * as fromJob() drafts them, each at the VAT treatment of the line that
+   * held it; Office's changes to those lines are lost (the page asks
+   * first). Lines Office added by hand are kept, in "Altro" (outside any
+   * section when not organised), and deductions stay as they are. Only a
+   * draft from a Job: not an advance or a Credit Note.
+   */
+  static async organise(
+    invoice: Invoice,
+    { combine, organiseBy }: { combine: boolean; organiseBy: OrganiseBy }
+  ) {
+    const draft = (status: InvoiceStatus) => status === 'draft'
+    return this.whileIn(draft, invoice, async (trx, locked) => {
+      if (!locked.jobId || locked.advance || locked.isCreditNote) {
+        throw new InvoiceNotEditableError()
+      }
+      const links = await this.links(trx, locked.id)
+      const lines = await InvoiceLine.query({ client: trx })
+        .where('invoiceId', locked.id)
+        .whereNull('deductsInvoiceId')
+        .orderBy('position')
+      const lineOf = new Map(
+        links.map((link) => [link.chargeId, lines.find((line) => line.id === link.lineId)!])
+      )
+      const work = await this.heldWork(trx, [...lineOf.keys()])
+      const codeOf = (charge: Charge) => {
+        const line = lineOf.get(charge.id)!
+        return {
+          id: line.vatCodeId,
+          rate: line.vatRate,
+          natura: line.natura,
+          legalNote: line.legalNote,
+        }
+      }
+      const charged = new Set(links.map((link) => link.lineId))
+      // Their links go with them; the Charges stay held, since when they were
+      if (charged.size) {
+        await InvoiceLine.query({ client: trx })
+          .whereIn('id', [...charged])
+          .delete()
+      }
+      await InvoiceSection.query({ client: trx }).where('invoiceId', locked.id).delete()
+      const count = await this.draftLines(
+        trx,
+        locked.id,
+        work,
+        { combine, organiseBy },
+        codeOf,
+        lines.filter((line) => !charged.has(line.id)),
+        new Map(links.map((link) => [link.chargeId, link.since]))
+      )
+      await this.deduct(trx, locked, await this.deductionsOf(trx, locked.id), count)
+    })
+  }
+
+  /**
+   * The Charges `chargeIds` in the order their work happened, as fromJob()
+   * reads them: by Visit, then the Job's own.
+   */
+  private static async heldWork(
+    trx: TransactionClientContract,
+    chargeIds: number[]
+  ): Promise<WorkEntry[]> {
+    if (!chargeIds.length) return []
+    const charges = await Charge.query({ client: trx })
+      .whereIn('id', chargeIds)
+      .preload('item', (item) => item.preload('category'))
+      .preload('labourRate')
+    const visitIds = [...new Set(charges.flatMap((charge) => charge.visitId ?? []))]
+    const visits = visitIds.length
+      ? await Visit.query({ client: trx }).whereIn('id', visitIds).orderBy(['startsAt', 'id'])
+      : []
+    const byTime = (a: Charge, b: Charge) =>
+      a.createdAt.toMillis() - b.createdAt.toMillis() || a.id - b.id
+    const now = DateTime.now()
+    return [
+      ...visits.flatMap((visit) =>
+        charges
+          .filter((charge) => charge.visitId === visit.id)
+          .sort((a, b) => Number(a.kind === 'item') - Number(b.kind === 'item') || byTime(a, b))
+          .map((charge) => ({ visitId: visit.id, day: visit.workDay(now).toISODate()!, charge }))
+      ),
+      ...charges
+        .filter((charge) => !charge.visitId)
+        .sort(byTime)
+        .map((charge) => ({ visitId: null, day: null, charge })),
+    ]
+  }
+
+  /**
+   * Writes a draft's lines from the Charges `work`, in the order their
+   * work happened: organised into sections (organiseCharges(), ADR 0018),
+   * then alike Charges combined within each section unless `combine` is
+   * off (combineCharges(), ADR 0017), each line holding its Charges (since
+   * `since`, or now) at the VAT treatment `codeOf` gives. Lines Office
+   * added by hand (`handLines`, kept) go into "Altro", after the Charges'
+   * lines there, or after all lines when not organised. Returns how many
+   * lines the draft has before its deductions.
+   */
+  private static async draftLines(
+    trx: TransactionClientContract,
+    invoiceId: number,
+    work: WorkEntry[],
+    { combine, organiseBy }: { combine: boolean; organiseBy: OrganiseBy },
+    codeOf: (charge: Charge) => VatTreatment,
+    handLines: InvoiceLine[] = [],
+    since = new Map<number, DateTime>()
+  ) {
+    const groups = organiseCharges(
+      work.map((entry) => ({
+        ...entry,
+        kind: entry.charge.kind,
+        equipment: entry.charge.item?.equipment ?? false,
+        category: entry.charge.item?.category
+          ? { id: entry.charge.item.category.id, name: entry.charge.item.category.name }
+          : null,
+        labourRateId: entry.charge.labourRateId,
+        itemId: entry.charge.itemId,
+        groupable: entry.charge.item?.groupable ?? false,
+        unitPrice: entry.charge.unitPrice,
+        vatCodeId: codeOf(entry.charge).id,
+        billQuantity: entry.charge.billQuantity,
+      })),
+      organiseBy
+    )
+    const handHeading = handLinesHeading(organiseBy)
+    const headings = groups.map((group) => group.heading)
+    if (handLines.length && !headings.some((heading) => sameHeading(heading, handHeading))) {
+      headings.push(handHeading)
+    }
+    const sectionIds = new Map<string, number>()
+    for (const heading of headings) {
+      if (!heading) continue
+      const section = await InvoiceSection.create(
+        {
+          invoiceId,
+          position: sectionIds.size,
+          title: this.sectionTitle(heading),
+          showSubtotal: true,
+        },
+        { client: trx }
+      )
+      sectionIds.set(JSON.stringify(heading), section.id)
+    }
+    const sectionOf = (heading: Heading | null) =>
+      heading ? sectionIds.get(JSON.stringify(heading))! : null
+
+    const drafted = groups.flatMap((group) =>
+      combineCharges(group.charges, { combine }).map((line) => ({
+        ...line,
+        sectionId: sectionOf(group.heading),
+      }))
+    )
+    // A line of its own for an Equipment Item names the pieces it
+    // installed by their serial numbers, as recorded at the Site now
+    const singles = drafted.flatMap((line) =>
+      line.charges.length === 1 && line.charges[0].kind === 'item'
+        ? [line.charges[0].charge.id]
+        : []
+    )
+    const installed = singles.length
+      ? await trx
+          .from('installed_equipment')
+          .whereIn('charge_id', singles)
+          .orderBy('id')
+          .select('charge_id', 'serial_number')
+      : []
+    // Without equipment (a Job without a Site installs none), the serial
+    // number recorded on the Charge
+    const serials = (charge: Charge) => {
+      const own = installed.filter((row) => row.charge_id === charge.id)
+      if (!own.length) return charge.equipmentSerialNumber ? [charge.equipmentSerialNumber] : []
+      return own.flatMap((row) => (row.serial_number ? [row.serial_number as string] : []))
+    }
+
+    // Each section's lines in turn, hand lines at the end of theirs (or last)
+    const order: ((typeof drafted)[number] | InvoiceLine)[] = []
+    for (const heading of headings) {
+      order.push(...drafted.filter((line) => line.sectionId === sectionOf(heading)))
+      if (sameHeading(heading, handHeading)) order.push(...handLines)
+    }
+    if (!headings.some((heading) => sameHeading(heading, handHeading))) order.push(...handLines)
+
+    const created = await InvoiceLine.createMany(
+      drafted.map((line) => {
+        const { charge } = line.charges[0]
+        const code = codeOf(charge)
+        return {
+          invoiceId,
+          sectionId: line.sectionId,
+          position: order.indexOf(line),
+          itemId: charge.itemId,
+          description:
+            line.charges.length === 1
+              ? this.chargeLine(charge, line.charges[0].day, serials(charge))
+              : this.combinedLine(charge, line.charges),
+          quantity: line.quantity,
+          unit: charge.billUnit,
+          unitPrice: charge.unitPrice,
+          discountPercent: '0',
+          vatCodeId: code.id,
+          vatRate: code.rate,
+          natura: code.natura,
+          legalNote: code.legalNote,
+          lineTotal: invoiceLineTotal(line.quantity, charge.unitPrice),
+        }
+      }),
+      { client: trx }
+    )
+    await this.hold(
+      trx,
+      created.flatMap((line, index) =>
+        drafted[index].charges.map(({ charge }) => ({
+          lineId: line.id,
+          chargeId: charge.id,
+          since: since.get(charge.id),
+        }))
+      )
+    )
+    for (const line of handLines) {
+      await line
+        .useTransaction(trx)
+        .merge({ sectionId: sectionOf(handHeading), position: order.indexOf(line) })
+        .save()
+    }
+    return order.length
+  }
+
+  /**
+   * A section's title as organising words it (ADR 0018), e.g.
+   * "Manodopera", "Intervento del 03/11", or the Item category's name.
+   */
+  private static sectionTitle(heading: Heading) {
+    const i18n = i18nManager.locale(i18nManager.defaultLocale)
+    if (heading.type === 'kind') return i18n.t(`documents.invoice.sections.${heading.kind}`)
+    if (heading.type === 'category') return heading.name.slice(0, 200)
+    if (heading.type === 'job') return i18n.t('documents.invoice.sections.job')
+    return i18n.t('documents.invoice.sections.visit', {
+      date: DateTime.fromISO(heading.day).toFormat('dd/MM'),
     })
   }
 
@@ -1099,8 +1331,11 @@ export default class Invoices {
    * (which keeps its number and date): lines sent back with their id are
    * updated, the others removed and new ones added, copying each VAT
    * Code's rate and Natura onto a new line or one whose code changed, and
-   * each Item's unit onto the line. Lines keep the Charges they bill
-   * (see relink); deduction lines follow what the
+   * each Item's unit onto the line. Sections sent are kept, updated, added
+   * or removed the same way, and lines take their places in them (when
+   * left out, sections and the lines kept stay as they were); lines are
+   * numbered in section order (inSectionOrder(), ADR 0018). Lines keep the
+   * Charges they bill (see relink); deduction lines follow what the
    * Invoice takes back of each advance (see deduct). A rejected Invoice
    * already took its Items off stock, so the difference is booked in the
    * stock. A correction below what has been paid is saved and the Invoice
@@ -1113,6 +1348,8 @@ export default class Invoices {
       discountPercent?: string
       notes?: string | null
       lines: InvoiceLineInput[]
+      // The sections, in order (ADR 0018); kept as they are when left out
+      sections?: InvoiceSectionInput[]
       // What the Invoice takes back of each advance; kept as is when left out
       deductions?: Deduction[]
     },
@@ -1183,6 +1420,21 @@ export default class Invoices {
       }
       const existing = await ownLines()
       const byId = new Map(existing.map((line) => [line.id, line]))
+      const sectionIds = input.sections
+        ? await this.saveSections(trx, locked.id, input.sections)
+        : null
+      const storedSections = sectionIds
+        ? []
+        : await InvoiceSection.query({ client: trx })
+            .where('invoiceId', locked.id)
+            .orderBy('position')
+      const sectionRank = new Map(
+        (sectionIds ?? storedSections.map((section) => section.id)).map((id, rank) => [id, rank])
+      )
+      const sectionOf = (line: InvoiceLineInput) => {
+        if (!sectionIds) return (line.id ? byId.get(line.id)?.sectionId : null) ?? null
+        return line.section === undefined ? null : (sectionIds[line.section] ?? null)
+      }
       // A Credit Note's lines each credit a line of its Invoice
       // (a Legacy Invoice has none: its Credit Note's lines are free, #27)
       const creditedLines =
@@ -1206,6 +1458,7 @@ export default class Invoices {
         if (given) {
           return {
             invoiceId: locked.id,
+            sectionId: null,
             creditsLineId: given.id,
             deductsInvoiceId: given.deductsInvoiceId,
             position,
@@ -1239,6 +1492,7 @@ export default class Invoices {
         const discountPercent = line.discountPercent ?? '0'
         return {
           invoiceId: locked.id,
+          sectionId: sectionOf(line),
           creditsLineId: creditedLine?.id ?? null,
           deductsInvoiceId: null,
           position,
@@ -1256,6 +1510,13 @@ export default class Invoices {
           lineTotal: invoiceLineTotal(line.quantity, line.unitPrice, discountPercent),
         }
       })
+      // Numbered as printed and sent: outside any section first, then each
+      // section's, then a Credit Note's deduction lines (ADR 0018)
+      inSectionOrder(
+        values,
+        (value) => (value.sectionId === null ? null : (sectionRank.get(value.sectionId) ?? null)),
+        (value) => value.deductsInvoiceId !== null
+      ).forEach((value, position) => (value.position = position))
       const kept = new Set<number>()
       const updates: [InvoiceLine, (typeof values)[number]][] = []
       const additions: (typeof values)[number][] = []
@@ -1365,6 +1626,51 @@ export default class Invoices {
       }
       return { belowPaid, creditedOverpaidBy }
     })
+  }
+
+  /**
+   * Writes the Invoice's sections as sent, in order: those sent with an id
+   * of this Invoice are updated, the others removed (their lines left
+   * outside any until saved) and those without one added. Returns their
+   * ids, in order.
+   */
+  private static async saveSections(
+    trx: TransactionClientContract,
+    invoiceId: number,
+    wanted: InvoiceSectionInput[]
+  ) {
+    const existing = await InvoiceSection.query({ client: trx }).where('invoiceId', invoiceId)
+    const byId = new Map(existing.map((section) => [section.id, section]))
+    const kept = new Set<number>()
+    const ids: number[] = []
+    for (const [position, section] of wanted.entries()) {
+      const values = {
+        invoiceId,
+        position,
+        title: section.title,
+        showSubtotal: section.showSubtotal,
+      }
+      const current = section.id ? byId.get(section.id) : undefined
+      // An id sent twice, or not of this Invoice, is a new section
+      if (current && !kept.has(current.id)) {
+        kept.add(current.id)
+        await current.useTransaction(trx).merge(values).save()
+        ids.push(current.id)
+      } else {
+        const created = await InvoiceSection.create(values, { client: trx })
+        ids.push(created.id)
+      }
+    }
+    const removed = existing.filter((section) => !kept.has(section.id))
+    if (removed.length) {
+      await InvoiceSection.query({ client: trx })
+        .whereIn(
+          'id',
+          removed.map((section) => section.id)
+        )
+        .delete()
+    }
+    return ids
   }
 
   /**

@@ -6,6 +6,8 @@
   .invoice-lines th, .invoice-summary th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #57606a; }
   .num { text-align: right !important; white-space: nowrap; }
   .invoice-lines tr { page-break-inside: avoid; }
+  .invoice-lines .section-title td { padding-top: 4mm; font-weight: bold; border-bottom: 0.3mm solid #24292f; page-break-after: avoid; }
+  .invoice-lines .section-subtotal td { font-weight: bold; }
   .invoice-totals { margin-top: 4mm; margin-left: auto; }
   .invoice-totals td { padding: 0.8mm 1.5mm; }
   .invoice-totals .grand td { font-size: 12pt; font-weight: bold; border-top: 0.3mm solid #24292f; }
@@ -39,15 +41,26 @@
     </tr>
   </thead>
   <tbody>
-    @each(line in lines)
-      <tr>
-        <td>{{ line.description }}</td>
-        <td class="num">{{ line.quantity }}</td>
-        <td class="num">{{ line.unitPrice }}</td>
-        <td class="num">{{ line.discount }}</td>
-        <td class="num">{{ line.vat }}</td>
-        <td class="num">{{ line.amount }}</td>
-      </tr>
+    @each(group in groups)
+      @if(group.title)
+        <tr class="section-title"><td colspan="6">{{ group.title }}</td></tr>
+      @end
+      @each(line in group.lines)
+        <tr>
+          <td>{{ line.description }}</td>
+          <td class="num">{{ line.quantity }}</td>
+          <td class="num">{{ line.unitPrice }}</td>
+          <td class="num">{{ line.discount }}</td>
+          <td class="num">{{ line.vat }}</td>
+          <td class="num">{{ line.amount }}</td>
+        </tr>
+      @end
+      @if(group.subtotal)
+        <tr class="section-subtotal">
+          <td colspan="5">{{ t('documents.invoice.sectionSubtotal', { title: group.title }) }}</td>
+          <td class="num">{{ group.subtotal }}</td>
+        </tr>
+      @end
     @end
   </tbody>
 </table>

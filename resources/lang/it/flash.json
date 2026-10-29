@@ -100,6 +100,7 @@
   },
   "invoiceCreated": "Bozza di fattura creata.",
   "invoiceSaved": "Bozza salvata.",
+  "invoiceOrganised": "Righe riorganizzate.",
   "invoiceDeleted": "Bozza eliminata.",
   "invoiceNotEditable": "La fattura non è più modificabile.",
   "invoiceBelowPaid": "Fattura salvata, ma il totale è inferiore a quanto già incassato ({paid}): risulta pagata in eccesso.",
