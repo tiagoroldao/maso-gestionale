@@ -3,7 +3,6 @@ import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { QuoteSchema } from '#database/schema'
 import Job from '#models/job'
 import QuoteLine from '#models/quote_line'
-import { sumAmounts } from '#shared/money'
 import { invoiceTotals } from '#shared/invoice_totals'
 import type { CustomerSnapshot } from '#models/invoice'
 import type { CompanyDetails } from '#documents/document_renderer'
@@ -42,13 +41,6 @@ export default class Quote extends QuoteSchema {
    */
   get isPriced() {
     return this.lines.some((line) => line.kind !== 'text')
-  }
-
-  /**
-   * The sum of the line totals before VAT (lines must be preloaded).
-   */
-  get taxable() {
-    return sumAmounts(this.lines.flatMap((line) => (line.lineTotal ? [line.lineTotal] : [])))
   }
 
   /**

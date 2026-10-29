@@ -27,3 +27,6 @@ yarn-error.log
 
 # Uploaded files
 storage
+
+# Claude Code local settings
+.claude/settings.local.json

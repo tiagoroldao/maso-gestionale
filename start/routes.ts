@@ -196,7 +196,13 @@ router
           .get('jobs/:id/visits/create', [controllers.Visits, 'create'])
           .where('id', router.matchers.number())
         router
+          .post('jobs/:id/visits/create', [controllers.Visits, 'repeatDates'])
+          .where('id', router.matchers.number())
+        router
           .post('jobs/:id/visits', [controllers.Visits, 'store'])
+          .where('id', router.matchers.number())
+        router
+          .get('jobs/:id/visits/repeated', [controllers.Visits, 'repeatedForm'])
           .where('id', router.matchers.number())
         router
           .post('jobs/:id/visits/repeated', [controllers.Visits, 'storeRepeated'])

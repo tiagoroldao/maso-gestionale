@@ -73,6 +73,8 @@
   "quoteNotWritable": "Una commessa chiusa o annullata non può avere nuovi preventivi.",
   "visitPlanned": "Intervento pianificato.",
   "visitsPlanned": "{count, plural, one {# intervento pianificato} other {# interventi pianificati}}.",
+  "repeatedDatesOutside": "Alcune date scelte non rientrano nella ripetizione: scegli tra quelle elencate.",
+  "repeatedVisitsRefused": "Interventi non pianificati: i dati non sono più validi (ad esempio un tecnico disattivato). Ricontrolla e mostra di nuovo le date.",
   "visitMoved": "Intervento spostato.",
   "jobNotSchedulable": "Una commessa chiusa o annullata non può avere nuovi interventi.",
   "visitNotMovable": "L'intervento è cambiato nel frattempo o non si può più spostare. Ricarica l'agenda.",

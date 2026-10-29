@@ -12,30 +12,25 @@ import { createJob } from '#tests/helpers/jobs'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 
 /**
- * A query string as the page's form sends it, arrays with brackets.
+ * The plan form as posted to list a repeat's dates, blank fields included.
  */
-function query(fields: Record<string, string | number | (string | number)[]>) {
-  const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(fields)) {
-    if (Array.isArray(value)) value.forEach((item) => params.append(`${key}[]`, String(item)))
-    else params.append(key, String(value))
-  }
-  return params.toString()
-}
-
 function repeat(technicianIds: number[], overrides: Record<string, string | number | number[]>) {
-  return query({
+  return {
     date: '2026-12-07',
     startTime: '09:00',
     durationMinutes: 120,
     technicianIds,
     notes: 'Cantiere bagno',
     ...overrides,
-  })
+  }
 }
 
+/**
+ * The dates Office confirmed, sent with the repeat they were listed from
+ * (daily from Monday 7 December, five times), as the page's form sends it.
+ */
 function confirmed(technicianIds: number[], dates: string[]) {
-  return { dates, startTime: '09:00', durationMinutes: 120, technicianIds, notes: 'Cantiere bagno' }
+  return { ...repeat(technicianIds, { repeat: 'daily', count: 5, until: '' }), dates }
 }
 
 async function visitOf(
@@ -56,7 +51,13 @@ async function visitOf(
   return visit
 }
 
-type PreviewDate = { date: string; weekday: number; holiday: string | null; clashes: string[] }
+type PreviewDate = {
+  date: string
+  weekday: number
+  holiday: string | null
+  clashes: string[]
+  ticked: boolean
+}
 
 test.group('Repeated Visits', () => {
   test('lists the dates, flagging public holidays and booked Technicians', async ({
@@ -75,23 +76,26 @@ test.group('Repeated Visits', () => {
     await visitOf(other, [bruno.id], '2026-12-11T09:00')
     // Back to back with 09:00–11:00 isn't a clash
     await visitOf(other, [anna.id], '2026-12-07T11:00')
+    // A cancelled Job's Visits are abandoned work: they take no one's time
+    const cancelled = await createJob(await createCustomer(), { status: 'cancelled' })
+    await visitOf(cancelled, [anna.id], '2026-12-11T09:00')
     const job = await createJob(await createCustomer())
 
     const response = await client
-      .get(
-        `/jobs/${job.id}/visits/create?${repeat([anna.id], { repeat: 'weekdays', count: 5, until: '' })}`
-      )
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'weekdays', count: 5, until: '' }))
+      .withCsrfToken()
       .withInertia()
       .loginAs(office)
 
     response.assertStatus(200)
     const preview = response.inertiaProps.preview as { dates: PreviewDate[]; truncated: boolean }
     assert.deepEqual(preview.dates, [
-      { date: '2026-12-07', weekday: 1, holiday: null, clashes: [] },
-      { date: '2026-12-08', weekday: 2, holiday: 'immaculate', clashes: [] },
-      { date: '2026-12-09', weekday: 3, holiday: null, clashes: ['Anna'] },
-      { date: '2026-12-10', weekday: 4, holiday: null, clashes: [] },
-      { date: '2026-12-11', weekday: 5, holiday: null, clashes: [] },
+      { date: '2026-12-07', weekday: 1, holiday: null, clashes: [], ticked: true },
+      { date: '2026-12-08', weekday: 2, holiday: 'immaculate', clashes: [], ticked: true },
+      { date: '2026-12-09', weekday: 3, holiday: null, clashes: ['Anna'], ticked: true },
+      { date: '2026-12-10', weekday: 4, holiday: null, clashes: [], ticked: true },
+      { date: '2026-12-11', weekday: 5, holiday: null, clashes: [], ticked: true },
     ])
     assert.isFalse(preview.truncated)
     response.assertInertiaPropsContains({
@@ -107,13 +111,9 @@ test.group('Repeated Visits', () => {
     const job = await createJob(await createCustomer())
 
     const response = await client
-      .get(
-        `/jobs/${job.id}/visits/create?${repeat([anna.id], {
-          repeat: 'days',
-          weekdays: [1, 3],
-          until: '2026-12-21',
-        })}`
-      )
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'days', weekdays: [1, 3], until: '2026-12-21' }))
+      .withCsrfToken()
       .withInertia()
       .loginAs(office)
 
@@ -138,8 +138,10 @@ test.group('Repeated Visits', () => {
       [{ repeat: 'monthly', count: 3 }, 'repeat'],
     ] as const) {
       const response = await client
-        .get(`${page}?${repeat([anna.id], fields)}`)
+        .post(page)
+        .json(repeat([anna.id], fields))
         .header('referer', page)
+        .withCsrfToken()
         .loginAs(office)
         .redirects(0)
       assert.properties(response.flashMessage('inputErrorsBag'), [field], JSON.stringify(fields))
@@ -210,29 +212,131 @@ test.group('Repeated Visits', () => {
     assert.lengthOf(third.technicians, 2)
   })
 
-  test('confirming needs at least one date, and plans none on a refusal', async ({
+  test('a refused confirmation lists the dates again, as left, with why', async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
     const anna = await createUser('technician')
     const job = await createJob(await createCustomer())
-
-    for (const dates of [[], ['2026-12-07', '2026-12-07'], ['2026-12-32']]) {
-      const response = await client
+    // The confirmation carries the repeat, as the page's form sends it
+    const confirm = (technicianIds: number[], dates: string[]) =>
+      client
         .post(`/jobs/${job.id}/visits/repeated`)
-        .json(confirmed([anna.id], dates))
+        .json({
+          ...repeat(technicianIds, { repeat: 'daily', count: 3, until: '' }),
+          dates,
+        })
         .header('referer', `/jobs/${job.id}/visits/create`)
         .withCsrfToken()
+        .withInertia()
         .loginAs(office)
-        .redirects(0)
-      const errors = response.flashMessage('inputErrorsBag') ?? {}
-      assert.isTrue(
-        Object.keys(errors).some((key) => key.startsWith('dates')),
-        JSON.stringify(dates)
-      )
+
+    const none = await confirm([anna.id], [])
+    none.assertStatus(200)
+    none.assertInertiaComponent('visits/create')
+    const listed = none.inertiaProps.preview as {
+      refusal: string
+      dates: { date: string; ticked: boolean }[]
     }
+    assert.equal(listed.refusal, it('validator.shared.messages.dates.array.minLength'))
+    assert.deepEqual(
+      listed.dates.map((day) => [day.date, day.ticked]),
+      [
+        ['2026-12-07', false],
+        ['2026-12-08', false],
+        ['2026-12-09', false],
+      ]
+    )
+
+    // The dates Office kept stay ticked
+    const duplicate = await confirm([anna.id], ['2026-12-07', '2026-12-09', '2026-12-09'])
+    const again = duplicate.inertiaProps.preview as {
+      refusal: string
+      dates: { date: string; ticked: boolean }[]
+    }
+    assert.isNotEmpty(again.refusal)
+    assert.deepEqual(
+      again.dates.map((day) => day.ticked),
+      [true, false, true]
+    )
+
+    // A Technician deactivated meanwhile: the plain form, saying why
+    await anna.merge({ isActive: false }).save()
+    const deactivated = await client
+      .post(`/jobs/${job.id}/visits/repeated`)
+      .json({
+        ...repeat([anna.id], { repeat: 'daily', count: 3, until: '' }),
+        dates: ['2026-12-07'],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    deactivated.assertHeader('location', `/jobs/${job.id}/visits/create`)
+    deactivated.assertFlashMessage('error', it('flash.repeatedVisitsRefused'))
     assert.lengthOf(await Visit.all(), 0)
+  })
+
+  test('confirmed dates must be among those the repeat lists', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const job = await createJob(await createCustomer())
+
+    // 12 December is a Saturday, after the five days listed
+    const response = await client
+      .post(`/jobs/${job.id}/visits/repeated`)
+      .json(confirmed([anna.id], ['2026-12-07', '2026-12-12']))
+      .withCsrfToken()
+      .withInertia()
+      .loginAs(office)
+
+    response.assertStatus(200)
+    const preview = response.inertiaProps.preview as {
+      refusal: string
+      dates: { date: string; ticked: boolean }[]
+    }
+    assert.equal(preview.refusal, it('flash.repeatedDatesOutside'))
+    assert.deepEqual(
+      preview.dates.map((day) => [day.date, day.ticked]),
+      [
+        ['2026-12-07', true],
+        ['2026-12-08', false],
+        ['2026-12-09', false],
+        ['2026-12-10', false],
+        ['2026-12-11', false],
+      ]
+    )
+    assert.lengthOf(await Visit.all(), 0)
+  })
+
+  test('after a refusal, a reload or a refused form there goes back to the plan form', async ({
+    client,
+  }) => {
+    const office = await createUser('office')
+    const anna = await createUser('technician')
+    const job = await createJob(await createCustomer())
+    const url = `/jobs/${job.id}/visits/repeated`
+
+    // Reloading the refused confirmation's address
+    const reload = await client.get(url).loginAs(office).redirects(0)
+    reload.assertStatus(302)
+    reload.assertHeader('location', `/jobs/${job.id}/visits/create`)
+
+    // The form above the list refused there: its errors go back to that
+    // address, which leads to the plan form
+    const refused = await client
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'daily' }))
+      .header('referer', url)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    refused.assertHeader('location', url)
+    const back = await client.get(url).loginAs(office).redirects(0)
+    back.assertHeader('location', `/jobs/${job.id}/visits/create`)
+    const page = await client.get(`/jobs/${job.id}/visits/create`).withInertia().loginAs(office)
+    page.assertStatus(200)
+    page.assertInertiaComponent('visits/create')
   })
 
   test('a closed or cancelled Job takes no repeated Visits', async ({ client, assert }) => {
@@ -243,7 +347,9 @@ test.group('Repeated Visits', () => {
       const job = await createJob(await createCustomer(), { status })
 
       const preview = await client
-        .get(`/jobs/${job.id}/visits/create?${repeat([anna.id], { repeat: 'daily', count: 3 })}`)
+        .post(`/jobs/${job.id}/visits/create`)
+        .json(repeat([anna.id], { repeat: 'daily', count: 3 }))
+        .withCsrfToken()
         .loginAs(office)
         .redirects(0)
       preview.assertFlashMessage('error', it('flash.jobNotSchedulable'))
@@ -268,7 +374,9 @@ test.group('Repeated Visits', () => {
     const job = await createJob(await createCustomer())
 
     const preview = await client
-      .get(`/jobs/${job.id}/visits/create?${repeat([anna.id], { repeat: 'daily', count: 2 })}`)
+      .post(`/jobs/${job.id}/visits/create`)
+      .json(repeat([anna.id], { repeat: 'daily', count: 2 }))
+      .withCsrfToken()
       .withInertia()
       .loginAs(admin)
     assert.lengthOf((preview.inertiaProps.preview as { dates: unknown[] }).dates, 2)
@@ -287,13 +395,21 @@ test.group('Repeated Visits', () => {
 
     for (const role of ['technician', 'superuser'] as const) {
       const user = await createUser(role)
-      for (const url of [
-        `/jobs/${job.id}/visits/create?${repeat([user.id], { repeat: 'daily', count: 2 })}`,
-        `/jobs/${job.id}/visits/create?from=${visit.id}`,
-      ]) {
-        const page = await client.get(url).withInertia().loginAs(user)
-        page.assertStatus(403)
-      }
+      const page = await client
+        .get(`/jobs/${job.id}/visits/create?from=${visit.id}`)
+        .withInertia()
+        .loginAs(user)
+      page.assertStatus(403)
+      const dates = await client
+        .post(`/jobs/${job.id}/visits/create`)
+        .json(repeat([user.id], { repeat: 'daily', count: 2 }))
+        .header('referer', '/')
+        .withCsrfToken()
+        .loginAs(user)
+        .redirects(0)
+      dates.assertFlashMessage('error', it(ACCESS_DENIED_KEY))
+      const reload = await client.get(`/jobs/${job.id}/visits/repeated`).withInertia().loginAs(user)
+      reload.assertStatus(403)
       const store = await client
         .post(`/jobs/${job.id}/visits/repeated`)
         .json(confirmed([user.id], ['2026-12-08', '2026-12-09']))

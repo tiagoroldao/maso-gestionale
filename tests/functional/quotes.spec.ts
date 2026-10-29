@@ -122,7 +122,7 @@ test.group('Quotes', () => {
         ['text', null, null, null, null],
       ]
     )
-    assert.equal(quote.taxable, '1364.74')
+    assert.equal(quote.totals.taxable, '1364.74')
     // 22% on 1364.74 = 300.24
     assert.equal(quote.totals.total, '1664.98')
     assert.equal(quote.notes, 'Validità 30 giorni')
@@ -235,7 +235,7 @@ test.group('Quotes', () => {
     response.assertHeader('location', `/quotes/${created!.id}`)
     const quote = await Quote.query().where('id', created!.id).preload('lines').firstOrFail()
     assert.lengthOf(quote.lines, 1)
-    assert.equal(quote.taxable, '30.00')
+    assert.equal(quote.totals.taxable, '30.00')
     assert.lengthOf(await Quote.query().where('jobId', job.id), 1)
   })
 
@@ -670,12 +670,14 @@ test.group('Quote dates and validity', () => {
   test('the validity is optional and between 1 and 365 days', async ({ client, assert }) => {
     const { office, job, item, rate } = await setup()
 
-    const refused = await write(client, office, job, {
-      validityDays: 0,
-      lines: quoteLines(item.id, rate.id),
-    })
-    assert.properties(refused.response.flashMessage('inputErrorsBag'), ['validityDays'])
-    assert.isNull(refused.quote)
+    for (const validityDays of [0, 366]) {
+      const refused = await write(client, office, job, {
+        validityDays,
+        lines: quoteLines(item.id, rate.id),
+      })
+      assert.properties(refused.response.flashMessage('inputErrorsBag'), ['validityDays'])
+      assert.isNull(refused.quote)
+    }
 
     const { quote } = await write(client, office, job, { lines: quoteLines(item.id, rate.id) })
     assert.isNull(quote!.validityDays)

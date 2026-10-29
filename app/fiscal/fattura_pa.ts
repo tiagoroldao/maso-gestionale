@@ -4,6 +4,7 @@ import type { CompanySnapshot, CustomerSnapshot } from '#models/invoice'
 import type { InvoiceTotals } from '#shared/invoice_totals'
 import type { PaymentMethod } from '#shared/payments'
 import { BANK_TRANSFER } from '#shared/payments'
+import { LEGAL_NOTE_MAX } from '#shared/vat'
 
 /**
  * Everything a FatturaPA document needs, taken from a finalised Invoice and
@@ -93,6 +94,32 @@ function render(nodes: Node[], indent = '  '): string {
         : `${indent}<${name}>${escape(value as string)}</${name}>`
     )
     .join('\n')
+}
+
+/**
+ * A VAT row's legal references. RiferimentoNormativo takes 100 characters,
+ * so the row's distinct notes (in line order) are joined there while they
+ * fit whole; a note that doesn't fit is never cut but moved to `overflow`,
+ * written in full in Causale, so the document still states every reference.
+ * A note over 100 characters on its own (saved before the limit, #172) is
+ * cut in RiferimentoNormativo, which then isn't empty, and written whole in
+ * Causale too.
+ */
+export function legalReferences(notes: string[]) {
+  const fitting: string[] = []
+  const overflow: string[] = []
+  // Distinct as written in the file: notes differing only in quotes or spaces are one
+  const written = [...new Set(notes.map((value) => latin1(value).trim()).filter(Boolean))]
+  for (const note of written) {
+    if ([...fitting, note].join('; ').length <= LEGAL_NOTE_MAX) fitting.push(note)
+    else overflow.push(note)
+  }
+  const reference = fitting.length
+    ? fitting.join('; ')
+    : overflow.length
+      ? overflow[0].slice(0, LEGAL_NOTE_MAX)
+      : null
+  return { reference, overflow }
 }
 
 /** Amounts with 2 decimals; prices and quantities keep up to 8 */
@@ -239,6 +266,7 @@ export function buildFatturaPA(input: FatturaInput): string {
       ],
     ])
 
+  const overflow = new Set<string>()
   const summary: Node[] = totals.summary.map((row) => {
     const notes = [
       ...new Set(
@@ -249,6 +277,8 @@ export function buildFatturaPA(input: FatturaInput): string {
           .flatMap((line) => (line.legalNote ? [line.legalNote] : []))
       ),
     ]
+    const references = legalReferences(notes)
+    references.overflow.forEach((note) => overflow.add(note))
     return [
       'DatiRiepilogo',
       [
@@ -258,14 +288,15 @@ export function buildFatturaPA(input: FatturaInput): string {
         ['Imposta', amount(row.vat)],
         // Immediate VAT; rows without VAT (Natura) carry the legal reference instead
         ['EsigibilitaIVA', row.natura ? null : 'I'],
-        ['RiferimentoNormativo', notes.length ? text(notes.join('; '), 100) : null],
+        ['RiferimentoNormativo', references.reference],
       ],
     ]
   })
 
-  const causale: Node[] = input.notes
-    ? (text(input.notes, 5000).match(/[\s\S]{1,200}/g) ?? []).map((chunk) => ['Causale', chunk])
-    : []
+  // The notes, then any legal reference RiferimentoNormativo had no room for
+  const causale: Node[] = [input.notes ? text(input.notes, 5000) : null, ...overflow]
+    .flatMap((value) => (value ? (value.match(/[\s\S]{1,200}/g) ?? []) : []))
+    .map((chunk) => ['Causale', chunk])
 
   const document: Node[] = [
     [

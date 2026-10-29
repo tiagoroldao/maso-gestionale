@@ -46,7 +46,7 @@ test.group('Quotes in the browser', () => {
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(quote.status, 'accepted')
     assert.isNotNull(quote.sentAt)
-    assert.equal(quote.taxable, '1300.00')
+    assert.equal(quote.totals.taxable, '1300.00')
     // Both new lines took the default VAT rule for the Job
     assert.deepEqual(
       quote.lines.map((line) => line.natura),

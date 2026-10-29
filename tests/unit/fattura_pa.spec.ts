@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import Big from 'big.js'
-import { buildFatturaPA, latin1, type FatturaInput } from '#fiscal/fattura_pa'
+import { buildFatturaPA, latin1, legalReferences, type FatturaInput } from '#fiscal/fattura_pa'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
 import type { CompanySnapshot, CustomerSnapshot } from '#models/invoice'
 import { fatturaSchemaErrors } from '#tests/helpers/fattura_xsd'
@@ -229,6 +229,89 @@ test.group('FatturaPA XML', () => {
     assert.deepEqual(tag(xml, 'EsigibilitaIVA'), [])
     assert.lengthOf(tag(xml, 'RiferimentoNormativo')[0], Math.min(note.length, 100))
     assert.deepEqual(tag(xml, 'ImportoTotaleDocumento'), ['320.00'])
+  })
+
+  test("a VAT row's notes stay within 100 characters, and none is lost", async ({ assert }) => {
+    const exempt = "Operazione esente ai sensi dell'art. 10, comma 1, n. 18, DPR 633/1972"
+    const medical = 'Prestazione sanitaria esente, art. 10 n. 18 DPR 633/72'
+    const short = 'Art. 10 DPR 633/72'
+    const xml = buildFatturaPA(
+      input(
+        [exempt, medical, short, exempt].map((legalNote) => ({
+          quantity: '1',
+          unitPrice: '50',
+          vatRate: '0',
+          natura: 'N4',
+          legalNote,
+        })),
+        { notes: 'Grazie.' }
+      )
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assertSummaryAddsUp(xml, assert)
+    // The notes that fit whole, in line order; the one that doesn't moves to Causale
+    assert.deepEqual(tag(xml, 'RiferimentoNormativo'), [`${exempt}; ${short}`])
+    assert.deepEqual(tag(xml, 'Causale'), ['Grazie.', medical])
+  })
+
+  test('legal references: a note over 100 characters is cut but also kept whole', ({ assert }) => {
+    const long = 'Nota salvata prima del limite di cento caratteri, '.repeat(3).trim()
+    assert.deepEqual(legalReferences([long, 'Art. 10']), {
+      reference: 'Art. 10',
+      overflow: [long],
+    })
+    assert.deepEqual(legalReferences([long]), {
+      reference: long.slice(0, 100),
+      overflow: [long],
+    })
+    assert.deepEqual(legalReferences([]), { reference: null, overflow: [] })
+    assert.deepEqual(legalReferences(['x'.repeat(48), 'y'.repeat(50)]), {
+      reference: `${'x'.repeat(48)}; ${'y'.repeat(50)}`,
+      overflow: [],
+    })
+  })
+
+  test('a note over 100 characters: cut in the row, whole in Causale', async ({ assert }) => {
+    const long = `Operazione esente ${'secondo la normativa vigente, '.repeat(5)}art. 10 DPR 633/1972`
+    const xml = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '80', vatRate: '0', natura: 'N4', legalNote: long }])
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assert.isAbove(long.length, 100)
+    assert.deepEqual(tag(xml, 'RiferimentoNormativo'), [long.slice(0, 100)])
+    assert.deepEqual(tag(xml, 'Causale'), [long])
+  })
+
+  test('a note over 200 characters that does not fit runs over several Causale', async ({
+    assert,
+  }) => {
+    const long = `Nota storica: ${'operazione non imponibile per legge, '.repeat(12)}fine`
+    const xml = buildFatturaPA(
+      input(
+        ['Art. 10 DPR 633/72', long].map((legalNote) => ({
+          quantity: '1',
+          unitPrice: '40',
+          vatRate: '0',
+          natura: 'N4',
+          legalNote,
+        }))
+      )
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assert.deepEqual(tag(xml, 'RiferimentoNormativo'), ['Art. 10 DPR 633/72'])
+    const causale = tag(xml, 'Causale')
+    assert.lengthOf(causale, Math.ceil(long.length / 200))
+    assert.equal(causale.join(''), long)
+  })
+
+  test('legal references: notes alike once written in Latin-1 count once', ({ assert }) => {
+    assert.deepEqual(legalReferences(['Art. 10 “esente”', ' Art. 10 "esente" ']), {
+      reference: 'Art. 10 "esente"',
+      overflow: [],
+    })
   })
 
   test('several rates with line and global discounts', async ({ assert }) => {

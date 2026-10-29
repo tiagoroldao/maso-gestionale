@@ -722,6 +722,7 @@
     "rateOf": "Aliquota di {name}",
     "naturaOf": "Natura di {name}",
     "legalNoteOf": "Nota in fattura di {name}",
+    "legalNoteTooLong": "La nota supera i {max} caratteri: accorciala per poter salvare il codice. In fattura il testo completo va nella causale.",
     "addTitle": "Nuovo codice IVA",
     "add": "Aggiungi codice IVA",
     "archive": "Archivia"

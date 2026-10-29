@@ -2,6 +2,7 @@ import edge from 'edge.js'
 import type { I18n } from '@adonisjs/i18n'
 import type Quote from '#models/quote'
 import { recipientFrom, type DocumentInput } from '#documents/document_renderer'
+import { vatLabel } from '#shared/vat'
 
 const euro = new Intl.NumberFormat('it-IT', {
   style: 'currency',
@@ -11,8 +12,6 @@ const euro = new Intl.NumberFormat('it-IT', {
 })
 const quantityFormat = new Intl.NumberFormat('it-IT', { maximumFractionDigits: 3 })
 const money = (amount: string) => euro.format(amount as unknown as number)
-const vatLabel = (rate: string, natura: string | null) =>
-  natura ?? `${Number(rate).toLocaleString('it-IT')}%`
 
 /**
  * A Quote as a document on the Base Layout (its Job preloaded with the
@@ -37,7 +36,7 @@ export async function quoteDocument(quote: Quote, i18n: I18n): Promise<DocumentI
     vat: money(quote.totals.vat),
     total: money(quote.totals.total),
     summary: quote.totals.summary.map((row) => ({
-      vat: vatLabel(row.vatRate, row.natura),
+      vat: vatLabel(row),
       taxable: money(row.taxable),
       vatAmount: money(row.vat),
     })),
@@ -49,7 +48,7 @@ export async function quoteDocument(quote: Quote, i18n: I18n): Promise<DocumentI
       unit: line.unit ?? '',
       unitPrice: line.unitPrice ? money(line.unitPrice) : '',
       lineTotal: line.lineTotal ? money(line.lineTotal) : '',
-      vat: line.vatRate !== null ? vatLabel(line.vatRate, line.natura) : '',
+      vat: line.vatRate !== null ? vatLabel({ vatRate: line.vatRate, natura: line.natura }) : '',
     })),
     t,
   })

@@ -8,6 +8,10 @@ Management app for a single small plumbing business: customers, jobs and visits,
 The person or organization that is billed for work.
 _Avoid_: Client, account
 
+**Customer type** (_Tipo di cliente_):
+What a Customer is: a private individual (_Privato_), a company (_Azienda_), a condominium (_Condominio_) or another organisation such as an association (_Ente / associazione_). It decides the identifiers required (a private individual's 16-character Codice Fiscale, a company's VAT number, a condominium's or organisation's 11-digit Codice Fiscale), whether Invoices name the Customer by first and last name or by name, and, with the Work Category and the Site, the VAT normally charged.
+_Avoid_: Customer kind, customer category
+
 **Site** (_Immobile_):
 A physical address where work is done and equipment is installed, independent of who owns or pays for it.
 _Avoid_: Location, address, property
@@ -107,7 +111,7 @@ A draft Invoice line billing several alike Charges (hours of one Labour Rate, or
 _Avoid_: Grouped line (groups are an Invoice's sections, #184), merged line
 
 **VAT Code** (_Codice IVA_):
-The VAT treatment of an invoice line: a rate, or no VAT together with the reason (exempt, out of scope, reverse charge) the tax agency requires.
+The VAT treatment of an Invoice or Quote line (and an Item's default): a rate, or no VAT together with the reason (exempt, out of scope, reverse charge) the tax agency requires.
 _Avoid_: VAT rate (a code at 0% has no meaningful rate), aliquota (when meaning the whole treatment)
 
 **Finalised Invoice**:

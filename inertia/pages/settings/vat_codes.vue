@@ -13,9 +13,10 @@ type VatCode = {
   rate: string
   natura: string | null
   legalNote: string | null
+  legalNoteTooLong: boolean
 }
 
-defineProps<{ vatCodes: VatCode[] }>()
+defineProps<{ vatCodes: VatCode[]; legalNoteMax: number }>()
 
 const rowStyle = { display: 'flex', gap: '8px', alignItems: 'flex-start', flexWrap: 'wrap' }
 </script>
@@ -76,6 +77,9 @@ const rowStyle = { display: 'flex', gap: '8px', alignItems: 'flex-start', flexWr
                   <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
                     {{ t('ui.common.save') }}
                   </button>
+                  <span v-if="code.legalNoteTooLong" class="field__error">
+                    {{ t('ui.vatCodes.legalNoteTooLong', { max: legalNoteMax }) }}
+                  </span>
                   <span v-for="field in ['name', 'rate', 'natura', 'legalNote']" :key="field">
                     <span v-if="errors[field]" class="field__error">{{ errors[field] }}</span>
                   </span>
