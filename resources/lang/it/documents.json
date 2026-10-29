@@ -80,5 +80,30 @@
     "since": "dal {from}",
     "until": "fino al {to}",
     "wholeJob": "intera commessa"
+  },
+  "supplierInvoice": {
+    "rendering": "Copia di lettura generata dal file {file}: l'originale fiscale è il file ricevuto tramite SDI."
+  },
+  "supplierInvoiceExport": {
+    "columns": {
+      "supplier": "Fornitore",
+      "vatId": "Partita IVA",
+      "documentType": "Tipo documento",
+      "number": "Numero",
+      "issuedOn": "Data",
+      "taxable": "Imponibile",
+      "vat": "IVA",
+      "total": "Totale",
+      "currency": "Valuta",
+      "sdiIdentifier": "Identificativo SDI",
+      "receivedVia": "Ricevuta tramite",
+      "originalFile": "File originale",
+      "pdfFile": "File PDF"
+    },
+    "receivedVia": {
+      "upload": "Caricamento manuale",
+      "sdi": "Intermediario SDI"
+    },
+    "originalMissing": "(file originale mancante)"
   }
 }

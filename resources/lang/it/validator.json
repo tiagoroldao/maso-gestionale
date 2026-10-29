@@ -196,7 +196,9 @@
       "paid": "già pagata",
       "pdf": "PDF",
       "vatCountry": "paese",
-      "invoice": "fattura"
+      "invoice": "fattura",
+      "issuedFrom": "dal",
+      "issuedTo": "al"
     }
   }
 }
