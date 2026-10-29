@@ -73,7 +73,7 @@ A single web app per business ("Instance"), self-hosted on the business's own se
 31. As an Office user, I want to cancel a Job, so that abandoned work stops showing up in active lists.
 32. As an Office user, I want to schedule Visits for a Job on a calendar with one column per Technician, so that I can plan the week.
 33. As an Office user, I want to assign one or more Technicians to a Visit, so that team jobs are represented.
-34. As an Office user, I want to move a Visit by drag and drop, so that rescheduling is fast.
+34. As an Office user, I want to move a Visit quickly, seeing its new time before confirming, so that rescheduling is fast and safe (drag and drop dropped by ADR 0020).
 35. As an Office user, I want a "to schedule" list of Visits marked "needs another visit", so that follow-ups aren't forgotten.
 36. As a Technician, I want to see today's and upcoming Visits on my phone, so that I know where to go.
 37. As a Technician, I want to open a Visit and see the Customer, Site address, Installed Equipment and Job notes, so that I arrive prepared.
