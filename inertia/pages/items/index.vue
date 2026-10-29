@@ -22,6 +22,8 @@ const props = defineProps<{
     committed: string
     available: string
     category: string | null
+    equipment: boolean
+    groupable: boolean
     purchasePrice: string
     resalePrice: string
   }[]
@@ -81,6 +83,7 @@ function submitSearch() {
             <th>{{ t('ui.items.code') }}</th>
             <th>{{ t('ui.items.description') }}</th>
             <th>{{ t('ui.items.category') }}</th>
+            <th>{{ t('ui.items.flags') }}</th>
             <th :style="{ textAlign: 'right' }">{{ t('ui.items.stock') }}</th>
             <th :style="{ textAlign: 'right' }">{{ t('ui.items.committed') }}</th>
             <th :style="{ textAlign: 'right' }">{{ t('ui.items.available') }}</th>
@@ -96,6 +99,10 @@ function submitSearch() {
             </td>
             <td>{{ item.description }}</td>
             <td>{{ item.category }}</td>
+            <td>
+              <span v-if="item.equipment" class="tag">{{ t('ui.items.equipment') }}</span>
+              <span v-if="item.groupable" class="tag">{{ t('ui.items.groupable') }}</span>
+            </td>
             <td :style="{ textAlign: 'right' }">
               {{ formatQuantity(item.inStock) }} {{ item.unit }}
             </td>

@@ -29,7 +29,7 @@ function post(client: ApiClient, user: User, url: string, form: Record<string, u
 
 /**
  * A Job in progress at a Site with a Visit planned at `startsAt` for Anna,
- * where she recorded a boiler from stock, a new one installed, and
+ * where she recorded a boiler from stock, a new Equipment one, and
  * serviced the Site's old boiler.
  */
 async function plannedVisit(startsAt: DateTime) {
@@ -46,7 +46,14 @@ async function plannedVisit(startsAt: DateTime) {
   await visit.related('technicians').attach([anna.id])
   await LabourRate.firstOrCreate({ name: 'Idraulico' }, { hourlyPrice: '40' })
   const item = await createItem({ description: 'Caldaia 25 kW', resalePrice: '1200' })
-  await StockLedger.receive(item, { quantity: '5', occurredOn: DateTime.fromISO('2020-01-01') })
+  // Equipment: done, it is installed at the Site (#176)
+  const boiler = await createItem({ description: 'Caldaia 30 kW', equipment: true })
+  for (const stocked of [item, boiler]) {
+    await StockLedger.receive(stocked, {
+      quantity: '5',
+      occurredOn: DateTime.fromISO('2020-01-01'),
+    })
+  }
   const old = await InstalledEquipment.create({
     siteId: site.id,
     equipmentType: 'Caldaia',
@@ -54,9 +61,8 @@ async function plannedVisit(startsAt: DateTime) {
   })
   await FieldWork.recordItem(visit, { itemId: item.id, quantity: '1' })
   await FieldWork.recordItem(visit, {
-    itemId: item.id,
+    itemId: boiler.id,
     quantity: '1',
-    installed: true,
     equipmentType: 'Caldaia murale',
   })
   await FieldWork.setServiced(visit, [old.id])
@@ -279,6 +285,7 @@ test.group('Visit work day and times (#174)', () => {
     await post(client, office, `/charges/${unused.id}/not-done`)
     const adjustment = await StockMovement.query().where('kind', 'adjustment').firstOrFail()
     assert.equal(adjustment.occurredOn.toISODate(), today())
-    assert.equal(await StockLedger.levelOf(item), '4.000')
+    // (the new boiler is another Item, still off stock)
+    assert.equal(await StockLedger.levelOf(item), '5.000')
   })
 })

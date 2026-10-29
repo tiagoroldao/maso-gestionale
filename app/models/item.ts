@@ -1,17 +1,34 @@
 import db from '@adonisjs/lucid/services/db'
-import { belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
+import { beforeCreate, belongsTo, hasMany, scope } from '@adonisjs/lucid/orm'
 import type { BelongsTo, HasMany } from '@adonisjs/lucid/types/relations'
 import { ItemSchema } from '#database/schema'
 import Category from '#models/category'
 import VatCode from '#models/vat_code'
 import ItemDocument from '#models/item_document'
 import { likePattern } from '#services/search'
+import { itemFlagDefaults } from '#shared/items'
 
 /**
  * A stocked article with a purchase price and an independently set resale
- * price. Prices are decimal strings (ADR 0007).
+ * price. Prices are decimal strings (ADR 0007). Equipment Items become
+ * Installed Equipment when their Charges are done; Groupable ones' Charges
+ * may share an Invoice line (#176).
  */
 export default class Item extends ItemSchema {
+  /**
+   * A new Item left without its Equipment or Groupable flag gets the
+   * default (`itemFlagDefaults`); the Item form always sends both.
+   */
+  @beforeCreate()
+  static applyFlagDefaults(item: Item) {
+    const defaults = itemFlagDefaults({
+      maintenanceIntervalMonths: item.maintenanceIntervalMonths ?? null,
+      significantGood: item.significantGood ?? false,
+    })
+    item.equipment ??= defaults.equipment
+    item.groupable ??= defaults.groupable
+  }
+
   @belongsTo(() => Category)
   declare category: BelongsTo<typeof Category>
 

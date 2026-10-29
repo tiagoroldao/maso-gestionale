@@ -7,6 +7,7 @@ import AppLayout from '~/layouts/app.vue'
 import { formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
 import { amountForInput, markupPercent, parseAmount, suggestedResalePrice } from '@shared/money'
+import { itemFlagDefaults } from '@shared/items'
 
 type ItemProps = {
   id: number
@@ -18,6 +19,8 @@ type ItemProps = {
   supplierCode: string | null
   vatCodeId: number
   significantGood: boolean
+  equipment: boolean
+  groupable: boolean
   purchasePrice: string
   resalePrice: string
   archived: boolean
@@ -48,6 +51,8 @@ const values = reactive({
     ? amountForInput(props.item.reorderLevel).replace(/,?0+$/, '').replace(/,$/, '')
     : '',
   maintenanceIntervalMonths: String(props.item?.maintenanceIntervalMonths ?? ''),
+  equipment: props.item?.equipment ?? false,
+  groupable: props.item?.groupable ?? true,
 })
 const categoryId = ref<number | ''>(props.item?.categoryId ?? '')
 const purchasePrice = ref(props.item ? amountForInput(props.item.purchasePrice) : '')
@@ -80,6 +85,30 @@ watch(suggestion, (value) => {
 
 function onResaleInput() {
   followSuggestion.value = false
+}
+
+/**
+ * Likewise, a new Item's Equipment and Groupable flags follow their
+ * defaults (#176) until the person ticks either. Saved Items keep theirs.
+ */
+const followFlagDefaults = ref(props.item === null)
+
+watch(
+  () => [values.maintenanceIntervalMonths, values.significantGood] as const,
+  ([interval, significantGood]) => {
+    if (!followFlagDefaults.value) return
+    Object.assign(
+      values,
+      itemFlagDefaults({
+        maintenanceIntervalMonths: interval ? Number(interval) : null,
+        significantGood,
+      })
+    )
+  }
+)
+
+function onFlagInput() {
+  followFlagDefaults.value = false
 }
 
 function useSuggestion() {
@@ -199,6 +228,19 @@ const confirmDelete = (key: string) => window.confirm(t(key))
             <span class="field__hint">{{ t('ui.items.significantGoodHint') }}</span>
           </div>
           <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input
+                v-model="values.groupable"
+                type="checkbox"
+                name="groupable"
+                value="true"
+                @change="onFlagInput"
+              />
+              {{ t('ui.items.groupable') }}
+            </label>
+            <span class="field__hint">{{ t('ui.items.groupableHint') }}</span>
+          </div>
+          <div class="field">
             <label class="field__label" for="purchasePrice">{{
               t('ui.items.purchasePrice')
             }}</label>
@@ -281,6 +323,19 @@ const confirmDelete = (key: string) => window.confirm(t(key))
             <span v-if="errors.maintenanceIntervalMonths" class="field__error">
               {{ errors.maintenanceIntervalMonths }}
             </span>
+          </div>
+          <div class="field">
+            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
+              <input
+                v-model="values.equipment"
+                type="checkbox"
+                name="equipment"
+                value="true"
+                @change="onFlagInput"
+              />
+              {{ t('ui.items.equipment') }}
+            </label>
+            <span class="field__hint">{{ t('ui.items.equipmentHint') }}</span>
           </div>
         </Section>
 

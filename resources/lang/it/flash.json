@@ -91,7 +91,7 @@
     "notCancelled": "La commessa non è annullata: l'intervento lo chiudono i tecnici.",
     "notStarted": "L'intervento non è ancora iniziato: si può chiudere dall'ora di inizio, o prima se è segnato in corso.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
-    "noSite": "La commessa non ha un immobile: non si può registrare un'installazione.",
+    "wholeQuantity": "L'articolo è un apparecchio: la quantità dev'essere un numero intero di pezzi.",
     "notAtSite": "L'apparecchio scelto non è installato in questo immobile.",
     "reviewed": "L'ufficio ha già rivisto questa riga: chiedi all'ufficio di correggerla."
   },
@@ -188,10 +188,9 @@
   "servicedSaved": "Apparecchi revisionati salvati.",
   "chargeCorrected": "Addebito corretto.",
   "equipmentWarning": {
-    "left": "L'apparecchio «{equipment}» installato con questo addebito non è stato modificato: se serve, correggilo o segnalo come rimosso nella scheda dell'immobile.",
-    "removed": "L'apparecchio «{equipment}» era segnato come rimosso: è stato aggiornato comunque e resta rimosso. Se serve, correggilo nella scheda dell'immobile.",
-    "elsewhere": "L'apparecchio «{equipment}» non è nell'immobile della commessa: è stato aggiornato comunque. Se serve, correggilo nella scheda del suo immobile.",
-    "noSite": "L'apparecchio «{equipment}» non è stato registrato perché la commessa non ha più un immobile: se serve, aggiungilo a mano nella scheda dell'immobile."
+    "left": "L'apparecchio «{equipment}» registrato con questo addebito non è stato modificato: se serve, correggilo o eliminalo nella scheda dell'immobile.",
+    "quantity": "La quantità è cambiata, ma l'apparecchio «{equipment}» registrato con questo addebito no: se serve, aggiungi o elimina apparecchi nella scheda dell'immobile.",
+    "noSite": "L'apparecchio «{equipment}» non è stato registrato perché la commessa non ha un immobile: se serve, aggiungilo a mano nella scheda dell'immobile."
   },
   "chargeBillingSaved": "Fatturazione dell'addebito salvata.",
   "chargeNotBillable": "Addebito segnato come non fatturabile.",
@@ -212,7 +211,8 @@
     "frozen": "L'addebito è in una fattura emessa: per cambiarne quantità, articolo o esecuzione, stornalo prima con una nota di credito.",
     "inDraft": "L'addebito è in una bozza di fattura: toglilo dalla bozza prima di cambiarne l'esecuzione.",
     "visitOpen": "L'intervento è ancora aperto: l'addebito diventa eseguito o non eseguito quando si chiude.",
-    "visitCancelled": "L'intervento è annullato: i suoi addebiti restano non eseguiti finché non lo si ripristina."
+    "visitCancelled": "L'intervento è annullato: i suoi addebiti restano non eseguiti finché non lo si ripristina.",
+    "wholeQuantity": "L'articolo è un apparecchio: la quantità dev'essere un numero intero di pezzi."
   },
   "chargeAdded": "Addebito aggiunto.",
   "documentTemplateArchived": "Modello «{name}» archiviato.",

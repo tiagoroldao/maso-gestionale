@@ -91,22 +91,6 @@ test.group('Field work', () => {
     assert.lengthOf(visit.hours, 0)
   })
 
-  test('installing needs a Site on the Job', async ({ client, assert }) => {
-    const { anna, job, visit, item } = await setup()
-    job.siteId = null
-    await job.save()
-
-    const response = await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({ itemId: String(item.id), quantity: '1', installed: 'true' })
-      .withCsrfToken()
-      .loginAs(anna)
-      .redirects(0)
-
-    response.assertFlashMessage('error', it('flash.fieldWorkRefused.noSite'))
-    assert.lengthOf(await Charge.all(), 0)
-  })
-
   test('marking the Visit done takes the Items off stock once, then locks it', async ({
     client,
     assert,
