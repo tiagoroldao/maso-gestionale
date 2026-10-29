@@ -181,6 +181,8 @@ const parser = new XMLParser({
   parseTagValue: false,
   parseAttributeValue: false,
   trimValues: true,
+  // Character references (&#232;, &#xE8;) are decoded, as every XML reader does
+  htmlEntities: true,
   isArray: (name) => REPEATED.has(name),
 })
 
@@ -214,6 +216,16 @@ const SIGNED_DATA = '1.2.840.113549.1.7.2'
  * split in chunks (BER).
  */
 function signedContent(bytes: Buffer): Buffer {
+  try {
+    return unwrapSignedData(bytes)
+  } catch (error) {
+    // asn1js throws on some malformed input instead of reporting it
+    if (error instanceof FatturaReadError) throw error
+    throw new FatturaReadError('signature', `Unreadable signature: ${(error as Error).message}`)
+  }
+}
+
+function unwrapSignedData(bytes: Buffer): Buffer {
   const der = isDer(bytes) ? bytes : fromBase64(bytes)
   const refuse = (detail: string): never => {
     throw new FatturaReadError('signature', detail)

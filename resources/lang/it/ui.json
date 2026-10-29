@@ -1353,7 +1353,7 @@
     "received": "{source} il {date}",
     "sdiIdentifier": "Identificativo SDI",
     "markHandled": "Segna come gestita",
-    "markToHandle": "Riporta tra le da gestire",
+    "markToHandle": "Riporta tra quelle da gestire",
     "download": "Scarica il file originale ({name})",
     "document": "Documento",
     "currency": "Valuta",

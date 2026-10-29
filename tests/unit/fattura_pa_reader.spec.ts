@@ -141,6 +141,17 @@ test.group('Reading received FatturaPA files', () => {
     assert.equal(extractXml(bom), fixture())
   })
 
+  test('decodes character references; an escaped ampersand stays as written', ({ assert }) => {
+    const xml = fixture().replace(
+      '<Descrizione>Raccordi e guarnizioni</Descrizione>',
+      '<Descrizione>Raccordi &#232; guarnizioni &#xE8; R&amp;amp;D</Descrizione>'
+    )
+    assert.equal(
+      readFatturaPA(xml).invoices[0].lines[1].description,
+      'Raccordi è guarnizioni è R&amp;D'
+    )
+  })
+
   test('extracts the XML from a signed .p7m: DER, streamed, or Base64', ({ assert }) => {
     for (const path of [SUPPLIER_INVOICE_P7M, SUPPLIER_INVOICE_STREAMED_P7M]) {
       assert.equal(extractXml(readFileSync(path)), fixture())
@@ -157,6 +168,15 @@ test.group('Reading received FatturaPA files', () => {
     )
     assert.equal(
       refusal(() => extractXml(Buffer.from([0x30, 0x03, 0x02, 0x01, 0x01]))),
+      'signature'
+    )
+    // Malformed BER that asn1js throws on rather than reports
+    const malformed = Buffer.from(
+      '3080180b0fafde162aaea8430735c7d0e42699fdb80b98b32cdb0527c2f0cf204a7ce0dfd893911f5d3ab987637e9d76a081a6fb3d26582c0ef5952caceedde7',
+      'hex'
+    )
+    assert.equal(
+      refusal(() => extractXml(malformed)),
       'signature'
     )
     // A truncated signature
