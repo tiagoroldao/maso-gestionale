@@ -49,6 +49,7 @@ const props = defineProps<{
       failure: string | null
     } | null
     archivingOffered: boolean
+    archivingRetryable: boolean
     discount: string
     spreadable: boolean
     lines: {
@@ -149,14 +150,6 @@ const updateOf = (line: Line) => forms[line.id]?.updatePurchasePrice ?? !newerRe
 /** A code the app names in Italian, or the intermediary's own message as it is */
 const archivingFailure = (detail: string | null) =>
   detail && isSdiFailureCode(detail) ? t(`ui.sdiFailures.${detail}`) : (detail ?? '')
-// Office can send it again once failed, or before the poller does
-const archivingRetryable = computed(
-  () =>
-    props.invoice.archivingOffered &&
-    (props.invoice.legalArchiving === null
-      ? false
-      : ['queued', 'failed'].includes(props.invoice.legalArchiving.state))
-)
 
 const today = todayIso()
 const confirmUndo = () => window.confirm(t('ui.supplierInvoices.undoConfirm'))
@@ -251,7 +244,7 @@ const quantity = (value: string | null) =>
         </template>
         <p v-else>{{ t('ui.supplierInvoices.legalArchivingNone') }}</p>
         <Form
-          v-if="archivingRetryable"
+          v-if="invoice.archivingRetryable"
           v-slot="{ processing, errors }"
           route="supplier_invoices.archive"
           :params="{ id: invoice.id }"

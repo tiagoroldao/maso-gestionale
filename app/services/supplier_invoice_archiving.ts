@@ -8,6 +8,7 @@ import SdiConnection from '#services/sdi_connection'
 import type { SdiGateway } from '#services/sdi_gateway'
 import { storagePath } from '#services/storage'
 import { extractXmlBytes } from '#fiscal/fattura_pa_reader'
+import { isArchivingWaiting } from '#shared/supplier_invoices'
 
 /**
  * How an archiving went: the intermediary took the file, or why not (a
@@ -66,8 +67,9 @@ export default class SupplierInvoiceArchiving {
   /**
    * Sends a file's invoices, queued or failed, to archiving. Null when
    * there is nothing to send (already requested, or being sent). An SDI
-   * identifier given is recorded on invoices without one first (Office's
-   * uploads, #214). It never throws for the intermediary's failures:
+   * identifier given is used for invoices without one (Office's uploads,
+   * #214), and recorded on them only once the intermediary takes the
+   * file, so a refused one can be corrected. It never throws for the intermediary's failures:
    * they are recorded on the invoices and returned.
    */
   static async send(
@@ -80,19 +82,20 @@ export default class SupplierInvoiceArchiving {
         .where('filePath', filePath)
         .orderBy('id')
         .forUpdate()
-      const waiting = rows.every(
-        (row) => row.legalArchiving === 'queued' || row.legalArchiving === 'failed'
-      )
-      if (!rows.length || !waiting) return null
+      if (!rows.length || !rows.every((row) => isArchivingWaiting(row.legalArchiving))) {
+        return null
+      }
 
       const now = DateTime.now()
-      const sdiId = rows[0].sdiIdentifier ?? options.sdiIdentifier ?? null
+      // SDI's identifier stands in for the metadata file the app doesn't
+      // keep. One Office typed is kept only once the intermediary takes it,
+      // so a wrong one can be typed again
+      const typed = rows[0].sdiIdentifier ? null : (options.sdiIdentifier ?? null)
+      const sdiId = rows[0].sdiIdentifier ?? typed
       for (const row of rows) {
-        // SDI's identifier stands in for the metadata file the app doesn't keep
         row.merge(
           sdiId
             ? {
-                sdiIdentifier: sdiId,
                 legalArchiving: 'sending',
                 legalArchivingAt: now,
                 legalArchivingFailure: null,
@@ -105,7 +108,9 @@ export default class SupplierInvoiceArchiving {
         )
         await row.save()
       }
-      return sdiId ? { sdiId, fileName: rows[0].fileName, claimedAt: now } : 'noSdiIdentifier'
+      return sdiId
+        ? { sdiId, typed, fileName: rows[0].fileName, claimedAt: now }
+        : 'noSdiIdentifier'
     })
     if (claim === null) return null
     if (claim === 'noSdiIdentifier') return { outcome: 'failed', failure: claim }
@@ -138,6 +143,7 @@ export default class SupplierInvoiceArchiving {
         row.merge(
           result.outcome === 'requested'
             ? {
+                ...(claim.typed ? { sdiIdentifier: claim.typed } : {}),
                 legalArchiving: 'requested',
                 legalArchivingAt: now,
                 legalArchivingIds: remoteIds,

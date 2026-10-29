@@ -11,7 +11,7 @@ import SupplierInvoiceArchiving, {
 } from '#services/supplier_invoice_archiving'
 import { isSdiFailureCode } from '#shared/sdi_failures'
 import StockLedger from '#stock/stock_ledger'
-import { lineReceiptRefusal } from '#shared/supplier_invoices'
+import { isArchivingWaiting, lineReceiptRefusal } from '#shared/supplier_invoices'
 import { storagePath } from '#services/storage'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { TIME_ZONE, todayIso } from '#shared/dates'
@@ -167,6 +167,8 @@ export default class SupplierInvoicesController {
             }
           : null,
         archivingOffered,
+        // Office can send it now: waiting, with the setting on (#214)
+        archivingRetryable: archivingOffered && isArchivingWaiting(invoice.legalArchiving),
         // The discount on the whole invoice, and whether it can be spread over its lines
         discount,
         spreadable,

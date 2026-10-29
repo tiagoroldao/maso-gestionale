@@ -97,6 +97,7 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     page.assertInertiaPropsContains({
       invoice: {
         archivingOffered: true,
+        archivingRetryable: false,
         legalArchiving: { state: 'requested', ids: ['fake-archive-1'], failure: null },
       },
     })
@@ -145,6 +146,30 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     ])
     assert.lengthOf(gateway.archived, 0)
 
+    // A wrong one the intermediary refuses isn't kept: Office types it again
+    gateway.failNextArchive = new Error('Openapi 400: sdi_id not found')
+    const wrong = await retry(client, office, invoice.id, { sdiId: '999999' })
+    wrong.assertFlashMessage(
+      'error',
+      it('flash.supplierInvoiceArchivingFailed', { detail: 'Openapi 400: sdi_id not found' })
+    )
+    await invoice.refresh()
+    assert.isNull(invoice.sdiIdentifier)
+    assert.equal(invoice.legalArchiving, 'failed')
+    const corrected = await client
+      .get(`/supplier-invoices/${invoice.id}`)
+      .withInertia()
+      .loginAs(office)
+    corrected.assertInertiaPropsContains({
+      invoice: {
+        sdiIdentifier: null,
+        archivingRetryable: true,
+        legalArchiving: { state: 'failed', failure: 'Openapi 400: sdi_id not found' },
+      },
+    })
+    // The poller can't use it either
+    assert.deepInclude(await SdiPolling.poll(), { archived: 0 })
+
     const response = await retry(client, office, invoice.id, { sdiId: SDI_ID })
     response.assertFlashMessage('success', it('flash.supplierInvoiceArchived'))
     await invoice.refresh()
@@ -178,7 +203,9 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
       assert.isNull(invoice.legalArchivingAt)
     }
     const page = await client.get(`/supplier-invoices/${off.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ invoice: { archivingOffered: false, legalArchiving: null } })
+    page.assertInertiaPropsContains({
+      invoice: { archivingOffered: false, archivingRetryable: false, legalArchiving: null },
+    })
     const refused = await retry(client, office, off.id)
     refused.assertFlashMessage('error', it('flash.supplierInvoiceArchivingRefused.notOffered'))
     assert.deepInclude(await SdiPolling.poll(), { archived: 0 })
