@@ -36,7 +36,25 @@ const SHOWN = new Set([
   'notification',
 ])
 
-export type CheckResult = 'PASS' | 'FAIL' | 'SKIP'
+/**
+ * INCONCLUSIVE: the sandbox can't show it (a known limitation), so it
+ * neither passes nor fails
+ */
+export type CheckResult = 'PASS' | 'FAIL' | 'SKIP' | 'INCONCLUSIVE'
+
+/** Pages read at most, as the gateway reads them */
+const MAX_PAGES = 50
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+
+/** Collections whose second path segment is an id, hidden in the report */
+const WITH_ID = new Set([
+  'api_configurations',
+  'business_registry_configurations',
+  'invoices',
+  'invoices_download',
+  'invoices_notifications',
+])
 
 type Call = { line: string; shape: string }
 
@@ -142,9 +160,19 @@ export class SdiSandboxCheck {
     await this.check('Cleanup: callback configuration removed', async () => {
       const read = await this.raw('GET', `/api_configurations?${this.fiscalQuery()}`)
       if (read.status !== 200) return this.fail(`Couldn't read the configuration (${read.status})`)
-      const ids = (asArray(read.body?.data) as { id?: string }[])
-        .map((item) => item?.id)
-        .filter((id): id is string => typeof id === 'string')
+      const items = asArray(read.body?.data) as { id?: string; fiscal_id?: string }[]
+      // If Openapi ignored the filter, these could be other fiscal ids' configurations
+      if (items.length > 1) {
+        return this.fail(
+          `${items.length} configurations listed for one fiscal id: the \`fiscal_id\` filter may be ignored, so nothing was removed`
+        )
+      }
+      if (items.some((item) => item?.fiscal_id && item.fiscal_id !== this.options.fiscalId)) {
+        return this.fail(
+          'The configuration listed belongs to another fiscal id: nothing was removed'
+        )
+      }
+      const ids = items.map((item) => item?.id).filter((id): id is string => typeof id === 'string')
       if (!ids.length) return this.skip('No callback configuration to remove')
       const failed: string[] = []
       for (const id of ids) {
@@ -223,6 +251,20 @@ export class SdiSandboxCheck {
     )
     if (!items.length) return this.skip('No configuration to read: run with `--setup`')
 
+    const fiscalIds = items
+      .map((item) => item.fiscal_id)
+      .filter((fiscalId): fiscalId is string => typeof fiscalId === 'string')
+    const others = fiscalIds.filter((fiscalId) => fiscalId !== this.options.fiscalId).length
+    this.note(
+      `\`fiscal_id\` filter: ${
+        !fiscalIds.length
+          ? "can't tell (no item carries `fiscal_id`)"
+          : others
+            ? `NOT honoured (${others} item(s) for another fiscal id)`
+            : 'honoured (every item is for this fiscal id)'
+      }`
+    )
+
     let unknown = 0
     for (const [index, item] of items.entries()) {
       const forms = [
@@ -239,6 +281,7 @@ export class SdiSandboxCheck {
       if (receiving?.url) this.callbackUrl = receiving.url
     }
     this.note(`\`supplier-invoice\` callback: ${this.callbackUrl ?? 'none'}`)
+    if (others) return this.fail('The `fiscal_id` filter is ignored')
     return unknown
       ? this.fail(`${unknown} item(s) in a shape the gateway doesn't read`)
       : this.pass()
@@ -254,16 +297,20 @@ export class SdiSandboxCheck {
     const { remoteId } = await this.gateway.submit(file, { legalArchiving })
     const uuid = remoteId!
     this.sent.push({ uuid, number })
-    this.note(`Invoice ${number} sent as ${uuid}`)
+    this.note(`Invoice ${number} sent; Openapi answered a uuid`)
 
-    const found = await this.until(async () => {
+    const search = await this.until(async () => {
       const uuids = await this.gateway.findSent({ number, issuedOn: this.today })
       return uuids.includes(uuid) ? uuids : null
     })
+    const found = search.value
 
+    // Read at once, so a file found while still queued shows as such
     const detail = await this.raw('GET', `/invoices/${uuid}`)
     const data = detail.body?.data ?? {}
-    this.note(`\`marking\`: ${show(data.marking)}`)
+    this.note(
+      `${found ? 'Found by `findSent`' : 'Not found'} after ${search.attempts} attempt(s), ${search.seconds}s; \`marking\` then: ${show(data.marking)}`
+    )
     if (legalArchiving) {
       this.note(
         `\`legally_stored\`: ${show(data.legally_stored)}; \`preserved_document\`: ${kind(data.preserved_document)}`
@@ -281,7 +328,7 @@ export class SdiSandboxCheck {
         `Not found by date and number (\`findSent\`) within ${this.options.waitSeconds}s`
       )
     }
-    return this.pass(`Found by \`findSent\` (${found.length} match(es))`)
+    return this.pass(`${found.length} match(es) for the number`)
   }
 
   private async receive() {
@@ -292,11 +339,9 @@ export class SdiSandboxCheck {
     if (simulated.status < 200 || simulated.status >= 300) {
       return this.fail(`The simulation was refused (${simulated.status})`)
     }
-    this.note(
-      `\`supplier-invoice\` callback configured: ${this.callbackUrl ?? 'unknown (see check 2)'}`
-    )
+    this.note(optionA(this.callbackUrl))
 
-    const ref = await this.until(async () => {
+    const { value: ref } = await this.until(async () => {
       const refs = await this.gateway.received(since)
       return refs.find((candidate) => !before.has(candidate.remoteId)) ?? null
     })
@@ -307,7 +352,7 @@ export class SdiSandboxCheck {
     this.received = { ref, file }
     const signed = file.fileName.toLowerCase().endsWith('.p7m')
     this.note(
-      `Listed as ${ref.remoteId}, SDI id ${ref.sdiId ?? 'none'}; downloaded ${file.content.length} bytes (${signed ? '.p7m' : 'XML'})`
+      `Listed, with ${ref.sdiId ? 'an' : 'no'} SDI id; downloaded ${file.content.length} bytes (${signed ? '.p7m' : 'XML'})`
     )
     return this.pass()
   }
@@ -321,7 +366,7 @@ export class SdiSandboxCheck {
       const listed = rows.filter((row) => ours.has(row.uuid)).length
       const ok = present ? listed === ours.size : listed === 0
       this.note(
-        `${label}: ${listed} of ${ours.size} test invoices listed, ${ok ? 'as expected' : 'NOT as expected'}`
+        `${label}: ${listed} of ${ours.size} test invoices listed, ${ok ? 'as expected' : 'NOT as expected'}${rows.cut ? ` (cut off after ${MAX_PAGES} pages)` : ''}`
       )
       if (!ok) failures.push(label)
       return rows
@@ -378,21 +423,26 @@ export class SdiSandboxCheck {
     if (simulated.status < 200 || simulated.status >= 300) {
       return this.fail(`The simulation was refused (${simulated.status})`)
     }
-    const report = await this.until(() => this.gateway.outcome(sent.uuid))
+    const { value: report } = await this.until(() => this.gateway.outcome(sent.uuid))
     const detail = await this.raw('GET', `/invoices/${sent.uuid}`)
     this.note(`\`marking\` afterwards: ${show(detail.body?.data?.marking)}`)
     if (!report) {
-      return this.fail(
+      this.note(
         `Not stored at \`GET /invoices_notifications/{uuid}\` within ${this.options.waitSeconds}s`
       )
+      this.note(
+        "ADR 0019 records that the sandbox's simulated notices go only to callbacks and aren't stored for polling: a known sandbox limitation, not a failure"
+      )
+      return 'INCONCLUSIVE'
     }
-    this.note(`Read by the gateway as ${report.outcome}, SDI id ${report.sdiId ?? 'none'}`)
+    this.note(`Read by the gateway as ${report.outcome}, with ${report.sdiId ? 'an' : 'no'} SDI id`)
     return report.outcome === 'delivered' ? this.pass() : this.fail(`Read as ${report.outcome}`)
   }
 
   /**
    * A raw call: the gateway has no method for this endpoint yet. Use the
-   * gateway's once #214 adds one.
+   * gateway's once #214 adds one (`archiveReceived`, #222). The .p7m is
+   * sent as it is, on purpose, to learn whether Openapi takes it.
    */
   private async importReceived() {
     if (!this.received) return this.skip('Nothing was received (check 5)')
@@ -464,7 +514,7 @@ export class SdiSandboxCheck {
   }
 
   private report(flag: '--setup' | '--cleanup' | null) {
-    const counts = (['PASS', 'FAIL', 'SKIP'] as const)
+    const counts = (['PASS', 'FAIL', 'SKIP', 'INCONCLUSIVE'] as const)
       .map((result) => `${this.checks.filter((check) => check.result === result).length} ${result}`)
       .join(', ')
     const lines = [
@@ -495,12 +545,14 @@ export class SdiSandboxCheck {
         lines.push('', '</details>')
       }
     }
-    return this.redact(lines.join('\n') + '\n')
+    return this.redact(lines.join('\n') + '\n').replace(UUID, '{uuid}')
   }
 
   /** Never the token, wherever it might have come back */
   private redact(text: string) {
-    return this.options.token ? text.replaceAll(this.options.token, '[token]') : text
+    const { token } = this.options
+    if (!token) return text
+    return text.replaceAll(token, '[token]').replaceAll(encodeURIComponent(token), '[token]')
   }
 
   // Requests
@@ -514,7 +566,8 @@ export class SdiSandboxCheck {
     if (url.origin !== new URL(OPENAPI_BASE_URLS.sandbox).origin) {
       throw new SandboxOnlyError(`Refused a request to ${url.origin}`)
     }
-    const response = await this.target.fetch(url, init)
+    // A redirect could carry the token elsewhere
+    const response = await this.target.fetch(url, { ...init, redirect: 'error' })
     const copy = response.clone()
     const type = copy.headers.get('content-type') ?? ''
     let shape: string
@@ -529,10 +582,7 @@ export class SdiSandboxCheck {
       const bytes = await copy.arrayBuffer()
       shape = JSON.stringify(`${bytes.byteLength} bytes of ${type || 'unknown type'}`)
     }
-    const path = url.pathname.replace(
-      /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi,
-      '{uuid}'
-    )
+    const path = scrubPath(url.pathname)
     const query = url.search ? decodeURIComponent(url.search) : ''
     this.current?.calls.push({
       line: `\`${init?.method ?? 'GET'} ${path}${query}\` → ${response.status}`,
@@ -563,10 +613,13 @@ export class SdiSandboxCheck {
     return { status: response.status, body }
   }
 
-  /** `GET /invoices`, every page while there are more (at most 10) */
+  /**
+   * `GET /invoices`, paged as the gateway pages it: until a page is empty
+   * or `hasMore` is false, at most MAX_PAGES; `cut` when there was more
+   */
   private async listAll(query: Record<string, string>) {
-    const rows: { uuid: string; created_at?: string }[] = []
-    for (let page = 1; page <= 10; page++) {
+    const rows: { uuid: string; created_at?: string }[] & { cut?: boolean } = []
+    for (let page = 1; page <= MAX_PAGES; page++) {
       const list = await this.raw(
         'GET',
         `/invoices?${new URLSearchParams({ ...query, page: String(page) })}`
@@ -574,19 +627,22 @@ export class SdiSandboxCheck {
       if (list.status !== 200) throw new Error(`\`GET /invoices\` answered ${list.status}`)
       const data = asArray(list.body?.data) as { uuid: string; created_at?: string }[]
       rows.push(...data)
-      if (!data.length || list.body?.hasMore !== true) break
+      if (!data.length || list.body?.hasMore === false) return rows
     }
+    rows.cut = true
     return rows
   }
 
-  /** Tries until it has an answer or the wait is over */
-  private async until<T>(attempt: () => Promise<T | null>): Promise<T | null> {
-    const deadline = Date.now() + this.options.waitSeconds * 1000
-    while (true) {
-      const answer = await attempt()
-      if (answer) return answer
+  /** Tries until it has an answer or the wait is over; the answer, attempts and seconds taken */
+  private async until<T>(attempt: () => Promise<T | null>) {
+    const start = Date.now()
+    const deadline = start + this.options.waitSeconds * 1000
+    for (let attempts = 1; ; attempts++) {
+      const value = await attempt()
       const left = deadline - Date.now()
-      if (left <= 0) return null
+      if (value || left <= 0) {
+        return { value: value || null, attempts, seconds: Math.round((Date.now() - start) / 1000) }
+      }
       await sleep(Math.min(POLL_INTERVAL_MS, left))
     }
   }
@@ -781,4 +837,33 @@ function order(rows: { created_at?: string }[]) {
   if (ms.every((time, index) => index === 0 || time >= ms[index - 1])) return 'oldest first'
   if (ms.every((time, index) => index === 0 || time <= ms[index - 1])) return 'newest first'
   return 'neither oldest nor newest first'
+}
+
+/** A request's path with ids hidden: `{uuid}`, or `{id}` for any other id */
+function scrubPath(pathname: string) {
+  const segments = pathname.split('/')
+  // ['', collection, id?, …]
+  if (segments.length > 2 && WITH_ID.has(segments[1]) && segments[2]) {
+    segments[2] = new RegExp(`^${UUID.source}$`, 'i').test(segments[2]) ? '{uuid}' : '{id}'
+  }
+  return segments.join('/').replace(UUID, '{uuid}')
+}
+
+/**
+ * Whether check 5 answers option (a), "listable although the callback
+ * can't be delivered": only with an undeliverable callback URL.
+ */
+function optionA(callbackUrl: string | null) {
+  if (!callbackUrl) {
+    return 'No `supplier-invoice` callback seen in check 2: this run does not answer option (a)'
+  }
+  let host = ''
+  try {
+    host = new URL(callbackUrl).hostname
+  } catch {
+    // Not a URL: Openapi can't deliver to it either
+  }
+  return !host || host === 'invalid' || host.endsWith('.invalid')
+    ? `The \`supplier-invoice\` callback (${callbackUrl}) can't be delivered, so this answers option (a)`
+    : `**The \`supplier-invoice\` callback (${callbackUrl}) may be deliverable: this run does NOT answer option (a)**`
 }

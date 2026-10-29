@@ -41,7 +41,8 @@ From Openapi's official documentation and OpenAPI spec (console.openapi.com/apis
 
 Open on #204, and checked by `node ace sdi:sandbox-check` (#219, see `docs/openapi-sandbox-check.md`), whose report is pasted there:
 
-- how `GET /api_configurations` reads callbacks back: `callback` or `callbacks`, an array or an object (check 2);
+- that a queued sent file is found by its date plus the number in its `payload` (`findSent`), so an unknown send is settled rather than sent twice (#204's headline question; check 3);
+- how `GET /api_configurations` reads callbacks back: `callback` or `callbacks`, an array or an object, and whether its `fiscal_id` filter is honoured (check 2);
 - that `POST /invoices_legal_storage` answers like `POST /invoices`, that its files are listed for `findSent` and have notices, and how `legally_stored` and `preserved_document` show (check 4);
 - that a received invoice stays listable when its `supplier-invoice` callback can't be delivered, option (a) (check 5);
 - that `GET /invoices` honours `invoiceDate[after|before]` and `createdAt[after]`, and in which order it lists (check 6);

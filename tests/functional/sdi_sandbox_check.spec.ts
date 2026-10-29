@@ -8,7 +8,10 @@ import { PLACEHOLDER_CALLBACK_URL } from '#services/sdi_receiving'
 import { FakeOpenapi, type RecordedRequest } from '#tests/helpers/openapi'
 import SdiSandboxCheckCommand from '../../commands/sdi_sandbox_check.js'
 
-const TOKEN = 'sandbox-secret-token-4711'
+/** With characters that change when URL-encoded */
+const TOKEN = 'sandbox+secret/token=4711'
+
+const ANY_UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
 
 type Stored = {
   uuid: string
@@ -27,16 +30,30 @@ type Stored = {
  * notice for polling only when told to (the real sandbox doesn't, ADR 0019).
  */
 function fakeSandbox(
-  options: { configured?: boolean; storesNotices?: boolean; honoursFilters?: boolean } = {}
+  options: {
+    configured?: boolean
+    storesNotices?: boolean
+    honoursFilters?: boolean
+    /** Every list page says there is more */
+    endlessPages?: boolean
+    /** The callback configuration kept, when not the placeholder for our fiscal id */
+    configuration?: { fiscal_id: string; callbacks: Record<string, unknown>[] }
+  } = {}
 ) {
-  const { configured = false, storesNotices = true, honoursFilters = true } = options
+  const {
+    configured = false,
+    storesNotices = true,
+    honoursFilters = true,
+    endlessPages = false,
+  } = options
   const openapi = new FakeOpenapi().keepsApiConfigurations(
-    configured
-      ? {
-          fiscal_id: SANDBOX_FISCAL_ID,
-          callbacks: [{ event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL }],
-        }
-      : null
+    options.configuration ??
+      (configured
+        ? {
+            fiscal_id: SANDBOX_FISCAL_ID,
+            callbacks: [{ event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL }],
+          }
+        : null)
   )
   const registries: string[] = configured ? [SANDBOX_FISCAL_ID] : []
   const invoices: Stored[] = []
@@ -105,10 +122,10 @@ function fakeSandbox(
               (!after || invoice.created_at >= DateTime.fromISO(after).toUTC().toISO()!)))
       )
       return ok({
-        data: query.get('page') === '1' ? rows : [],
+        data: endlessPages || query.get('page') === '1' ? rows : [],
         page: Number(query.get('page')),
         itemsPerPage: 10,
-        hasMore: false,
+        hasMore: endlessPages,
         success: true,
       })
     })
@@ -146,10 +163,12 @@ function fakeSandbox(
 /** Runs the command against the fake; its exit code, stdout and stderr */
 async function run(openapi: FakeOpenapi, args: string[], baseUrl = OPENAPI_BASE_URLS.sandbox) {
   const hosts: string[] = []
+  const redirects: (string | undefined)[] = []
   SdiSandboxCheck.target = {
     baseUrl,
     fetch: (async (input: string | URL | Request, init?: RequestInit) => {
       hosts.push(new URL(String(input)).origin)
+      redirects.push(init?.redirect)
       return openapi.fetch(input, init)
     }) as typeof fetch,
   }
@@ -167,6 +186,7 @@ async function run(openapi: FakeOpenapi, args: string[], baseUrl = OPENAPI_BASE_
       .map((log) => log.message)
       .join('\n'),
     hosts,
+    redirects,
   }
 }
 
@@ -187,10 +207,12 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
   test('with --setup it configures the account, then every check passes', async ({ assert }) => {
     const openapi = fakeSandbox()
 
-    const { exitCode, stdout, hosts } = await run(openapi, ['--setup'])
+    const { exitCode, stdout, hosts, redirects } = await run(openapi, ['--setup'])
 
     assert.equal(exitCode, 0)
     assert.deepEqual([...new Set(hosts)], ['https://test.sdi.openapi.it'])
+    // A redirect could carry the token elsewhere
+    assert.deepEqual([...new Set(redirects)], ['error'])
     // The Business Registry Configuration and the placeholder callback
     assert.equal(
       JSON.parse(posts(openapi, '/business_registry_configurations')[0].body!).fiscal_id,
@@ -215,7 +237,17 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     ]) {
       assert.include(stdout, `| ${title} | PASS |`)
     }
-    assert.include(stdout, '**9 PASS, 0 FAIL, 0 SKIP**')
+    assert.include(stdout, '**9 PASS, 0 FAIL, 0 SKIP, 0 INCONCLUSIVE**')
+    assert.include(stdout, 'Found by `findSent` after 1 attempt(s), 0s; `marking` then: "sent"')
+    assert.include(stdout, '`fiscal_id` filter: honoured')
+    assert.include(
+      stdout,
+      `The \`supplier-invoice\` callback (${PLACEHOLDER_CALLBACK_URL}) can't be delivered, so this answers option (a)`
+    )
+    // Ids hidden, as are values
+    assert.notMatch(stdout, ANY_UUID)
+    assert.notInclude(stdout, '1084646898320')
+    assert.include(stdout, '`GET /invoices_download/{uuid}` → 200')
     // Through the app's gateway: XML sent as is, legal storage by endpoint
     assert.include(posts(openapi, '/invoices')[0].body!, '<FatturaElettronica')
     assert.lengthOf(posts(openapi, '/invoices_legal_storage'), 1)
@@ -233,19 +265,23 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     assert.notInclude(stdout, 'Bearer')
   })
 
-  test('without --setup it changes no configuration; an unstored RC fails', async ({ assert }) => {
+  test('without --setup it changes no configuration; an unstored RC is inconclusive', async ({
+    assert,
+  }) => {
     const openapi = fakeSandbox({ configured: true, storesNotices: false })
 
     const p7m = 'tests/fixtures/supplier_invoice.xml.p7m'
     const { exitCode, stdout } = await run(openapi, ['--p7m', p7m])
 
-    assert.equal(exitCode, 1)
+    // As the real sandbox does (ADR 0019): not a failure
+    assert.equal(exitCode, 0)
     assert.lengthOf(posts(openapi, '/business_registry_configurations'), 0)
     assert.lengthOf(posts(openapi, '/api_configurations'), 0)
     assert.notInclude(stdout, 'Setup:')
-    assert.include(stdout, '| 7. A simulated RC is stored for polling | FAIL |')
+    assert.include(stdout, '| 7. A simulated RC is stored for polling | INCONCLUSIVE |')
     assert.include(stdout, 'Not stored at `GET /invoices_notifications/{uuid}` within 0s')
-    assert.include(stdout, '**7 PASS, 1 FAIL, 0 SKIP**')
+    assert.include(stdout, 'ADR 0019 records')
+    assert.include(stdout, '**7 PASS, 0 FAIL, 0 SKIP, 1 INCONCLUSIVE**')
     // The signed file is tried as it is, after the received one
     const [, signed] = posts(openapi, '/supplier_invoice_imports_legal_storage')
     const body = JSON.parse(signed.body!)
@@ -292,6 +328,87 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       ['GET /api_configurations', 'DELETE /api_configurations/000000000000000000000000']
     )
     assert.include(stdout, '| Cleanup: callback configuration removed | PASS |')
+    assert.include(stdout, '`DELETE /api_configurations/{id}` → 200')
+    assert.notInclude(stdout, '000000000000000000000000')
+  })
+
+  test('--cleanup removes nothing when the fiscal id filter may be ignored', async ({ assert }) => {
+    // Two configurations listed for one fiscal id
+    const two = fakeSandbox({
+      configuration: {
+        fiscal_id: SANDBOX_FISCAL_ID,
+        callbacks: [
+          { event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL },
+          { event: 'customer-notification', url: PLACEHOLDER_CALLBACK_URL },
+        ],
+      },
+    })
+    const listed = await run(two, ['--cleanup'])
+    assert.equal(listed.exitCode, 1)
+    assert.include(listed.stdout, '2 configurations listed for one fiscal id')
+
+    // One configuration, another fiscal id's
+    const other = fakeSandbox({
+      configuration: {
+        fiscal_id: '00000000018',
+        callbacks: [{ event: 'supplier-invoice', url: PLACEHOLDER_CALLBACK_URL }],
+      },
+    })
+    const foreign = await run(other, ['--cleanup'])
+    assert.equal(foreign.exitCode, 1)
+    assert.include(foreign.stdout, 'belongs to another fiscal id: nothing was removed')
+
+    for (const openapi of [two, other]) {
+      assert.notInclude(
+        openapi.requests.map((request) => request.method),
+        'DELETE'
+      )
+    }
+
+    // Check 2 records the filter as ignored
+    const checked = await run(other, [])
+    assert.include(checked.stdout, '| 2. `GET /api_configurations` shape | FAIL |')
+    assert.include(
+      checked.stdout,
+      '`fiscal_id` filter: NOT honoured (1 item(s) for another fiscal id)'
+    )
+  })
+
+  test('check 5 says when the callback could be delivered, so option (a) is not answered', async ({
+    assert,
+  }) => {
+    const url = 'https://maso.example.com/sdi/webhook'
+    const openapi = fakeSandbox({
+      configured: true,
+      configuration: {
+        fiscal_id: SANDBOX_FISCAL_ID,
+        callbacks: [{ event: 'supplier-invoice', url }],
+      },
+    })
+
+    const { stdout } = await run(openapi, [])
+
+    assert.include(
+      stdout,
+      `**The \`supplier-invoice\` callback (${url}) may be deliverable: this run does NOT answer option (a)**`
+    )
+  })
+
+  test('lists are read like the gateway reads them, and a cut-off list is noted', async ({
+    assert,
+  }) => {
+    const openapi = fakeSandbox({ configured: true, endlessPages: true })
+
+    const { stdout } = await run(openapi, [])
+
+    // The gateway fails rather than answer in part; check 6 says it was cut off
+    assert.include(stdout, '| 3. Send, then find by date and number | FAIL |')
+    assert.include(stdout, '(cut off after 50 pages)')
+    // Up to the gateway's 50 pages, never further
+    const pages = openapi.requests
+      .filter((request) => request.path === '/invoices')
+      .map((request) => Number(request.query.get('page')))
+    assert.equal(Math.max(...pages), 50)
   })
 
   test('refuses any host but the sandbox, and runs without a token not at all', async ({
@@ -317,7 +434,7 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       status: 401,
       body: {
         success: false,
-        message: `Wrong Token: ${request.headers['authorization']}`,
+        message: `Wrong Token: ${request.headers['authorization']}, ${encodeURIComponent(TOKEN)}`,
         error: 125,
       },
     }))
@@ -326,8 +443,9 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
 
     assert.equal(exitCode, 1)
     assert.include(stdout, '| 1. The token works | FAIL |')
-    assert.include(stdout, 'Wrong Token: Bearer [token]')
+    assert.include(stdout, 'Wrong Token: Bearer [token], [token]')
     assert.notInclude(stdout, TOKEN)
+    assert.notInclude(stdout, encodeURIComponent(TOKEN))
     assert.notInclude(stderr, TOKEN)
   })
 })
