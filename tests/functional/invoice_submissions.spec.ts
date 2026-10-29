@@ -1,12 +1,13 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import db from '@adonisjs/lucid/services/db'
 import InvoiceLine from '#models/invoice_line'
 import InvoiceSubmission from '#models/invoice_submission'
 import StockMovement from '#models/stock_movement'
 import CompanySettings from '#models/company_settings'
 import Customer from '#models/customer'
 import Invoices from '#services/invoices'
-import Submissions from '#services/submissions'
+import Submissions, { NoticeBeforeSubmissionError } from '#services/submissions'
 import { FakeSdiGateway, ManualSdiGateway } from '#services/sdi_gateway'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -168,6 +169,83 @@ test.group('SDI Submissions', (group) => {
     const [open] = await InvoiceSubmission.query().where('invoiceId', invoice.id)
     assert.isNull(open.outcome)
     assert.isNull(open.noticeOn)
+  })
+
+  test('a notice may be dated the day of the upload itself', async ({ client, assert }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await finalised()
+    const submission = await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    const today = DateTime.now().toISODate()!
+
+    const response = await client
+      .post(`/invoices/${invoice.id}/submissions/outcome`)
+      .form({ outcome: 'delivered', noticeOn: today })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+
+    response.assertFlashMessage('success', it('flash.submissionOutcome.delivered'))
+    await submission.refresh()
+    assert.equal(submission.noticeOn?.toISODate(), today)
+  })
+
+  test('the upload day is the day in Rome, also just after midnight', async ({ assert }) => {
+    await completeCompany()
+    const invoice = await finalised()
+    const submission = await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    // 00:05 on 20 October in Rome is still 19 October in UTC
+    await InvoiceSubmission.query()
+      .where('id', submission.id)
+      .update({ submitted_at: '2026-10-19T22:05:00Z' })
+
+    await assert.rejects(
+      () =>
+        Submissions.recordOutcome(invoice, {
+          outcome: 'delivered',
+          noticeOn: DateTime.fromISO('2026-10-19'),
+        }),
+      NoticeBeforeSubmissionError
+    )
+    await Submissions.recordOutcome(invoice, {
+      outcome: 'delivered',
+      noticeOn: DateTime.fromISO('2026-10-20'),
+    })
+
+    await submission.refresh()
+    assert.equal(submission.noticeOn?.toISODate(), '2026-10-20')
+  })
+
+  test('the migration dated earlier outcomes by the day they were recorded in Rome', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    const recorded = []
+    for (const outcomeAt of ['2026-10-19T22:05:00Z', '2026-10-20T21:59:00Z']) {
+      const invoice = await finalised()
+      const submission = await Submissions.prepare(invoice)
+      await Submissions.confirm(invoice, 'Sconto')
+      await Submissions.recordOutcome(invoice, { outcome: 'delivered' })
+      await InvoiceSubmission.query()
+        .where('id', submission.id)
+        .update({ outcome_at: outcomeAt, notice_on: '2000-01-01' })
+      recorded.push(submission)
+    }
+
+    // The migration's own backfill, as it ran on the Submissions it found
+    const { default: Migration } =
+      await import('#database/migrations/1761885935197_record_submission_notices_and_files')
+    const queries = (await new Migration(db.connection(), 'backfill', true).execUp()) as string[]
+    const backfill = queries.find((sql) => sql.includes('SET notice_on'))!
+    await db.rawQuery(backfill)
+
+    for (const submission of recorded) await submission.refresh()
+    assert.deepEqual(
+      recorded.map((submission) => submission.noticeOn?.toISODate()),
+      ['2026-10-20', '2026-10-20']
+    )
   })
 
   test('only files actually sent are kept, each under its own Invoice', async ({ client }) => {

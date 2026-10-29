@@ -3,6 +3,7 @@ import { DateTime } from 'luxon'
 import InstalledEquipment from '#models/installed_equipment'
 import Visit from '#models/visit'
 import Jobs from '#services/jobs'
+import db from '@adonisjs/lucid/services/db'
 import { errors as lucidErrors } from '@adonisjs/lucid'
 import Archiving, { ArchivedRecordError } from '#services/archiving'
 import { createUser } from '#tests/helpers/users'
@@ -170,6 +171,89 @@ test.group('Archiving Customers and Sites', () => {
     assert.equal(data.customerId, customer.id)
   })
 
+  test('an archived Site leaves the list and the picker, even linked to the Customer', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    const kept = await createSite({ street: 'Via Roma' })
+    const archived = await createSite({ street: 'Via Rovere' })
+    await customer.related('sites').attach([kept.id, archived.id])
+    await archived.merge({ archivedAt: DateTime.now() }).save()
+
+    const list = await client.get('/sites').withInertia().loginAs(office)
+    assert.deepEqual(
+      (list.inertiaProps.sites as { id: number }[]).map((site) => site.id),
+      [kept.id]
+    )
+    for (const qs of [{ customerId: customer.id }, { customerId: customer.id, q: 'Via Ro' }]) {
+      const picker = await client.get('/sites/search').qs(qs).loginAs(office)
+      assert.deepEqual(
+        (picker.body().sites as { id: number }[]).map((site) => site.id),
+        [kept.id],
+        JSON.stringify(qs)
+      )
+    }
+  })
+
+  test("editing a Job keeps its own archived Customer and Site, never another's", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    const site = await createSite()
+    const job = await createJob(customer, { siteId: site.id, status: 'closed' })
+    const otherCustomer = await createCustomer({ name: 'Altro' })
+    const otherSite = await createSite({ street: 'Via Altra' })
+    for (const record of [customer, site, otherCustomer, otherSite]) {
+      await record.merge({ archivedAt: DateTime.now() }).save()
+    }
+    const form = (customerId: number, siteId: number, title: string) => ({
+      customerId: String(customerId),
+      siteId: String(siteId),
+      workCategory: 'repair',
+      title,
+    })
+
+    // Its own Customer and Site still validate over HTTP
+    const kept = await client
+      .put(`/jobs/${job.id}`)
+      .form(form(customer.id, site.id, 'Titolo corretto'))
+      .header('referer', `/jobs/${job.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    kept.assertFlashMessage('success', it('flash.jobSaved', { number: job.number }))
+    await job.refresh()
+    assert.equal(job.title, 'Titolo corretto')
+
+    const refused = await client
+      .put(`/jobs/${job.id}`)
+      .form(form(otherCustomer.id, otherSite.id, 'Altro titolo'))
+      .header('referer', `/jobs/${job.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    assert.properties(refused.flashMessage('inputErrorsBag'), ['customerId', 'siteId'])
+
+    // The validator already passed: the service still checks under a lock
+    for (const input of [
+      { customerId: otherCustomer.id, siteId: site.id },
+      { customerId: customer.id, siteId: otherSite.id },
+    ]) {
+      await assert.rejects(
+        () => Jobs.update(job.id, { ...input, workCategory: 'repair', title: 'Altro titolo' }),
+        ArchivedRecordError
+      )
+    }
+    await job.refresh()
+    assert.equal(job.title, 'Titolo corretto')
+    assert.equal(job.customerId, customer.id)
+    assert.equal(job.siteId, site.id)
+  })
+
   test('Technicians and the Superuser can not archive', async ({ client, assert }) => {
     const customer = await createCustomer()
     const site = await createSite()
@@ -284,6 +368,31 @@ test.group('Removing Installed Equipment', () => {
     response.assertFlashMessage('error', it('flash.invalidRemoval'))
     await boiler.refresh()
     assert.isNull(boiler.removedOn)
+  })
+
+  test('the database takes a replacement only with a removal date, and never itself', async ({
+    assert,
+  }) => {
+    const site = await createSite()
+    const old = await InstalledEquipment.create({ siteId: site.id, equipmentType: 'Caldaia' })
+    const fresh = await InstalledEquipment.create({ siteId: site.id, equipmentType: 'Nuova' })
+
+    for (const values of [
+      { replaced_by_id: fresh.id },
+      { replaced_by_id: old.id, removed_on: '2026-10-01' },
+    ]) {
+      // In a savepoint, so the refused write leaves the test usable
+      await assert.rejects(
+        () =>
+          db.transaction((trx) =>
+            trx.from('installed_equipment').where('id', old.id).update(values)
+          ),
+        /installed_equipment_removal_check/
+      )
+    }
+    await old.refresh()
+    assert.isNull(old.removedOn)
+    assert.isNull(old.replacedById)
   })
 
   test('equipment gone since it was read is not found, not a server error', async ({ assert }) => {

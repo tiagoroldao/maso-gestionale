@@ -1,5 +1,7 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
+import Charge from '#models/charge'
+import ChargeEvent from '#models/charge_event'
 import LabourRate from '#models/labour_rate'
 import Visit from '#models/visit'
 import FieldWork from '#services/field_work'
@@ -48,6 +50,37 @@ test.group('Charges in the browser', () => {
 
     await charge.refresh()
     assert.equal(charge.unitPrice, '35.0000')
+  })
+
+  test('the history names the Quote line a Charge came from', async ({ browserContext, visit }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const charge = await Charge.create({
+      jobId: job.id,
+      kind: 'other',
+      description: 'Raccordo',
+      quantity: '1',
+      unit: 'pz',
+      billQuantity: '1',
+      unitPrice: '10',
+      vatKind: 'material',
+    })
+    // A numbered Quote (ADR 0013), and an event recorded before Quotes had numbers
+    await ChargeEvent.createMany([
+      {
+        chargeId: charge.id,
+        kind: 'recorded',
+        changes: { before: {}, after: { quoteLine: '2', quote: `${job.number}-1` } },
+      },
+      { chargeId: charge.id, kind: 'recorded', changes: { before: {}, after: { quoteLine: '3' } } },
+    ])
+
+    const page = await visit(`/charges/${charge.id}/edit`)
+    const history = page.getByTestId('charge-history')
+    await history
+      .getByText(it('ui.charges.fromQuoteLine', { position: '2', number: `${job.number}-1` }))
+      .waitFor()
+    await history.getByText(it('ui.charges.fromUnnumberedQuoteLine', { position: '3' })).waitFor()
   })
 
   test('Office adds a cost to the Job from its page', async ({ browserContext, visit }) => {
