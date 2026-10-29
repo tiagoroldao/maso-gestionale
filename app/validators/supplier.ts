@@ -96,5 +96,11 @@ export const supplierInvoiceUploadValidator = vine.create({
   invoice: vine.file({ size: '10mb' }).use(fatturaFileName()),
 })
 
+/** The period of Supplier Invoices to export, by invoice date, both days included */
+export const supplierInvoiceExportValidator = vine.create({
+  issuedFrom: vine.date({ formats: ['YYYY-MM-DD'] }),
+  issuedTo: vine.date({ formats: ['YYYY-MM-DD'] }).afterOrSameAs('issuedFrom'),
+})
+
 /** A page of the inbox or the Supplier list */
 export const pageValidator = vine.create({ page: vine.number().min(1).optional() })

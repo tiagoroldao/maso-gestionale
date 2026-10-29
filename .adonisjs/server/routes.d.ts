@@ -148,6 +148,7 @@ export type ScannedRoutes = {
     'item_documents.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.index': { paramsTuple?: []; params?: {} }
     'supplier_invoices.store': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.export': { paramsTuple?: []; params?: {} }
     'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.mark_handled': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -262,6 +263,7 @@ export type ScannedRoutes = {
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.index': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.export': { paramsTuple?: []; params?: {} }
     'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.index': { paramsTuple?: []; params?: {} }
@@ -344,6 +346,7 @@ export type ScannedRoutes = {
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.index': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.export': { paramsTuple?: []; params?: {} }
     'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.index': { paramsTuple?: []; params?: {} }

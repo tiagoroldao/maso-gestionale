@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
+import { urlFor } from '~/client'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import Pagination from '~/components/pagination.vue'
@@ -20,6 +23,10 @@ defineProps<{
   }[]
   pagination: { currentPage: number; lastPage: number; total: number }
 }>()
+
+// The export form is a plain one, so its errors come with the page
+const page = usePage()
+const exportErrors = computed(() => page.props.errors ?? {})
 </script>
 
 <template>
@@ -57,6 +64,38 @@ defineProps<{
             {{ t('ui.supplierInvoices.uploadSubmit') }}
           </button>
         </Form>
+      </Section>
+
+      <Section :title="t('ui.supplierInvoices.export')">
+        <p :style="{ color: 'var(--subtle)' }">{{ t('ui.supplierInvoices.exportHint') }}</p>
+        <!-- A plain form: the answer is a file to download, not a page -->
+        <form
+          method="get"
+          :action="urlFor('supplier_invoices.export')"
+          :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }"
+        >
+          <div class="field">
+            <label class="field__label" for="export-from">
+              {{ t('ui.supplierInvoices.exportFrom') }}
+            </label>
+            <input id="export-from" name="issuedFrom" type="date" required />
+            <span v-if="exportErrors.issuedFrom" class="field__error">{{
+              exportErrors.issuedFrom
+            }}</span>
+          </div>
+          <div class="field">
+            <label class="field__label" for="export-to">
+              {{ t('ui.supplierInvoices.exportTo') }}
+            </label>
+            <input id="export-to" name="issuedTo" type="date" required />
+            <span v-if="exportErrors.issuedTo" class="field__error">{{
+              exportErrors.issuedTo
+            }}</span>
+          </div>
+          <button type="submit" class="btn btn--secondary" :style="{ marginTop: '22px' }">
+            {{ t('ui.supplierInvoices.exportSubmit') }}
+          </button>
+        </form>
       </Section>
 
       <table v-if="invoices.length" class="table">

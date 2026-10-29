@@ -26,6 +26,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 | #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
 | #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                       |
+| #209  | Supplier Invoice export: keep the dates after a refused range (`ui-later`)                | The UX pass                                       |
 
 ## Added to existing issues
 
@@ -145,3 +146,6 @@ Review findings folded into planned work, so they are picked up with it:
 - **Supplier country** (#198): Suppliers created from an invoice take its `Nazione`; those Office creates by hand leave the country empty. Nothing reads it yet.
 - **A Supplier Invoice can't be deleted** (#198): one uploaded by mistake stays in the inbox (marked handled). Invoices not addressed to the company are refused on upload; add a delete if a wrong one gets in anyway.
 - **Receiving one Supplier's files at once is untested under concurrency** (#198): `SupplierInvoices.receive` creates the Supplier with `ON CONFLICT DO NOTHING`, then locks it before checking for duplicates, and the `(supplier_id, number, issued_on)` index backs the check. Tests share one connection; test it with the other locking tests (#19).
+- **The Supplier Invoice export converts one PDF at a time** (#200): each goes through Gotenberg in turn while the zip streams, so a period of several hundred invoices keeps one request open for minutes. Convert a few at once, or build the zip in the background, if Office exports periods that large.
+- **A PDF failing midway through an export** (#200): only the first conversion is checked before the download starts (Gotenberg down is reported on the inbox); a later failure ends the download with an error and an unreadable zip, and Office starts it again.
+- **Credit Notes in the export's CSV index** (#200): amounts are written as in the file (positive), with the document type ("Nota di credito") in its own column. Sign them if the commercialista prefers.
