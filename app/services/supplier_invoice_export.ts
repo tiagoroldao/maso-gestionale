@@ -84,8 +84,15 @@ export default class SupplierInvoiceExport {
     const firstPdf = await pdfOf(entries[0].invoice)
 
     const output = new PassThrough()
+    // Failures are logged where they happen; until the response pipes the
+    // stream, an error with no listener would crash the process
+    output.on('error', () => {})
     const zip = new Zip((error, chunk, final) => {
-      if (error) return output.destroy(error)
+      if (output.destroyed) return
+      if (error) {
+        logger.error({ err: error }, 'Supplier Invoice export failed while zipping')
+        return output.destroy(error)
+      }
       output.write(chunk)
       if (final) output.end()
     })
@@ -130,8 +137,8 @@ export default class SupplierInvoiceExport {
   /**
    * The CSV index, one row per invoice: semicolon separated, numbers with
    * a decimal comma and dates as dd/mm/yyyy, the way Excel reads a CSV in
-   * Italy. Codes made only of digits are written as text formulas so that
-   * Excel keeps their leading zeros and doesn't turn them into numbers.
+   * Italy. Codes are written as text formulas, so Excel keeps them as
+   * written rather than reading them as numbers or dates.
    */
   private static csv(entries: ExportEntry[], i18n: I18n) {
     const t = (key: string) => i18n.t(key)
@@ -203,17 +210,35 @@ function unique(path: string, taken: Set<string>) {
   return candidate
 }
 
-/** A received file name, without characters Windows refuses in a name */
-function safeName(name: string) {
-  // eslint-disable-next-line no-control-regex
-  return name.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '_')
+const MAX_NAME_LENGTH = 150
+const WINDOWS_RESERVED = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i
+
+/**
+ * A received file name made safe to unzip anywhere: no path separators
+ * or characters Windows refuses, no control or bidi override characters
+ * (which could disguise its extension), no leading dots, trailing dots or
+ * spaces, no reserved Windows name, at most 150 characters with its
+ * extension kept.
+ */
+export function safeName(name: string) {
+  let clean = name
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001f\u007f\u202A-\u202E\u2066-\u2069]/g, '')
+    .replace(/[\\/:*?"<>|]/g, '_')
+    .replace(/^[.\s]+|[.\s]+$/g, '')
+  const extension = /(\.xml\.p7m|\.[A-Za-z0-9]{1,10})$/.exec(clean)?.[1] ?? ''
+  if (clean.length > MAX_NAME_LENGTH) {
+    clean = clean.slice(0, MAX_NAME_LENGTH - extension.length).replace(/[.\s]+$/, '') + extension
+  }
+  if (WINDOWS_RESERVED.test(clean.split('.')[0])) clean = `_${clean}`
+  return clean || 'fattura'
 }
 
 /** Letters, digits and dashes only, for a readable file name */
 function slug(text: string) {
   return text
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
     .slice(0, 60)
@@ -223,14 +248,24 @@ function slug(text: string) {
  * A text cell: quoted when it holds a separator, quote or line break,
  * and never read as a formula (a supplier's name comes from its file).
  */
-function csvText(value: string) {
-  const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value
-  return /[;"\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+export function csvText(value: string) {
+  return csvCell(/^[=+\-@\t\r]/.test(value) ? `'${value}` : value)
 }
 
-/** A code: as text, kept as written even when it is only digits */
-function csvCode(value: string) {
-  return /^\d+$/.test(value) ? `="${value}"` : csvText(value)
+/**
+ * A code (a number, an SDI identifier, a VAT number) as a text formula,
+ * so Excel keeps it as written: never a number losing its leading zeros,
+ * nor a date ("1/2026", "3-2026").
+ */
+export function csvCode(value: string) {
+  const formula = `="${value.replaceAll('"', '""')}"`
+  // The formula's own quotes need no CSV quoting; the code's content may
+  return /[;"\r\n]/.test(value) ? csvCell(formula) : formula
+}
+
+/** Quoted when it holds a separator, quote or line break */
+function csvCell(text: string) {
+  return /[;"\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
 }
 
 /** An amount with a decimal comma and no thousands separator: 1234,50 */

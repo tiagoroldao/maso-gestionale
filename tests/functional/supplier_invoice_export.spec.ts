@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { rm } from 'node:fs/promises'
 import { buffer } from 'node:stream/consumers'
@@ -145,9 +146,9 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
         .join(';'),
       [
         FIXTURE.supplierName,
-        `IT${FIXTURE.supplierVat}`,
+        `="IT${FIXTURE.supplierVat}"`,
         it('ui.supplierInvoices.documentTypes.TD01'),
-        FIXTURE.number,
+        `="${FIXTURE.number}"`,
         '15/10/2026',
         '150,00',
         '33,00',
@@ -160,7 +161,7 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
       ].join(';'),
       [
         '"Rossi; Bianchi & C. S.n.c."',
-        'IT04567890126',
+        '="IT04567890126"',
         it('ui.supplierInvoices.documentTypes.TD01'),
         '="0042"',
         '31/10/2026',
@@ -193,9 +194,9 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
     // Same received name, same supplier, number and date as a PDF name gives
     const lost = await receive(office, 'lotto.xml', { number: 'FV-2026 1234' })
     await rm(storagePath(lost.filePath))
-    // A formula in a supplier's name stays text
+    // A formula in a supplier's name stays text; a number like a date stays as written
     await receive(office, 'lotto.xml', {
-      number: 'C',
+      number: '1/2026',
       supplierVat: '04567890126',
       supplierName: '=HYPERLINK("x")',
     })
@@ -211,7 +212,7 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
       'pdf/2026-10-15_Termoidraulica-Forniture-S-p-A_B.pdf',
       'pdf/2026-10-15_Termoidraulica-Forniture-S-p-A_FV-2026-1234-2.pdf',
       'originali/lotto-2.xml',
-      'pdf/2026-10-15_HYPERLINK-x_C.pdf',
+      'pdf/2026-10-15_HYPERLINK-x_1-2026.pdf',
     ])
     assert.equal(
       strFromU8(zip['pdf/2026-10-15_Termoidraulica-Forniture-S-p-A_FV-2026-1234-2.pdf']),
@@ -227,7 +228,8 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
       rows[2].endsWith(';originali/lotto.xml;pdf/2026-10-15_Termoidraulica-Forniture-S-p-A_B.pdf')
     )
     assert.include(rows[3], `;${it('documents.supplierInvoiceExport.originalMissing')};`)
-    assert.isTrue(rows[4].startsWith(`"'=HYPERLINK(""x"")";IT04567890126;`))
+    assert.isTrue(rows[4].startsWith(`"'=HYPERLINK(""x"")";="IT04567890126";`))
+    assert.include(rows[4], ';="1/2026";')
   })
 
   test('Gotenberg down or nothing in the period: refused before anything is sent', async ({
@@ -278,6 +280,35 @@ test.group('Supplier Invoices: export for the commercialista', (group) => {
     empty.assertStatus(302)
     empty.assertHeader('location', '/supplier-invoices')
     empty.assertFlashMessage('error', it('flash.supplierInvoiceExportEmpty'))
+  })
+
+  test('a download abandoned midway stops converting', async ({ assert }) => {
+    const office = await createUser('office')
+    for (const number of ['A', 'B', 'C', 'D']) await receive(office, `${number}.xml`, { number })
+    let conversions = 0
+    const slow: PdfConverter = {
+      convert: async (html) => {
+        conversions++
+        await new Promise((resolve) => setTimeout(resolve, 30))
+        // Big enough that the zip waits for the reader
+        return Buffer.concat([await fakeConverter.convert(html), randomBytes(64 * 1024)])
+      },
+    }
+
+    const stream = await SupplierInvoiceExport.zip(
+      await SupplierInvoiceExport.invoicesIssuedIn('2026-10-15', '2026-10-15'),
+      i18n(),
+      slow
+    )
+    const errors: Error[] = []
+    stream.on('error', (error) => errors.push(error))
+    // The client reads a first chunk, then goes away
+    await new Promise((resolve) => stream.once('data', resolve))
+    stream.destroy()
+    await new Promise((resolve) => setTimeout(resolve, 300))
+
+    assert.isBelow(conversions, 4)
+    assert.deepEqual(errors, [])
   })
 
   test('the period needs both dates, the second not before the first', async ({

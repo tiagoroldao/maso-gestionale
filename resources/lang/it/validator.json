@@ -197,8 +197,8 @@
       "pdf": "PDF",
       "vatCountry": "paese",
       "invoice": "fattura",
-      "issuedFrom": "dal",
-      "issuedTo": "al"
+      "issuedFrom": "data iniziale",
+      "issuedTo": "data finale"
     }
   }
 }

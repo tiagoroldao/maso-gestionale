@@ -13,7 +13,7 @@ const quantityFormat = new Intl.NumberFormat('it', { maximumFractionDigits: 8 })
  * and buyer as written in the file, lines, VAT summary and payments.
  * Not on the Base Layout: the Supplier issued it, so the company's
  * letterhead doesn't belong on it. The fiscal original stays the file;
- * this is a reading copy. Lines must be preloaded, in order.
+ * this is a courtesy copy. Lines must be preloaded, in order.
  */
 export function supplierInvoiceHtml(invoice: SupplierInvoice, i18n: I18n): Promise<string> {
   const t = (key: string, data?: Record<string, unknown>) => i18n.t(key, data)

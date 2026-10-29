@@ -26,6 +26,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #188  | Hint when switching an Equipment Charge to another Equipment Item (`ui-later`)            | The UX pass                                       |
 | #189  | Job summary: show a Visit's status in the per-Visit breakdown (`ui-later`)                | The UX pass                                       |
 | #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                    | The UX pass                                       |
+| #209  | Supplier Invoice export: keep the dates after a refused range (`ui-later`)                | The UX pass                                       |
 
 ## Added to existing issues
 

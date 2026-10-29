@@ -82,7 +82,7 @@
     "wholeJob": "intera commessa"
   },
   "supplierInvoice": {
-    "rendering": "Copia di lettura generata dal file {file}: l'originale fiscale è il file ricevuto tramite SDI."
+    "rendering": "Copia di cortesia generata dal file {file}: l'originale fiscale è il file ricevuto tramite SDI."
   },
   "supplierInvoiceExport": {
     "columns": {
