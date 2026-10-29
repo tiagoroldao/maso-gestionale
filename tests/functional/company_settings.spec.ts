@@ -83,6 +83,8 @@ test.group('Company settings', (group) => {
         postalCode: '2012',
         province: 'Milano',
         taxRegime: 'RF03',
+        // FatturaPA takes only ASCII email addresses
+        email: 'perù@example.com',
       })
       .header('referer', '/settings/company')
       .withCsrfToken()
@@ -96,6 +98,7 @@ test.group('Company settings', (group) => {
       'postalCode',
       'province',
       'taxRegime',
+      'email',
     ])
     assert.isNull(await CompanySettings.find(1))
   })

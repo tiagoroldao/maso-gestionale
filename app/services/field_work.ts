@@ -1,3 +1,4 @@
+import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import Item from '#models/item'
@@ -10,7 +11,7 @@ import ChargeEvent from '#models/charge_event'
 import InstalledEquipment from '#models/installed_equipment'
 import Installations, { type EquipmentWarning } from '#services/installations'
 import StockLedger from '#stock/stock_ledger'
-import { CLOSED_VISIT_STATUSES, isCancelledVisit } from '#shared/visits'
+import { isCancelledVisit, isClosedVisit } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 
 export { CLOSED_VISIT_STATUSES } from '#shared/visits'
@@ -19,8 +20,9 @@ export { CLOSED_VISIT_STATUSES } from '#shared/visits'
  * The Visit is closed (its hours, Items and stock are final) or cancelled
  * (read-only until Office restores it, #157), its Job was
  * closed or cancelled (or, for Office closing a frozen Visit, isn't
- * cancelled), or the request doesn't fit it (a Technician not on
- * the Visit, an install without a Site, a Charge Office already reviewed).
+ * cancelled), the Visit is closed before it has started (`notStarted`,
+ * #154), or the request doesn't fit it (a Technician not on the Visit, an
+ * install without a Site, a Charge Office already reviewed).
  */
 export class FieldWorkRefusedError extends Error {
   constructor(
@@ -30,6 +32,7 @@ export class FieldWorkRefusedError extends Error {
       | 'closed'
       | 'cancelled'
       | 'notCancelled'
+      | 'notStarted'
       | 'notOnVisit'
       | 'noSite'
       | 'notAtSite'
@@ -307,10 +310,11 @@ export default class FieldWork {
   }
 
   /**
-   * Sets the locked Visit's status; closing it makes its planned Charges
-   * done (Items off stock, installed ones installed) or, for those in
-   * `notDone`, not done, and dates the equipment it serviced. Returns the
-   * warnings about the equipment its installed Items went onto (#168).
+   * Sets the locked Visit's status; closing it, refused before the Visit
+   * starts, makes its planned Charges done (Items off stock, installed
+   * ones installed) or, for those in `notDone`, not done, and dates the
+   * equipment it serviced. Returns the warnings about the equipment its
+   * installed Items went onto (#168).
    */
   private static async changeStatus(
     trx: TransactionClientContract,
@@ -320,7 +324,9 @@ export default class FieldWork {
     notDone: number[]
   ): Promise<EquipmentWarning[]> {
     const warnings: EquipmentWarning[] = []
-    if (CLOSED_VISIT_STATUSES.includes(status)) {
+    if (isClosedVisit(status)) {
+      // Not before it starts: its Items would leave stock on a future day (#154)
+      if (locked.startsAt > DateTime.now()) throw new FieldWorkRefusedError('notStarted')
       await locked.load('job')
       // Locked after the Visit and its Job, as Office's changes do
       const charges = await Charge.query({ client: trx })
@@ -380,7 +386,7 @@ export default class FieldWork {
       .where('id', visit.id)
       .forUpdate()
       .firstOrFail()
-    if (CLOSED_VISIT_STATUSES.includes(locked.status)) throw new FieldWorkRefusedError('done')
+    if (isClosedVisit(locked.status)) throw new FieldWorkRefusedError('done')
     if (isCancelledVisit(locked.status)) throw new FieldWorkRefusedError('visitCancelled')
     return locked
   }

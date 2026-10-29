@@ -63,7 +63,7 @@ async function quotedJob({ accept = true } = {}) {
   })
   if (accept) await Quotes.accept(created)
   await job.refresh()
-  const start = DateTime.now().plus({ days: 1 })
+  const start = DateTime.now().minus({ days: 1 })
   const visit = await Visit.create({
     jobId: job.id,
     startsAt: start,

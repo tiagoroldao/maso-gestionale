@@ -1,7 +1,7 @@
 import { test } from '@japa/runner'
 import Item from '#models/item'
 import { createUser } from '#tests/helpers/users'
-import { createCategory } from '#tests/helpers/items'
+import { createCategory, createItem } from '#tests/helpers/items'
 import { it } from '#tests/helpers/i18n'
 
 test.group('Items in the browser', () => {
@@ -29,5 +29,26 @@ test.group('Items in the browser', () => {
     const item = await Item.firstOrFail()
     assert.equal(item.resalePrice, '14.9000')
     assert.equal(item.purchasePrice, '11.0000')
+  })
+
+  test('deleting an Item asks first', async ({ browserContext, visit, assert }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const item = await createItem({ code: 'RAC-12', description: 'Raccordo a T' })
+
+    const page = await visit(`/items/${item.id}/edit`)
+    const messages: string[] = []
+    page.on('dialog', (dialog) => {
+      messages.push(dialog.message())
+      return messages.length === 1 ? dialog.dismiss() : dialog.accept()
+    })
+    const remove = page.getByRole('button', { name: it('ui.items.delete'), exact: true })
+    // Dismissed: the Item stays
+    await remove.click()
+    assert.isNotNull(await Item.find(item.id))
+    // Confirmed: deleted
+    await remove.click()
+    await page.waitForURL(/\/items$/)
+    assert.deepEqual(messages, [it('ui.items.deleteConfirm'), it('ui.items.deleteConfirm')])
+    assert.isNull(await Item.find(item.id))
   })
 })

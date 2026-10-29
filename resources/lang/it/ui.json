@@ -411,6 +411,8 @@
     "archive": "Archivia",
     "unarchive": "Ripristina",
     "delete": "Elimina",
+    "deleteConfirm": "Eliminare l'articolo? Non si potrà recuperare.",
+    "deleteDocumentConfirm": "Eliminare il documento? Non si potrà recuperare.",
     "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli.",
     "stock": "Giacenza",
     "committed": "Impegnato",

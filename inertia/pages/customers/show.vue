@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { Pencil, Plus } from 'lucide-vue-next'
@@ -48,10 +49,16 @@ const props = defineProps<{
 
 const confirm = (message: string) => window.confirm(message)
 
+// Why the picked Site wasn't linked (archived or gone since it was offered)
+const linkError = ref<string | null>(null)
+
 function linkSite(site: PickedSite) {
-  router.post(urlFor('customer_sites.store', { customerId: props.customer.id }), {
-    siteId: site.id,
-  })
+  linkError.value = null
+  router.post(
+    urlFor('customer_sites.store', { customerId: props.customer.id }),
+    { siteId: site.id },
+    { onError: (errors) => (linkError.value = errors.siteId ?? null) }
+  )
 }
 </script>
 
@@ -164,6 +171,7 @@ function linkSite(site: PickedSite) {
           :exclude-ids="sites.map((site) => site.id)"
           @select="linkSite"
         />
+        <span v-if="linkError" class="field__error">{{ linkError }}</span>
         <div>
           <Link
             route="sites.create"

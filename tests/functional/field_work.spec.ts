@@ -25,7 +25,8 @@ async function setup() {
     status: 'in_progress',
     siteId: site.id,
   })
-  const start = DateTime.now().plus({ hours: 1 })
+  // Started an hour ago: a Visit closes only once it has started (#154)
+  const start = DateTime.now().minus({ hours: 1 })
   const visit = await Visit.create({
     jobId: job.id,
     startsAt: start,
@@ -183,6 +184,36 @@ test.group('Field work', () => {
       .loginAs(anna)
       .redirects(0)
     more.assertFlashMessage('error', it('flash.fieldWorkRefused.done'))
+  })
+
+  test('a Visit that has not started yet can not be closed: nothing leaves stock (#154)', async ({
+    client,
+    assert,
+  }) => {
+    const { anna, visit, item } = await setup()
+    const startsAt = DateTime.now().plus({ minutes: 5 })
+    await visit.merge({ startsAt, endsAt: startsAt.plus({ hours: 2 }) }).save()
+    await FieldWork.recordItem(visit, { itemId: item.id, quantity: '2' })
+
+    for (const status of ['done', 'needs_return', 'in_progress'] as const) {
+      const response = await client
+        .post(`/my-visits/${visit.id}/status`)
+        .form({ status })
+        .withCsrfToken()
+        .loginAs(anna)
+        .redirects(0)
+      await visit.refresh()
+      if (status === 'in_progress') {
+        // Under way early is fine: nothing leaves stock
+        assert.equal(visit.status, 'in_progress')
+        continue
+      }
+      response.assertFlashMessage('error', it('flash.fieldWorkRefused.notStarted'))
+      assert.equal(visit.status, 'planned')
+    }
+    assert.lengthOf(await StockMovement.all(), 0)
+    const charge = await Charge.query().where('visitId', visit.id).preload('events').firstOrFail()
+    assert.equal(charge.workState, 'planned')
   })
 
   test('recorded work keeps its price when the rate changes later', async ({ client }) => {

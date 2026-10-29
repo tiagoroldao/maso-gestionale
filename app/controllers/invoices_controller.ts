@@ -646,10 +646,23 @@ export default class InvoicesController {
     response.redirect().toRoute('invoices.edit', { id: invoice.id })
   }
 
+  /**
+   * Removes a Payment entered by mistake, warning (never refusing) when
+   * that leaves the Invoice overpaid or owing (ADR 0014).
+   */
   async removePayment({ params, response, session, i18n }: HttpContext) {
     const payment = await Payment.findOrFail(params.paymentId)
-    await Payments.remove(payment)
-    session.flash('success', i18n.t('flash.paymentRemoved'))
+    const warnings = await Payments.remove(payment)
+    if (warnings.length) {
+      const parts = warnings.map((warning) =>
+        i18n.t(`flash.paymentRemovedWarning.${warning.reason}`, {
+          amount: formatMoney(warning.amount),
+        })
+      )
+      session.flash('warning', [i18n.t('flash.paymentRemovedWarning.removed'), ...parts].join(' '))
+    } else {
+      session.flash('success', i18n.t('flash.paymentRemoved'))
+    }
     response.redirect().toRoute('invoices.edit', { id: payment.invoiceId })
   }
 

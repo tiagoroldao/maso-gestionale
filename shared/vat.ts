@@ -28,6 +28,13 @@ export const NATURA_CODES = [
 export type NaturaCode = (typeof NATURA_CODES)[number]
 
 /**
+ * The longest legal note a VAT Code can carry: FatturaPA's
+ * RiferimentoNormativo takes 100 characters, so a longer one would be cut
+ * in the XML.
+ */
+export const LEGAL_NOTE_MAX = 100
+
+/**
  * What a line bills, for the default VAT rules (#26): labour (and the
  * call-out fee), material, or a significant good (_bene significativo_,
  * whose value above the labour is taxed at 22% under a 10% rule).

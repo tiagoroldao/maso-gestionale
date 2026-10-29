@@ -2,6 +2,7 @@ import vine from '@vinejs/vine'
 import type { FieldContext } from '@vinejs/vine/types'
 import { CUSTOMER_TYPES } from '#models/customer'
 import { taxCodeRule, vatNumberRule } from '#validators/rules/italian_ids'
+import { fatturaEmail } from '#validators/rules/email'
 
 /**
  * A private individual's Codice Fiscale is the 16-character personal
@@ -61,7 +62,7 @@ export const customerValidator = vine.create({
     .toUpperCase()
     .regex(/^[A-Z0-9]{7}$/)
     .optional(),
-  pec: vine.string().trim().email().maxLength(254).optional(),
+  pec: fatturaEmail().optional(),
 
   street: vine.string().trim().minLength(1).maxLength(60),
   streetNumber: optionalText(8),

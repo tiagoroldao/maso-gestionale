@@ -24,7 +24,7 @@ function post(client: ApiClient, user: User, url: string) {
 }
 
 function visitOf(job: Job, attributes: Partial<Visit> = {}, days = 0) {
-  const startsAt = DateTime.fromISO('2026-11-03T09:00').plus({ days })
+  const startsAt = DateTime.fromISO('2026-10-03T09:00').plus({ days })
   return Visit.create({
     jobId: job.id,
     startsAt,
@@ -94,7 +94,7 @@ test.group('Visits left open on a cancelled Job (#153)', () => {
       const line = await Charge.query().where('visitId', visit.id).where('kind', 'item').first()
       assert.equal(line!.stockMovementId, usage.id)
       await boiler.refresh()
-      assert.equal(boiler.lastServicedOn!.toISODate(), '2026-11-03')
+      assert.equal(boiler.lastServicedOn!.toISODate(), '2026-10-03')
 
       const after = await client.get(`/jobs/${job.id}`).withInertia().loginAs(user)
       after.assertInertiaPropsContains({
@@ -176,6 +176,33 @@ test.group('Visits left open on a cancelled Job (#153)', () => {
         assert.isFalse(row.closableByOffice)
       }
     }
+  })
+
+  test('refused for a Visit that has not started yet: nothing leaves stock (#154)', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const { job, visit, item } = await workedVisit()
+    await post(client, office, `/jobs/${job.id}/cancel`)
+    const startsAt = DateTime.now().plus({ minutes: 5 })
+    await visit.merge({ startsAt, endsAt: startsAt.plus({ hours: 2 }) }).save()
+
+    const response = await post(client, office, `/visits/${visit.id}/done`)
+    response.assertFlashMessage('error', it('flash.fieldWorkRefused.notStarted'))
+    await visit.refresh()
+    assert.equal(visit.status, 'in_progress')
+    assert.equal(await StockLedger.levelOf(item), '5.000')
+    assert.lengthOf(await StockMovement.query().where('kind', 'usage'), 0)
+    const charges = await Charge.query().where('visitId', visit.id).preload('events')
+    assert.isTrue(charges.every((charge) => charge.workState === 'planned'))
+
+    // Once it has started, it is marked done
+    const started = DateTime.now().minus({ minutes: 5 })
+    await visit.merge({ startsAt: started, endsAt: started.plus({ hours: 2 }) }).save()
+    const done = await post(client, office, `/visits/${visit.id}/done`)
+    done.assertFlashMessage('success', it('flash.visitMarkedDone'))
+    assert.equal(await StockLedger.levelOf(item), '3.000')
   })
 
   test('cancelling with open Visits warns and never refuses', async ({ client, assert }) => {

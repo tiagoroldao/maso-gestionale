@@ -73,4 +73,21 @@ test.group('Advance deductions', () => {
     assert.isTrue(belowTakenRow([rows[0]], taken))
     assert.isFalse(belowTakenRow(rows, []))
   })
+
+  test('a Natura row is matched by its Natura, not only its rate', ({ assert }) => {
+    const exempt = [
+      { vatRate: '22.00', natura: null, taxable: '100.00' },
+      { vatRate: '0.00', natura: 'N6.7', taxable: '50.00' },
+    ]
+    const taken = [{ vatRate: '0.00', natura: 'N6.7', taxable: '50.00' }]
+    assert.isFalse(belowTakenRow(exempt, taken))
+    // 0.00 under N6.7 corrected to 40: below the 50 taken back of it
+    assert.isTrue(
+      belowTakenRow([exempt[0], { vatRate: '0.00', natura: 'N6.7', taxable: '40.00' }], taken)
+    )
+    // The same 0.00 moved under another Natura no longer has that row
+    assert.isTrue(
+      belowTakenRow([exempt[0], { vatRate: '0.00', natura: 'N2.2', taxable: '50.00' }], taken)
+    )
+  })
 })

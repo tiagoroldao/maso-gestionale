@@ -58,6 +58,34 @@ test.group('Customers', () => {
     assert.equal(customer.pec, 'bianchi@pec.example.com')
   })
 
+  test('a PEC must be plain ASCII, as FatturaPA takes it', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const terms = await defaultPaymentTerms()
+
+    for (const pec of ['niccolò@pec.example.com', 'bianchi@pèc.example.com']) {
+      const response = await client
+        .post('/customers')
+        .form({
+          type: 'company',
+          name: 'Edilizia Bianchi S.p.A.',
+          vatNumber: '01114601006',
+          sdiCode: '0000000',
+          pec,
+          street: 'Corso Italia',
+          postalCode: '10121',
+          city: 'Torino',
+          province: 'TO',
+          paymentTermsId: String(terms.id),
+        })
+        .header('referer', '/customers/create')
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+      assert.properties(response.flashMessage('inputErrorsBag'), ['pec'], pec)
+    }
+    assert.isNull(await Customer.first())
+  })
+
   test('creates a condominium with its numeric Codice Fiscale', async ({ client, assert }) => {
     const office = await createUser('office')
     const terms = await defaultPaymentTerms()

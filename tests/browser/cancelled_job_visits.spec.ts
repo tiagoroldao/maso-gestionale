@@ -14,7 +14,7 @@ test.group('Visits left open on a cancelled Job in the browser', () => {
   }) => {
     await browserContext.loginAs(await createUser('office'))
     const job = await createJob(await createCustomer(), { status: 'in_progress' })
-    const startsAt = DateTime.fromISO('2026-11-03T09:00')
+    const startsAt = DateTime.fromISO('2026-10-03T09:00')
     const open = await Visit.create({
       jobId: job.id,
       startsAt,
@@ -30,7 +30,7 @@ test.group('Visits left open on a cancelled Job in the browser', () => {
     })
     await page.getByRole('button', { name: it('ui.jobs.cancel') }).click()
     await page.getByRole('button', { name: it('ui.visits.markDone') }).waitFor()
-    assert.include(messages[0], '03/11/2026 09:00–11:00')
+    assert.include(messages[0], '03/10/2026 09:00–11:00')
 
     await page.getByRole('button', { name: it('ui.visits.markDone') }).click()
     await page.getByText(it('flash.visitMarkedDone')).waitFor()

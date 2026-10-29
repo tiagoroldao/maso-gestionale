@@ -284,6 +284,62 @@ test.group('Payments', () => {
     )
   })
 
+  test('removing a Payment is warned about, never refused, when it leaves the Invoice overpaid or owing', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await completeCompany()
+    const invoice = await issued()
+    const remove = (payment: Payment) =>
+      client
+        .delete(`/payments/${payment.id}`)
+        .header('referer', `/invoices/${invoice.id}/edit`)
+        .withCsrfToken()
+        .loginAs(office)
+        .redirects(0)
+    const removedWith = (part: string) =>
+      [it('flash.paymentRemovedWarning.removed'), part].join(' ')
+
+    // 122.00 paid twice: removing the duplicate settles it, no warning
+    const { payment: first } = await Payments.record(invoice, {
+      amount: '122',
+      paidOn: DateTime.now(),
+    })
+    const { payment: twice } = await Payments.record(invoice, {
+      amount: '122',
+      paidOn: DateTime.now(),
+    })
+    const duplicate = await remove(twice)
+    duplicate.assertFlashMessage('success', it('flash.paymentRemoved'))
+
+    // A refund of 10 removed: the Invoice is overpaid by 10.00 again
+    const { payment: refund } = await Payments.record(invoice, {
+      amount: '10',
+      paidOn: DateTime.now(),
+    })
+    const { payment: refunded } = await Payments.record(invoice, {
+      amount: '-10',
+      paidOn: DateTime.now(),
+    })
+    const overpaid = await remove(refunded)
+    overpaid.assertFlashMessage(
+      'warning',
+      removedWith(it('flash.paymentRemovedWarning.overpaid', { amount: formatMoney('10.00') }))
+    )
+    await remove(refund)
+
+    // The Payment that settled it removed: 122.00 owed again
+    const owing = await remove(first)
+    owing.assertFlashMessage(
+      'warning',
+      removedWith(it('flash.paymentRemovedWarning.owing', { amount: formatMoney('122.00') }))
+    )
+    assert.deepEqual(await amountsOf(invoice), [])
+    const page = await client.get(`/invoices/${invoice.id}/edit`).withInertia().loginAs(office)
+    page.assertInertiaPropsContains({ paymentSummary: { status: 'unpaid', owed: '122.00' } })
+  })
+
   test('the overdue list and the Customer balance', async ({ client, assert }) => {
     const office = await createUser('office')
     await completeCompany()
