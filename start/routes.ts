@@ -405,6 +405,35 @@ router
       })
       .use(middleware.can('manageItems'))
 
+    // Supplier Invoices and Suppliers (#198)
+    router
+      .group(() => {
+        router.get('supplier-invoices', [controllers.SupplierInvoices, 'index'])
+        router.post('supplier-invoices', [controllers.SupplierInvoices, 'store'])
+        router
+          .get('supplier-invoices/:id', [controllers.SupplierInvoices, 'show'])
+          .where('id', router.matchers.number())
+        router
+          .get('supplier-invoices/:id/file', [controllers.SupplierInvoices, 'file'])
+          .where('id', router.matchers.number())
+        router
+          .post('supplier-invoices/:id/handled', [controllers.SupplierInvoices, 'markHandled'])
+          .where('id', router.matchers.number())
+        router
+          .post('supplier-invoices/:id/to-handle', [controllers.SupplierInvoices, 'markToHandle'])
+          .where('id', router.matchers.number())
+        router.get('suppliers', [controllers.Suppliers, 'index'])
+        router.get('suppliers/create', [controllers.Suppliers, 'create'])
+        router.post('suppliers', [controllers.Suppliers, 'store'])
+        router
+          .get('suppliers/:id/edit', [controllers.Suppliers, 'edit'])
+          .where('id', router.matchers.number())
+        router
+          .put('suppliers/:id', [controllers.Suppliers, 'update'])
+          .where('id', router.matchers.number())
+      })
+      .use(middleware.can('managePurchases'))
+
     router
       .group(() => {
         router.get('settings/categories', [controllers.Categories, 'index'])

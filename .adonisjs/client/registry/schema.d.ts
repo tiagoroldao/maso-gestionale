@@ -1853,6 +1853,149 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/item_documents_controller').default['destroy']>>>
     }
   }
+  'supplier_invoices.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/supplier-invoices'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/supplier').pageValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'supplier_invoices.store': {
+    methods: ["POST"]
+    pattern: '/supplier-invoices'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').supplierInvoiceUploadValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').supplierInvoiceUploadValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'supplier_invoices.show': {
+    methods: ["GET","HEAD"]
+    pattern: '/supplier-invoices/:id'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['show']>>>
+    }
+  }
+  'supplier_invoices.file': {
+    methods: ["GET","HEAD"]
+    pattern: '/supplier-invoices/:id/file'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['file']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['file']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['file']>>>
+    }
+  }
+  'supplier_invoices.mark_handled': {
+    methods: ["POST"]
+    pattern: '/supplier-invoices/:id/handled'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markHandled']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markHandled']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markHandled']>>>
+    }
+  }
+  'supplier_invoices.mark_to_handle': {
+    methods: ["POST"]
+    pattern: '/supplier-invoices/:id/to-handle'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markToHandle']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markToHandle']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/supplier_invoices_controller').default['markToHandle']>>>
+    }
+  }
+  'suppliers.index': {
+    methods: ["GET","HEAD"]
+    pattern: '/suppliers'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/supplier').pageValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['index']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['index']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'suppliers.create': {
+    methods: ["GET","HEAD"]
+    pattern: '/suppliers/create'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['create']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['create']>>>
+    }
+  }
+  'suppliers.store': {
+    methods: ["POST"]
+    pattern: '/suppliers'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').newSupplierValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').newSupplierValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['store']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'suppliers.edit': {
+    methods: ["GET","HEAD"]
+    pattern: '/suppliers/:id/edit'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['edit']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['edit']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['edit']>>>
+    }
+  }
+  'suppliers.update': {
+    methods: ["PUT"]
+    pattern: '/suppliers/:id'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/supplier').supplierValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/supplier').supplierValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/suppliers_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
   'categories.index': {
     methods: ["GET","HEAD"]
     pattern: '/settings/categories'

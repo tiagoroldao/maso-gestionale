@@ -190,6 +190,21 @@ export interface ApiDefinition {
   stock: {
     index: typeof routes['stock.index']
   }
+  supplierInvoices: {
+    index: typeof routes['supplier_invoices.index']
+    store: typeof routes['supplier_invoices.store']
+    show: typeof routes['supplier_invoices.show']
+    file: typeof routes['supplier_invoices.file']
+    markHandled: typeof routes['supplier_invoices.mark_handled']
+    markToHandle: typeof routes['supplier_invoices.mark_to_handle']
+  }
+  suppliers: {
+    index: typeof routes['suppliers.index']
+    create: typeof routes['suppliers.create']
+    store: typeof routes['suppliers.store']
+    edit: typeof routes['suppliers.edit']
+    update: typeof routes['suppliers.update']
+  }
   categories: {
     index: typeof routes['categories.index']
     store: typeof routes['categories.store']
