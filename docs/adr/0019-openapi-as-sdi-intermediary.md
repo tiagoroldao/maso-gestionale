@@ -37,6 +37,17 @@ From Openapi's official documentation and OpenAPI spec (console.openapi.com/apis
 - **Legal archiving (_conservazione a norma_):** offered by Openapi as a separate, paid option: `apply_legal_storage` on the Business Registry Configuration ("Apply legal storage for invoices sent/received by the fiscal ID"), or the `…_legal_storage` endpoints, through a third-party storage platform. It is not part of plain sending. `POST /invoices_legal_storage` takes the same XML body as `POST /invoices` and answers the same `{ data: { uuid } }`. The storage platform's account is activated by an email Openapi sends when the Business Registry Configuration is created. Openapi reports archiving through the `legal-storage-receipt` and `legal-storage-missing-vat` callbacks (simulated with `POST /simulate/legal-storage-receipt`), and `GET /invoices/{uuid}` carries `legally_stored` and a `preserved_document`. Not checked in the sandbox: no live calls were made for #205.
 - **Pricing (console, 2026-10-29):** `POST /invoices` €0.070 (from €0.022 with a subscription), €0.105 with legal storage (`POST /invoices_legal_storage`; the OpenAPI spec carries no prices, so the Instance settings hint quotes this list); `GET /invoices_download` €0.001. `GET /invoices` and `GET /invoices_notifications` have 1000 free calls a day each, so the poller only asks about Submissions still waiting.
 
+## Still to confirm
+
+Open on #204, and checked by `node ace sdi:sandbox-check` (#219, see `docs/openapi-sandbox-check.md`), whose report is pasted there:
+
+- how `GET /api_configurations` reads callbacks back: `callback` or `callbacks`, an array or an object (check 2);
+- that `POST /invoices_legal_storage` answers like `POST /invoices`, that its files are listed for `findSent` and have notices, and how `legally_stored` and `preserved_document` show (check 4);
+- that a received invoice stays listable when its `supplier-invoice` callback can't be delivered, option (a) (check 5);
+- that `GET /invoices` honours `invoiceDate[after|before]` and `createdAt[after]`, and in which order it lists (check 6);
+- whether a simulated notice is ever stored for polling (check 7);
+- how `POST /supplier_invoice_imports_legal_storage` answers for a received file, and whether it takes a .p7m as it is (check 8).
+
 ## Considered Options
 
 - **Invoicetronic** (ADR 0004): replaced by the business's choice of Openapi, for now.
