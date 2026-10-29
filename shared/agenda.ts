@@ -25,6 +25,15 @@ export function onDay(visit: AgendaVisit, day: string) {
 }
 
 /**
+ * Whether the Visit starts on `day` (ISO). Only there does its block show
+ * its start time at the top, so only there can it be dragged: on a later
+ * day the block starts at midnight, and a drop would move the Visit there.
+ */
+export function startsOn(visit: AgendaVisit, day: string) {
+  return visit.startsAt.slice(0, 10) === day
+}
+
+/**
  * Where a Visit sits on `day`, in minutes from midnight: cut at midnight
  * on either side, and at least a slot tall.
  */

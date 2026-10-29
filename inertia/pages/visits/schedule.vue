@@ -7,7 +7,15 @@ import Page from '~/components/page.vue'
 import AppLayout from '~/layouts/app.vue'
 import { urlFor } from '~/client'
 import { formatDate, t, todayIso } from '~/i18n'
-import { SLOT_MINUTES, gridHours, layout, onDay, span, type Placement } from '@shared/agenda'
+import {
+  SLOT_MINUTES,
+  gridHours,
+  layout,
+  onDay,
+  span,
+  startsOn,
+  type Placement,
+} from '@shared/agenda'
 
 type CalendarVisit = {
   id: number
@@ -108,8 +116,16 @@ function isOpen(visit: CalendarVisit) {
   return visit.movable
 }
 
-function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number) {
-  if (!isOpen(visit)) return
+/**
+ * Dragged only from the day it starts: on the next day a Visit across
+ * midnight is cut at 00:00, and a drop there would move its start.
+ */
+function canDrag(visit: CalendarVisit, day: string) {
+  return isOpen(visit) && startsOn(visit, day)
+}
+
+function onDragStart(event: DragEvent, visit: CalendarVisit, technicianId: number, day: string) {
+  if (!canDrag(visit, day)) return
   // Firefox only starts a drag with some data set
   event.dataTransfer?.setData('text/plain', String(visit.id))
   // How far into the Visit it was grabbed, so dropping on another lane at
@@ -262,9 +278,9 @@ const weekday = (iso: string) =>
               class="agenda__visit"
               :class="`agenda__visit--${visit.status}`"
               :style="blockStyle(visit, layout(visitsOn(technician.id), date).get(visit.id))"
-              :draggable="isOpen(visit) ? 'true' : 'false'"
+              :draggable="canDrag(visit, date) ? 'true' : 'false'"
               :data-visit="visit.id"
-              @dragstart="onDragStart($event, visit, technician.id)"
+              @dragstart="onDragStart($event, visit, technician.id, date)"
             >
               <strong>{{ time(visit.startsAt) }}–{{ time(visit.endsAt) }}</strong>
               <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{
@@ -312,9 +328,9 @@ const weekday = (iso: string) =>
                 :key="visit.id"
                 class="agenda__visit agenda__visit--card"
                 :class="`agenda__visit--${visit.status}`"
-                :draggable="isOpen(visit) ? 'true' : 'false'"
+                :draggable="canDrag(visit, day) ? 'true' : 'false'"
                 :data-visit="visit.id"
-                @dragstart="onDragStart($event, visit, technician.id)"
+                @dragstart="onDragStart($event, visit, technician.id, day)"
               >
                 <strong>{{ time(visit.startsAt) }}</strong>
                 <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{

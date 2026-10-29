@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { gridHours, layout, onDay, span } from '#shared/agenda'
+import { gridHours, layout, onDay, span, startsOn } from '#shared/agenda'
 
 const visit = (id: number, startsAt: string, endsAt: string) => ({ id, startsAt, endsAt })
 
@@ -15,6 +15,9 @@ test.group('Agenda day grid', () => {
     // The grid stretches to fit it on either day
     assert.deepEqual(gridHours([night], '2026-11-03'), { first: 7 * 60, last: 24 * 60 })
     assert.deepEqual(gridHours([night], '2026-11-04'), { first: 0, last: 20 * 60 })
+    // Dragged only from its first day: the next day's block starts at 00:00
+    assert.isTrue(startsOn(night, '2026-11-03'))
+    assert.isFalse(startsOn(night, '2026-11-04'))
   })
 
   test('a Visit ending at midnight is not on the next day; one over three days fills the middle', ({
