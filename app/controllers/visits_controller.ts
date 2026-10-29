@@ -37,6 +37,8 @@ import { MAX_REPEATED_VISITS, repeatedDates } from '#shared/visit_repeats'
 import StockLedger from '#stock/stock_ledger'
 import { flashWithStockWarning } from '#stock/stock_warning'
 import type { HttpContext } from '@adonisjs/core/http'
+import { errors as vineErrors } from '@vinejs/vine'
+import type { Infer } from '@vinejs/vine/types'
 
 /**
  * Active Technicians, plus the `extra` people already on Visits being
@@ -86,6 +88,57 @@ async function planPage<D, P>(job: Job, draft: D, preview: P) {
     preview,
     maxRepeated: MAX_REPEATED_VISITS,
   }
+}
+
+/**
+ * A repeat asked for (#177): the form's values to start from, and the dates
+ * it falls on with their public holidays and booked Technicians. All dates
+ * are ticked at first; after a refused confirmation, those Office kept,
+ * with the reason.
+ */
+async function repeatPlan(
+  input: Infer<typeof repeatVisitValidator>,
+  confirmation: { kept: string[]; refusal: string } | null = null
+) {
+  const visit = {
+    startTime: input.startTime,
+    durationMinutes: input.durationMinutes,
+    technicianIds: input.technicianIds,
+    notes: input.notes ?? null,
+    survey: input.survey ?? false,
+  }
+  const draft = {
+    ...visit,
+    date: input.date.toISODate()!,
+    repeat: input.repeat,
+    weekdays: input.weekdays ?? [],
+    until: input.until?.toISODate() ?? null,
+    count: input.count ?? null,
+  }
+  const { dates, truncated } = repeatedDates({
+    from: draft.date,
+    frequency: input.repeat,
+    weekdays: draft.weekdays,
+    until: draft.until,
+    count: draft.count,
+  })
+  const clashes = await Scheduling.clashes(
+    input.technicianIds,
+    dates.map((date) => timeOn(date, input.startTime, input.durationMinutes))
+  )
+  const preview = {
+    ...visit,
+    truncated,
+    refusal: confirmation?.refusal ?? null,
+    dates: dates.map((date, index) => ({
+      date,
+      weekday: isoWeekday(date),
+      holiday: italianHoliday(date),
+      clashes: clashes[index],
+      ticked: confirmation ? confirmation.kept.includes(date) : true,
+    })),
+  }
+  return [draft, preview] as const
 }
 
 /**
@@ -140,44 +193,10 @@ export default class VisitsController {
       session.flash('error', i18n.t('flash.jobNotSchedulable'))
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
-    const input = await repeatVisitValidator.validate(withoutBlanks(request.body()))
-    const visit = {
-      startTime: input.startTime,
-      durationMinutes: input.durationMinutes,
-      technicianIds: input.technicianIds,
-      notes: input.notes ?? null,
-      survey: input.survey ?? false,
-    }
-    const draft = {
-      ...visit,
-      date: input.date.toISODate()!,
-      repeat: input.repeat,
-      weekdays: input.weekdays ?? [],
-      until: input.until?.toISODate() ?? null,
-      count: input.count ?? null,
-    }
-    const { dates, truncated } = repeatedDates({
-      from: draft.date,
-      frequency: input.repeat,
-      weekdays: draft.weekdays,
-      until: draft.until,
-      count: draft.count,
+    const input = await repeatVisitValidator.validate(withoutBlanks(request.body()), {
+      messagesProvider: i18n.createMessagesProvider(),
     })
-    const clashes = await Scheduling.clashes(
-      input.technicianIds,
-      dates.map((date) => timeOn(date, input.startTime, input.durationMinutes))
-    )
-    const preview = {
-      ...visit,
-      truncated,
-      dates: dates.map((date, index) => ({
-        date,
-        weekday: isoWeekday(date),
-        holiday: italianHoliday(date),
-        clashes: clashes[index],
-      })),
-    }
-    return inertia.render('visits/create', await planPage(job, draft, preview))
+    return inertia.render('visits/create', await planPage(job, ...(await repeatPlan(input))))
   }
 
   async store({ params, request, response, session, i18n }: HttpContext) {
@@ -213,9 +232,31 @@ export default class VisitsController {
    * Plans the repeated Visits Office confirmed (#177), all or none: one
    * ordinary Visit per date kept, each independent of the others.
    */
-  async storeRepeated({ params, request, response, session, i18n }: HttpContext) {
-    const job = await Job.findOrFail(params.id)
-    const data = await request.validateUsing(repeatedVisitsValidator)
+  async storeRepeated({ params, request, inertia, response, session, i18n }: HttpContext) {
+    const job = await Job.query().where('id', params.id).preload('customer').firstOrFail()
+    const body = withoutBlanks(request.body())
+    const messagesProvider = i18n.createMessagesProvider()
+    let data
+    try {
+      data = await repeatedVisitsValidator.validate(body, { messagesProvider })
+    } catch (error) {
+      if (!(error instanceof vineErrors.E_VALIDATION_ERROR)) throw error
+      const refusal = (error.messages as { message: string }[]).map((m) => m.message).join(' ')
+      // The list again, as Office left it, with why it was refused (the
+      // repeat comes back with the confirmation for this); if the repeat
+      // itself no longer holds (a Technician deactivated meanwhile), the
+      // plain form with the reason
+      const [invalid, input] = await repeatVisitValidator.tryValidate(body, { messagesProvider })
+      if (invalid) {
+        session.flash('error', i18n.t('flash.repeatedVisitsRefused'))
+        return response.redirect().toRoute('visits.create', { id: job.id })
+      }
+      const kept = Array.isArray(body.dates) ? body.dates.map(String) : []
+      return inertia.render(
+        'visits/create',
+        await planPage(job, ...(await repeatPlan(input, { kept, refusal })))
+      )
+    }
 
     const times = data.dates
       .map((date) => date.toISODate()!)

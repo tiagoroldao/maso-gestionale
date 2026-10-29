@@ -108,7 +108,9 @@ function render(nodes: Node[], indent = '  '): string {
 export function legalReferences(notes: string[]) {
   const fitting: string[] = []
   const overflow: string[] = []
-  for (const note of notes.map((value) => latin1(value).trim()).filter(Boolean)) {
+  // Distinct as written in the file: notes differing only in quotes or spaces are one
+  const written = [...new Set(notes.map((value) => latin1(value).trim()).filter(Boolean))]
+  for (const note of written) {
     if ([...fitting, note].join('; ').length <= LEGAL_NOTE_MAX) fitting.push(note)
     else overflow.push(note)
   }

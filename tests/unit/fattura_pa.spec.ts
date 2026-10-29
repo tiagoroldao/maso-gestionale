@@ -272,6 +272,48 @@ test.group('FatturaPA XML', () => {
     })
   })
 
+  test('a note over 100 characters: cut in the row, whole in Causale', async ({ assert }) => {
+    const long = `Operazione esente ${'secondo la normativa vigente, '.repeat(5)}art. 10 DPR 633/1972`
+    const xml = buildFatturaPA(
+      input([{ quantity: '1', unitPrice: '80', vatRate: '0', natura: 'N4', legalNote: long }])
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assert.isAbove(long.length, 100)
+    assert.deepEqual(tag(xml, 'RiferimentoNormativo'), [long.slice(0, 100)])
+    assert.deepEqual(tag(xml, 'Causale'), [long])
+  })
+
+  test('a note over 200 characters that does not fit runs over several Causale', async ({
+    assert,
+  }) => {
+    const long = `Nota storica: ${'operazione non imponibile per legge, '.repeat(12)}fine`
+    const xml = buildFatturaPA(
+      input(
+        ['Art. 10 DPR 633/72', long].map((legalNote) => ({
+          quantity: '1',
+          unitPrice: '40',
+          vatRate: '0',
+          natura: 'N4',
+          legalNote,
+        }))
+      )
+    )
+
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    assert.deepEqual(tag(xml, 'RiferimentoNormativo'), ['Art. 10 DPR 633/72'])
+    const causale = tag(xml, 'Causale')
+    assert.lengthOf(causale, Math.ceil(long.length / 200))
+    assert.equal(causale.join(''), long)
+  })
+
+  test('legal references: notes alike once written in Latin-1 count once', ({ assert }) => {
+    assert.deepEqual(legalReferences(['Art. 10 “esente”', ' Art. 10 "esente" ']), {
+      reference: 'Art. 10 "esente"',
+      overflow: [],
+    })
+  })
+
   test('several rates with line and global discounts', async ({ assert }) => {
     const xml = buildFatturaPA(
       input(

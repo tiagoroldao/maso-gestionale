@@ -47,7 +47,13 @@ async function visitOf(
   return visit
 }
 
-type PreviewDate = { date: string; weekday: number; holiday: string | null; clashes: string[] }
+type PreviewDate = {
+  date: string
+  weekday: number
+  holiday: string | null
+  clashes: string[]
+  ticked: boolean
+}
 
 test.group('Repeated Visits', () => {
   test('lists the dates, flagging public holidays and booked Technicians', async ({
@@ -81,11 +87,11 @@ test.group('Repeated Visits', () => {
     response.assertStatus(200)
     const preview = response.inertiaProps.preview as { dates: PreviewDate[]; truncated: boolean }
     assert.deepEqual(preview.dates, [
-      { date: '2026-12-07', weekday: 1, holiday: null, clashes: [] },
-      { date: '2026-12-08', weekday: 2, holiday: 'immaculate', clashes: [] },
-      { date: '2026-12-09', weekday: 3, holiday: null, clashes: ['Anna'] },
-      { date: '2026-12-10', weekday: 4, holiday: null, clashes: [] },
-      { date: '2026-12-11', weekday: 5, holiday: null, clashes: [] },
+      { date: '2026-12-07', weekday: 1, holiday: null, clashes: [], ticked: true },
+      { date: '2026-12-08', weekday: 2, holiday: 'immaculate', clashes: [], ticked: true },
+      { date: '2026-12-09', weekday: 3, holiday: null, clashes: ['Anna'], ticked: true },
+      { date: '2026-12-10', weekday: 4, holiday: null, clashes: [], ticked: true },
+      { date: '2026-12-11', weekday: 5, holiday: null, clashes: [], ticked: true },
     ])
     assert.isFalse(preview.truncated)
     response.assertInertiaPropsContains({
@@ -202,28 +208,68 @@ test.group('Repeated Visits', () => {
     assert.lengthOf(third.technicians, 2)
   })
 
-  test('confirming needs at least one date, and plans none on a refusal', async ({
+  test('a refused confirmation lists the dates again, as left, with why', async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
     const anna = await createUser('technician')
     const job = await createJob(await createCustomer())
-
-    for (const dates of [[], ['2026-12-07', '2026-12-07'], ['2026-12-32']]) {
-      const response = await client
+    // The confirmation carries the repeat, as the page's form sends it
+    const confirm = (technicianIds: number[], dates: string[]) =>
+      client
         .post(`/jobs/${job.id}/visits/repeated`)
-        .json(confirmed([anna.id], dates))
+        .json({
+          ...repeat(technicianIds, { repeat: 'daily', count: 3, until: '' }),
+          dates,
+        })
         .header('referer', `/jobs/${job.id}/visits/create`)
         .withCsrfToken()
+        .withInertia()
         .loginAs(office)
-        .redirects(0)
-      const errors = response.flashMessage('inputErrorsBag') ?? {}
-      assert.isTrue(
-        Object.keys(errors).some((key) => key.startsWith('dates')),
-        JSON.stringify(dates)
-      )
+
+    const none = await confirm([anna.id], [])
+    none.assertStatus(200)
+    none.assertInertiaComponent('visits/create')
+    const listed = none.inertiaProps.preview as {
+      refusal: string
+      dates: { date: string; ticked: boolean }[]
     }
+    assert.equal(listed.refusal, it('validator.shared.messages.dates.array.minLength'))
+    assert.deepEqual(
+      listed.dates.map((day) => [day.date, day.ticked]),
+      [
+        ['2026-12-07', false],
+        ['2026-12-08', false],
+        ['2026-12-09', false],
+      ]
+    )
+
+    // The dates Office kept stay ticked
+    const duplicate = await confirm([anna.id], ['2026-12-07', '2026-12-09', '2026-12-09'])
+    const again = duplicate.inertiaProps.preview as {
+      refusal: string
+      dates: { date: string; ticked: boolean }[]
+    }
+    assert.isNotEmpty(again.refusal)
+    assert.deepEqual(
+      again.dates.map((day) => day.ticked),
+      [true, false, true]
+    )
+
+    // A Technician deactivated meanwhile: the plain form, saying why
+    await anna.merge({ isActive: false }).save()
+    const deactivated = await client
+      .post(`/jobs/${job.id}/visits/repeated`)
+      .json({
+        ...repeat([anna.id], { repeat: 'daily', count: 3, until: '' }),
+        dates: ['2026-12-07'],
+      })
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    deactivated.assertHeader('location', `/jobs/${job.id}/visits/create`)
+    deactivated.assertFlashMessage('error', it('flash.repeatedVisitsRefused'))
     assert.lengthOf(await Visit.all(), 0)
   })
 

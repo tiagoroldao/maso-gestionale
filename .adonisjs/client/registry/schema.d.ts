@@ -934,10 +934,10 @@ export interface Registry {
     methods: ["POST"]
     pattern: '/jobs/:id/visits/repeated'
     types: {
-      body: ExtractBody<InferInput<(typeof import('#validators/visit').repeatedVisitsValidator)>>
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').repeatedVisitsValidator)>|InferInput<(typeof import('#validators/visit').repeatVisitValidator)>>
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: ExtractQuery<InferInput<(typeof import('#validators/visit').repeatedVisitsValidator)>>
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').repeatedVisitsValidator)>|InferInput<(typeof import('#validators/visit').repeatVisitValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['storeRepeated']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['storeRepeated']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['storeRepeated']>>> | { status: 422; response: { errors: SimpleError[] } }

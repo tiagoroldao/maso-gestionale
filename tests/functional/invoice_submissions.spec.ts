@@ -238,7 +238,10 @@ test.group('SDI Submissions', (group) => {
     const { default: Migration } =
       await import('#database/migrations/1761885935197_record_submission_notices_and_files')
     const queries = (await new Migration(db.connection(), 'backfill', true).execUp()) as string[]
-    const backfill = queries.find((sql) => sql.includes('SET notice_on'))!
+    const backfill = queries.find((sql) => sql.includes('SET notice_on'))
+    if (!backfill) {
+      return assert.fail("The migration's notice_on backfill (UPDATE … SET notice_on) is gone")
+    }
     await db.rawQuery(backfill)
 
     for (const submission of recorded) await submission.refresh()
