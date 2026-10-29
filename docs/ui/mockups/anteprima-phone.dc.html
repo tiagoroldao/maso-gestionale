@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Carbonio · Anteprima articolo</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Montserrat:wght@600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.r{--paper:#fafafa;--card:#ffffff;--ink:#0b0b0c;--muted:#5d6168;--line:#e2e2e5;--bar:#0b0b0c;--btn:#0b0b0c;--btnfg:#ffffff;--greybg:#ececef;font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1;color:var(--ink);background:var(--paper)}
+.r.dark{--paper:#0e0e10;--card:#151518;--ink:#ececed;--muted:#9a9ea6;--line:#2a2b30;--bar:#000000;--btn:#ececed;--btnfg:#0b0b0c;--greybg:#25262b}
+.lbl{font-family:Montserrat,Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:46px;padding:0 16px;border-radius:3px;font:600 15px Inter,system-ui,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none}
+.btn.p{background:var(--btn);color:var(--btnfg);border-color:var(--btn)}
+.fact{display:flex;flex-direction:column;gap:4px;padding:12px 14px;min-width:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" style="width: 390px; height: 844px; position: relative; overflow: hidden;">
+  <div aria-hidden="true" style="position: absolute; inset: 0; display: flex; flex-direction: column;">
+    <div style="background: var(--bar); color: #ffffff; padding: 56px 16px 18px; display: flex; flex-direction: column; gap: 8px;">
+      <div style="font-size: 12px; color: #a9abb0;">Gio 29 ott · 14:00–17:00</div>
+      <div style="font-family: Montserrat, Inter, sans-serif; font-size: 22px; font-weight: 700;">Intervento · Rossi Mario</div>
+    </div>
+    <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+      <div style="height: 64px; background: var(--card); border: 1px solid var(--line); border-radius: 3px;"></div>
+      <div style="height: 64px; background: var(--card); border: 1px solid var(--line); border-radius: 3px;"></div>
+      <div style="height: 64px; background: var(--card); border: 1px solid var(--line); border-radius: 3px;"></div>
+    </div>
+  </div>
+  <div aria-hidden="true" style="position: absolute; inset: 0; background: rgba(0, 0, 0, 0.5);"></div>
+
+  <section role="dialog" aria-modal="true" aria-labelledby="pk-t" style="position: absolute; left: 0; right: 0; bottom: 0; background: var(--card); border-radius: 10px 10px 0 0; box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25); padding: 8px 16px 18px; display: flex; flex-direction: column; gap: 14px;">
+    <div aria-hidden="true" style="align-self: center; width: 40px; height: 4px; border-radius: 2px; background: var(--line);"></div>
+    <div style="display: flex; gap: 12px; align-items: flex-start;">
+      <div role="img" aria-label="Foto articolo" style="width: 72px; height: 72px; flex-shrink: 0; border-radius: 3px; background: var(--greybg);"></div>
+      <div style="display: flex; flex-direction: column; gap: 4px; min-width: 0;">
+        <span class="lbl">Articolo</span>
+        <h2 id="pk-t" style="margin: 0; font-size: 18px; font-weight: 700;">Kit scarico fumi coassiale</h2>
+        <span style="font-size: 13px; color: var(--muted);">[CODICE] · [MARCA]</span>
+      </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid var(--line); border-radius: 3px;">
+      <div class="fact"><span class="lbl">Nel furgone</span><span style="font-size: 17px; font-weight: 700;">2</span></div>
+      <div class="fact" style="border-left: 1px solid var(--line);"><span class="lbl">In magazzino</span><span style="font-size: 17px; font-weight: 700;">5</span></div>
+    </div>
+    <p style="margin: 0; font-size: 14px; line-height: 1.45; color: var(--ink);">[DESCRIZIONE BREVE DELL'ARTICOLO]</p>
+    <div style="display: flex; gap: 8px;">
+      <a href="#" class="btn" style="flex: 1;">Apri scheda</a>
+      <button class="btn p" type="button" style="flex: 1;">Chiudi</button>
+    </div>
+  </section>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return { rootClass: this.props.dark ? 'r dark' : 'r' };
+  }
+}
+</script>
+</body>
+</html>

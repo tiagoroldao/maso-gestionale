@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Carbonio · Intervento su desktop</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Montserrat:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.r{--paper:#fafafa;--card:#ffffff;--ink:#0b0b0c;--ink2:#2b2d31;--muted:#5d6168;--line:#e2e2e5;--side:#0b0b0c;--sidefg:#c9cacd;--sideon:#1c1c1f;--brand:#ff3030;--btn:#0b0b0c;--btnfg:#ffffff;--greybg:#ececef;--orange:#9a4a06;--orangebg:#fcefe0;font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1;color:var(--ink);background:var(--paper)}
+.r.dark{--paper:#0e0e10;--card:#151518;--ink:#ececed;--ink2:#c3c5c9;--muted:#9a9ea6;--line:#2a2b30;--side:#000000;--sidefg:#a9abb0;--sideon:#1a1a1d;--brand:#ff4545;--btn:#ececed;--btnfg:#0b0b0c;--greybg:#25262b;--orange:#ffb46b;--orangebg:#3a250f}
+.lbl{font-family:Montserrat,Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted)}
+.nav{display:flex;align-items:center;gap:10px;height:36px;padding:0 12px;border-radius:3px;font-size:14px;color:var(--sidefg);text-decoration:none}
+.nav:hover{color:#ffffff;background:var(--sideon)}
+.nav.on{color:#ffffff;background:var(--sideon);font-weight:600}
+.nav.on::after{content:'';margin-left:auto;width:7px;height:12px;background:var(--brand);transform:skewY(-40deg)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:36px;padding:0 14px;border-radius:3px;font:600 13px Inter,system-ui,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none}
+.btn.p{background:var(--btn);color:var(--btnfg);border-color:var(--btn)}
+.tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:3px;font-size:12px;font-weight:600;white-space:nowrap}
+.t-orange{color:var(--orange);background:var(--orangebg)}
+.fact{display:flex;flex-direction:column;gap:6px;padding:14px 18px;flex:1 1 180px;min-width:0}
+.th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:8px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+.td{font-size:14px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.num{text-align:right}
+</style>
+</helmet>
+<div class="{{rootClass}}" style="min-height: 844px; display: flex; flex-wrap: wrap; align-items: stretch;">
+  <nav aria-label="Navigazione tecnico" style="flex: 1 1 220px; max-width: 100%; box-sizing: border-box; padding: 20px 14px; background: var(--side); display: flex; flex-direction: column; gap: 20px;">
+    <div style="padding: 4px 12px 8px;">
+      <svg viewBox="0 0 437 258" width="44" height="26" role="img" aria-label="Maso Hightechnology"><polygon points="0,2 130,132 197,66 197,127 130,193 44,108 44,258 0,258" style="fill: #ffffff"></polygon><polygon points="220,100 220,48 260,2 260,54" style="fill: var(--brand)"></polygon><rect x="392" y="0" width="45" height="258" style="fill: #ffffff"></rect><rect x="262" y="96" width="130" height="44" style="fill: #ffffff"></rect><polygon points="220,258 220,180 262,140 262,258" style="fill: #ffffff"></polygon></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px;">
+      <a href="#" class="nav on">Oggi</a>
+      <a href="#" class="nav">I miei interventi</a>
+      <a href="#" class="nav">Agenda</a>
+    </div>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px; border-top: 1px solid #222326; color: #ffffff;">
+      <div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 3px; background: #26272b; display: grid; place-items: center; font-size: 12px; font-weight: 600;">LB</div>
+      <div style="display: flex; flex-direction: column;"><span style="font-size: 13px; font-weight: 500;">Luca B.</span><span style="font-size: 12px; color: #a9abb0;">Tecnico</span></div>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column;">
+    <header style="background: var(--card); border-bottom: 1px solid var(--line);">
+      <div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 12px; max-width: 1220px; box-sizing: border-box; width: 100%;">
+        <nav aria-label="Percorso" class="lbl"><a href="#" style="text-decoration: none;">I miei interventi</a> / Gio 29 ott</nav>
+        <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;">
+          <div style="flex: 1 1 360px; display: flex; flex-direction: column; gap: 8px; min-width: 0;">
+            <h1 style="margin: 0; font-family: Montserrat, Inter, sans-serif; font-size: 26px; font-weight: 700;">Intervento · Rossi Mario</h1>
+            <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;"><span class="tag t-orange">{{inCorso}}</span><span style="font-size: 14px; color: var(--muted);">Gio 29 ott, 14:00–17:00 · con Marco T.</span></div>
+          </div>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <a href="#" class="btn">Mappa</a>
+            <a href="#" class="btn">Chiama</a>
+            <button class="btn p" type="button">Chiudi intervento</button>
+            <button class="btn" type="button" aria-label="Altre azioni" style="padding: 0 9px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div style="padding: 20px 32px 0; max-width: 1220px; box-sizing: border-box; width: 100%;">
+      <div style="display: flex; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: 3px;">
+        <div class="fact"><span class="lbl">Cliente</span><span style="font-size: 15px; font-weight: 600;">Rossi Mario</span><span style="font-size: 13px; color: var(--muted);">[TELEFONO]</span></div>
+        <div class="fact" style="border-left: 1px solid var(--line);"><span class="lbl">Indirizzo</span><span style="font-size: 15px; font-weight: 600;">[INDIRIZZO]</span><span style="font-size: 13px; color: var(--muted);">Abitazione</span></div>
+        <div class="fact" style="border-left: 1px solid var(--line);"><span class="lbl">Commessa</span><span style="font-size: 15px; font-weight: 600;">Sostituzione caldaia</span><span style="font-size: 13px; color: var(--muted);">C-2026-0142 · A consuntivo</span></div>
+      </div>
+    </div>
+
+    <div style="padding: 20px 32px 40px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; max-width: 1220px; box-sizing: border-box; width: 100%;">
+      <section aria-labelledby="bd-a" style="flex: 999 1 460px; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 3px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 8px; flex-wrap: wrap;">
+          <h2 id="bd-a" class="lbl" style="margin: 0; color: var(--ink);">Addebiti</h2>
+          <div style="display: flex; gap: 6px;">
+            <button class="btn" type="button" style="height: 30px;">+ Ore</button>
+            <button class="btn" type="button" style="height: 30px;">+ Articolo</button>
+            <button class="btn" type="button" style="height: 30px;">+ Altro</button>
+          </div>
+        </div>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr><th class="th">Descrizione</th><th class="th">Tipo</th><th class="th">Chi / da dove</th><th class="th num">Q.tà</th></tr></thead>
+            <tbody>
+              <sc-for list="{{charges}}" as="c" hint-placeholder-count="3">
+                <tr><td class="td">{{c.desc}}</td><td class="td" style="color: var(--muted);">{{c.kind}}</td><td class="td" style="color: var(--muted);">{{c.who}}</td><td class="td num" style="font-weight: 700;">{{c.qty}}</td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside style="flex: 1 1 300px; min-width: 0; display: flex; flex-direction: column; gap: 20px;">
+        <section aria-labelledby="bd-e" style="background: var(--card); border: 1px solid var(--line); border-radius: 3px; padding: 14px 16px; display: flex; flex-direction: column; gap: 10px;">
+          <h2 id="bd-e" class="lbl" style="margin: 0; color: var(--ink);">Apparecchi</h2>
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 14px;"><input type="checkbox" checked="checked" style="width: 18px; height: 18px; accent-color: #0b0b0c;">Caldaia esistente · da sostituire</label>
+          <label style="display: flex; align-items: center; gap: 10px; font-size: 14px;"><input type="checkbox" style="width: 18px; height: 18px; accent-color: #0b0b0c;">Nuova caldaia · da registrare</label>
+        </section>
+        <section aria-labelledby="bd-n" style="background: var(--card); border: 1px solid var(--line); border-radius: 3px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+          <h2 id="bd-n" class="lbl" style="margin: 0; color: var(--ink);">Note e foto</h2>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px;">
+            <div aria-label="Foto 1" role="img" style="aspect-ratio: 1; border-radius: 2px; background: var(--greybg);"></div>
+            <div aria-label="Foto 2" role="img" style="aspect-ratio: 1; border-radius: 2px; background: var(--greybg);"></div>
+            <button class="btn" type="button" aria-label="Aggiungi foto" style="aspect-ratio: 1; padding: 0; height: auto;"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg></button>
+          </div>
+        </section>
+      </aside>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"capsTags":{"editor":"boolean","default":false},"$preview":{"width":1280,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      rootClass: this.props.dark ? 'r dark' : 'r',
+      inCorso: (this.props.capsTags ?? false) ? 'IN CORSO' : 'In corso',
+      charges: [
+        { desc: 'Manodopera idraulico', kind: 'Ore', who: 'Luca B.', qty: '3 h' },
+        { desc: 'Kit scarico fumi coassiale', kind: 'Articolo', who: 'Dal furgone', qty: '1' },
+        { desc: 'Smaltimento vecchia caldaia', kind: 'Altro', who: '—', qty: '1' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
