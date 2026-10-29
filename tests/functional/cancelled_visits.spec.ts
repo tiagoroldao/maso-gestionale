@@ -169,8 +169,23 @@ test.group('Cancelled Visits (#157)', () => {
     .with(['office', 'admin'] as const)
     .run(async ({ client, assert }, role) => {
       const user = await createUser(role)
-      const { job, visit, hours, valves } = await plannedWork()
+      const { job, visit, valve, hours, valves } = await plannedWork()
+      const committed = async () => {
+        const quantities = await StockLedger.quantities([valve.id])
+        return quantities.get(valve.id)!
+      }
+      assert.deepEqual(await committed(), {
+        inStock: '10.000',
+        committed: '3.000',
+        available: '7.000',
+      })
       await post(client, user, `/visits/${visit.id}/cancel`)
+      // Not done: its valves no longer commit anything (#158)
+      assert.deepEqual(await committed(), {
+        inStock: '10.000',
+        committed: '0.000',
+        available: '10.000',
+      })
 
       const response = await post(client, user, `/visits/${visit.id}/restore`)
       response.assertHeader('location', `/jobs/${job.id}`)
@@ -183,6 +198,12 @@ test.group('Cancelled Visits (#157)', () => {
         assert.equal(await workOf(assert, charge), 'planned')
         assert.deepEqual(await history(charge), ['recorded', 'not_done', 'planned'])
       }
+      // Planned again, committed again; nothing left stock
+      assert.deepEqual(await committed(), {
+        inStock: '10.000',
+        committed: '3.000',
+        available: '7.000',
+      })
       await job.refresh()
       assert.equal(job.status, 'in_progress')
       assert.deepEqual(await visitFlags(assert, visit), { work: true, billed: false })

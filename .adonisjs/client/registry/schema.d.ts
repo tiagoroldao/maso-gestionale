@@ -2308,6 +2308,32 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
+  'instance.backups': {
+    methods: ["PUT"]
+    pattern: '/instance/backups'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/instance_settings').backupSettingsValidator)>>
+      paramsTuple: []
+      params: {}
+      query: ExtractQuery<InferInput<(typeof import('#validators/instance_settings').backupSettingsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['update']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['update']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'instance.backups.run': {
+    methods: ["POST"]
+    pattern: '/instance/backups/run'
+    types: {
+      body: {}
+      paramsTuple: []
+      params: {}
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['run']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['run']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/instance_backups_controller').default['run']>>>
+    }
+  }
   'instance.admin_password': {
     methods: ["PUT"]
     pattern: '/instance/admins/:id/password'

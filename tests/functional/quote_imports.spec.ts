@@ -115,7 +115,11 @@ test.group('Importing Quote lines as Charges', () => {
     })
 
     response.assertHeader('location', `/jobs/${job.id}`)
-    response.assertFlashMessage('success', it('flash.quoteLinesImported', { count: 3 }))
+    // None in stock: imported all the same, with a warning (ADR 0016)
+    response.assertFlashMessage(
+      'warning',
+      `${it('flash.quoteLinesImported', { count: 3 })} ${it('flash.belowAvailable', { items: `${item.code} (-1 pz)` })}`
+    )
     const charges = await chargesOf(job)
     assert.deepEqual(
       charges.map((charge) => [

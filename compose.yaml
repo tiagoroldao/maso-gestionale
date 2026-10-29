@@ -6,7 +6,7 @@ services:
     image: ${APP_IMAGE:-ghcr.io/tiagoroldao/maso-gestionale}:${APP_VERSION:-latest}
     restart: unless-stopped
     env_file: .env
-    environment:
+    environment: &app-environment
       NODE_ENV: production
       TZ: Europe/Rome
       HOST: 0.0.0.0
@@ -23,6 +23,25 @@ services:
       db:
         condition: service_healthy
       gotenberg:
+        condition: service_started
+
+  # Nightly encrypted off-site backups (#33): the app image running the
+  # backup job instead of the server. Settings and status are in Instance
+  # settings; restoring is in docs/restore.md. The app runs the migrations.
+  backup:
+    build: .
+    image: ${APP_IMAGE:-ghcr.io/tiagoroldao/maso-gestionale}:${APP_VERSION:-latest}
+    restart: unless-stopped
+    env_file: .env
+    environment: *app-environment
+    entrypoint: ['node', 'ace']
+    command: ['backup:schedule']
+    volumes:
+      - app-storage:/app/storage:ro
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
         condition: service_started
 
   db:

@@ -13,6 +13,7 @@ import { quoteDocument } from '#documents/quote_document'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { quoteImportValidator, quoteValidator } from '#validators/quote'
 import { localDateTime } from '#services/dates'
+import { flashWithStockWarning } from '#stock/stock_warning'
 import { OPEN_VISIT_STATUSES } from '#shared/visits'
 import type { HttpContext } from '@adonisjs/core/http'
 
@@ -168,7 +169,12 @@ export default class QuotesController {
 
     try {
       const charges = await Quotes.importLines(quote, data, auth.getUserOrFail())
-      session.flash('success', i18n.t('flash.quoteLinesImported', { count: charges.length }))
+      // Imported Items are planned, so committed: warn when short
+      await flashWithStockWarning(
+        { session, i18n },
+        charges.flatMap((charge) => (charge.itemId ? [charge.itemId] : [])),
+        i18n.t('flash.quoteLinesImported', { count: charges.length })
+      )
       return response.redirect().toRoute('jobs.show', { id: quote.jobId })
     } catch (error) {
       if (!(error instanceof QuoteImportRefusedError)) throw error

@@ -181,6 +181,8 @@ export type ScannedRoutes = {
     'payment_terms.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'instance': { paramsTuple?: []; params?: {} }
     'instance.update': { paramsTuple?: []; params?: {} }
+    'instance.backups': { paramsTuple?: []; params?: {} }
+    'instance.backups.run': { paramsTuple?: []; params?: {} }
     'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
@@ -405,6 +407,7 @@ export type ScannedRoutes = {
     'document_templates.restore': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'document_templates.fill_preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
+    'instance.backups.run': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
     'my_visits.remove_charge': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -441,6 +444,7 @@ export type ScannedRoutes = {
     'invoice_numbering.update': { paramsTuple: [ParamValue]; params: {'year': ParamValue} }
     'payment_terms.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'instance.update': { paramsTuple?: []; params?: {} }
+    'instance.backups': { paramsTuple?: []; params?: {} }
     'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   PATCH: {

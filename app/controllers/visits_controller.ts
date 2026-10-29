@@ -2,6 +2,7 @@ import { DateTime } from 'luxon'
 import Job from '#models/job'
 import User from '#models/user'
 import Visit from '#models/visit'
+import Charge from '#models/charge'
 import Scheduling, {
   JobNotSchedulableError,
   TechnicianHasHoursError,
@@ -26,6 +27,8 @@ import {
   visitValidator,
 } from '#validators/visit'
 import { localDateTime } from '#services/dates'
+import StockLedger from '#stock/stock_ledger'
+import { flashWithStockWarning } from '#stock/stock_warning'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -245,9 +248,19 @@ export default class VisitsController {
   async markDone({ params, request, response, session, auth, i18n }: HttpContext) {
     const visit = await Visit.findOrFail(params.id)
     const review = await request.validateUsing(visitCloseValidator)
+    // Its planned Items committed nothing on a cancelled Job, so leaving
+    // stock now may leave them short
+    const charges = await Charge.query().where('visitId', visit.id).whereNotNull('itemId')
+    const itemIds = charges.map((charge) => charge.itemId!)
+    const before = await StockLedger.quantities(itemIds)
     try {
       await FieldWork.closeOnCancelledJob(visit, auth.getUserOrFail(), notDoneIn(review))
-      session.flash('success', i18n.t('flash.visitMarkedDone'))
+      await flashWithStockWarning(
+        { session, i18n },
+        itemIds,
+        i18n.t('flash.visitMarkedDone'),
+        before
+      )
     } catch (error) {
       if (!(error instanceof FieldWorkRefusedError)) throw error
       session.flash('error', i18n.t(`flash.fieldWorkRefused.${error.reason}`))

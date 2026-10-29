@@ -305,8 +305,34 @@ export class InstalledEquipmentSchema extends BaseModel {
 }
 
 export class InstanceSettingSchema extends BaseModel {
-  static $columns = ['id', 'invoicetronicApiKey', 'pollingMinutes', 'publicUrl', 'sdiMode', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
+  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'invoicetronicApiKey', 'pollingMinutes', 'publicUrl', 'sdiMode', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
   $columns = InstanceSettingSchema.$columns
+  @column()
+  declare backupAccessKeyId: string | null
+  @column()
+  declare backupBucket: string | null
+  @column()
+  declare backupEndpoint: string | null
+  @column.dateTime()
+  declare backupFailedAt: DateTime | null
+  @column()
+  declare backupFailure: string | null
+  @column()
+  declare backupIdentity: string | null
+  @column()
+  declare backupLastName: string | null
+  @column()
+  declare backupRecipient: string | null
+  @column()
+  declare backupRegion: string | null
+  @column()
+  declare backupRetention: number
+  @column()
+  declare backupSecretAccessKey: string | null
+  @column.dateTime()
+  declare backupStartedAt: DateTime | null
+  @column.dateTime()
+  declare backupSucceededAt: DateTime | null
   @column({ isPrimary: true })
   declare id: number
   @column()

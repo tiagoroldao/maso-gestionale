@@ -7,6 +7,7 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatDate, formatUnitPrice, t, todayIso } from '~/i18n'
 import { amountForInput } from '@shared/money'
+import { formatQuantity as quantity } from '@shared/stock'
 import { urlFor } from '~/client'
 
 const props = defineProps<{
@@ -24,7 +25,7 @@ const props = defineProps<{
     belowMarkup: boolean
     markupPercent: string | null
   }
-  stock: string
+  stock: { inStock: string; committed: string; available: string }
   documents: { id: number; title: string }[]
   movements: {
     id: number
@@ -45,13 +46,10 @@ function percent(value: string) {
   return amountForInput(value).replace(/,00$/, '')
 }
 
-function quantity(value: string) {
-  return amountForInput(value).replace(/,?0+$/, '').replace(/,$/, '')
-}
-
 const today = todayIso()
 // Recomputed after each recorded movement (the page is reused, not remounted)
-const isNegative = computed(() => props.stock.startsWith('-'))
+const isNegative = computed(() => props.stock.inStock.startsWith('-'))
+const isShort = computed(() => props.stock.available.startsWith('-'))
 </script>
 
 <template>
@@ -67,8 +65,15 @@ const isNegative = computed(() => props.stock.startsWith('-'))
         <dl class="details">
           <dt>{{ t('ui.items.stock') }}</dt>
           <dd>
-            <strong>{{ quantity(stock) }} {{ item.unit }}</strong>
+            <strong>{{ quantity(stock.inStock) }} {{ item.unit }}</strong>
             <span v-if="isNegative" class="tag">{{ t('ui.items.negativeStock') }}</span>
+          </dd>
+          <dt>{{ t('ui.items.committed') }}</dt>
+          <dd>{{ quantity(stock.committed) }} {{ item.unit }}</dd>
+          <dt>{{ t('ui.items.available') }}</dt>
+          <dd>
+            <strong>{{ quantity(stock.available) }} {{ item.unit }}</strong>
+            <span v-if="isShort" class="tag">{{ t('ui.items.negativeAvailable') }}</span>
           </dd>
           <template v-if="item.reorderLevel">
             <dt>{{ t('ui.items.reorderLevel') }}</dt>

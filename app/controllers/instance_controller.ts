@@ -1,12 +1,14 @@
 import InstanceSettings from '#models/instance_settings'
 import User from '#models/user'
+import { Backups } from '#services/backups'
 import { adminPasswordValidator, instanceSettingsValidator } from '#validators/instance_settings'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
  * Instance settings, for the Superuser only (ADR 0005). Nothing here shows
  * business data: Admin accounts are listed by name and email only, to set
- * a new password when the Admin lost theirs.
+ * a new password when the Admin lost theirs. Backup settings are saved by
+ * `InstanceBackupsController`.
  */
 export default class InstanceController {
   async show({ inertia }: HttpContext) {
@@ -16,12 +18,30 @@ export default class InstanceController {
     return inertia.render('instance', {
       settings: {
         sdiMode: settings.sdiMode,
-        // Whether a secret is stored, never the secret
-        hasApiKey: settings.invoicetronicApiKey !== null,
+        // Whether a usable secret is stored, never the secret: one
+        // encrypted under another APP_KEY (after a restore) reads as null
+        hasApiKey: settings.apiKey !== null,
         pollingMinutes: settings.pollingMinutes,
         webhookEnabled: settings.webhookEnabled,
-        hasWebhookSecret: settings.webhookSecret !== null,
+        hasWebhookSecret: settings.secret !== null,
         publicUrl: settings.publicUrl,
+      },
+      backups: {
+        endpoint: settings.backupEndpoint ?? null,
+        bucket: settings.backupBucket ?? null,
+        region: settings.backupRegion ?? null,
+        accessKeyId: settings.backupAccessKeyId ?? null,
+        hasSecret: settings.backupSecret !== null,
+        retention: settings.backupRetention,
+        // The public key only: the passphrase is never stored
+        recipient: settings.backupRecipient ?? null,
+        // Shown only while a run holds the lock: a run that died, or one
+        // caught in a restored dump, isn't running
+        startedAt: (await Backups.isRunning()) ? (settings.backupStartedAt?.toISO() ?? null) : null,
+        succeededAt: settings.backupSucceededAt?.toISO() ?? null,
+        lastName: settings.backupLastName ?? null,
+        failedAt: settings.backupFailedAt?.toISO() ?? null,
+        failure: settings.backupFailure ?? null,
       },
       admins: admins.map((admin) => ({
         id: admin.id,

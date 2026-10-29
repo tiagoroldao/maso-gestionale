@@ -56,7 +56,7 @@ export default class Scheduling {
    * Whether the Job has any work Visit, past or to come (isWorkVisit()):
    * Surveys and cancelled Visits don't count (ADR 0013, 0016).
    */
-  static async hasWorkVisits(trx: TransactionClientContract, jobId: number) {
+  private static async hasWorkVisits(trx: TransactionClientContract, jobId: number) {
     return Boolean(
       await trx.from('visits as v').where('v.job_id', jobId).whereRaw(WORK_VISIT_SQL('v')).first()
     )
