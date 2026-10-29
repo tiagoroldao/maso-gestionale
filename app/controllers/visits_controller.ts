@@ -11,6 +11,7 @@ import Scheduling, {
   VisitNotMovableError,
 } from '#services/scheduling'
 import FieldWork, { FieldWorkRefusedError } from '#services/field_work'
+import Installations from '#services/installations'
 import { ChargeRefusedError } from '#services/charges'
 import { notDoneIn, visitCloseValidator } from '#validators/field'
 import {
@@ -254,12 +255,17 @@ export default class VisitsController {
     const itemIds = charges.map((charge) => charge.itemId!)
     const before = await StockLedger.quantities(itemIds)
     try {
-      await FieldWork.closeOnCancelledJob(visit, auth.getUserOrFail(), notDoneIn(review))
+      const warnings = await FieldWork.closeOnCancelledJob(
+        visit,
+        auth.getUserOrFail(),
+        notDoneIn(review)
+      )
       await flashWithStockWarning(
         { session, i18n },
         itemIds,
         i18n.t('flash.visitMarkedDone'),
-        before
+        before,
+        Installations.messages(i18n, warnings)
       )
     } catch (error) {
       if (!(error instanceof FieldWorkRefusedError)) throw error

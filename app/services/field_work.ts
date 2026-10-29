@@ -8,7 +8,7 @@ import Visit, { type FieldVisitStatus } from '#models/visit'
 import Charge from '#models/charge'
 import ChargeEvent from '#models/charge_event'
 import InstalledEquipment from '#models/installed_equipment'
-import Installations from '#services/installations'
+import Installations, { type EquipmentWarning } from '#services/installations'
 import StockLedger from '#stock/stock_ledger'
 import { CLOSED_VISIT_STATUSES, isCancelledVisit } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
@@ -258,18 +258,20 @@ export default class FieldWork {
    * leaving stock and an installed one creating or updating its equipment
    * (#162) in the same transaction, except those in `notDone` (unticked in
    * the review), which become not done and touch neither. A closed
-   * Visit's status no longer changes.
+   * Visit's status no longer changes. Returns the warnings about equipment
+   * that changed since it was recorded (#168).
    */
   static async setStatus(
     visit: Visit,
     status: FieldVisitStatus,
     user: User,
     notDone: number[] = []
-  ) {
-    await this.whileOpen(visit, (trx, locked) =>
+  ): Promise<EquipmentWarning[]> {
+    const warnings = await this.whileOpen(visit, (trx, locked) =>
       this.changeStatus(trx, locked, status, user, notDone)
     )
     visit.status = status
+    return warnings
   }
 
   /**
@@ -280,10 +282,15 @@ export default class FieldWork {
    * done Charges become billable (#111), as when any Visit closes. Only
    * "done": nobody goes back on a cancelled Job. Refused once the Visit is
    * closed, and on any Job not cancelled: an active Job's Visits close in
-   * the field, a closed Job is reopened first.
+   * the field, a closed Job is reopened first. Returns the warnings about
+   * equipment, as `setStatus`.
    */
-  static async closeOnCancelledJob(visit: Visit, user: User, notDone: number[] = []) {
-    await db.transaction(async (trx) => {
+  static async closeOnCancelledJob(
+    visit: Visit,
+    user: User,
+    notDone: number[] = []
+  ): Promise<EquipmentWarning[]> {
+    const warnings = await db.transaction(async (trx) => {
       const locked = await this.lockOpenVisit(trx, visit)
       // Visit first, then its Job; cancelled is final, so a share lock holds it
       const job = await Job.query({ client: trx })
@@ -293,15 +300,17 @@ export default class FieldWork {
       if (job.status !== 'cancelled') {
         throw new FieldWorkRefusedError(job.status === 'closed' ? 'closed' : 'notCancelled')
       }
-      await this.changeStatus(trx, locked, 'done', user, notDone)
+      return this.changeStatus(trx, locked, 'done', user, notDone)
     })
     visit.status = 'done'
+    return warnings
   }
 
   /**
    * Sets the locked Visit's status; closing it makes its planned Charges
    * done (Items off stock, installed ones installed) or, for those in
-   * `notDone`, not done, and dates the equipment it serviced.
+   * `notDone`, not done, and dates the equipment it serviced. Returns the
+   * warnings about the equipment its installed Items went onto (#168).
    */
   private static async changeStatus(
     trx: TransactionClientContract,
@@ -309,7 +318,8 @@ export default class FieldWork {
     status: FieldVisitStatus,
     user: User,
     notDone: number[]
-  ) {
+  ): Promise<EquipmentWarning[]> {
+    const warnings: EquipmentWarning[] = []
     if (CLOSED_VISIT_STATUSES.includes(status)) {
       await locked.load('job')
       // Locked after the Visit and its Job, as Office's changes do
@@ -327,7 +337,7 @@ export default class FieldWork {
           { client: trx }
         )
         if (!done || charge.kind !== 'item') continue
-        await Installations.install(trx, charge, locked, locked.job.siteId)
+        warnings.push(...(await Installations.install(trx, charge, locked, locked.job.siteId)))
         if (charge.stockMovementId) continue
         const movement = await StockLedger.use(charge.item, {
           quantity: charge.quantity,
@@ -358,6 +368,7 @@ export default class FieldWork {
 
     locked.status = status
     await locked.save()
+    return warnings
   }
 
   /**
