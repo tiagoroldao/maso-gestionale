@@ -9,7 +9,7 @@ import type User from '#models/user'
 import StockMovement from '#models/stock_movement'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
-import { QUANTITY_DECIMALS, stockQuantities, type StockQuantities } from '#shared/stock'
+import { QUANTITY_DECIMALS, available, stockQuantities, type StockQuantities } from '#shared/stock'
 import { WORK_STATE_SQL } from '#services/job_status'
 
 /**
@@ -205,8 +205,9 @@ export default class StockLedger {
 
   /**
    * In stock, committed and available for each of the given Items (all
-   * Items when omitted), read with IN_STOCK_SQL, COMMITTED_SQL and
-   * AVAILABLE_SQL, for lists.
+   * Items when omitted), for lists: the first two read with IN_STOCK_SQL
+   * and COMMITTED_SQL, available worked out from them (as AVAILABLE_SQL
+   * does, without running both subqueries again).
    */
   static async quantities(itemIds?: number[]) {
     const query = db
@@ -214,11 +215,9 @@ export default class StockLedger {
       .select('items.id')
       .select(db.raw(`${IN_STOCK_SQL('items')} AS in_stock`))
       .select(db.raw(`${COMMITTED_SQL('items')} AS committed`))
-      .select(db.raw(`${AVAILABLE_SQL('items')} AS available`))
     if (itemIds) query.whereIn('items.id', itemIds)
 
-    const rows: { id: number; in_stock: string; committed: string; available: string }[] =
-      await query
+    const rows: { id: number; in_stock: string; committed: string }[] = await query
     const fixed = (value: string) => new Big(value).toFixed(QUANTITY_DECIMALS)
     return new Map<number, StockQuantities>(
       rows.map((row) => [
@@ -226,7 +225,7 @@ export default class StockLedger {
         {
           inStock: fixed(row.in_stock),
           committed: fixed(row.committed),
-          available: fixed(row.available),
+          available: available(row.in_stock, row.committed),
         },
       ])
     )
@@ -267,11 +266,11 @@ export default class StockLedger {
     const quantities = await this.quantities(itemIds)
     const items = await Item.query().whereIn('id', itemIds).orderBy(['code', 'id'])
     return items.flatMap((item) => {
-      const available = new Big(quantities.get(item.id)!.available)
+      const now = new Big(quantities.get(item.id)!.available)
       const was = before?.get(item.id)?.available
-      const short = available.lt(0) && (was === undefined || available.lt(was))
+      const short = now.lt(0) && (was === undefined || now.lt(was))
       return short
-        ? [{ code: item.code, unit: item.unit, available: available.toFixed(QUANTITY_DECIMALS) }]
+        ? [{ code: item.code, unit: item.unit, available: now.toFixed(QUANTITY_DECIMALS) }]
         : []
     })
   }

@@ -1,3 +1,4 @@
+import Big from 'big.js'
 import { test } from '@japa/runner'
 import type { Assert } from '@japa/assert'
 import type { ApiClient } from '@japa/api-client'
@@ -11,7 +12,8 @@ import Visit from '#models/visit'
 import Charges from '#services/charges'
 import FieldWork from '#services/field_work'
 import Quotes from '#services/quotes'
-import StockLedger from '#stock/stock_ledger'
+import db from '@adonisjs/lucid/services/db'
+import StockLedger, { AVAILABLE_SQL } from '#stock/stock_ledger'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
@@ -21,13 +23,19 @@ import { it } from '#tests/helpers/i18n'
 
 /**
  * The Item's in stock, committed and available, asserted to agree in
- * TypeScript (the Item page) and SQL (the lists).
+ * TypeScript (the Item page) and SQL (the lists, and AVAILABLE_SQL).
  */
 async function quantitiesOf(assert: Assert, item: Item) {
   const ts = await StockLedger.quantitiesOf(item)
   const quantities = await StockLedger.quantities([item.id])
   const sql = quantities.get(item.id)
   assert.deepEqual(sql, ts, `quantities of Item ${item.code}`)
+  const row = await db
+    .from('items')
+    .where('id', item.id)
+    .select(db.raw(`${AVAILABLE_SQL('items')} AS available`))
+    .firstOrFail()
+  assert.equal(new Big(row.available).toFixed(3), ts.available, `available of ${item.code}`)
   return ts
 }
 
@@ -335,5 +343,74 @@ test.group('Committed stock | warnings', () => {
     // Still short, but no shorter: nothing new to warn about
     const lower = await correct('11')
     lower.assertFlashMessage('success', it('flash.chargeCorrected'))
+  })
+
+  test('marking a not done Item done beyond what is available warns, never refuses', async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, visit, valve, valves } = await plannedOnVisit()
+    await FieldWork.setStatus(visit, 'done', anna, [valves.id])
+    // Another Job plans 9 of the 10 valves
+    const other = await createJob(await createCustomer(), { status: 'open' })
+    await Charge.create({
+      jobId: other.id,
+      kind: 'item',
+      itemId: valve.id,
+      quantity: '9',
+      billQuantity: '9',
+      unitPrice: '10',
+      description: 'Valvola',
+    })
+
+    const response = await post(client, office, `/charges/${valves.id}/done`)
+
+    response.assertFlashMessage(
+      'warning',
+      `${it('flash.chargeWork.done')} ${it('flash.belowAvailable', { items: 'VAL (-2 pz)' })}`
+    )
+    await valves.refresh()
+    assert.isNotNull(valves.stockMovementId)
+    const { available } = await quantitiesOf(assert, valve)
+    assert.equal(available, '-2.000')
+
+    // Back to not done gives the valves back: nothing to warn about
+    const back = await post(client, office, `/charges/${valves.id}/not-done`)
+    back.assertFlashMessage('success', it('flash.chargeWork.not_done'))
+  })
+
+  test('marking done a Visit left open on a cancelled Job warns when it leaves an Item short', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, visit, valve, valves } = await plannedOnVisit()
+    await job.merge({ status: 'cancelled' }).save()
+    // The cancelled Job's 3 valves commit nothing; another Job plans 9
+    const other = await createJob(await createCustomer(), { status: 'open' })
+    await Charge.create({
+      jobId: other.id,
+      kind: 'item',
+      itemId: valve.id,
+      quantity: '9',
+      billQuantity: '9',
+      unitPrice: '10',
+      description: 'Valvola',
+    })
+    const ready = await StockLedger.quantitiesOf(valve)
+    assert.equal(ready.available, '1.000')
+
+    const response = await post(client, office, `/visits/${visit.id}/done`).json({
+      reviewed: [valves.id],
+      done: [valves.id],
+    })
+
+    response.assertFlashMessage(
+      'warning',
+      `${it('flash.visitMarkedDone')} ${it('flash.belowAvailable', { items: 'VAL (-2 pz)' })}`
+    )
+    await visit.refresh()
+    assert.equal(visit.status, 'done')
+    const { inStock, available } = await quantitiesOf(assert, valve)
+    assert.deepEqual([inStock, available], ['7.000', '-2.000'])
   })
 })
