@@ -8,6 +8,7 @@ import LabourRate from '#models/labour_rate'
 import type User from '#models/user'
 import Visit from '#models/visit'
 import FieldWork from '#services/field_work'
+import Jobs from '#services/jobs'
 import Scheduling from '#services/scheduling'
 import StockLedger from '#stock/stock_ledger'
 import { WORK_STATE_SQL } from '#services/job_status'
@@ -74,7 +75,7 @@ async function longJob() {
     { technicianId: anna.id, labourRateId: rate.id, hours: '3' },
     anna
   )
-  return { office, job, rate, valve, done, cancelled, next }
+  return { office, anna, job, rate, valve, done, cancelled, next }
 }
 
 /**
@@ -112,22 +113,44 @@ test.group('Job page summary (#178)', () => {
     })
   })
 
+  test('no next Visit on a cancelled Job: its open Visit is frozen', async ({ client, assert }) => {
+    const { office, job } = await longJob()
+    await Jobs.cancel(job.id)
+
+    const response = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+
+    assert.deepEqual(response.inertiaProps.progress, {
+      done: 1,
+      total: 2,
+      cancelled: 1,
+      next: null,
+    })
+  })
+
   test('hours and Items across the Visits and the Job, by work state, agreeing with SQL', async ({
     client,
     assert,
   }) => {
-    const { office, job, rate, valve, done, cancelled, next } = await longJob()
+    const { office, anna, job, rate, valve, done, cancelled, next } = await longJob()
 
     const response = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
 
     const summary = response.inertiaProps.summary as {
-      hours: (WorkTotals & { worker: string; labourRate: string; visits: unknown[] })[]
+      hours: (WorkTotals & {
+        key: string
+        worker: string
+        labourRate: string
+        unit: string
+        visits: unknown[]
+      })[]
       items: (WorkTotals & { itemId: number; item: string; visits: unknown[] })[]
     }
     assert.deepEqual(summary.hours, [
       {
+        key: JSON.stringify([anna.id, rate.id]),
         worker: 'Anna',
         labourRate: 'Idraulico',
+        unit: 'h',
         planned: '3',
         done: '2',
         notDone: '0',

@@ -203,7 +203,7 @@ export default class JobsController {
       startsAt: localDateTime(visit.startsAt),
       endsAt: localDateTime(visit.endsAt),
     }))
-    const progress = visitProgress(visits)
+    const progress = visitProgress(visits, job.isActive)
 
     return inertia.render('jobs/show', {
       // A Job may have several Quotes, written at any time while it isn't
@@ -477,6 +477,7 @@ function summaryCharge(charge: Charge): SummaryCharge {
     return {
       ...common,
       kind: 'labour',
+      technicianId: charge.userId,
       worker: charge.worker,
       labourRateId: charge.labourRateId,
       labourRate: charge.labourRate?.name ?? null,

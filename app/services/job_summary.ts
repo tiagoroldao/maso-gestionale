@@ -17,10 +17,15 @@ export type WorkTotals = { planned: string; done: string; notDone: string }
  * Where the work stands on the Job's Visits: how many are done (closed,
  * "needs another visit" included) of those not cancelled, how many were
  * cancelled (they don't count as work, ADR 0016), and the earliest Visit
- * still to happen or under way, if any. `startsAt` is a local date-time
- * ("2026-11-06T09:00"), so they sort as text.
+ * still to happen or under way, if any, while the Job takes new work: on a
+ * closed or cancelled Job an open Visit is frozen and won't happen (ADR
+ * 0015). `startsAt` is a local date-time ("2026-11-06T09:00"), so they
+ * sort as text.
  */
-export function visitProgress<V extends { status: string; startsAt: string }>(visits: V[]) {
+export function visitProgress<V extends { status: string; startsAt: string }>(
+  visits: V[],
+  jobActive: boolean
+) {
   const counted = visits.filter((visit) => !isCancelledVisit(visit.status))
   const open = visits
     .filter((visit) => isOpenVisit(visit.status))
@@ -29,7 +34,7 @@ export function visitProgress<V extends { status: string; startsAt: string }>(vi
     done: counted.filter((visit) => isClosedVisit(visit.status)).length,
     total: counted.length,
     cancelled: visits.length - counted.length,
-    next: open[0] ?? null,
+    next: jobActive ? (open[0] ?? null) : null,
   }
 }
 
@@ -45,6 +50,8 @@ export type SummaryCharge = {
 } & (
   | {
       kind: 'labour'
+      // The Technician, or the person outside the app by name
+      technicianId: number | null
       worker: string | null
       labourRateId: number | null
       labourRate: string | null
@@ -106,17 +113,23 @@ class Row {
  * and quantities per Item, each planned, done and not done, with the
  * Visits behind them. It is how Office reconciles material planned on the
  * Job against what was used on each Visit. Other costs aren't summarised.
- * Rows come in the order of their first Charge.
+ * Rows come in the order of their first Charge; hours rows carry a `key`
+ * telling apart two people of the same name.
  */
 export function chargeSummary(charges: SummaryCharge[], visitIds: number[]) {
-  const hours = new Map<string, { worker: string | null; labourRate: string | null; row: Row }>()
+  const hours = new Map<
+    string,
+    { key: string; worker: string | null; labourRate: string | null; unit: 'h'; row: Row }
+  >()
   const items = new Map<number, { item: string; unit: string | null; row: Row }>()
   for (const charge of charges) {
     if (charge.kind === 'labour') {
-      const key = JSON.stringify([charge.worker, charge.labourRateId])
+      const key = JSON.stringify([charge.technicianId ?? charge.worker, charge.labourRateId])
       const entry = hours.get(key) ?? {
+        key,
         worker: charge.worker,
         labourRate: charge.labourRate,
+        unit: 'h' as const,
         row: new Row(),
       }
       entry.row.add(charge)

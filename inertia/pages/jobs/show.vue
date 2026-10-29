@@ -74,7 +74,12 @@ const props = defineProps<{
   }
   // Hours and Items across the Visits and the Job, by work state (#178)
   summary: {
-    hours: (SummaryRow & { worker: string | null; labourRate: string | null })[]
+    hours: (SummaryRow & {
+      key: string
+      worker: string | null
+      labourRate: string | null
+      unit: string
+    })[]
     items: (SummaryRow & { itemId: number; item: string; unit: string | null })[]
   }
   charges: {
@@ -333,7 +338,7 @@ function confirmCancel() {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="row in summary.hours" :key="`${row.worker}|${row.labourRate}`">
+            <tr v-for="row in summary.hours" :key="row.key">
               <td>
                 <details>
                   <summary>{{ row.worker ?? '—' }}</summary>
@@ -341,14 +346,17 @@ function confirmCancel() {
                     {{ chargeSource(visit.visitId) }}:
                     <template v-for="[key, state] in WORK_COLUMNS" :key="state">
                       <template v-if="Number(visit[key])">
-                        {{ t(`ui.charges.workStates.${state}`) }} {{ quantity(visit[key]) }} h
+                        {{ t(`ui.charges.workStates.${state}`) }} {{ quantity(visit[key]) }}
+                        {{ row.unit }}
                       </template>
                     </template>
                   </div>
                 </details>
               </td>
               <td>{{ row.labourRate ?? '—' }}</td>
-              <td v-for="[key] in WORK_COLUMNS" :key="key">{{ quantity(row[key]) }} h</td>
+              <td v-for="[key] in WORK_COLUMNS" :key="key">
+                {{ quantity(row[key]) }} {{ row.unit }}
+              </td>
             </tr>
           </tbody>
         </table>
