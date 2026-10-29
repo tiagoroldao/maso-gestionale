@@ -31,7 +31,11 @@ import { advanceLeft, deductionRows } from '#shared/advances'
 import { CLOSED_VISIT_STATUSES } from '#shared/visits'
 import { BILLING_EVENT_KINDS, CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { owed } from '#shared/payment_status'
-import { legacyCreditRefusal, type LegacyCreditRefusal } from '#shared/legacy_invoices'
+import {
+  legacyCreditRefusal,
+  legacyRowVat,
+  type LegacyCreditRefusal,
+} from '#shared/legacy_invoices'
 import LegacyVatRow from '#models/legacy_vat_row'
 import {
   creditedInFull,
@@ -300,11 +304,17 @@ export default class Invoices {
 
   /**
    * A Credit Note's starting lines for a Legacy Invoice (#27), which has
-   * no lines to copy: what is left of each VAT row of an advance (after
-   * deductions and other Credit Notes), or one line for what is left of
-   * the printed taxable, at the VAT Code whose rate its VAT shows (the
-   * standard one otherwise), for Office to change. Lowered by the cent
-   * where each row's rounding would take the total over what is left.
+   * no lines to copy, for Office to change:
+   * - an advance: what is left of each VAT row (after deductions and other
+   *   Credit Notes), at its VAT Code;
+   * - otherwise: one line for what is left of the printed taxable and VAT,
+   *   at the VAT Code whose rate gives its printed VAT; none when no active
+   *   one does (an exempt or reverse-charge invoice: its Natura can't be
+   *   told), and Office adds the lines.
+   * When VAT rounding or a total printed below taxable plus VAT takes them
+   * over what is left of the total, they are scaled down to it (what is
+   * left divided by the lines' total, VAT included), then lowered by the
+   * cent where each row's rounding still tips it over.
    */
   private static async legacyCreditLines(
     trx: TransactionClientContract,
@@ -319,30 +329,9 @@ export default class Invoices {
           (other) => Number(other.vatRate) === Number(row.vatRate) && other.natura === row.natura
         )
         .reduce((total, other) => total.plus(other.taxable), new Big(0))
-    const rows = original.advance
-      ? await LegacyVatRow.query({ client: trx })
-          .where('invoiceId', original.id)
-          .orderBy('position')
-      : []
     const entries = original.advance
-      ? rows.map((row) => ({
-          code: {
-            id: row.vatCodeId,
-            rate: row.vatRate,
-            natura: row.natura,
-            legalNote: row.legalNote,
-          },
-          amount: new Big(row.taxable).minus(takenAt(row)),
-        }))
-      : [
-          {
-            code: await this.legacyVatCode(trx, original),
-            amount: taken.reduce(
-              (left, row) => left.minus(row.taxable),
-              new Big(original.taxable!)
-            ),
-          },
-        ]
+      ? await this.legacyAdvanceEntries(trx, original, takenAt)
+      : await this.legacyEntry(trx, original, taken)
     const values = entries
       .filter(({ amount }) => amount.gt(0))
       .map(({ code, amount }, position) => ({
@@ -364,15 +353,80 @@ export default class Invoices {
       creditLeft(original.total!, await Payments.credited(trx, original.id), deducted)
     )
     const totalOf = () =>
-      invoiceTotals(values.map((value) => ({ ...value, deduction: false }))).total
-    while (values.length && new Big(totalOf()).gt(left)) {
-      const largest = values.reduce((max, value) =>
-        new Big(value.lineTotal).gt(max.lineTotal) ? value : max
-      )
-      const lowered = new Big(largest.lineTotal).minus('0.01').toFixed(2)
-      Object.assign(largest, { unitPrice: lowered, lineTotal: lowered })
+      new Big(invoiceTotals(values.map((value) => ({ ...value, deduction: false }))).total)
+    const setAmount = (value: (typeof values)[number], amount: Big) =>
+      Object.assign(value, { unitPrice: amount.toFixed(2), lineTotal: amount.toFixed(2) })
+    if (values.length && totalOf().gt(left)) {
+      const ratio = left.lt(0) ? new Big(0) : left.div(totalOf())
+      for (const value of values) {
+        setAmount(value, new Big(value.lineTotal).times(ratio).round(2, Big.roundDown))
+      }
+      // Rounded down, a row's VAT may still round up by a cent: a few at most
+      for (let cents = 0; cents < 10 * values.length && totalOf().gt(left); cents++) {
+        const largest = values.reduce((max, value) =>
+          new Big(value.lineTotal).gt(max.lineTotal) ? value : max
+        )
+        setAmount(largest, new Big(largest.lineTotal).minus('0.01'))
+      }
     }
-    return values
+    return values.filter((value) => new Big(value.lineTotal).gt(0))
+  }
+
+  /**
+   * What is left of each VAT row of a Legacy advance, at its VAT Code.
+   */
+  private static async legacyAdvanceEntries(
+    trx: TransactionClientContract,
+    original: Invoice,
+    takenAt: (row: { vatRate: string; natura: string | null }) => Big
+  ) {
+    const rows = await LegacyVatRow.query({ client: trx })
+      .where('invoiceId', original.id)
+      .orderBy('position')
+    return rows.map((row) => ({
+      code: { id: row.vatCodeId, rate: row.vatRate, natura: row.natura, legalNote: row.legalNote },
+      amount: new Big(row.taxable).minus(takenAt(row)),
+    }))
+  }
+
+  /**
+   * What is left of a Legacy Invoice that isn't an advance, at the VAT
+   * Code its printed VAT shows, within the VAT left too; none without one.
+   */
+  private static async legacyEntry(
+    trx: TransactionClientContract,
+    original: Invoice,
+    taken: { taxable: string; vat?: string }[]
+  ) {
+    const code = await this.legacyVatCode(trx, original)
+    if (!code) return []
+    const taxableLeft = taken.reduce(
+      (left, row) => left.minus(row.taxable),
+      new Big(original.taxable!)
+    )
+    const vatLeft = taken.reduce((left, row) => left.minus(row.vat ?? 0), new Big(original.vat!))
+    // The most whose VAT, rounded half-up, stays within what is left of it
+    const byVat = vatLeft.plus('0.005').times(100).div(code.rate).round(2, Big.roundDown)
+    const amount = byVat.lt(taxableLeft) ? byVat : taxableLeft
+    return [{ code, amount }]
+  }
+
+  /**
+   * The active VAT Code without Natura whose rate, on the printed taxable,
+   * gives the printed VAT; null when none does (0 VAT: exempt, reverse
+   * charge or out of scope, whose Natura can't be told from the totals).
+   */
+  private static async legacyVatCode(trx: TransactionClientContract, original: Invoice) {
+    const codes = await VatCode.query({ client: trx })
+      .withScopes((scopes) => scopes.active())
+      .whereNull('natura')
+      .where('rate', '>', 0)
+      .orderBy('rate', 'desc')
+    return (
+      codes.find((code) =>
+        new Big(legacyRowVat({ vatRate: code.rate, taxable: original.taxable! })).eq(original.vat!)
+      ) ?? null
+    )
   }
 
   /**
@@ -400,26 +454,9 @@ export default class Invoices {
         vatRate: row.vatRate,
         natura: row.natura,
         taxable: row.taxable,
+        vat: row.vat,
       }))
     )
-  }
-
-  /**
-   * The VAT Code a Legacy Invoice's Credit Note starts with: the active
-   * one without Natura at the rate its printed VAT shows, else the
-   * standard rate.
-   */
-  private static async legacyVatCode(trx: TransactionClientContract, original: Invoice) {
-    const taxable = new Big(original.taxable!)
-    const rate = taxable.gt(0) ? new Big(original.vat!).div(taxable).times(100).round(2) : null
-    const code = rate
-      ? await VatCode.query({ client: trx })
-          .withScopes((scopes) => scopes.active())
-          .whereNull('natura')
-          .where('rate', rate.toFixed(2))
-          .first()
-      : null
-    return code ?? (await VatDefaults.standard(trx))
   }
 
   /**
@@ -522,6 +559,7 @@ export default class Invoices {
       const refusal = legacyCreditRefusal({
         rows,
         taxable: original.taxable!,
+        vat: original.vat!,
         lines,
         taken: await this.legacyTaken(trx, original, creditNote.id),
       })

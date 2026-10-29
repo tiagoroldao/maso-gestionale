@@ -78,25 +78,77 @@ test.group('Legacy Invoices', () => {
     ]
     const taken = [{ vatRate: '22', natura: null, taxable: '100.00' }]
     // An advance: by VAT row, with what was taken back at each
-    assert.isNull(legacyCreditRefusal({ rows, taxable: '700', lines: [line('22', '400')], taken }))
+    assert.isNull(
+      legacyCreditRefusal({ rows, taxable: '700', vat: '130', lines: [line('22', '400')], taken })
+    )
     assert.equal(
-      legacyCreditRefusal({ rows, taxable: '700', lines: [line('22', '400.01')], taken }),
+      legacyCreditRefusal({
+        rows,
+        taxable: '700',
+        vat: '130',
+        lines: [line('22', '400.01')],
+        taken,
+      }),
       'lineCreditTooLarge'
     )
     assert.equal(
-      legacyCreditRefusal({ rows, taxable: '700', lines: [line('4', '1')], taken }),
+      legacyCreditRefusal({ rows, taxable: '700', vat: '130', lines: [line('4', '1')], taken }),
       'legacyVatRow'
     )
     assert.equal(
-      legacyCreditRefusal({ rows, taxable: '700', lines: [line('10', '-1')], taken: [] }),
+      legacyCreditRefusal({
+        rows,
+        taxable: '700',
+        vat: '130',
+        lines: [line('10', '-1')],
+        taken: [],
+      }),
       'negativeCredit'
+    )
+    // Otherwise: within the printed taxable and VAT; at 0 VAT printed, no
+    // line may carry any
+    const exempt = { vatRate: '0', natura: 'N4', unitPrice: '100', lineTotal: '100' }
+    assert.isNull(
+      legacyCreditRefusal({ rows: null, taxable: '100', vat: '0', lines: [exempt], taken: [] })
+    )
+    assert.equal(
+      legacyCreditRefusal({
+        rows: null,
+        taxable: '100',
+        vat: '0',
+        lines: [line('22', '1')],
+        taken: [],
+      }),
+      'vatCreditTooLarge'
+    )
+    assert.equal(
+      legacyCreditRefusal({
+        rows: null,
+        taxable: '100',
+        vat: '22',
+        lines: [line('22', '50')],
+        taken: [{ vatRate: '22', natura: null, taxable: '50', vat: '11.01' }],
+      }),
+      'vatCreditTooLarge'
     )
     // Otherwise: within the printed taxable, at any VAT
     assert.isNull(
-      legacyCreditRefusal({ rows: null, taxable: '100', lines: [line('4', '60')], taken: [] })
+      legacyCreditRefusal({
+        rows: null,
+        taxable: '100',
+        vat: '4',
+        lines: [line('4', '60')],
+        taken: [],
+      })
     )
     assert.equal(
-      legacyCreditRefusal({ rows: null, taxable: '100', lines: [line('4', '60')], taken }),
+      legacyCreditRefusal({
+        rows: null,
+        taxable: '100',
+        vat: '4',
+        lines: [line('4', '60')],
+        taken,
+      }),
       'lineCreditTooLarge'
     )
   })

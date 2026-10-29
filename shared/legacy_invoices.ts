@@ -62,22 +62,27 @@ export function legacyAmountsRefusal(input: {
  * at a row, with what was already taken back there (`taken`: deductions
  * and other Credit Notes), never exceeds that row's taxable; otherwise
  * every line together, with the other Credit Notes, never exceeds the
- * printed taxable (`lineCreditTooLarge`). The total is capped as on any
+ * printed taxable (`lineCreditTooLarge`), nor their VAT the printed VAT
+ * (`vatCreditTooLarge`: no VAT is reversed that was never charged, as on
+ * an exempt or reverse-charge invoice). The total is capped as on any
  * Invoice (exceedsCredit()).
  */
-export type LegacyCreditRefusal = 'negativeCredit' | 'legacyVatRow' | 'lineCreditTooLarge'
+export type LegacyCreditRefusal =
+  'negativeCredit' | 'legacyVatRow' | 'lineCreditTooLarge' | 'vatCreditTooLarge'
 
 type Treatment = { vatRate: string; natura: string | null }
 
 export function legacyCreditRefusal(input: {
   /** The Legacy advance's VAT rows; null when it isn't an advance */
   rows: (Treatment & { taxable: string })[] | null
-  /** The Legacy Invoice's taxable, as printed */
+  /** The Legacy Invoice's taxable and VAT, as printed */
   taxable: string
+  vat: string
   /** The Credit Note's lines */
   lines: (Treatment & { unitPrice: string; lineTotal: string })[]
-  /** Taxable already taken back, by VAT treatment */
-  taken: (Treatment & { taxable: string })[]
+  /** Taxable already taken back, by VAT treatment (and, by Credit Notes
+   * on one that isn't an advance, its VAT) */
+  taken: (Treatment & { taxable: string; vat?: string })[]
 }): LegacyCreditRefusal | null {
   const negative = input.lines.some(
     (line) => new Big(line.unitPrice).lt(0) || new Big(line.lineTotal).lt(0)
@@ -90,7 +95,22 @@ export function legacyCreditRefusal(input: {
       ...input.lines.map((line) => line.lineTotal),
       ...input.taken.map((row) => row.taxable),
     ])
-    return credited.gt(input.taxable) ? 'lineCreditTooLarge' : null
+    if (credited.gt(input.taxable)) return 'lineCreditTooLarge'
+    // This Credit Note's VAT as its summary works it out: per VAT
+    // treatment, rounded per row (invoiceTotals())
+    const byKey = new Map<string, { vatRate: string; taxable: Big }>()
+    for (const line of input.lines) {
+      const group = byKey.get(key(line)) ?? { vatRate: line.vatRate, taxable: new Big(0) }
+      group.taxable = group.taxable.plus(line.lineTotal)
+      byKey.set(key(line), group)
+    }
+    const vat = sum([
+      ...[...byKey.values()].map((group) =>
+        legacyRowVat({ vatRate: group.vatRate, taxable: group.taxable.toFixed(2) })
+      ),
+      ...input.taken.map((row) => row.vat ?? '0'),
+    ])
+    return vat.gt(input.vat) ? 'vatCreditTooLarge' : null
   }
   const rows = new Map(input.rows.map((row) => [key(row), row]))
   if (input.lines.some((line) => !rows.has(key(line)))) return 'legacyVatRow'

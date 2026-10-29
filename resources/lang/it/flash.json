@@ -108,7 +108,8 @@
     "negativeCredit": "Le righe di una nota di credito non possono avere prezzi o importi negativi.",
     "partialDeduction": "Una detrazione d'acconto si restituisce per intero: tieni tutte le sue righe o nessuna.",
     "deductionGivenBack": "Una detrazione d'acconto si restituisce una sola volta e così com'è: un'altra nota di credito l'ha già restituita, o la riga è stata cambiata.",
-    "legacyVatRow": "Ogni riga deve avere l'IVA di una riga IVA dell'acconto pregresso che storna."
+    "legacyVatRow": "Ogni riga deve avere l'IVA di una riga IVA dell'acconto pregresso che storna.",
+    "vatCreditTooLarge": "La nota di credito storna più IVA di quella riportata dalla fattura pregressa."
   },
   "creditNoteCreated": "Bozza di nota di credito creata: riduci gli importi a quanto va stornato.",
   "creditNoteRefused": {

@@ -200,6 +200,46 @@ test.group('Credit Notes on Legacy Invoices', () => {
     assert.equal(await owedOn(stamped), '2.00')
   })
 
+  test('an exempt Legacy Invoice: no line prefilled, and no VAT credited', async ({ assert }) => {
+    await completeCompany()
+    const exempt = await legacy(await createCustomer(), {
+      taxable: '100.00',
+      vat: '0.00',
+      total: '100.00',
+    })
+
+    // Its Natura can't be told from 0 VAT: Office adds the lines
+    const note = await Invoices.createCreditNote(exempt)
+    assert.lengthOf(await linesOf(note), 0)
+    // 61 fits its total and 50 its taxable, but it charged no VAT
+    assert.equal(await refusal(() => saveLines(note, [['22%', '50']])), 'vatCreditTooLarge')
+    await saveLines(note, [['Esente art. 10', '100']])
+    await Invoices.finalise(note)
+    assert.equal(await owedOn(exempt), '0.00')
+  })
+
+  test('a large amount is prefilled at once, within what is left of its total', async ({
+    assert,
+  }) => {
+    await completeCompany()
+    // Printed below taxable plus VAT (61,000): the total caps the credit
+    const large = await legacy(await createCustomer(), {
+      taxable: '50000.00',
+      vat: '11000.00',
+      total: '60000.00',
+    })
+
+    const started = Date.now()
+    const note = await Invoices.createCreditNote(large)
+    assert.isBelow(Date.now() - started, 1000)
+    const [line] = await linesOf(note)
+    // 60,000 / 1.22, rounded down: 59,999.99 VAT included
+    assert.equal(line.unitPrice, '49180.3200')
+    await Invoices.finalise(note)
+    await note.refresh()
+    assert.equal(note.total, '59999.99')
+  })
+
   test('a Legacy advance credited by VAT row: less is left to take back', async ({
     client,
     assert,
