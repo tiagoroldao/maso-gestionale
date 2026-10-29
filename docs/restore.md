@@ -13,10 +13,10 @@ How to bring an Instance back from its off-site backups (#33) onto any machine w
 
 Every night the `backup` service uploads two objects with the same UTC timestamp:
 
-| Object                                  | What it is                                                                                           |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `maso-backup-20261028T003000Z.tar.age`  | The archive, encrypted with [age](https://age-encryption.org): `database.dump` and `storage/`        |
-| `maso-backup-20261028T003000Z.key.age`  | The age key file that decrypts it, itself encrypted with the passphrase                              |
+| Object                                 | What it is                                                                                    |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `maso-backup-20261028T003000Z.tar.age` | The archive, encrypted with [age](https://age-encryption.org): `database.dump` and `storage/` |
+| `maso-backup-20261028T003000Z.key.age` | The age key file that decrypts it, itself encrypted with the passphrase                       |
 
 `database.dump` is a `pg_dump` in custom format; `storage/` holds the uploaded files (company logo, Item Documents, Visit photos, Issued Document PDFs). The server only keeps the public half of the key, so it can make backups but can't read them. Older backups beyond the retention count set in Instance settings are deleted.
 

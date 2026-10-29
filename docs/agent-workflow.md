@@ -18,6 +18,7 @@ The loop for an AFK issue (`ready-for-agent`), from branch to merge. HITL issues
 - **History:** add commits and merge `origin/main` into the branch; history on pushed branches stays as it is (force-push is denied). When squashing locally, squash against `origin/main`, never a stale local `main`.
 - **Unmerged migrations** may be edited in place; apply the same change to the dev database by hand (`docker compose exec -T db psql -U maso -d maso`) or roll back and re-run. Merged migrations are append-only: add a new one.
 - **Tests** run inside one global transaction on one connection (`tests/bootstrap.ts`). Locks are re-entrant there, so a concurrency test passes even without the lock: test locking on separate connections outside the global transaction.
+- **Running tests:** in the foreground, bounded: `perl -e 'alarm 900; exec @ARGV' node ace test …` (macOS has no `timeout`). Never as a background task or piped through `tail`: hung background runs have blocked reviews.
 - **Seeds** live in migrations (`this.defer`), so seeded rows (Payment Terms, VAT Codes) exist in every test.
 - **Playwright** `window.confirm()` dialogs need `page.on('dialog', (d) => d.accept())`.
 - **Money** is decimal strings through `shared/money.ts` (ADR 0007); dates and times are Europe/Rome (`shared/dates.ts`).
