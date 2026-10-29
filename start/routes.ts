@@ -418,9 +418,22 @@ router
         router
           .get('supplier-invoices/:id/file', [controllers.SupplierInvoices, 'file'])
           .where('id', router.matchers.number())
+        // Spreading its discounts over its lines' costs (#210)
+        router
+          .put('supplier-invoices/:id/spread-discounts', [
+            controllers.SupplierInvoices,
+            'spreadDiscounts',
+          ])
+          .where('id', router.matchers.number())
         // Handling its lines (#199)
         router
           .post('supplier-invoice-lines/:id/receipt', [controllers.SupplierInvoiceLines, 'receive'])
+          .where('id', router.matchers.number())
+        router
+          .post('supplier-invoice-lines/:id/already-received', [
+            controllers.SupplierInvoiceLines,
+            'markAlreadyReceived',
+          ])
           .where('id', router.matchers.number())
         router
           .post('supplier-invoice-lines/:id/not-stock', [

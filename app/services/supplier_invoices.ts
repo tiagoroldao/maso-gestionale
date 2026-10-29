@@ -103,6 +103,8 @@ export default class SupplierInvoices {
             summary: invoice.summary,
             payments: invoice.payments,
             notes: invoice.notes,
+            deliveryNotes: invoice.deliveryNotes,
+            discounts: invoice.discounts,
           }
           const record = await SupplierInvoice.create(
             {

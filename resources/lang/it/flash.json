@@ -251,17 +251,21 @@
     "notForCompany": "La fattura non è intestata all'azienda: il destinatario ha un'altra Partita IVA o Codice Fiscale."
   },
   "supplierInvoiceLineReceived": "Carico registrato: {quantity} {unit} di {code}.",
+  "supplierInvoiceLineAlreadyReceived": "Riga segnata come già ricevuta su {code}: il magazzino non cambia.",
   "supplierInvoiceLineUnits": "La riga è in {lineUnit}, l'articolo in {unit}: controlla la quantità caricata.",
   "supplierInvoiceLineBelowMarkup": "Il prezzo di vendita di {code} è ora sotto il ricarico della categoria ({markup} %): rivedi il prezzo.",
   "supplierInvoiceLineNotStock": "Riga segnata come non di magazzino.",
   "supplierInvoiceLineUndone": "Riga riportata tra quelle da gestire.",
+  "supplierInvoiceSpread": "Sconti della fattura ripartiti sulle righe: i costi proposti sono aggiornati.",
+  "supplierInvoiceNotSpread": "Sconti della fattura non più ripartiti: i costi proposti sono quelli delle righe.",
   "supplierInvoiceLineRefused": {
     "handled": "La riga è già stata gestita: annullala prima di cambiarla.",
     "notHandled": "La riga è ancora da gestire.",
     "archivedItem": "L'articolo è archiviato: scegline un altro o ripristinalo.",
     "creditNote": "Le righe di una nota di credito non entrano in magazzino.",
     "currency": "Una fattura in valuta estera non si carica da qui: registra il carico dalla pagina dell'articolo.",
-    "negativeTotal": "Una riga con importo negativo non entra in magazzino."
+    "negativeTotal": "Una riga con importo negativo non entra in magazzino.",
+    "receiptNotLinkable": "Il carico scelto non è un carico a mano dell'articolo, o è già collegato a un'altra riga."
   },
   "supplierCreated": "Fornitore creato.",
   "supplierSaved": "Fornitore salvato.",

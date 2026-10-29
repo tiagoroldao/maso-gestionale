@@ -857,7 +857,7 @@ export class SiteSchema extends BaseModel {
 }
 
 export class StockMovementSchema extends BaseModel {
-  static $columns = ['createdAt', 'createdBy', 'id', 'itemId', 'kind', 'occurredOn', 'quantity', 'reason', 'reference', 'unitCost'] as const
+  static $columns = ['createdAt', 'createdBy', 'id', 'itemId', 'kind', 'occurredOn', 'quantity', 'reason', 'reference', 'supplierInvoiceLineId', 'unitCost'] as const
   $columns = StockMovementSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -878,11 +878,13 @@ export class StockMovementSchema extends BaseModel {
   @column()
   declare reference: string | null
   @column()
+  declare supplierInvoiceLineId: number | null
+  @column()
   declare unitCost: string | null
 }
 
 export class SupplierInvoiceLineSchema extends BaseModel {
-  static $columns = ['code', 'createdAt', 'description', 'handledAt', 'handledBy', 'id', 'itemId', 'lineNumber', 'natura', 'outcome', 'position', 'previousPurchasePrice', 'quantity', 'setSupplierCode', 'stockMovementId', 'supplierInvoiceId', 'total', 'unit', 'unitPrice', 'vatRate'] as const
+  static $columns = ['code', 'createdAt', 'description', 'handledAt', 'handledBy', 'id', 'itemId', 'lineNumber', 'natura', 'outcome', 'position', 'previousPurchasePrice', 'quantity', 'setReceiptCost', 'setSupplierCode', 'stockMovementId', 'supplierInvoiceId', 'total', 'unit', 'unitCost', 'unitPrice', 'vatRate'] as const
   $columns = SupplierInvoiceLineSchema.$columns
   @column()
   declare code: string | null
@@ -911,6 +913,8 @@ export class SupplierInvoiceLineSchema extends BaseModel {
   @column()
   declare quantity: string | null
   @column()
+  declare setReceiptCost: boolean
+  @column()
   declare setSupplierCode: boolean
   @column()
   declare stockMovementId: number | null
@@ -921,13 +925,15 @@ export class SupplierInvoiceLineSchema extends BaseModel {
   @column()
   declare unit: string | null
   @column()
+  declare unitCost: string | null
+  @column()
   declare unitPrice: string
   @column()
   declare vatRate: string
 }
 
 export class SupplierInvoiceSchema extends BaseModel {
-  static $columns = ['createdAt', 'currency', 'details', 'documentType', 'fileName', 'filePath', 'handledAt', 'handledBy', 'id', 'issuedOn', 'number', 'receivedBy', 'receivedVia', 'sdiIdentifier', 'status', 'supplierId', 'taxable', 'total', 'updatedAt', 'vat'] as const
+  static $columns = ['createdAt', 'currency', 'details', 'documentType', 'fileName', 'filePath', 'handledAt', 'handledBy', 'id', 'issuedOn', 'number', 'receivedBy', 'receivedVia', 'sdiIdentifier', 'spreadDiscounts', 'status', 'supplierId', 'taxable', 'total', 'updatedAt', 'vat'] as const
   $columns = SupplierInvoiceSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -957,6 +963,8 @@ export class SupplierInvoiceSchema extends BaseModel {
   declare receivedVia: string
   @column()
   declare sdiIdentifier: string | null
+  @column()
+  declare spreadDiscounts: boolean
   @column()
   declare status: string
   @column()

@@ -99,6 +99,37 @@ test.group('Reading received FatturaPA files', () => {
     ])
   })
 
+  test('reads the delivery notes cited and the discounts on the whole document', async ({
+    assert,
+  }) => {
+    const xml = supplierInvoiceXml({
+      deliveryNotes: [
+        { number: '812', date: '2026-10-14' },
+        { number: '815', date: '2026-10-12' },
+      ],
+      discounts: [
+        { type: 'SC', percent: '10.00' },
+        { type: 'SC', amount: '5.00' },
+        { type: 'MG', percent: '2.00', amount: '1.50' },
+      ],
+    })
+    assert.deepEqual(await fatturaSchemaErrors(xml), [])
+    const [invoice] = readFatturaPA(xml).invoices
+    assert.deepEqual(invoice.deliveryNotes, [
+      { number: '812', date: '2026-10-14' },
+      { number: '815', date: '2026-10-12' },
+    ])
+    assert.deepEqual(invoice.discounts, [
+      { type: 'SC', percent: '10', amount: null },
+      { type: 'SC', percent: null, amount: '5' },
+      { type: 'MG', percent: '2', amount: '1.5' },
+    ])
+    // The fixture has neither
+    const [plain] = readFatturaPA(fixture()).invoices
+    assert.deepEqual(plain.deliveryNotes, [])
+    assert.deepEqual(plain.discounts, [])
+  })
+
   test('an FPA12 file, any namespace prefix, and a total worked out when missing', ({ assert }) => {
     const xml = fixture()
       .replace('versione="FPR12"', 'versione="FPA12"')

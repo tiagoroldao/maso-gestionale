@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, reactive, watchEffect } from 'vue'
+import { computed, reactive, ref, watchEffect } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
+import { router } from '@inertiajs/vue3'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
@@ -9,7 +10,10 @@ import { urlFor } from '~/client'
 import { formatDate, formatUnitPrice, t, todayIso } from '~/i18n'
 import { vatLabel } from '@shared/vat'
 import { formatQuantity } from '@shared/stock'
+import { amountForInput, parseQuantity } from '@shared/money'
 import {
+  newerCostExists,
+  receiptUnitCost,
   unitsDiffer,
   type LineOutcome,
   type LineReceiptRefusal,
@@ -34,6 +38,9 @@ const props = defineProps<{
     fileName: string
     supplier: { id: number; name: string }
     details: SupplierInvoiceDetails
+    spreadDiscounts: boolean
+    discount: string
+    spreadable: boolean
     lines: {
       id: number
       lineNumber: number
@@ -47,28 +54,91 @@ const props = defineProps<{
       natura: string | null
       outcome: LineOutcome | null
       item: LineItem | null
-      receipt: { quantity: string; unitCost: string | null } | null
+      receipt: { quantity: string; unitCost: string | null; occurredOn: string } | null
+      unitCost: string | null
       suggestion: LineItem | null
+      candidate: (LineItem & { newestCostOn: string | null }) | null
+      manualReceipts: ManualReceipt[]
+      defaultAmount: string
       refusal: LineReceiptRefusal | null
     }[]
   }
+  picks: Record<string, number>
   receiveOn: string
 }>()
 
 type LineItem = { id: number; code: string; description: string; unit: string }
+type ManualReceipt = {
+  id: number
+  occurredOn: string
+  quantity: string
+  unitCost: string | null
+  reference: string | null
+  newerCost: boolean
+}
+type Line = (typeof props.invoice.lines)[number]
 
-// The Item each line still to handle is received onto: the suggested one until Office picks another
-const chosen = reactive<Record<number, LineItem | null>>({})
+// Another Item than the suggested one: the page comes back with its receipts and costs
+const pick = (lineId: number, item: PickedItem) => {
+  router.get(
+    urlFor('supplier_invoices.show', { id: props.invoice.id }),
+    { pick: { ...props.picks, [lineId]: item.id } },
+    { preserveState: true, preserveScroll: true, replace: true }
+  )
+}
+
+/**
+ * What Office fills in for each line still to handle: received now or
+ * already received, the quantity, the cost and the purchase price switch,
+ * the last two prefilled (null) until changed.
+ */
+type LineForm = {
+  mode: 'receive' | 'already'
+  quantity: string
+  occurredOn: string
+  receiptId: number | null
+  unitCost: string | null
+  updatePurchasePrice: boolean | null
+}
+const forms = reactive<Record<number, LineForm>>({})
 watchEffect(() => {
   for (const line of props.invoice.lines) {
-    if (line.outcome === null && !(line.id in chosen)) chosen[line.id] = line.suggestion
+    if (line.outcome !== null || line.id in forms) continue
+    forms[line.id] = {
+      mode: 'receive',
+      quantity: line.quantity === null ? '' : formatQuantity(line.quantity),
+      occurredOn: props.receiveOn,
+      receiptId: null,
+      unitCost: null,
+      updatePurchasePrice: null,
+    }
   }
 })
-const pick = (lineId: number, item: PickedItem) => {
-  chosen[lineId] = { id: item.id, code: item.code, description: item.description, unit: item.unit }
+
+// The default cost: the line's default amount over the quantity typed
+const defaultCost = (line: Line) => {
+  const quantity = parseQuantity(forms[line.id]?.quantity ?? '')
+  if (!quantity || quantity.lte(0)) return ''
+  const cost = receiptUnitCost(line.defaultAmount, quantity.toString())
+  return cost === null ? '' : amountForInput(cost)
 }
+const costOf = (line: Line) => forms[line.id]?.unitCost ?? defaultCost(line)
+
+// A newer receipt with a cost exists: the purchase price switch starts off
+const newerReceipt = (line: Line) => {
+  const form = forms[line.id]
+  if (!form || !line.candidate) return false
+  if (form.mode === 'receive') return newerCostExists(line.candidate.newestCostOn, form.occurredOn)
+  const receipt = line.manualReceipts.find((each) => each.id === form.receiptId)
+  return receipt
+    ? receipt.newerCost
+    : newerCostExists(line.candidate.newestCostOn, props.invoice.issuedOn)
+}
+const updateOf = (line: Line) => forms[line.id]?.updatePurchasePrice ?? !newerReceipt(line)
+
 const today = todayIso()
 const confirmUndo = () => window.confirm(t('ui.supplierInvoices.undoConfirm'))
+const spread = ref(props.invoice.spreadDiscounts)
 
 const money = (amount: string, decimals = 2) =>
   formatAmount(amount, props.invoice.currency, decimals)
@@ -175,6 +245,32 @@ const quantity = (value: string | null) =>
         </dl>
       </Section>
 
+      <Section v-if="invoice.discount !== '0.00'" :title="t('ui.supplierInvoices.spreadDiscounts')">
+        <p class="field__hint">
+          {{
+            t(
+              !invoice.discount.startsWith('-')
+                ? 'ui.supplierInvoices.spreadDiscountsHint'
+                : 'ui.supplierInvoices.surchargeHint',
+              { discount: money(invoice.discount.replace('-', '')) }
+            )
+          }}
+        </p>
+        <p v-if="!invoice.spreadable" class="field__hint">
+          {{ t('ui.supplierInvoices.notSpreadable') }}
+        </p>
+        <Form v-else route="supplier_invoices.spread_discounts" :params="{ id: invoice.id }">
+          <input type="hidden" name="spreadDiscounts" :value="spread ? 'true' : 'false'" />
+          <label>
+            <input v-model="spread" type="checkbox" />
+            {{ t('ui.supplierInvoices.spreadDiscounts') }}
+          </label>
+          <button type="submit" class="btn btn--secondary btn--sm">
+            {{ t('ui.supplierInvoices.spreadSave') }}
+          </button>
+        </Form>
+      </Section>
+
       <Section
         :title="t('ui.supplierInvoices.lines')"
         :description="t('ui.supplierInvoices.linesDescription')"
@@ -228,6 +324,28 @@ const quantity = (value: string | null) =>
                       }}
                     </template>
                   </span>
+                  <span v-else-if="line.outcome === 'already_received' && line.item">
+                    <Link route="items.show" :params="{ id: line.item.id }" class="il">
+                      {{ t('ui.supplierInvoices.alreadyReceivedAs', { code: line.item.code }) }}
+                    </Link>
+                    <template v-if="line.receipt">
+                      {{
+                        t('ui.supplierInvoices.alreadyReceivedWith', {
+                          date: formatDate(line.receipt.occurredOn),
+                          quantity: formatQuantity(line.receipt.quantity),
+                          unit: line.item.unit,
+                        })
+                      }}
+                    </template>
+                    <template v-if="line.unitCost">
+                      {{
+                        t('ui.supplierInvoices.receivedAt', {
+                          cost: formatUnitPrice(line.unitCost),
+                          unit: line.item.unit,
+                        })
+                      }}
+                    </template>
+                  </span>
                   <span v-else class="tag">{{ t('ui.supplierInvoices.notStock') }}</span>
                   <Form
                     route="supplier_invoice_lines.undo"
@@ -248,19 +366,33 @@ const quantity = (value: string | null) =>
                   <Form
                     v-else
                     v-slot="{ processing, errors }"
-                    route="supplier_invoice_lines.receive"
+                    :route="
+                      forms[line.id]?.mode === 'already'
+                        ? 'supplier_invoice_lines.mark_already_received'
+                        : 'supplier_invoice_lines.receive'
+                    "
                     :params="{ id: line.id }"
                   >
-                    <template v-if="chosen[line.id]">
+                    <template v-if="line.candidate">
                       <p>
                         {{
-                          line.suggestion?.id === chosen[line.id]!.id
+                          line.suggestion?.id === line.candidate.id
                             ? t('ui.supplierInvoices.suggested')
                             : t('ui.supplierInvoices.chosen')
-                        }}: <span class="mono">{{ chosen[line.id]!.code }}</span> ·
-                        {{ chosen[line.id]!.description }}
+                        }}: <span class="mono">{{ line.candidate.code }}</span> ·
+                        {{ line.candidate.description }}
                       </p>
-                      <input type="hidden" name="itemId" :value="chosen[line.id]!.id" />
+                      <input type="hidden" name="itemId" :value="line.candidate.id" />
+                      <!-- A hint, never a block: received by hand recently -->
+                      <p v-if="line.manualReceipts.length" class="field__hint">
+                        {{
+                          t('ui.supplierInvoices.receivedByHand', {
+                            date: formatDate(line.manualReceipts[0].occurredOn),
+                            quantity: formatQuantity(line.manualReceipts[0].quantity),
+                            unit: line.candidate.unit,
+                          })
+                        }}
+                      </p>
                     </template>
                     <p v-else class="field__hint">{{ t('ui.supplierInvoices.noItem') }}</p>
                     <span v-if="errors.itemId" class="field__error">{{ errors.itemId }}</span>
@@ -268,12 +400,25 @@ const quantity = (value: string | null) =>
                       :label="t('ui.supplierInvoices.chooseItem')"
                       @select="(item) => pick(line.id, item)"
                     />
-                    <template v-if="chosen[line.id]">
-                      <p v-if="unitsDiffer(line.unit, chosen[line.id]!.unit)" class="field__error">
+                    <template v-if="line.candidate && forms[line.id]">
+                      <fieldset class="field">
+                        <legend class="field__label">
+                          {{ t('ui.supplierInvoices.howToHandle') }}
+                        </legend>
+                        <label>
+                          <input v-model="forms[line.id].mode" type="radio" value="receive" />
+                          {{ t('ui.supplierInvoices.receive') }}
+                        </label>
+                        <label>
+                          <input v-model="forms[line.id].mode" type="radio" value="already" />
+                          {{ t('ui.supplierInvoices.alreadyReceived') }}
+                        </label>
+                      </fieldset>
+                      <p v-if="unitsDiffer(line.unit, line.candidate.unit)" class="field__error">
                         {{
                           t('ui.supplierInvoices.unitsDiffer', {
                             lineUnit: line.unit ?? '',
-                            unit: chosen[line.id]!.unit,
+                            unit: line.candidate.unit,
                           })
                         }}
                       </p>
@@ -285,50 +430,133 @@ const quantity = (value: string | null) =>
                           alignItems: 'flex-start',
                         }"
                       >
+                        <div v-if="forms[line.id].mode === 'already'" class="field">
+                          <label class="field__label" :for="`line-${line.id}-receipt`">
+                            {{ t('ui.supplierInvoices.earlierReceipt') }}
+                          </label>
+                          <select
+                            :id="`line-${line.id}-receipt`"
+                            v-model="forms[line.id].receiptId"
+                            name="receiptId"
+                            class="field__input"
+                          >
+                            <option :value="null">
+                              {{ t('ui.supplierInvoices.noEarlierReceipt') }}
+                            </option>
+                            <option
+                              v-for="receipt in line.manualReceipts"
+                              :key="receipt.id"
+                              :value="receipt.id"
+                            >
+                              {{
+                                t('ui.supplierInvoices.earlierReceiptOption', {
+                                  date: formatDate(receipt.occurredOn),
+                                  quantity: formatQuantity(receipt.quantity),
+                                  unit: line.candidate.unit,
+                                  reference: receipt.reference ? ` · ${receipt.reference}` : '',
+                                })
+                              }}
+                            </option>
+                          </select>
+                          <span v-if="errors.receiptId" class="field__error">
+                            {{ errors.receiptId }}
+                          </span>
+                        </div>
                         <div class="field">
                           <label class="field__label" :for="`line-${line.id}-quantity`">
                             {{
-                              t('ui.supplierInvoices.receiveQuantity', {
-                                unit: chosen[line.id]!.unit,
-                              })
+                              t(
+                                forms[line.id].mode === 'already'
+                                  ? 'ui.supplierInvoices.costQuantity'
+                                  : 'ui.supplierInvoices.receiveQuantity',
+                                { unit: line.candidate.unit }
+                              )
                             }}
                           </label>
                           <input
                             :id="`line-${line.id}-quantity`"
+                            v-model="forms[line.id].quantity"
                             name="quantity"
                             inputmode="decimal"
                             class="field__input"
-                            :value="line.quantity === null ? '' : formatQuantity(line.quantity)"
                           />
                           <span v-if="errors.quantity" class="field__error">
                             {{ errors.quantity }}
                           </span>
                         </div>
-                        <div class="field">
+                        <div v-if="forms[line.id].mode === 'receive'" class="field">
                           <label class="field__label" :for="`line-${line.id}-date`">
                             {{ t('ui.supplierInvoices.receiveDate') }}
                           </label>
                           <input
                             :id="`line-${line.id}-date`"
+                            v-model="forms[line.id].occurredOn"
                             name="occurredOn"
                             type="date"
                             :max="today"
-                            :value="receiveOn"
                             class="field__input"
                           />
                           <span v-if="errors.occurredOn" class="field__error">
                             {{ errors.occurredOn }}
                           </span>
                         </div>
-                        <button
-                          type="submit"
-                          class="btn btn--primary btn--sm"
-                          :disabled="processing"
-                          :style="{ marginTop: '22px' }"
-                        >
-                          {{ t('ui.supplierInvoices.receive') }}
-                        </button>
+                        <div class="field">
+                          <label class="field__label" :for="`line-${line.id}-cost`">
+                            {{ t('ui.supplierInvoices.unitCost', { unit: line.candidate.unit }) }}
+                          </label>
+                          <input
+                            :id="`line-${line.id}-cost`"
+                            name="unitCost"
+                            inputmode="decimal"
+                            class="field__input"
+                            :value="costOf(line)"
+                            @input="
+                              forms[line.id].unitCost = ($event.target as HTMLInputElement).value
+                            "
+                          />
+                          <span class="field__hint">
+                            {{
+                              t('ui.supplierInvoices.unitCostHint', {
+                                spread:
+                                  invoice.spreadDiscounts && invoice.spreadable
+                                    ? t('ui.supplierInvoices.unitCostSpread')
+                                    : '',
+                              })
+                            }}
+                          </span>
+                          <span v-if="errors.unitCost" class="field__error">
+                            {{ errors.unitCost }}
+                          </span>
+                        </div>
                       </div>
+                      <!-- Sent either way, so Office's choice is always explicit -->
+                      <input
+                        type="hidden"
+                        name="updatePurchasePrice"
+                        :value="updateOf(line) ? 'true' : 'false'"
+                      />
+                      <label>
+                        <input
+                          type="checkbox"
+                          :checked="updateOf(line)"
+                          @change="
+                            forms[line.id].updatePurchasePrice = (
+                              $event.target as HTMLInputElement
+                            ).checked
+                          "
+                        />
+                        {{ t('ui.supplierInvoices.updatePurchasePrice') }}
+                      </label>
+                      <p v-if="newerReceipt(line)" class="field__hint">
+                        {{ t('ui.supplierInvoices.newerReceipt') }}
+                      </p>
+                      <button type="submit" class="btn btn--primary btn--sm" :disabled="processing">
+                        {{
+                          forms[line.id].mode === 'already'
+                            ? t('ui.supplierInvoices.markAlreadyReceived')
+                            : t('ui.supplierInvoices.receive')
+                        }}
+                      </button>
                     </template>
                   </Form>
                   <Form route="supplier_invoice_lines.mark_not_stock" :params="{ id: line.id }">

@@ -20,7 +20,8 @@ export const FIXTURE = {
 
 /**
  * The fixture's XML with another number, date, supplier or buyer, as a
- * different invoice.
+ * different invoice, optionally citing delivery notes (DatiDDT) and with
+ * discounts or surcharges on the whole document (ScontoMaggiorazione).
  */
 export function supplierInvoiceXml(
   changes: {
@@ -29,9 +30,30 @@ export function supplierInvoiceXml(
     supplierVat?: string
     supplierName?: string
     buyerVat?: string
+    deliveryNotes?: { number: string; date: string }[]
+    discounts?: { type: 'SC' | 'MG'; percent?: string; amount?: string }[]
   } = {}
 ) {
+  const discounts = (changes.discounts ?? [])
+    .map((discount) =>
+      [
+        '<ScontoMaggiorazione>',
+        `<Tipo>${discount.type}</Tipo>`,
+        discount.percent ? `<Percentuale>${discount.percent}</Percentuale>` : '',
+        discount.amount ? `<Importo>${discount.amount}</Importo>` : '',
+        '</ScontoMaggiorazione>',
+      ].join('')
+    )
+    .join('')
+  const deliveryNotes = (changes.deliveryNotes ?? [])
+    .map(
+      (note) =>
+        `<DatiDDT><NumeroDDT>${note.number}</NumeroDDT><DataDDT>${note.date}</DataDDT></DatiDDT>`
+    )
+    .join('')
   return readFileSync(SUPPLIER_INVOICE_XML, 'utf8')
+    .replace('<ImportoTotaleDocumento>', `${discounts}<ImportoTotaleDocumento>`)
+    .replace('</DatiGeneraliDocumento>', `</DatiGeneraliDocumento>${deliveryNotes}`)
     .replace(
       `<Numero>${FIXTURE.number}</Numero>`,
       `<Numero>${changes.number ?? FIXTURE.number}</Numero>`

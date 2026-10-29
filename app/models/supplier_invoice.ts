@@ -14,7 +14,9 @@ import type {
  * lines read from the FatturaPA file, the rest of the document in
  * `details`, and the original file in the Instance's storage at
  * `filePath`. It is handled once Office has received each of its lines
- * into stock or marked it not stock (#199, SupplierInvoiceLines).
+ * into stock, marked it already received (#210) or marked it not stock
+ * (#199, SupplierInvoiceLines). `spreadDiscounts` says whether the
+ * discounts on the whole invoice lower its lines' default costs (#210).
  */
 export default class SupplierInvoice extends SupplierInvoiceSchema {
   static table = 'supplier_invoices'

@@ -151,7 +151,9 @@ export type ScannedRoutes = {
     'supplier_invoices.export': { paramsTuple?: []; params?: {} }
     'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.spread_discounts': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.mark_already_received': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.mark_not_stock': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.undo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.index': { paramsTuple?: []; params?: {} }
@@ -433,6 +435,7 @@ export type ScannedRoutes = {
     'item_documents.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.store': { paramsTuple?: []; params?: {} }
     'supplier_invoice_lines.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoice_lines.mark_already_received': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.mark_not_stock': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.undo': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.store': { paramsTuple?: []; params?: {} }
@@ -474,6 +477,7 @@ export type ScannedRoutes = {
     'quotes.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'invoices.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'items.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.spread_discounts': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'suppliers.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'rates.update': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
