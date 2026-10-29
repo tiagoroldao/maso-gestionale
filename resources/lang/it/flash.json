@@ -89,7 +89,7 @@
     "closed": "La commessa è chiusa: l'intervento non si può più modificare.",
     "cancelled": "La commessa è stata annullata: l'intervento non si può più modificare.",
     "notCancelled": "La commessa non è annullata: l'intervento lo chiudono i tecnici.",
-    "notStarted": "L'intervento non è ancora iniziato: si può chiudere solo dall'ora di inizio.",
+    "notStarted": "L'intervento non è ancora iniziato: si può chiudere dall'ora di inizio, o prima se è segnato in corso.",
     "notOnVisit": "Il tecnico scelto non fa parte di questo intervento.",
     "wholeQuantity": "L'articolo è un apparecchio: la quantità dev'essere un numero intero di pezzi.",
     "notAtSite": "L'apparecchio scelto non è installato in questo immobile.",

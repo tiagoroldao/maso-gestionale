@@ -12,6 +12,7 @@ import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
 import { amountForInput, parseAmount } from '@shared/money'
 import { takesSerialNumber } from '@shared/items'
 import { formatDate, t } from '~/i18n'
+import { formatDateTime } from '@shared/dates'
 
 const props = defineProps<{
   visit: {
@@ -21,6 +22,8 @@ const props = defineProps<{
     status: string
     survey: boolean
     officeNotes: string | null
+    started: { at: string; by: string | null } | null
+    closed: { at: string; by: string | null } | null
     technicians: string[]
   }
   job: { number: string; title: string; description: string | null }
@@ -175,6 +178,26 @@ function toggle(id: number, ticked: boolean) {
             </button>
           </Form>
         </div>
+        <p v-if="visit.started" class="field__hint" data-testid="visit-started">
+          {{
+            visit.started.by
+              ? t('ui.visits.startedBy', {
+                  at: formatDateTime(visit.started.at),
+                  by: visit.started.by,
+                })
+              : t('ui.visits.started', { at: formatDateTime(visit.started.at) })
+          }}
+        </p>
+        <p v-if="visit.closed" class="field__hint" data-testid="visit-closed">
+          {{
+            visit.closed.by
+              ? t('ui.visits.closedBy', {
+                  at: formatDateTime(visit.closed.at),
+                  by: visit.closed.by,
+                })
+              : t('ui.visits.closed', { at: formatDateTime(visit.closed.at) })
+          }}
+        </p>
       </Section>
 
       <Section :title="t('ui.field.where')">

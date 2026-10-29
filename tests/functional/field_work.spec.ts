@@ -25,7 +25,7 @@ async function setup() {
     status: 'in_progress',
     siteId: site.id,
   })
-  // Started an hour ago: a Visit closes only once it has started (#154)
+  // Started an hour ago: a planned Visit closes only once its start passed (#174)
   const start = DateTime.now().minus({ hours: 1 })
   const visit = await Visit.create({
     jobId: job.id,
@@ -170,7 +170,7 @@ test.group('Field work', () => {
     more.assertFlashMessage('error', it('flash.fieldWorkRefused.done'))
   })
 
-  test('a Visit that has not started yet can not be closed: nothing leaves stock (#154)', async ({
+  test('a planned Visit still to come can not be closed: nothing leaves stock (#174)', async ({
     client,
     assert,
   }) => {

@@ -98,6 +98,7 @@ export default class MyVisitsController {
         status: visit.status,
         survey: visit.survey,
         officeNotes: visit.notes,
+        ...visit.milestones(),
         technicians: visit.technicians.map((user) => user.fullName ?? user.email),
       },
       job: { number: job.number, title: job.title, description: job.description },
@@ -300,6 +301,8 @@ export default class MyVisitsController {
     return Visit.query()
       .where('id', id)
       .preload('technicians')
+      .preload('startedBy')
+      .preload('closedBy')
       .preload('fieldNotes', (notes) => notes.preload('author').orderBy('createdAt'))
       .preload('photos', (photos) => photos.orderBy('createdAt'))
       .preload('hours', (hours) =>

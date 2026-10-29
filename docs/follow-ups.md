@@ -27,6 +27,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #178  | Job page summary for Jobs with many Visits                                                | —                                                 |
 | #179  | Group alike Charges on Invoice drafts                                                     | —                                                 |
 | #180  | Work report for a Job (rapportino)                                                        | —                                                 |
+| #181  | Share the Visit started/closed markup between the field and Office pages (`ui-later`)     | The UX pass                                       |
 
 ## Added to existing issues
 

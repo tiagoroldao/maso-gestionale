@@ -1,3 +1,4 @@
+import type { DateTime } from 'luxon'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import type { I18n } from '@adonisjs/i18n'
 import type Charge from '#models/charge'
@@ -36,22 +37,25 @@ export type EquipmentWarning = {
 export default class Installations {
   /**
    * The Charge became done on `visit`: if its Item is Equipment, creates
-   * its units at the Job's Site, installed on the Visit's day. A Charge
-   * done again reuses the equipment it created, if any of it still
-   * exists, unchanged. Runs inside the caller's transaction, with the
-   * Visit, its Job and the Charge locked. Returns a warning when the Job
-   * has no Site to create them at.
+   * its units at the Job's Site, installed on the Visit's work day
+   * (`Visit.workDay`, #174). A Charge done again reuses the equipment it
+   * created, if any of it still exists, unchanged. Runs inside the
+   * caller's transaction, with the Visit, its Job and the Charge locked.
+   * Returns a warning when the Job has no Site to create them at. `now` is
+   * the caller's moment, so its other dates fall on the same work day even
+   * across midnight.
    */
   static async install(
     trx: TransactionClientContract,
     charge: Charge,
     visit: Visit,
-    siteId: number | null
+    siteId: number | null,
+    now: DateTime
   ): Promise<EquipmentWarning[]> {
     if (charge.kind !== 'item') return []
     const item = await Item.findOrFail(charge.itemId, { client: trx })
     if (!item.equipment) return []
-    const day = visit.startsAt.startOf('day')
+    const day = visit.workDay(now)
 
     // Created by this Charge when it was done before: managed by hand since
     const created = await this.createdBy(trx, charge)
