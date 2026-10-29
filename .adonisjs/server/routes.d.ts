@@ -153,6 +153,7 @@ export type ScannedRoutes = {
     'supplier_invoices.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.file': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.spread_discounts': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'supplier_invoices.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.mark_already_received': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.mark_not_stock': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -203,6 +204,7 @@ export type ScannedRoutes = {
     'instance.update': { paramsTuple?: []; params?: {} }
     'instance.backups': { paramsTuple?: []; params?: {} }
     'instance.backups.run': { paramsTuple?: []; params?: {} }
+    'instance.archive_supplier_invoices': { paramsTuple?: []; params?: {} }
     'instance.admin_password': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
   }
   GET: {
@@ -436,6 +438,7 @@ export type ScannedRoutes = {
     'items.unarchive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.store': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoices.store': { paramsTuple?: []; params?: {} }
+    'supplier_invoices.archive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.mark_already_received': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'supplier_invoice_lines.mark_not_stock': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -454,6 +457,7 @@ export type ScannedRoutes = {
     'document_templates.fill_preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'payment_terms.store': { paramsTuple?: []; params?: {} }
     'instance.backups.run': { paramsTuple?: []; params?: {} }
+    'instance.archive_supplier_invoices': { paramsTuple?: []; params?: {} }
   }
   DELETE: {
     'my_visits.remove_charge': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

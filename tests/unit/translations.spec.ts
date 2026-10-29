@@ -35,6 +35,7 @@ import {
   ALL_PAYMENT_METHODS,
   DOCUMENT_TYPES,
   SUPPLIER_INVOICE_SOURCES,
+  LEGAL_ARCHIVING_STATES,
   SUPPLIER_INVOICE_STATUSES,
   type LineReceiptRefusal,
 } from '#shared/supplier_invoices'
@@ -52,6 +53,7 @@ import type { QuoteImportRefusedError } from '#services/quotes'
 import type { VisitCancelRefusedError } from '#services/scheduling'
 import type { LineRefusedError } from '#services/supplier_invoice_lines'
 import type { SupplierInvoiceRefusedError } from '#services/supplier_invoices'
+import type { ArchivingRefusedError } from '#services/supplier_invoice_archiving'
 import type { WorkReportLabels } from '#shared/work_report'
 
 /** The values of a type no list holds: typecheck keeps the object complete. */
@@ -122,6 +124,7 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
   'ui.paymentMethods': PAYMENT_METHODS,
   'ui.vatRules.lineKinds': LINE_KINDS,
   'ui.supplierInvoices.statuses': SUPPLIER_INVOICE_STATUSES,
+  'ui.supplierInvoices.legalArchivingStates': LEGAL_ARCHIVING_STATES,
   'ui.supplierInvoices.sources': SUPPLIER_INVOICE_SOURCES,
   'ui.supplierInvoices.documentTypes': DOCUMENT_TYPES,
   'ui.supplierInvoices.paymentMethods': ALL_PAYMENT_METHODS,
@@ -235,6 +238,10 @@ const BUILT_ON_SERVER: Record<string, readonly (string | number)[]> = {
     currency: true,
     negativeTotal: true,
     receiptNotLinkable: true,
+  }),
+  'flash.supplierInvoiceArchivingRefused': valuesOf<ArchivingRefusedError['reason']>({
+    notOffered: true,
+    notWaiting: true,
   }),
   'flash.supplierInvoiceRefused': valuesOf<SupplierInvoiceRefusedError['reason']>({
     unreadable: true,

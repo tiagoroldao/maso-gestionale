@@ -141,6 +141,19 @@ export const alreadyReceivedLineValidator = vine.create({
 export const spreadDiscountsValidator = vine.create({ spreadDiscounts: vine.boolean() })
 
 /**
+ * Sending a Supplier Invoice to legal archiving again (#214), with SDI's
+ * identifier for the file when it has none (an upload): the intermediary
+ * needs it, as on the Agenzia delle Entrate portal or the metadata file
+ */
+export const supplierInvoiceArchivingValidator = vine.create({
+  sdiId: vine
+    .string()
+    .trim()
+    .regex(/^\d{1,20}$/)
+    .optional(),
+})
+
+/**
  * The invoice page's Items picked for lines still to handle, by line id
  * (`pick[12]=34`), instead of the suggested ones (#210)
  */

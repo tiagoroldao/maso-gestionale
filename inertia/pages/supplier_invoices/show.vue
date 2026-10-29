@@ -8,14 +8,17 @@ import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { urlFor } from '~/client'
 import { formatDate, formatUnitPrice, t, todayIso } from '~/i18n'
+import { formatDateTime } from '@shared/dates'
 import { vatLabel } from '@shared/vat'
 import { formatQuantity } from '@shared/stock'
 import { amountForInput, parseQuantity } from '@shared/money'
+import { isSdiFailureCode } from '@shared/sdi_failures'
 import {
   newerCostExists,
   receiptUnitCost,
   unitsDiffer,
   type LineOutcome,
+  type LegalArchivingState,
   type LineReceiptRefusal,
   type SupplierInvoiceDetails,
 } from '@shared/supplier_invoices'
@@ -39,6 +42,13 @@ const props = defineProps<{
     supplier: { id: number; name: string }
     details: SupplierInvoiceDetails
     spreadDiscounts: boolean
+    legalArchiving: {
+      state: LegalArchivingState
+      at: string
+      ids: string[]
+      failure: string | null
+    } | null
+    archivingOffered: boolean
     discount: string
     spreadable: boolean
     lines: {
@@ -136,6 +146,18 @@ const newerReceipt = (line: Line) => {
 }
 const updateOf = (line: Line) => forms[line.id]?.updatePurchasePrice ?? !newerReceipt(line)
 
+/** A code the app names in Italian, or the intermediary's own message as it is */
+const archivingFailure = (detail: string | null) =>
+  detail && isSdiFailureCode(detail) ? t(`ui.sdiFailures.${detail}`) : (detail ?? '')
+// Office can send it again once failed, or before the poller does
+const archivingRetryable = computed(
+  () =>
+    props.invoice.archivingOffered &&
+    (props.invoice.legalArchiving === null
+      ? false
+      : ['queued', 'failed'].includes(props.invoice.legalArchiving.state))
+)
+
 const today = todayIso()
 const confirmUndo = () => window.confirm(t('ui.supplierInvoices.undoConfirm'))
 const spread = ref(props.invoice.spreadDiscounts)
@@ -207,6 +229,52 @@ const quantity = (value: string | null) =>
             </dd>
           </template>
         </dl>
+      </Section>
+
+      <Section
+        v-if="invoice.legalArchiving || invoice.archivingOffered"
+        :title="t('ui.supplierInvoices.legalArchiving')"
+      >
+        <template v-if="invoice.legalArchiving">
+          <p :class="{ field__error: invoice.legalArchiving.state === 'failed' }">
+            {{
+              t(`ui.supplierInvoices.legalArchivingStates.${invoice.legalArchiving.state}`, {
+                at: formatDateTime(invoice.legalArchiving.at),
+                detail: archivingFailure(invoice.legalArchiving.failure),
+              })
+            }}
+          </p>
+          <p v-if="invoice.legalArchiving.ids.length">
+            {{ t('ui.supplierInvoices.legalArchivingIds') }}:
+            <span class="mono">{{ invoice.legalArchiving.ids.join(', ') }}</span>
+          </p>
+        </template>
+        <p v-else>{{ t('ui.supplierInvoices.legalArchivingNone') }}</p>
+        <Form
+          v-if="archivingRetryable"
+          v-slot="{ processing, errors }"
+          route="supplier_invoices.archive"
+          :params="{ id: invoice.id }"
+        >
+          <p class="field__hint">{{ t('ui.supplierInvoices.legalArchivingRetryHint') }}</p>
+          <div v-if="!invoice.sdiIdentifier" class="field">
+            <label class="field__label" for="archiving-sdi-id">{{
+              t('ui.supplierInvoices.sdiIdentifier')
+            }}</label>
+            <input
+              id="archiving-sdi-id"
+              name="sdiId"
+              inputmode="numeric"
+              class="field__input"
+              :style="{ maxWidth: '240px' }"
+            />
+            <span class="field__hint">{{ t('ui.supplierInvoices.legalArchivingSdiIdHint') }}</span>
+            <span v-if="errors.sdiId" class="field__error">{{ errors.sdiId }}</span>
+          </div>
+          <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
+            {{ t('ui.supplierInvoices.legalArchivingRetry') }}
+          </button>
+        </Form>
       </Section>
 
       <Section :title="t('ui.supplierInvoices.seller')">

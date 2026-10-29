@@ -976,7 +976,7 @@ export class SupplierInvoiceLineSchema extends BaseModel {
 }
 
 export class SupplierInvoiceSchema extends BaseModel {
-  static $columns = ['createdAt', 'currency', 'details', 'documentType', 'fileName', 'filePath', 'handledAt', 'handledBy', 'id', 'issuedOn', 'number', 'receivedBy', 'receivedVia', 'sdiIdentifier', 'spreadDiscounts', 'status', 'supplierId', 'taxable', 'total', 'updatedAt', 'vat'] as const
+  static $columns = ['createdAt', 'currency', 'details', 'documentType', 'fileName', 'filePath', 'handledAt', 'handledBy', 'id', 'issuedOn', 'legalArchiving', 'legalArchivingAt', 'legalArchivingFailure', 'legalArchivingIds', 'number', 'receivedBy', 'receivedVia', 'sdiIdentifier', 'spreadDiscounts', 'status', 'supplierId', 'taxable', 'total', 'updatedAt', 'vat'] as const
   $columns = SupplierInvoiceSchema.$columns
   @column.dateTime({ autoCreate: true })
   declare createdAt: DateTime
@@ -998,6 +998,14 @@ export class SupplierInvoiceSchema extends BaseModel {
   declare id: number
   @column.date()
   declare issuedOn: DateTime
+  @column()
+  declare legalArchiving: string | null
+  @column.dateTime()
+  declare legalArchivingAt: DateTime | null
+  @column()
+  declare legalArchivingFailure: string | null
+  @column()
+  declare legalArchivingIds: any | null
   @column()
   declare number: string
   @column()

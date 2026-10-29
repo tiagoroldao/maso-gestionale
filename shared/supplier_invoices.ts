@@ -19,6 +19,15 @@ export const SUPPLIER_INVOICE_SOURCES = ['upload', 'sdi'] as const
 export type SupplierInvoiceSource = (typeof SUPPLIER_INVOICE_SOURCES)[number]
 
 /**
+ * Legal archiving through the SDI intermediary (#214, ADR 0019), per
+ * file: queued to go, being sent, requested (the intermediary took it) or
+ * failed (retried by the poller, or from the invoice's page). Null when
+ * never asked for.
+ */
+export const LEGAL_ARCHIVING_STATES = ['queued', 'sending', 'requested', 'failed'] as const
+export type LegalArchivingState = (typeof LEGAL_ARCHIVING_STATES)[number]
+
+/**
  * FatturaPA document types (TipoDocumento) with a label in the catalogue
  * (`ui.supplierInvoices.documentTypes`); others are shown as their code.
  */

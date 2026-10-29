@@ -127,7 +127,7 @@ The sending of a Finalised Invoice to SDI, either through the intermediary (Open
 _Avoid_: Upload, transmission, export
 
 **Legal archiving** (_Conservazione a norma_):
-The legally required long-term storage of electronic invoices. The app keeps each file as sent but doesn't archive it; when the Superuser switches it on and the SDI intermediary offers it, each Submission asks the intermediary to archive its file (ADR 0019), otherwise the business archives elsewhere (e.g. the Agenzia delle Entrate's free service).
+The legally required long-term storage of electronic invoices, sent and received. The app keeps each file as sent or received but doesn't archive it. When the Superuser switches it on and the SDI intermediary offers it, each Submission asks the intermediary to archive its file, and so does each Supplier Invoice once stored, whether received or uploaded (ADR 0019). A Supplier Invoice's archiving is queued, sending, requested or failed, and a failed one is retried. Otherwise the business archives both elsewhere (e.g. the Agenzia delle Entrate's free service).
 _Avoid_: Storage, backup, preservation
 
 **SDI Notice** (_Notifica SDI_):

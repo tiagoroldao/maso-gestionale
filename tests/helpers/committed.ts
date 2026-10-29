@@ -5,6 +5,10 @@ import db from '@adonisjs/lucid/services/db'
  * deleted in this order.
  */
 const TABLES = [
+  // Before stock_movements, which a received line points to; a test
+  // that receives lines into stock as well would need both cleared together
+  'supplier_invoice_lines',
+  'supplier_invoices',
   'advance_deductions',
   'invoice_submissions',
   'invoice_line_charges',
@@ -20,6 +24,7 @@ const TABLES = [
   'sites',
   'invoice_sequences',
   'items',
+  'suppliers',
   'customers',
   'users',
 ]

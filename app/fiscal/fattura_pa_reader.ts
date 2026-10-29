@@ -122,13 +122,21 @@ export type ReceivedFattura = {
  * of a signed `.p7m` (DER, or Base64 as some portals serve it).
  */
 export function extractXml(contents: Buffer): string {
+  return decode(extractXmlBytes(contents))
+}
+
+/**
+ * The FatturaPA XML of a received file as bytes, in the encoding it
+ * declares: what goes to legal archiving (#214).
+ */
+export function extractXmlBytes(contents: Buffer): Buffer {
   const bytes = withoutBom(contents)
-  if (!isSigned(contents)) return decode(bytes)
+  if (!isSigned(contents)) return bytes
   let content: Buffer = bytes
   // A file signed twice wraps one signature in another
   for (let depth = 0; depth < 3; depth++) {
     content = signedContent(content)
-    if (looksLikeXml(withoutBom(content))) return decode(withoutBom(content))
+    if (looksLikeXml(withoutBom(content))) return withoutBom(content)
   }
   throw new FatturaReadError('signature', 'The signed content is not XML')
 }
