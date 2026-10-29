@@ -64,10 +64,39 @@ type ErrorEntry = { Codice?: string; Descrizione?: string }
 const RECEIVING_EVENT = 'supplier-invoice'
 
 type Callback = { event: string; url: string; auth_header?: string | null; field?: string | null }
+/** A callback as read, with Openapi's read-only fields */
+type ReadCallback = Callback & { id?: string | null; provider_uuid?: string | null }
+
+/**
+ * A configuration as `GET /api_configurations` may answer it. The spec's
+ * schema says `callbacks` is an array, its example shows one object, and
+ * its list response shows a singular `callback`; all three are read.
+ */
 type ApiConfiguration = {
   id?: string
   fiscal_id?: string
-  callback?: (Callback & { provider_uuid?: string | null }) | null
+  callbacks?: ReadCallback[] | ReadCallback | null
+  callback?: ReadCallback | null
+}
+
+/**
+ * A configuration's callbacks as a list, in the write shape
+ * (`{ event, url, auth_header, field }`), without read-only fields.
+ */
+function readCallbacks(configuration: ApiConfiguration): Callback[] {
+  const many = configuration.callbacks
+  const read = [
+    ...(Array.isArray(many) ? many : many ? [many] : []),
+    ...(configuration.callback ? [configuration.callback] : []),
+  ]
+  return read
+    .filter((entry) => entry?.event && entry.url)
+    .map((entry) => {
+      const kept: Callback = { event: entry.event, url: entry.url }
+      if (entry.auth_header) kept.auth_header = entry.auth_header
+      if (entry.field) kept.field = entry.field
+      return kept
+    })
 }
 
 type InvoiceRead = {
@@ -204,17 +233,10 @@ export class OpenapiSdiGateway implements SdiGateway {
   async ensureReceiving(callback: ReceivingCallback) {
     const search = new URLSearchParams({ fiscal_id: callback.fiscalId })
     const response = await this.request('GET', `/api_configurations?${search}`)
-    // One item per callback, each under a singular `callback` (the spec's
-    // read shape); re-posted without Openapi's own `provider_uuid`
+    // The read shape is unconfirmed (ADR 0019): every form the spec shows
+    // is accepted, and re-posted as ApiConfiguration-write
     const body = (await response.json()) as { data?: ApiConfiguration[] | null }
-    const callbacks = (body.data ?? []).flatMap((configuration): Callback[] => {
-      const read = configuration.callback
-      if (!read?.event) return []
-      const kept: Callback = { event: read.event, url: read.url }
-      if (read.auth_header) kept.auth_header = read.auth_header
-      if (read.field) kept.field = read.field
-      return [kept]
-    })
+    const callbacks = (body.data ?? []).flatMap(readCallbacks)
     const wanted: Callback = {
       event: RECEIVING_EVENT,
       url: callback.url,

@@ -205,7 +205,7 @@ test.group('Openapi SDI gateway', () => {
     )
   })
 
-  test('a callback set by hand for another event survives, without provider_uuid', async ({
+  test('a callback set by hand for another event survives, in every read shape', async ({
     assert,
   }) => {
     const notification = {
@@ -214,26 +214,29 @@ test.group('Openapi SDI gateway', () => {
       auth_header: 'Bearer by-hand',
       field: 'data',
     }
-    const openapi = new FakeOpenapi().keepsApiConfigurations({
-      fiscal_id: '00000000000',
-      callbacks: [notification],
-    })
+    const receiving = { event: 'supplier-invoice', url: 'https://invalid.invalid/sdi/webhook' }
+    for (const shape of ['callback', 'callbacksArray', 'callbacksObject'] as const) {
+      const openapi = new FakeOpenapi().keepsApiConfigurations(
+        { fiscal_id: '00000000000', callbacks: [notification] },
+        shape
+      )
+      const callback = {
+        fiscalId: '00000000000',
+        url: 'https://invalid.invalid/sdi/webhook',
+        authHeader: null,
+      }
 
-    await openapi.gateway().ensureReceiving({
-      fiscalId: '00000000000',
-      url: 'https://invalid.invalid/sdi/webhook',
-      authHeader: null,
-    })
-
-    assert.deepEqual(openapi.configurations, [
-      {
-        fiscal_id: '00000000000',
-        callbacks: [
-          notification,
-          { event: 'supplier-invoice', url: 'https://invalid.invalid/sdi/webhook' },
-        ],
-      },
-    ])
+      assert.isTrue(await openapi.gateway().ensureReceiving(callback), shape)
+      // Re-posted in the write shape, without the read-only id and provider_uuid
+      assert.deepEqual(
+        openapi.configurations,
+        [{ fiscal_id: '00000000000', callbacks: [notification, receiving] }],
+        shape
+      )
+      // Read back in the same shape: unchanged, so not written again
+      assert.isFalse(await openapi.gateway().ensureReceiving(callback), shape)
+      assert.lengthOf(openapi.configurations, 1, shape)
+    }
   })
 
   test('a list longer than the page limit fails rather than answer in part', async ({ assert }) => {
