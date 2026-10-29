@@ -397,6 +397,8 @@ export default class InvoicesController {
         sdiId: submission.sdiId,
         outcomeNotes: submission.outcomeNotes,
         hasFile: submission.xml !== null,
+        // Sent with legal archiving requested from the intermediary (#205)
+        legalArchiving: submission.legalArchiving,
       })),
       openSubmission: open
         ? {

@@ -48,6 +48,7 @@
   "documentTemplateSaved": "Modello salvato (versione {version}).",
   "vatRulesSaved": "Regole IVA salvate.",
   "instanceSaved": "Impostazioni dell'istanza salvate.",
+  "legalArchivingOff": "Impostazioni salvate. La conservazione a norma tramite l'intermediario è stata disattivata, perché la modalità scelta non la offre: provvedi in altro modo, per esempio con il servizio gratuito dell'Agenzia delle Entrate.",
   "backupSettingsSaved": "Impostazioni dei backup salvate.",
   "backupStarted": "Backup avviato. Ricarica la pagina tra qualche minuto per vederne l'esito.",
   "backupAlreadyRunning": "Un backup è già in corso.",

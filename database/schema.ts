@@ -309,7 +309,7 @@ export class InstalledEquipmentSchema extends BaseModel {
 }
 
 export class InstanceSettingSchema extends BaseModel {
-  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'openapiToken', 'pollingMinutes', 'publicUrl', 'sdiEnvironment', 'sdiMode', 'sdiPollFailure', 'sdiPollRequestedAt', 'sdiPolledAt', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
+  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'openapiToken', 'pollingMinutes', 'publicUrl', 'sdiEnvironment', 'sdiLegalArchiving', 'sdiMode', 'sdiPollFailure', 'sdiPollRequestedAt', 'sdiPolledAt', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
   $columns = InstanceSettingSchema.$columns
   @column()
   declare backupAccessKeyId: string | null
@@ -347,6 +347,8 @@ export class InstanceSettingSchema extends BaseModel {
   declare publicUrl: string | null
   @column()
   declare sdiEnvironment: string
+  @column()
+  declare sdiLegalArchiving: boolean
   @column()
   declare sdiMode: string
   @column()
@@ -448,7 +450,7 @@ export class InvoiceSequenceSchema extends BaseModel {
 }
 
 export class InvoiceSubmissionSchema extends BaseModel {
-  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'noticeOn', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'remoteId', 'sdiId', 'sendFailure', 'sendingAt', 'submittedAt', 'submittedBy', 'updatedAt', 'xml'] as const
+  static $columns = ['channel', 'createdAt', 'fileName', 'id', 'invoiceId', 'legalArchiving', 'noticeOn', 'outcome', 'outcomeAt', 'outcomeBy', 'outcomeNotes', 'preparedAt', 'preparedBy', 'progressive', 'remoteId', 'sdiId', 'sendFailure', 'sendingAt', 'submittedAt', 'submittedBy', 'updatedAt', 'xml'] as const
   $columns = InvoiceSubmissionSchema.$columns
   @column()
   declare channel: string
@@ -460,6 +462,8 @@ export class InvoiceSubmissionSchema extends BaseModel {
   declare id: number
   @column()
   declare invoiceId: number
+  @column()
+  declare legalArchiving: boolean
   @column.date()
   declare noticeOn: DateTime | null
   @column()

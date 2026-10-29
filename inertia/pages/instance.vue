@@ -12,6 +12,8 @@ defineProps<{
   settings: {
     sdiMode: string
     sdiEnvironment: string
+    legalArchivingOffered: boolean
+    legalArchiving: boolean
     hasToken: boolean
     tokenUnreadable: boolean
     pollingMinutes: number
@@ -99,6 +101,23 @@ const sdiFailure = (detail: string) =>
               </label>
             </template>
             <span v-if="errors.openapiToken" class="field__error">{{ errors.openapiToken }}</span>
+          </div>
+          <div class="field">
+            <label v-if="settings.legalArchivingOffered">
+              <input
+                type="checkbox"
+                name="sdiLegalArchiving"
+                value="true"
+                :checked="settings.legalArchiving"
+              />
+              {{ t('ui.instance.legalArchiving') }}
+            </label>
+            <span v-if="settings.legalArchivingOffered" class="field__hint">{{
+              t('ui.instance.legalArchivingHint')
+            }}</span>
+            <span v-if="!settings.legalArchiving" class="field__hint">{{
+              t('ui.instance.legalArchivingElsewhere')
+            }}</span>
           </div>
           <div class="field">
             <label class="field__label" for="polling">{{ t('ui.instance.pollingMinutes') }}</label>

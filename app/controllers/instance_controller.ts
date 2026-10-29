@@ -5,7 +5,7 @@ import { adminPasswordValidator, instanceSettingsValidator } from '#validators/i
 import SdiReceivedFile from '#models/sdi_received_file'
 import { sdiWebhookUrl } from '#shared/instance'
 import { isSdiFailureCode, type PollFailure } from '#shared/sdi_failures'
-import SdiConnection from '#services/sdi_connection'
+import SdiConnection, { supportsLegalArchiving } from '#services/sdi_connection'
 import SdiReceiving from '#services/sdi_receiving'
 import type { HttpContext } from '@adonisjs/core/http'
 import { errors as vineErrors } from '@vinejs/vine'
@@ -26,6 +26,9 @@ export default class InstanceController {
       settings: {
         sdiMode: settings.sdiMode,
         sdiEnvironment: settings.sdiEnvironment,
+        // Offered only when the saved intermediary archives (#205)
+        legalArchivingOffered: supportsLegalArchiving(settings.sdiMode),
+        legalArchiving: settings.sdiLegalArchiving,
         // Whether a usable secret is stored, never the secret: one
         // encrypted under another APP_KEY (after a restore) reads as null,
         // and the page says it must be entered again
@@ -84,9 +87,17 @@ export default class InstanceController {
       return response.redirect().back()
     }
 
+    // Legal archiving stays on only with an intermediary that offers it;
+    // switching to one that doesn't turns it off, with a warning (#205)
+    const archivingOffered = supportsLegalArchiving(data.sdiMode)
+    const wantsArchiving = data.sdiLegalArchiving ?? false
+    if (!archivingOffered && (wantsArchiving || settings.sdiLegalArchiving)) {
+      session.flash('warning', i18n.t('flash.legalArchivingOff'))
+    }
     settings.merge({
       sdiMode: data.sdiMode,
       sdiEnvironment: data.sdiEnvironment,
+      sdiLegalArchiving: archivingOffered && wantsArchiving,
       pollingMinutes: data.pollingMinutes,
       webhookEnabled: data.webhookEnabled ?? false,
       publicUrl: data.publicUrl ?? null,

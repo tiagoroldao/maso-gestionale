@@ -10,6 +10,7 @@ import {
   type SdiFile,
   type SdiGateway,
   type SdiOutcomeReport,
+  type SubmitOptions,
 } from '#services/sdi_gateway'
 
 /** Openapi's SDI API, per environment (ADR 0019) */
@@ -114,8 +115,14 @@ type InvoiceRead = {
  * offline catches up on its next poll.
  */
 export class OpenapiSdiGateway implements SdiGateway {
+  /**
+   * Openapi archives what it sends, as a paid option per file, through
+   * `POST /invoices_legal_storage` (ADR 0019)
+   */
+  static readonly legalArchiving = true
   readonly channel = 'openapi'
   readonly automatic = true
+  readonly legalArchiving = OpenapiSdiGateway.legalArchiving
   readonly baseUrl: string
   private readonly token: string
   private readonly fetch: Fetch
@@ -127,14 +134,17 @@ export class OpenapiSdiGateway implements SdiGateway {
   }
 
   /**
-   * POST /invoices with our own FatturaPA XML. Openapi answers the file's
-   * uuid and queues it for SDI. A 4xx means it took nothing (invalid file,
-   * no credit, token refused); anything else leaves it unknown.
+   * POST /invoices with our own FatturaPA XML, or POST
+   * /invoices_legal_storage to have Openapi also hand it to legal
+   * archiving. Openapi answers the file's uuid and queues it for SDI. A
+   * 4xx means it took nothing (invalid file, no credit, token refused);
+   * anything else leaves it unknown.
    */
-  async submit(file: SdiFile) {
+  async submit(file: SdiFile, options: SubmitOptions = { legalArchiving: false }) {
     let response: Response
     try {
-      response = await this.request('POST', '/invoices', {
+      const path = options.legalArchiving ? '/invoices_legal_storage' : '/invoices'
+      response = await this.request('POST', path, {
         body: file.xml,
         contentType: 'application/xml',
       })

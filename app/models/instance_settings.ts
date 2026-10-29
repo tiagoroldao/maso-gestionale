@@ -5,8 +5,9 @@ import type { SdiEnvironment, SdiMode } from '#shared/instance'
 
 /**
  * The Superuser's settings for this Instance (ADR 0005): how invoices
- * reach SDI, polling and webhook, the public URL, where backups go. There
- * is exactly one row. Secrets are stored encrypted with APP_KEY.
+ * reach SDI and whether the intermediary archives them, polling and
+ * webhook, the public URL, where backups go. There is exactly one row.
+ * Secrets are stored encrypted with APP_KEY.
  */
 export default class InstanceSettings extends InstanceSettingSchema {
   static table = 'instance_settings'
@@ -24,6 +25,7 @@ export default class InstanceSettings extends InstanceSettingSchema {
         id: 1,
         sdiMode: 'manual',
         sdiEnvironment: 'sandbox',
+        sdiLegalArchiving: false,
         pollingMinutes: 60,
         backupRetention: 14,
       })
