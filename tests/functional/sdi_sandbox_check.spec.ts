@@ -1,11 +1,13 @@
 import { readFile } from 'node:fs/promises'
 import { test } from '@japa/runner'
 import ace from '@adonisjs/core/services/ace'
+import env from '#start/env'
 import { DateTime } from 'luxon'
 import { OPENAPI_BASE_URLS } from '#services/openapi_sdi_gateway'
 import { SANDBOX_FISCAL_ID, SdiSandboxCheck } from '#services/sdi_sandbox_check'
 import { PLACEHOLDER_CALLBACK_URL } from '#services/sdi_receiving'
 import { FakeOpenapi, type RecordedRequest } from '#tests/helpers/openapi'
+import { extractXmlBytes } from '#fiscal/fattura_pa_reader'
 import SdiSandboxCheckCommand from '../../commands/sdi_sandbox_check.js'
 
 /** With characters that change when URL-encoded */
@@ -40,6 +42,8 @@ function fakeSandbox(
     configuration?: { fiscal_id: string; callbacks: Record<string, unknown>[] }
     /** Lists every configuration whatever the `fiscal_id` asked, without `fiscal_id` (the spec's read) */
     ignoresFiscalIdFilter?: boolean
+    /** The simulated Supplier Invoice is downloaded as this signed file, not XML */
+    receivedP7m?: Buffer
   } = {}
 ) {
   const {
@@ -80,7 +84,11 @@ function fakeSandbox(
       ok({ data: notices.get(invoice.uuid) ?? [], success: true })
     )
     if (invoice.type === 1) {
-      openapi.on('GET', `/invoices_download/${invoice.uuid}`, 'supplierInvoiceXml')
+      openapi.on(
+        'GET',
+        `/invoices_download/${invoice.uuid}`,
+        options.receivedP7m ? { status: 200, bytes: options.receivedP7m } : 'supplierInvoiceXml'
+      )
     }
   }
   const send = (legallyStored: boolean) => (request: RecordedRequest) => {
@@ -143,7 +151,7 @@ function fakeSandbox(
         type: 1,
         created_at: created(),
         invoiceDate: invoice.fattura_elettronica_body[0].dati_generali.dati_generali_documento.data,
-        sdi_file_name: 'IT11111111115_00001.xml',
+        sdi_file_name: `IT11111111115_00001.xml${options.receivedP7m ? '.p7m' : ''}`,
         sdi_file_id: '1084646898320',
       })
       return ok({ success: true, message: 'simulate supplier_invoice sended', error: null })
@@ -202,10 +210,12 @@ const posts = (openapi: FakeOpenapi, path: string) =>
 test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
   group.each.setup(() => {
     ace.ui.switchMode('raw')
-    process.env.OPENAPI_SANDBOX_TOKEN = TOKEN
+    // Set here, whatever .env holds, and put back after
+    const kept = env.get('OPENAPI_SANDBOX_TOKEN') ?? ''
+    env.set('OPENAPI_SANDBOX_TOKEN', TOKEN)
     return () => {
       ace.ui.switchMode('normal')
-      delete process.env.OPENAPI_SANDBOX_TOKEN
+      env.set('OPENAPI_SANDBOX_TOKEN', kept)
       SdiSandboxCheck.target = null
     }
   })
@@ -270,6 +280,11 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       { name: 'IT11111111115_00001.xml', sdiId: '1084646898320' }
     )
     assert.include(Buffer.from(imported.invoice, 'base64').toString(), '<FatturaElettronicaHeader>')
+    assert.include(
+      stdout,
+      'IT11111111115_00001.xml (XML) through `archiveReceived`: accepted, 1 uuid(s) read'
+    )
+    assert.include(stdout, 'No .p7m tried as it is: pass one with `--p7m`')
     assert.notInclude(stdout, TOKEN)
     assert.notInclude(stdout, 'Bearer')
   })
@@ -296,7 +311,62 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     const body = JSON.parse(signed.body!)
     assert.equal(body.invoice_file_name, 'supplier_invoice.xml.p7m')
     assert.deepEqual(Buffer.from(body.invoice, 'base64'), await readFile(p7m))
-    assert.include(stdout, 'supplier_invoice.xml.p7m (.p7m, from `--p7m`): accepted (201)')
+    assert.match(body.sdi_id, /^9\d{12}$/)
+    assert.include(
+      stdout,
+      `supplier_invoice.xml.p7m (.p7m as it is, from \`--p7m\`; its buyer may not be ${SANDBOX_FISCAL_ID}): accepted (201)`
+    )
+  })
+
+  test('check 8 imports a received .p7m as its XML, then tries it as it is', async ({ assert }) => {
+    const p7m = await readFile('tests/fixtures/supplier_invoice.xml.p7m')
+    const openapi = fakeSandbox({ configured: true, receivedP7m: p7m })
+
+    const { exitCode, stdout } = await run(openapi, [])
+
+    assert.equal(exitCode, 0)
+    assert.include(stdout, '| 8. Import a received file to legal storage | PASS |')
+    const [extracted, whole] = posts(openapi, '/supplier_invoice_imports_legal_storage').map(
+      (request) => JSON.parse(request.body!)
+    )
+    // Through the gateway, as the app archives it
+    assert.deepEqual(
+      { name: extracted.invoice_file_name, sdiId: extracted.sdi_id },
+      { name: 'IT11111111115_00001.xml.p7m', sdiId: '1084646898320' }
+    )
+    assert.deepEqual(Buffer.from(extracted.invoice, 'base64'), extractXmlBytes(p7m))
+    // Then whole, under another SDI id
+    assert.deepEqual(Buffer.from(whole.invoice, 'base64'), p7m)
+    assert.match(whole.sdi_id, /^9\d{12}$/)
+    assert.include(
+      stdout,
+      'IT11111111115_00001.xml.p7m (XML extracted from the .p7m) through `archiveReceived`: accepted, 1 uuid(s) read'
+    )
+    assert.include(stdout, 'IT11111111115_00001.xml.p7m (.p7m as it is, received): accepted (201)')
+  })
+
+  test('check 8 fails when the import is refused, or answers no uuid', async ({ assert }) => {
+    const refused = fakeSandbox({ configured: true }).on(
+      'POST',
+      '/supplier_invoice_imports_legal_storage',
+      { status: 422, body: { success: false, message: 'Invalid invoice', error: 422 } }
+    )
+    const first = await run(refused, [])
+    assert.equal(first.exitCode, 1)
+    assert.include(first.stdout, '| 8. Import a received file to legal storage | FAIL |')
+    assert.include(first.stdout, 'IT11111111115_00001.xml through `archiveReceived`: refused (422)')
+
+    const noUuid = fakeSandbox({ configured: true }).on(
+      'POST',
+      '/supplier_invoice_imports_legal_storage',
+      { status: 201, body: { success: true } }
+    )
+    const second = await run(noUuid, [])
+    assert.equal(second.exitCode, 1)
+    assert.include(
+      second.stdout,
+      'IT11111111115_00001.xml through `archiveReceived`: refused (`noRemoteId`: no uuid read in the answer)'
+    )
   })
 
   test('filters Openapi ignores fail check 6', async ({ assert }) => {
@@ -485,7 +555,7 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     assert.include(production.stderr, "https://sdi.openapi.it is not Openapi's sandbox")
     assert.equal(production.stdout, '')
 
-    delete process.env.OPENAPI_SANDBOX_TOKEN
+    env.set('OPENAPI_SANDBOX_TOKEN', '')
     const tokenless = await run(openapi, [])
     assert.equal(tokenless.exitCode, 1)
     assert.include(tokenless.stderr, 'OPENAPI_SANDBOX_TOKEN is not set')

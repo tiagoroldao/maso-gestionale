@@ -2,7 +2,14 @@ import { readFileSync } from 'node:fs'
 import app from '@adonisjs/core/services/app'
 import { OpenapiSdiGateway } from '#services/openapi_sdi_gateway'
 
-type Fixture = { status: number; body?: unknown; text?: string; contentType?: string }
+type Fixture = {
+  status: number
+  body?: unknown
+  text?: string
+  /** A binary answer, such as a signed file */
+  bytes?: Buffer
+  contentType?: string
+}
 const fixtures: Record<string, Fixture> = JSON.parse(
   readFileSync(app.makePath('tests/fixtures/openapi/responses.json'), 'utf8')
 )
@@ -133,6 +140,12 @@ export class FakeOpenapi {
     }
     const fixture = typeof answer === 'string' ? fixtures[answer] : answer
     if (!fixture) throw new Error(`No recorded response ${answer}`)
+    if (fixture.bytes !== undefined) {
+      return new Response(new Uint8Array(fixture.bytes), {
+        status: fixture.status,
+        headers: { 'content-type': fixture.contentType ?? 'application/octet-stream' },
+      })
+    }
     if (fixture.text !== undefined) {
       return new Response(fixture.text, {
         status: fixture.status,

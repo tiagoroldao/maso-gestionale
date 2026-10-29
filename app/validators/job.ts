@@ -26,11 +26,14 @@ export const jobValidator = vine.withMetaData<{ customerId?: number; siteId?: nu
 
 /**
  * `status` filters the list (JOB_FILTERS). Without it the list shows
- * active Jobs (neither cancelled nor closed).
+ * active Jobs (neither cancelled nor closed). `customerId` and `siteId`
+ * narrow it to one Customer's or Site's Jobs (linked from their pages).
  */
 export const jobSearchValidator = vine.create({
   q: vine.string().trim().maxLength(100).optional(),
   status: vine.enum(JOB_FILTERS.filter((filter) => filter !== 'active')).optional(),
+  customerId: vine.number().withoutDecimals().positive().optional(),
+  siteId: vine.number().withoutDecimals().positive().optional(),
   page: vine.number().min(1).optional(),
 })
 

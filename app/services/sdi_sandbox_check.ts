@@ -5,8 +5,9 @@ import { DateTime } from 'luxon'
 import { buildFatturaPA, fatturaFileName } from '#fiscal/fattura_pa'
 import { TIME_ZONE } from '#shared/dates'
 import { invoiceLineTotal, invoiceTotals } from '#shared/invoice_totals'
-import { OPENAPI_BASE_URLS, OpenapiSdiGateway } from '#services/openapi_sdi_gateway'
-import type { ReceivedFile, ReceivedRef } from '#services/sdi_gateway'
+import { extractXmlBytes, isSigned } from '#fiscal/fattura_pa_reader'
+import { OPENAPI_BASE_URLS, OpenapiError, OpenapiSdiGateway } from '#services/openapi_sdi_gateway'
+import { SdiFailure, type ReceivedFile, type ReceivedRef } from '#services/sdi_gateway'
 
 /**
  * The fiscal id the sandbox's Business Registry Configuration was made
@@ -347,7 +348,7 @@ export class SdiSandboxCheck {
     }
     const file = await this.gateway.download(ref)
     this.received = { ref, file }
-    const signed = file.fileName.toLowerCase().endsWith('.p7m')
+    const signed = isSigned(file.content)
     this.note(
       `Listed, with ${ref.sdiId ? 'an' : 'no'} SDI id; downloaded ${file.content.length} bytes (${signed ? '.p7m' : 'XML'})`
     )
@@ -437,42 +438,65 @@ export class SdiSandboxCheck {
   }
 
   /**
-   * Raw calls for now: the XML import is to go through the gateway's
-   * `archiveReceived` (#222, docs/follow-ups.md). The .p7m stays a raw
-   * call, sent as it is on purpose to learn whether Openapi takes it,
-   * where the gateway sends a .p7m as its extracted XML.
+   * The received file goes through the gateway's `archiveReceived`, as
+   * the app archives it (#214): a .p7m as its extracted XML. A .p7m, the
+   * received one or `--p7m`, is also sent as it is in a raw call, to learn
+   * whether Openapi takes it whole, under its own SDI id so it isn't a
+   * repeat of the first import.
    */
   private async importReceived() {
     if (!this.received) return this.skip('Nothing was received (check 5)')
     const { ref, file } = this.received
-    const imported = await this.raw('POST', '/supplier_invoice_imports_legal_storage', {
-      invoice: file.content.toString('base64'),
-      invoice_file_name: file.fileName,
-      sdi_id: ref.sdiId ?? this.stamp,
-    })
-    const accepted = imported.status >= 200 && imported.status < 300
-    const signed = file.fileName.toLowerCase().endsWith('.p7m')
-    this.note(
-      `${file.fileName} (${signed ? '.p7m' : 'XML'}): ${accepted ? 'accepted' : 'refused'} (${imported.status})`
-    )
+    const signed = isSigned(file.content)
+    let accepted = false
+    try {
+      const { remoteIds } = await this.gateway.archiveReceived({
+        fileName: file.fileName,
+        xml: extractXmlBytes(file.content),
+        sdiId: ref.sdiId ?? this.stamp,
+      })
+      accepted = true
+      this.note(
+        `${file.fileName} (${signed ? 'XML extracted from the .p7m' : 'XML'}) through \`archiveReceived\`: accepted, ${remoteIds.length} uuid(s) read`
+      )
+    } catch (error) {
+      const why =
+        error instanceof OpenapiError
+          ? String(error.status)
+          : error instanceof SdiFailure
+            ? `\`${error.code}\`: no uuid read in the answer`
+            : error instanceof Error
+              ? error.message
+              : String(error)
+      this.note(`${file.fileName} through \`archiveReceived\`: refused (${why})`)
+    }
 
     if (signed) {
-      this.note('The received file is a .p7m, tried as it is above')
+      await this.importAsItIs(file.content, file.fileName, 'received')
     } else if (this.options.p7mPath) {
       const content = await readFile(this.options.p7mPath)
-      const p7m = await this.raw('POST', '/supplier_invoice_imports_legal_storage', {
-        invoice: content.toString('base64'),
-        invoice_file_name: basename(this.options.p7mPath),
-        sdi_id: `9${this.stamp}`,
-      })
-      const ok = p7m.status >= 200 && p7m.status < 300
-      this.note(
-        `${basename(this.options.p7mPath)} (.p7m, from \`--p7m\`): ${ok ? 'accepted' : 'refused'} (${p7m.status}); its buyer may not be ${this.options.fiscalId}`
+      await this.importAsItIs(
+        content,
+        basename(this.options.p7mPath),
+        `from \`--p7m\`; its buyer may not be ${this.options.fiscalId}`
       )
     } else {
-      this.note('No .p7m tried: pass one with `--p7m`')
+      this.note('No .p7m tried as it is: pass one with `--p7m`')
     }
     return accepted ? this.pass() : this.fail('The received file was refused')
+  }
+
+  /** A raw call, since the gateway sends a .p7m as its extracted XML */
+  private async importAsItIs(content: Buffer, fileName: string, origin: string) {
+    const imported = await this.raw('POST', '/supplier_invoice_imports_legal_storage', {
+      invoice: content.toString('base64'),
+      invoice_file_name: fileName,
+      sdi_id: `9${this.stamp}`,
+    })
+    const ok = imported.status >= 200 && imported.status < 300
+    this.note(
+      `${fileName} (.p7m as it is, ${origin}): ${ok ? 'accepted' : 'refused'} (${imported.status})`
+    )
   }
 
   // Running and reporting

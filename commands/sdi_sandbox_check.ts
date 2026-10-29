@@ -1,5 +1,6 @@
 import { BaseCommand, flags } from '@adonisjs/core/ace'
 import type { CommandOptions } from '@adonisjs/core/types/ace'
+import env from '#start/env'
 import { PLACEHOLDER_CALLBACK_URL } from '#services/sdi_receiving'
 import { SANDBOX_FISCAL_ID, SandboxOnlyError, SdiSandboxCheck } from '#services/sdi_sandbox_check'
 
@@ -7,7 +8,7 @@ import { SANDBOX_FISCAL_ID, SandboxOnlyError, SdiSandboxCheck } from '#services/
  * Checks Openapi's sandbox against what the app assumes (#219, #204, ADR
  * 0019) and prints a Markdown report to paste on #204; the exit code is
  * non-zero when a check fails. Sandbox only, with OPENAPI_SANDBOX_TOKEN
- * from the environment. It sends test documents and simulates; it changes
+ * from .env or the environment. It sends test documents and simulates; it changes
  * the account's set-up only with `--setup` or `--cleanup`.
  * See docs/openapi-sandbox-check.md.
  */
@@ -49,7 +50,8 @@ export default class SdiSandboxCheckCommand extends BaseCommand {
   declare p7m?: string
 
   async run() {
-    const token = process.env.OPENAPI_SANDBOX_TOKEN
+    // From .env or the environment; empty counts as missing
+    const token = env.get('OPENAPI_SANDBOX_TOKEN')
     if (!token) {
       this.logger.error('OPENAPI_SANDBOX_TOKEN is not set')
       this.exitCode = 1

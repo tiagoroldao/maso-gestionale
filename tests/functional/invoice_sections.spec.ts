@@ -173,10 +173,10 @@ async function issue(invoice: Invoice, outcome: 'delivered' | 'rejected') {
 /**
  * A second Visit on 05/10, in the afternoon: Carla works 1 hour.
  */
-async function afternoonVisit(job: Job) {
+async function afternoonVisit(job: Job, at = '2026-10-05T14:00') {
   const carla = await createUser('technician', { fullName: 'Carla' })
   const rate = await LabourRate.findByOrFail('name', 'Idraulico')
-  const start = DateTime.fromISO('2026-10-05T14:00')
+  const start = DateTime.fromISO(at)
   const afternoon = await Visit.create({
     jobId: job.id,
     startsAt: start,
@@ -283,6 +283,71 @@ test.group('Invoice sections: organising a draft from a Job', () => {
     assert.deepEqual(await layoutOf(invoice), expected)
     assert.deepEqual(await positionsOf(invoice), [0, 1, 2, 3, 4, 5, 6, 7])
     assert.lengthOf(await InvoiceSection.query().where('invoiceId', invoice.id), 4)
+  })
+
+  test('two Visits starting at the same minute are told apart by their Technicians', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await workedJob()
+    await afternoonVisit(job, '2026-10-05T09:00')
+
+    await draft(client, job, office, { organiseBy: 'visit', combine: 'true' })
+    const layout = await layoutOf(await draftOf(job))
+    const titles = layout.map(([title]) => title)
+    assert.sameMembers(titles, [
+      'Intervento del 05/10 (09:00, Anna, Bruno)',
+      'Intervento del 05/10 (09:00, Carla)',
+      'Intervento del 12/10',
+      'Commessa',
+    ])
+  })
+
+  test("a never-started Visit planned ahead takes today's date and a time already past", async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await workedJob()
+    const today = DateTime.now().startOf('day')
+    const rate = await LabourRate.findByOrFail('name', 'Idraulico')
+    const dario = await createUser('technician', { fullName: 'Dario' })
+    // Closed without being started: one planned at midnight today, and one
+    // moved to tomorrow after closing (#154 now refuses closing it early)
+    for (const ahead of [false, true]) {
+      const visit = await Visit.create({
+        jobId: job.id,
+        startsAt: today,
+        endsAt: today.plus({ hours: 1 }),
+        status: 'planned',
+      })
+      await visit.related('technicians').attach([dario.id])
+      await FieldWork.recordHours(visit, {
+        technicianId: dario.id,
+        labourRateId: rate.id,
+        hours: '1',
+      })
+      await FieldWork.setStatus(visit, 'done', dario)
+      const startsAt = ahead ? today.plus({ days: 1, hours: 9 }) : today
+      await Visit.query()
+        .where('id', visit.id)
+        .update({
+          startedAt: null,
+          startsAt: startsAt.toSQL(),
+          endsAt: startsAt.plus({ hours: 1 }).toSQL(),
+        })
+    }
+
+    await draft(client, job, office, { organiseBy: 'visit', combine: 'true' })
+    const now = DateTime.now().toFormat('HH:mm')
+    const date = today.toFormat('dd/MM')
+    const layout = await layoutOf(await draftOf(job))
+    const titles = layout.map(([title]) => title!).filter((title) => title.includes(date))
+    assert.lengthOf(titles, 2)
+    assert.include(titles, `Intervento del ${date} (00:00)`)
+    const ahead = titles.find((title) => title !== `Intervento del ${date} (00:00)`)!
+    const time = /\((\d\d:\d\d)\)$/.exec(ahead)![1]
+    assert.notEqual(time, '09:00')
+    assert.isAtMost(time.localeCompare(now), 0)
   })
 
   test('by Item category: Manodopera, the categories by name, then Altro', async ({

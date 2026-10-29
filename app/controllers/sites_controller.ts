@@ -3,7 +3,7 @@ import Site from '#models/site'
 import Archiving, { HasOpenJobsError } from '#services/archiving'
 import Customer from '#models/customer'
 import { siteSearchValidator, siteValidator } from '#validators/site'
-import { jobRow } from '#services/job_rows'
+import { recentJobs } from '#services/job_rows'
 import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
@@ -108,17 +108,6 @@ export default class SitesController {
     const site = await Site.query()
       .where('id', params.id)
       .preload('customers')
-      .preload('jobs', (jobs) =>
-        jobs
-          .withScopes((scopes) => scopes.withBillingState())
-          .preload('customer')
-          .preload('visits')
-          .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
-          .orderBy([
-            { column: 'year', order: 'desc' },
-            { column: 'sequence', order: 'desc' },
-          ])
-      )
       .preload('installedEquipment', (equipment) =>
         equipment
           .orderBy(['equipment_type', 'id'])
@@ -152,7 +141,7 @@ export default class SitesController {
         id: customer.id,
         displayName: customer.displayName,
       })),
-      jobs: site.jobs.map((job) => jobRow(job)),
+      jobs: await recentJobs({ siteId: site.id }),
       installedEquipment: site.installedEquipment
         .filter((equipment) => !equipment.removedOn)
         .map((equipment) => equipmentRow(equipment)),

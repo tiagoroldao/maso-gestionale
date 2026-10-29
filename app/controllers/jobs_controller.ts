@@ -17,6 +17,7 @@ import Charge from '#models/charge'
 import CompanySettings from '#models/company_settings'
 import { ArchivedRecordError } from '#services/archiving'
 import Customer from '#models/customer'
+import Site from '#models/site'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
@@ -32,7 +33,16 @@ const PER_PAGE = 25
 
 export default class JobsController {
   async index({ request, inertia }: HttpContext) {
-    const { q, status, page = 1 } = await jobSearchValidator.validate(request.qs())
+    const {
+      q,
+      status,
+      customerId,
+      siteId,
+      page = 1,
+    } = await jobSearchValidator.validate(request.qs())
+    // Linked from a Customer's or Site's page, which shows its newest Jobs only
+    const ofCustomer = customerId ? await Customer.findOrFail(customerId) : null
+    const ofSite = siteId ? await Site.findOrFail(siteId) : null
 
     const query = Job.query()
       .withScopes((scopes) => scopes.withBillingState())
@@ -56,6 +66,8 @@ export default class JobsController {
     else if (status === 'quote_accepted')
       query.whereHas('quotes', (quotes) => quotes.where('status', 'accepted'))
     else if (status !== 'all') query.where('status', status)
+    if (ofCustomer) query.where('customerId', ofCustomer.id)
+    if (ofSite) query.where('siteId', ofSite.id)
     if (q) {
       const pattern = likePattern(q)
       query.where((builder) => {
@@ -84,6 +96,8 @@ export default class JobsController {
     return inertia.render('jobs/index', {
       q: q ?? '',
       status: status ?? 'active',
+      customer: ofCustomer ? { id: ofCustomer.id, displayName: ofCustomer.displayName } : null,
+      site: ofSite ? { id: ofSite.id, summary: ofSite.summary } : null,
       jobs: results.all().map((job) => ({
         ...jobRow(job),
         quotes: job.quotes.map((quote) => ({

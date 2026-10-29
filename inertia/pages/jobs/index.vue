@@ -14,6 +14,8 @@ import { JOB_FILTERS } from '@shared/jobs'
 const props = defineProps<{
   q: string
   status: string
+  customer: { id: number; displayName: string } | null
+  site: { id: number; summary: string } | null
   jobs: JobRow[]
   pagination: { currentPage: number; lastPage: number; total: number }
 }>()
@@ -27,6 +29,8 @@ function submitSearch() {
     {
       ...(search.value && { q: search.value }),
       ...(status.value !== 'active' && { status: status.value }),
+      ...(props.customer && { customerId: props.customer.id }),
+      ...(props.site && { siteId: props.site.id }),
     },
     { preserveState: true, replace: true }
   )
@@ -68,6 +72,21 @@ function submitSearch() {
         </select>
         <button type="submit" class="btn btn--secondary">{{ t('ui.common.search') }}</button>
       </form>
+
+      <p v-if="customer || site" data-testid="jobs-owner-filter">
+        <template v-if="customer">
+          {{ t('ui.jobs.ofCustomer') }}
+          <Link route="customers.show" :params="{ id: customer.id }">{{
+            customer.displayName
+          }}</Link>
+        </template>
+        <template v-if="site">
+          {{ t('ui.jobs.ofSite') }}
+          <Link route="sites.show" :params="{ id: site.id }">{{ site.summary }}</Link>
+        </template>
+        ·
+        <Link route="jobs.index">{{ t('ui.jobs.clearOwnerFilter') }}</Link>
+      </p>
 
       <p v-if="jobs.length === 0" :style="{ color: 'var(--subtle)' }">{{ t('ui.jobs.empty') }}</p>
       <JobList v-else :jobs="jobs" />

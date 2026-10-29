@@ -8,7 +8,7 @@ import Archiving, { HasOpenJobsError } from '#services/archiving'
 import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
 import { customerPickerValidator } from '#validators/job'
-import { jobRow } from '#services/job_rows'
+import { recentJobs } from '#services/job_rows'
 import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
@@ -114,17 +114,6 @@ export default class CustomersController {
       .where('id', params.id)
       .preload('paymentTerms')
       .preload('sites', (sites) => sites.orderBy('city').orderBy('street'))
-      .preload('jobs', (jobs) =>
-        jobs
-          .withScopes((scopes) => scopes.withBillingState())
-          .preload('site')
-          .preload('visits')
-          .preload('invoices', (invoices) => invoices.preload('payments').preload('creditNotes'))
-          .orderBy([
-            { column: 'year', order: 'desc' },
-            { column: 'sequence', order: 'desc' },
-          ])
-      )
       .firstOrFail()
 
     // What the Customer still owes on issued Invoices, after their Credit
@@ -189,7 +178,7 @@ export default class CustomersController {
         archived: customer.archivedAt !== null,
       },
       sites: customer.sites.map((site) => ({ id: site.id, summary: site.summary })),
-      jobs: customer.jobs.map((job) => jobRow(job)),
+      jobs: await recentJobs({ customerId: customer.id }),
       issuedDocuments: await IssuedDocuments.history({ customerId: customer.id }),
     })
   }

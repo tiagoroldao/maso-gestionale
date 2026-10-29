@@ -31,7 +31,7 @@ const props = defineProps<{
     archived: boolean
   }
   sites: { id: number; summary: string }[]
-  jobs: JobRow[]
+  jobs: { rows: JobRow[]; total: number }
   issuedDocuments: IssuedDocumentRow[]
   balance: string
   overpaid: { id: number; number: string; overpaidBy: string }[]
@@ -183,8 +183,13 @@ function linkSite(site: PickedSite) {
         </div>
       </Section>
       <Section :title="t('ui.jobs.title')">
-        <JobList v-if="jobs.length" :jobs="jobs" :show-customer="false" />
+        <JobList v-if="jobs.rows.length" :jobs="jobs.rows" :show-customer="false" />
         <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.jobs.empty') }}</p>
+        <p v-if="jobs.total > jobs.rows.length">
+          <Link route="jobs.index" :qs="{ customerId: customer.id, status: 'all' }">{{
+            t('ui.jobs.allOf', { total: jobs.total })
+          }}</Link>
+        </p>
         <div>
           <Link
             route="jobs.create"

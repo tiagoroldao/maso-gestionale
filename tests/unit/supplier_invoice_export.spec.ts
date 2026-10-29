@@ -1,5 +1,5 @@
 import { test } from '@japa/runner'
-import { csvCode, csvText, safeName } from '#services/supplier_invoice_export'
+import { csvCode, csvText, safeName, unique } from '#services/supplier_invoice_export'
 
 test.group('Supplier Invoice export: CSV cells', () => {
   test('text that Excel would run as a formula stays text', ({ assert }) => {
@@ -56,5 +56,20 @@ test.group('Supplier Invoice export: file names in the zip', () => {
     const name = safeName(`${'a'.repeat(300)}.xml.p7m`)
     assert.lengthOf(name, 150)
     assert.isTrue(name.endsWith('a.xml.p7m'))
+  })
+
+  test('a repeated name takes -2, -3… within 150 characters', ({ assert }) => {
+    const taken = new Set<string>()
+    const long = safeName(`${'a'.repeat(300)}.xml.p7m`)
+    const names = [1, 2, 3].map(() => unique(`originali/${long}`, taken))
+    assert.deepEqual(
+      names.map((path) => path.split('/')[1].length),
+      [150, 150, 150]
+    )
+    assert.deepEqual(
+      names.map((path) => path.slice(-11)),
+      ['aaa.xml.p7m', 'a-2.xml.p7m', 'a-3.xml.p7m']
+    )
+    assert.equal(unique('pdf/Fattura.pdf', new Set(['pdf/fattura.pdf'])), 'pdf/Fattura-2.pdf')
   })
 })

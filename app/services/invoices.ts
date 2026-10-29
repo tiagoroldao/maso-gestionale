@@ -171,21 +171,37 @@ export type InvoiceLineInput = {
 export type InvoiceSectionInput = { id?: number; title: string; showSubtotal: boolean }
 
 /**
- * A Charge to draft, with its Visit, the Visit's work day (ISO) and start
- * time (HH:mm), or none for the Job's own.
+ * A Charge to draft, with its Visit, the Visit's work day (ISO), start
+ * time (HH:mm) and Technicians' names, or none for the Job's own.
  */
 type WorkEntry = {
   visitId: number | null
   day: string | null
   time: string | null
+  technicians: string | null
   charge: Charge
 }
 
 /**
- * When a Visit started, or was to start, as a section title gives it.
+ * When a Visit started, or was to start, as a section title gives it:
+ * never later than `now`, as its work day is never later than today
+ * (`Visit.workDay`), so a never-started Visit planned ahead shows today's
+ * date with a time already past.
  */
-const visitTime = (visit: Visit) =>
-  (visit.startedAt ?? visit.startsAt).setZone(TIME_ZONE).toFormat('HH:mm')
+const visitTime = (visit: Visit, now: DateTime) => {
+  const at = visit.startedAt ?? visit.startsAt
+  return (at > now ? now : at).setZone(TIME_ZONE).toFormat('HH:mm')
+}
+
+/**
+ * The Visit's Technicians by name, to tell apart two Visits starting at
+ * the same minute; needs `technicians` preloaded.
+ */
+const visitTechnicians = (visit: Visit) =>
+  visit.technicians
+    .map((user) => user.fullName ?? user.email)
+    .sort((a, b) => a.localeCompare(b, 'it'))
+    .join(', ')
 
 /**
  * The VAT treatment a drafted line takes.
@@ -984,6 +1000,7 @@ export default class Invoices {
             .preload('labourRate')
             .orderByRaw("kind = 'item', created_at, id")
         )
+        .preload('technicians')
         .orderBy('startsAt')
       const now = DateTime.now()
       const dayOf = (visit: Visit) => visit.workDay(now).toISODate()!
@@ -1002,11 +1019,18 @@ export default class Invoices {
           visit.charges.map((charge) => ({
             visitId: visit.id,
             day: dayOf(visit),
-            time: visitTime(visit),
+            time: visitTime(visit, now),
+            technicians: visitTechnicians(visit),
             charge,
           }))
         ),
-        ...onJob.map((charge) => ({ visitId: null, day: null, time: null, charge })),
+        ...onJob.map((charge) => ({
+          visitId: null,
+          day: null,
+          time: null,
+          technicians: null,
+          charge,
+        })),
       ]
       if (!work.length) throw new JobNotInvoiceableError()
 
@@ -1122,7 +1146,10 @@ export default class Invoices {
       .preload('labourRate')
     const visitIds = [...new Set(charges.flatMap((charge) => charge.visitId ?? []))]
     const visits = visitIds.length
-      ? await Visit.query({ client: trx }).whereIn('id', visitIds).orderBy(['startsAt', 'id'])
+      ? await Visit.query({ client: trx })
+          .whereIn('id', visitIds)
+          .preload('technicians')
+          .orderBy(['startsAt', 'id'])
       : []
     const byTime = (a: Charge, b: Charge) =>
       a.createdAt.toMillis() - b.createdAt.toMillis() || a.id - b.id
@@ -1135,14 +1162,15 @@ export default class Invoices {
           .map((charge) => ({
             visitId: visit.id,
             day: visit.workDay(now).toISODate()!,
-            time: visitTime(visit),
+            time: visitTime(visit, now),
+            technicians: visitTechnicians(visit),
             charge,
           }))
       ),
       ...charges
         .filter((charge) => !charge.visitId)
         .sort(byTime)
-        .map((charge) => ({ visitId: null, day: null, time: null, charge })),
+        .map((charge) => ({ visitId: null, day: null, time: null, technicians: null, charge })),
     ]
   }
 
@@ -1194,6 +1222,7 @@ export default class Invoices {
       handSlot = slots.length - 1
     }
     const headings = slots.map((slot) => slot.heading)
+    const technicians = new Map(work.map((entry) => [entry.visitId, entry.technicians]))
     const sectionIds: (number | null)[] = []
     for (const heading of headings) {
       if (!heading) {
@@ -1204,7 +1233,7 @@ export default class Invoices {
         {
           invoiceId,
           position: sectionIds.filter((id) => id !== null).length,
-          title: this.sectionTitle(heading, headings),
+          title: this.sectionTitle(heading, headings, technicians),
           showSubtotal: true,
         },
         { client: trx }
@@ -1297,9 +1326,15 @@ export default class Invoices {
    * A section's title as organising words it (ADR 0018), e.g.
    * "Manodopera", "Intervento del 03/11", or the Item category's name; a
    * Visit sharing its day with another among `headings` gets its start
-   * time too, "Intervento del 03/11 (09:00)".
+   * time too, "Intervento del 03/11 (09:00)", and its Technicians (by
+   * Visit id in `technicians`) when it also shares that minute,
+   * "Intervento del 03/11 (09:00, Anna Bianchi)".
    */
-  private static sectionTitle(heading: Heading, headings: (Heading | null)[]) {
+  private static sectionTitle(
+    heading: Heading,
+    headings: (Heading | null)[],
+    technicians: Map<number | null, string | null>
+  ) {
     const i18n = i18nManager.locale(i18nManager.defaultLocale)
     if (heading.type === 'kind') return i18n.t(`documents.invoice.sections.${heading.kind}`)
     if (heading.type === 'category') return heading.name.slice(0, 200)
@@ -1309,6 +1344,19 @@ export default class Invoices {
       (other) =>
         other?.type === 'visit' && other.visitId !== heading.visitId && other.day === heading.day
     )
+    const sameMinute = headings.some(
+      (other) =>
+        other?.type === 'visit' &&
+        other.visitId !== heading.visitId &&
+        other.day === heading.day &&
+        other.time === heading.time
+    )
+    const names = technicians.get(heading.visitId)
+    if (sameMinute && names) {
+      return i18n
+        .t('documents.invoice.sections.visitAtWith', { date, time: heading.time, names })
+        .slice(0, 200)
+    }
     return sameDay
       ? i18n.t('documents.invoice.sections.visitAt', { date, time: heading.time })
       : i18n.t('documents.invoice.sections.visit', { date })
