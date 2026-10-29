@@ -256,6 +256,7 @@ defineProps<{
           <p>
             <strong>{{ t('ui.instance.backups.passphraseWarning') }}</strong>
           </p>
+          <p>{{ t('ui.instance.backups.appKeyWarning') }}</p>
           <p v-if="backups.recipient" class="field__hint">
             {{ t('ui.instance.backups.passphraseChange') }}
           </p>

@@ -62,12 +62,29 @@ test.group('Backup names and retention', () => {
       'maso-backup-notes.txt',
       'other/file.tar.age',
     ]
-    assert.sameMembers(backupsToPrune(names, 2), [
+    const uploaded = 'maso-backup-20261027T003000Z.tar.age'
+    assert.sameMembers(backupsToPrune(names, 2, uploaded), [
       'maso-backup-20261025T003000Z.tar.age',
       'maso-backup-20261025T003000Z.key.age',
       'maso-backup-20261028T003000Z.key.age',
     ])
-    assert.sameMembers(backupsToPrune(names, 5), ['maso-backup-20261028T003000Z.key.age'])
+    assert.sameMembers(backupsToPrune(names, 5, uploaded), ['maso-backup-20261028T003000Z.key.age'])
+  })
+
+  test('never prunes the archive just uploaded, even when the clock went back', ({ assert }) => {
+    const names = [
+      'maso-backup-20261027T003000Z.tar.age',
+      'maso-backup-20261027T003000Z.key.age',
+      'maso-backup-20261026T003000Z.tar.age',
+      'maso-backup-20261026T003000Z.key.age',
+      // Uploaded now, but stamped before the others
+      'maso-backup-20200101T003000Z.tar.age',
+      'maso-backup-20200101T003000Z.key.age',
+    ]
+    assert.sameMembers(backupsToPrune(names, 1, 'maso-backup-20200101T003000Z.tar.age'), [
+      'maso-backup-20261026T003000Z.tar.age',
+      'maso-backup-20261026T003000Z.key.age',
+    ])
   })
 })
 

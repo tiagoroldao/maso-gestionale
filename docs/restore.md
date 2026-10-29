@@ -7,7 +7,7 @@ How to bring an Instance back from its off-site backups (#33) onto any machine w
 - **The backup passphrase**, the one the Superuser set in Instance settings and keeps offline. Without it the backups can't be decrypted; nobody, including the server, can recover it.
 - **The bucket's details and keys**: endpoint, bucket, region, access key and secret key (from the storage provider's console if the server is gone).
 - A machine with Docker and Docker Compose, and this repository's `compose.yaml` (or the one shipped with the release).
-- Optionally the old `.env`, for its `APP_KEY` (see step 5).
+- **The old server's `APP_KEY`** (from its `.env`), kept offline next to the passphrase. It isn't in the backups. Without it the restore still works, but the secrets stored in Instance settings must be entered again (step 5).
 
 ## What a backup is
 
@@ -74,23 +74,35 @@ docker compose exec -T db pg_restore --no-owner --no-privileges --exit-on-error 
   -U maso -d maso < /path/to/maso-restore/backup/database.dump
 ```
 
-Secrets stored in Instance settings (the Invoicetronic API key, the webhook secret, the bucket's secret key) are encrypted with `APP_KEY`. Put the old `APP_KEY` in `.env` to keep them; with a new one (`node ace generate:key`, or any 32+ character random string) they read as empty, and the Superuser enters them again in step 7. Everything else, including the backup key and passphrase, is unaffected.
+Secrets stored in Instance settings (the Invoicetronic API key, the webhook secret, the bucket's secret key) are encrypted with `APP_KEY`. Put the old `APP_KEY` in `.env` to keep them. With a new one (`openssl rand -base64 32`) they read as missing, and the Superuser enters them again in step 7. Everything else, including the backup key and passphrase, is unaffected.
 
-## 6. Restore the files and start
+## 6. Restore the files and start the app
 
 ```sh
 docker compose run --rm --no-deps -v /path/to/maso-restore/backup/storage:/restore:ro \
   --entrypoint sh app -c 'cp -a /restore/. /app/storage/'
-docker compose up -d
+docker compose up -d app
 ```
+
+This starts the app and what it needs (`db`, `gotenberg`), but **not** the `backup` service. The restored settings still point at the old server's bucket. Started now, `backup` would catch up on the missed night: it would upload to that bucket and prune its oldest backups while the old server may still be writing there, or while this is only a drill. It starts in step 7.
 
 Use the same release as the old server, or a newer one: the app runs any newer migrations on start-up.
 
-## 7. Check
+## 7. Check, then turn the backups back on
 
 - Sign in as the Admin; open a few recent Jobs, an Invoice and its PDF, a Visit with photos.
 - Sign in as the Superuser; in Instance settings re-enter any secret that now reads as missing (step 5).
-- Make sure the old server is off for good, or turn its backups off: both would otherwise write to the same bucket. Then press "Esegui ora" and check the backup succeeds.
+- Don't press "Esegui ora" yet. It uploads and prunes too.
+- Before any backup from this machine, one of these must hold:
+  - **Real recovery**: the old server is off for good, so only this machine writes to the bucket.
+  - **Drill** (the old server keeps running): point Instance settings at a different bucket first, so the drill never prunes the real backups.
+- Then start the backup job and take a backup:
+
+  ```sh
+  docker compose up -d backup
+  ```
+
+  Press "Esegui ora" and check the backup succeeds.
 
 ## 8. Clean up
 

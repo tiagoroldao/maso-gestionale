@@ -18,11 +18,12 @@ export default class InstanceController {
     return inertia.render('instance', {
       settings: {
         sdiMode: settings.sdiMode,
-        // Whether a secret is stored, never the secret
-        hasApiKey: Boolean(settings.invoicetronicApiKey),
+        // Whether a usable secret is stored, never the secret: one
+        // encrypted under another APP_KEY (after a restore) reads as null
+        hasApiKey: settings.apiKey !== null,
         pollingMinutes: settings.pollingMinutes,
         webhookEnabled: settings.webhookEnabled,
-        hasWebhookSecret: Boolean(settings.webhookSecret),
+        hasWebhookSecret: settings.secret !== null,
         publicUrl: settings.publicUrl,
       },
       backups: {
@@ -30,7 +31,7 @@ export default class InstanceController {
         bucket: settings.backupBucket ?? null,
         region: settings.backupRegion ?? null,
         accessKeyId: settings.backupAccessKeyId ?? null,
-        hasSecret: Boolean(settings.backupSecretAccessKey),
+        hasSecret: settings.backupSecret !== null,
         retention: settings.backupRetention,
         // The public key only: the passphrase is never stored
         recipient: settings.backupRecipient ?? null,

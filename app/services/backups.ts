@@ -52,9 +52,12 @@ export function backupNames(at: Date) {
 /**
  * The backup objects to delete so that only the `retention` newest
  * archives (and their key files) remain. Key files left by a failed run
- * go too; objects not named like a backup are never touched.
+ * go too; objects not named like a backup are never touched. `uploaded`,
+ * the archive just made, is kept whatever its name: if the clock went
+ * backwards, it isn't among the newest.
  */
-export function backupsToPrune(names: string[], retention: number) {
+export function backupsToPrune(names: string[], retention: number, uploaded: string) {
+  const current = BACKUP_OBJECT.exec(uploaded)?.[1]
   const stamps = names
     .map((name) => BACKUP_OBJECT.exec(name))
     .filter((match) => match?.[2] === 'tar')
@@ -64,7 +67,7 @@ export function backupsToPrune(names: string[], retention: number) {
   const kept = new Set(stamps.slice(0, retention))
   return names.filter((name) => {
     const match = BACKUP_OBJECT.exec(name)
-    return match !== null && !kept.has(match[1])
+    return match !== null && !kept.has(match[1]) && match[1] !== current
   })
 }
 
@@ -193,7 +196,8 @@ async function perform(
     })
     logger.info({ backup: names.archive }, 'Backup uploaded')
 
-    for (const name of backupsToPrune(await bucket.list(BACKUP_PREFIX), settings.backupRetention)) {
+    const stored = await bucket.list(BACKUP_PREFIX)
+    for (const name of backupsToPrune(stored, settings.backupRetention, names.archive)) {
       await bucket.remove(name)
     }
     return 'succeeded'

@@ -105,6 +105,7 @@
       "passphrase": "Passphrase dei backup",
       "passphraseConfirmation": "Conferma passphrase",
       "passphraseWarning": "Scegli una passphrase lunga (almeno 12 caratteri, meglio 4-5 parole a caso), scrivila e conservala offline, per esempio stampata in cassaforte. Il server non la conserva e non può decifrare i propri backup: per ripristinarli serve la passphrase. Se la perdi, i backup non si possono ripristinare.",
+      "appKeyWarning": "Conserva offline, insieme alla passphrase, anche la APP_KEY del server (nel file .env): non è nei backup, e senza di essa dopo un ripristino le chiavi salvate qui vanno inserite di nuovo.",
       "passphraseSet": "Passphrase impostata. Lascia vuoto per mantenerla.",
       "passphraseChange": "Una nuova passphrase vale per i backup successivi: quelli già fatti si ripristinano solo con la passphrase di allora.",
       "publicKey": "Chiave pubblica di cifratura: {key}",

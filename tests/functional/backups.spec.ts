@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
+import encryption from '@adonisjs/core/services/encryption'
 import pg from 'pg'
 import env from '#start/env'
 import InstanceSettings from '#models/instance_settings'
@@ -249,6 +250,73 @@ test.group('Backup settings', () => {
     assert.isNull(await InstanceSettings.find(1))
     assert.isNull(Backups.running)
   })
+
+  test('a refused save flashes the errors, never the secret or the passphrase', async ({
+    client,
+    assert,
+  }) => {
+    const superuser = await createUser('superuser')
+
+    const response = await client
+      .put('/instance/backups')
+      .form({ ...fields, backupBucket: 'Not Valid' })
+      .header('referer', '/instance')
+      .withCsrfToken()
+      .loginAs(superuser)
+      .redirects(0)
+
+    assert.property(response.flashMessage('inputErrorsBag'), 'backupBucket')
+    const flashed = JSON.stringify(response.flashMessages())
+    assert.notInclude(flashed, PASSPHRASE)
+    assert.notInclude(flashed, fields.backupSecretAccessKey)
+    assert.notInclude(flashed, fields.backupAccessKeyId)
+  })
+
+  test('secrets encrypted under another APP_KEY (a restore) count as missing', async ({
+    client,
+    assert,
+  }) => {
+    const superuser = await createUser('superuser')
+    await configureBackups()
+    // What a ciphertext from the old server looks like to this one
+    await db
+      .from('instance_settings')
+      .where('id', 1)
+      .update({
+        backup_secret_access_key: undecryptable('scw-secret-123'),
+        invoicetronic_api_key: undecryptable('itk_secret'),
+        webhook_secret: undecryptable('whsec'),
+      })
+
+    const page = await client.get('/instance').withInertia().loginAs(superuser)
+    page.assertInertiaPropsContains({
+      settings: { hasApiKey: false, hasWebhookSecret: false },
+      backups: { hasSecret: false },
+    })
+
+    // So the secret must be entered again
+    const missing = await client
+      .put('/instance/backups')
+      .form({
+        ...fields,
+        backupSecretAccessKey: '',
+        backupPassphrase: '',
+        backupPassphraseConfirmation: '',
+      })
+      .header('referer', '/instance')
+      .withCsrfToken()
+      .loginAs(superuser)
+      .redirects(0)
+    assert.deepEqual(Object.keys(missing.flashMessage('inputErrorsBag')), ['backupSecretAccessKey'])
+
+    await client
+      .put('/instance/backups')
+      .form({ ...fields, backupPassphrase: '', backupPassphraseConfirmation: '' })
+      .withCsrfToken()
+      .loginAs(superuser)
+    const saved = await InstanceSettings.findOrFail(1)
+    assert.equal(saved.backupSecret, 'scw-secret-123')
+  })
 })
 
 test.group('Backup job', (group) => {
@@ -380,6 +448,61 @@ test.group('Backup job', (group) => {
       ]
     )
   })
+
+  test('the backup just uploaded is kept even if newer-looking ones fill the retention', async ({
+    assert,
+  }) => {
+    // As after the clock jumped back: existing backups look newer
+    await configureBackups(1)
+    await bucket.store.put('maso-backup-20991231T003000Z.tar.age', 'from the future')
+    await bucket.store.put('maso-backup-20991231T003000Z.key.age', 'from the future')
+
+    assert.equal(await Backups.run(), 'succeeded')
+
+    const { backupLastName } = await InstanceSettings.findOrFail(1)
+    assert.sameMembers(
+      [...bucket.store.objects.keys()],
+      [
+        'maso-backup-20991231T003000Z.tar.age',
+        'maso-backup-20991231T003000Z.key.age',
+        backupLastName!,
+        backupLastName!.replace('.tar.age', '.key.age'),
+      ]
+    )
+  })
+
+  for (const command of ['pg_dump', 'tar']) {
+    test(`a failing ${command} uploads no archive and records the failure`, async ({
+      assert,
+      cleanup,
+    }) => {
+      await configureBackups()
+      const before = await InstanceSettings.findOrFail(1)
+      // A stand-in first on the PATH: some output, then an error
+      const bin = await mkdtemp(join(tmpdir(), 'maso-fake-bin-'))
+      await writeFile(
+        join(bin, command),
+        `#!/bin/sh\nprintf 'partial output'\necho '${command} broke' >&2\nexit 2\n`,
+        { mode: 0o755 }
+      )
+      const path = process.env.PATH
+      process.env.PATH = `${bin}:${path}`
+      cleanup(async () => {
+        process.env.PATH = path
+        await rm(bin, { recursive: true, force: true })
+      })
+
+      assert.equal(await Backups.run(), 'failed')
+
+      const archives = [...bucket.store.objects.keys()].filter((name) => name.endsWith('.tar.age'))
+      assert.deepEqual(archives, [])
+      const settings = await InstanceSettings.findOrFail(1)
+      assert.equal(settings.backupFailure, `${command} exited with code 2: ${command} broke`)
+      assert.isNotNull(settings.backupFailedAt)
+      assert.isNull(settings.backupStartedAt)
+      assert.equal(settings.backupSucceededAt?.toISO(), before.backupSucceededAt?.toISO())
+    })
+  }
 })
 
 test.group('Backup restore', (group) => {
@@ -443,6 +566,19 @@ test.group('Backup restore', (group) => {
     assert.isNotNull(await User.find(user.id))
   }).tags(['@committed'])
 })
+
+/**
+ * A ciphertext this server can't decrypt, as one written under another
+ * APP_KEY: a valid one with its encrypted payload altered.
+ */
+function undecryptable(value: string) {
+  const parts = encryption.encrypt(value).split('.')
+  const payload = parts[1]
+  parts[1] = (payload[0] === 'A' ? 'B' : 'A') + payload.slice(1)
+  const tampered = parts.join('.')
+  if (encryption.decrypt(tampered) !== null) throw new Error('Still decryptable')
+  return tampered
+}
 
 /**
  * A connection of its own, outside the test's transaction.

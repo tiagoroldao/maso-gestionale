@@ -3,6 +3,7 @@ import { createBackupKey } from '#services/backup_encryption'
 import { Backups } from '#services/backups'
 import { backupSettingsValidator } from '#validators/instance_settings'
 import type { HttpContext } from '@adonisjs/core/http'
+import { errors as vineErrors } from '@vinejs/vine'
 
 /**
  * Nightly backups in Instance settings (#33), for the Superuser only: where
@@ -12,12 +13,23 @@ import type { HttpContext } from '@adonisjs/core/http'
 export default class InstanceBackupsController {
   async update({ request, response, session, i18n }: HttpContext) {
     const settings = await InstanceSettings.current()
-    const data = await request.validateUsing(backupSettingsValidator, {
-      meta: {
-        hasSecret: Boolean(settings.backupSecretAccessKey),
-        hasKey: Boolean(settings.backupRecipient),
-      },
-    })
+    let data
+    try {
+      data = await request.validateUsing(backupSettingsValidator, {
+        meta: {
+          // A secret stored under another APP_KEY (after a restore) reads
+          // as null: it must be entered again
+          hasSecret: settings.backupSecret !== null,
+          hasKey: Boolean(settings.backupRecipient),
+        },
+      })
+    } catch (error) {
+      if (!(error instanceof vineErrors.E_VALIDATION_ERROR)) throw error
+      // The errors only, never the input: the secret and the passphrase
+      // don't travel back in the session cookie
+      session.flashValidationErrors(error, false)
+      return response.redirect().back()
+    }
 
     settings.merge({
       backupEndpoint: data.backupEndpoint,
