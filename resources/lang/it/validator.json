@@ -161,6 +161,7 @@
       "backupEndpoint": "indirizzo dello spazio di archiviazione",
       "openapiToken": "token Openapi",
       "sdiEnvironment": "ambiente",
+      "sdiLegalArchiving": "conservazione a norma",
       "pollingMinutes": "intervallo di controllo",
       "webhookSecret": "segreto del webhook",
       "publicUrl": "indirizzo pubblico",
