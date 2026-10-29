@@ -7,7 +7,6 @@ import { storagePath } from '#services/storage'
 import Visit from '#models/visit'
 import Charge from '#models/charge'
 import LabourRate from '#models/labour_rate'
-import InstalledEquipment from '#models/installed_equipment'
 import StockMovement from '#models/stock_movement'
 import StockLedger from '#stock/stock_ledger'
 import FieldWork from '#services/field_work'
@@ -89,28 +88,6 @@ test.group('Field work', () => {
 
     await visit.load('hours')
     assert.lengthOf(visit.hours, 0)
-  })
-
-  test('an installed Item becomes Installed Equipment at the Site', async ({ client, assert }) => {
-    const { anna, site, visit, item } = await setup()
-
-    await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({ itemId: String(item.id), quantity: '1', installed: 'true', serialNumber: 'SN-777' })
-      .withCsrfToken()
-      .loginAs(anna)
-
-    const line = await Charge.query().where('kind', 'item').firstOrFail()
-    const equipment = await InstalledEquipment.findOrFail(line.installedEquipmentId!)
-    assert.equal(equipment.siteId, site.id)
-    assert.equal(equipment.itemId, item.id)
-    assert.equal(equipment.serialNumber, 'SN-777')
-    assert.equal(equipment.maintenanceIntervalMonths, 12)
-    assert.equal(equipment.installedOn?.toISODate(), visit.startsAt.toISODate())
-
-    // Removing the line removes the equipment it created
-    await client.delete(`/charges/${line.id}`).withCsrfToken().loginAs(anna)
-    assert.isNull(await InstalledEquipment.find(equipment.id))
   })
 
   test('installing needs a Site on the Job', async ({ client, assert }) => {

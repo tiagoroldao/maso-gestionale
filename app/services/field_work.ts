@@ -8,6 +8,7 @@ import Visit, { type FieldVisitStatus } from '#models/visit'
 import Charge from '#models/charge'
 import ChargeEvent from '#models/charge_event'
 import InstalledEquipment from '#models/installed_equipment'
+import Installations from '#services/installations'
 import StockLedger from '#stock/stock_ledger'
 import { CLOSED_VISIT_STATUSES, isCancelledVisit } from '#shared/visits'
 import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
@@ -41,9 +42,10 @@ export class FieldWorkRefusedError extends Error {
 /**
  * What Technicians record on a Visit: hours and Items used (some installed
  * at the Site), as Charges (ADR 0010) planned until the Visit closes, notes and photos,
- * and closing it, which reviews the Charges and takes the done Items off
- * stock (ADR 0016). Every change locks the Visit, so a colleague closing it at the
- * same moment can't leave lines off stock or reopen it.
+ * and closing it, which reviews the Charges, takes the done Items off
+ * stock and installs the done installed ones (ADR 0016, #162). Every
+ * change locks the Visit, so a colleague closing it at the same moment
+ * can't leave lines off stock or reopen it.
  *
  * A closed or cancelled Job's Visits are frozen as history: they leave the
  * Agenda and the Technicians' lists, and accept no further work (ADR
@@ -128,7 +130,7 @@ export default class FieldWork {
   /**
    * Removes a Charge recorded by mistake, while the Visit is open and
    * before Office has acted on it (an imported Quote line is Office's).
-   * An Item's Installed Equipment created with it goes too.
+   * Never done, it never touched Installed Equipment (#162).
    */
   static async removeCharge(charge: Charge) {
     await this.whileOpen(await Visit.findOrFail(charge.visitId), async (trx) => {
@@ -145,7 +147,6 @@ export default class FieldWork {
           .first())
       if (reviewed) throw new FieldWorkRefusedError('reviewed')
       await current.useTransaction(trx).delete()
-      if (current.kind === 'item') await this.removeCreatedEquipment(trx, current)
     })
   }
 
@@ -166,8 +167,10 @@ export default class FieldWork {
   }
 
   /**
-   * Records an Item used; an installed one becomes Installed Equipment at
-   * the Job's Site, linked to the Item, with its default interval.
+   * Records an Item used. An installed one keeps the equipment's details
+   * on the Charge (a new unit's type, make, model and serial number, or
+   * the unit at the Job's Site it goes onto) until it becomes done, when
+   * the equipment is created or updated (Installations, #162).
    */
   static async recordItem(
     visit: Visit,
@@ -189,42 +192,17 @@ export default class FieldWork {
 
       const item = await Item.findOrFail(input.itemId, { client: trx })
       let equipmentId: number | null = null
-      let created = false
       if (input.installed && input.equipmentId) {
-        // Installed onto equipment already registered at this Site
+        // Onto equipment already registered at this Site, still there
         const existing = await InstalledEquipment.query({ client: trx })
           .where('id', input.equipmentId)
           .where('siteId', locked.job.siteId!)
           .whereNull('removedOn')
-          .forUpdate()
           .first()
         if (!existing) throw new FieldWorkRefusedError('notAtSite')
-        existing.merge({
-          itemId: item.id,
-          serialNumber: input.serialNumber ?? existing.serialNumber,
-          installedOn: existing.installedOn ?? locked.startsAt.startOf('day'),
-          maintenanceIntervalMonths:
-            existing.maintenanceIntervalMonths ?? item.maintenanceIntervalMonths,
-        })
-        await existing.useTransaction(trx).save()
         equipmentId = existing.id
-      } else if (input.installed) {
-        const equipment = await InstalledEquipment.create(
-          {
-            siteId: locked.job.siteId!,
-            itemId: item.id,
-            equipmentType: (input.equipmentType || item.description).slice(0, 100),
-            make: input.make ?? null,
-            model: input.model ?? null,
-            serialNumber: input.serialNumber ?? null,
-            installedOn: locked.startsAt.startOf('day'),
-            maintenanceIntervalMonths: item.maintenanceIntervalMonths,
-          },
-          { client: trx }
-        )
-        equipmentId = equipment.id
-        created = true
       }
+      const newUnit = input.installed && !equipmentId
 
       return this.record(trx, recordedBy, {
         jobId: locked.jobId,
@@ -234,34 +212,16 @@ export default class FieldWork {
         quantity: input.quantity,
         installed: Boolean(input.installed),
         installedEquipmentId: equipmentId,
-        createdEquipment: created,
+        equipmentType: newUnit ? input.equipmentType || null : null,
+        equipmentMake: newUnit ? input.make || null : null,
+        equipmentModel: newUnit ? input.model || null : null,
+        equipmentSerialNumber: input.installed ? input.serialNumber || null : null,
         billQuantity: input.quantity,
         // The Item's resale price when recorded
         unitPrice: item.resalePrice,
         description: item.description.slice(0, CHARGE_DESCRIPTION_MAX),
       })
     })
-  }
-
-  /**
-   * Removes the Installed Equipment an Item Charge created, unless another
-   * Charge or Visit has linked to it or serviced it since.
-   */
-  private static async removeCreatedEquipment(trx: TransactionClientContract, charge: Charge) {
-    const equipmentId = charge.createdEquipment ? charge.installedEquipmentId : null
-    if (!equipmentId) return
-    // Locked before the check, so a link or service still being recorded
-    // elsewhere is seen once it commits (Visit → Job → equipment)
-    await InstalledEquipment.query({ client: trx }).where('id', equipmentId).forUpdate().first()
-    const sharedSince =
-      (await trx.from('charges').where('installed_equipment_id', equipmentId).first()) ||
-      (await trx
-        .from('visit_serviced_equipment')
-        .where('installed_equipment_id', equipmentId)
-        .first())
-    if (!sharedSince) {
-      await InstalledEquipment.query({ client: trx }).where('id', equipmentId).delete()
-    }
   }
 
   /**
@@ -295,9 +255,10 @@ export default class FieldWork {
   /**
    * Changes the Visit's status. Closing it (done, or needs another visit)
    * is the review of its Charges (ADR 0016): each becomes done, an Item
-   * leaving stock in the same transaction, except those in `notDone`
-   * (unticked in the review), which become not done and never touch
-   * stock. A closed Visit's status no longer changes.
+   * leaving stock and an installed one creating or updating its equipment
+   * (#162) in the same transaction, except those in `notDone` (unticked in
+   * the review), which become not done and touch neither. A closed
+   * Visit's status no longer changes.
    */
   static async setStatus(
     visit: Visit,
@@ -314,7 +275,8 @@ export default class FieldWork {
   /**
    * Office marks done a Visit left open when its Job was cancelled (#153),
    * reviewing its Charges as the field does (`notDone`, ADR 0016), so its
-   * done Items come off stock, its serviced equipment is dated and its
+   * done Items come off stock, its done installed Items create or update
+   * their equipment (#162), its serviced equipment is dated and its
    * done Charges become billable (#111), as when any Visit closes. Only
    * "done": nobody goes back on a cancelled Job. Refused once the Visit is
    * closed, and on any Job not cancelled: an active Job's Visits close in
@@ -338,8 +300,8 @@ export default class FieldWork {
 
   /**
    * Sets the locked Visit's status; closing it makes its planned Charges
-   * done (Items off stock) or, for those in `notDone`, not done, and dates
-   * the equipment it serviced.
+   * done (Items off stock, installed ones installed) or, for those in
+   * `notDone`, not done, and dates the equipment it serviced.
    */
   private static async changeStatus(
     trx: TransactionClientContract,
@@ -364,7 +326,9 @@ export default class FieldWork {
           { chargeId: charge.id, kind: done ? 'done' : 'not_done', userId: user.id },
           { client: trx }
         )
-        if (!done || charge.kind !== 'item' || charge.stockMovementId) continue
+        if (!done || charge.kind !== 'item') continue
+        await Installations.install(trx, charge, locked, locked.job.siteId)
+        if (charge.stockMovementId) continue
         const movement = await StockLedger.use(charge.item, {
           quantity: charge.quantity,
           occurredOn: locked.startsAt.startOf('day'),

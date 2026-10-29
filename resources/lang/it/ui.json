@@ -1002,7 +1002,7 @@
     "noItems": "Nessun materiale registrato.",
     "remove": "Rimuovi",
     "doneNotice": "Intervento chiuso: ore e materiali non sono più modificabili.",
-    "completeConfirm": "Chiudere l'intervento? Le ore e i materiali spuntati risultano eseguiti (i materiali vengono scaricati dal magazzino), quelli non spuntati non eseguiti; poi non si potranno più modificare.",
+    "completeConfirm": "Chiudere l'intervento? Le ore e i materiali spuntati risultano eseguiti (i materiali vengono scaricati dal magazzino e quelli installati registrati tra gli apparecchi dell'immobile), quelli non spuntati non eseguiti; poi non si potranno più modificare.",
     "closeTitle": "Chiusura",
     "closeHint": "Togli la spunta a ore e materiali non usati: non verranno fatturati né scaricati dal magazzino.",
     "nothingToReview": "Nessuna ora o materiale registrato.",

@@ -38,61 +38,6 @@ async function setup() {
 }
 
 test.group('Installing onto Site equipment', () => {
-  test('an installed Item can go onto equipment already at the Site', async ({
-    client,
-    assert,
-  }) => {
-    const { anna, visit, boiler, item } = await setup()
-
-    await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({
-        itemId: String(item.id),
-        quantity: '1',
-        installed: 'true',
-        equipmentId: String(boiler.id),
-        serialNumber: 'SN-9',
-      })
-      .withCsrfToken()
-      .loginAs(anna)
-
-    await boiler.refresh()
-    assert.equal(boiler.itemId, item.id)
-    assert.equal(boiler.serialNumber, 'SN-9')
-    assert.lengthOf(await InstalledEquipment.query().where('siteId', boiler.siteId), 1)
-
-    // Removing the line leaves equipment it didn't create
-    const line = await Charge.findByOrFail('visitId', visit.id)
-    await client.delete(`/charges/${line.id}`).withCsrfToken().loginAs(anna)
-    assert.isNotNull(await InstalledEquipment.find(boiler.id))
-  })
-
-  test('new equipment gets its type, make and model', async ({ client, assert }) => {
-    const { anna, visit, item, site } = await setup()
-
-    await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({
-        itemId: String(item.id),
-        quantity: '1',
-        installed: 'true',
-        equipmentType: 'Caldaia murale',
-        make: 'Vaillant',
-        model: 'ecoTEC',
-      })
-      .withCsrfToken()
-      .loginAs(anna)
-
-    const created = await InstalledEquipment.query()
-      .where('siteId', site.id)
-      .orderBy('id', 'desc')
-      .firstOrFail()
-    assert.deepEqual(
-      [created.equipmentType, created.make, created.model, created.maintenanceIntervalMonths],
-      ['Caldaia murale', 'Vaillant', 'ecoTEC', 24]
-    )
-  })
-
   test("equipment at another Site can't be picked", async ({ client, assert }) => {
     const { anna, visit, item } = await setup()
     const otherSite = await createSite()
@@ -245,44 +190,6 @@ test.group('Servicing equipment', () => {
       const row = rows.find((r) => r.id === model.id)
       assert.equal(row.next_due, model.nextDueOn?.toISODate() ?? null, model.equipmentType)
     }
-  })
-
-  test('equipment another Visit relies on stays when the line that created it goes', async ({
-    client,
-    assert,
-  }) => {
-    const { anna, visit, item, site } = await setup()
-    await client
-      .post(`/my-visits/${visit.id}/items`)
-      .form({
-        itemId: String(item.id),
-        quantity: '1',
-        installed: 'true',
-        equipmentType: 'Caldaia nuova',
-      })
-      .withCsrfToken()
-      .loginAs(anna)
-    const created = await InstalledEquipment.query()
-      .where('siteId', site.id)
-      .orderBy('id', 'desc')
-      .firstOrFail()
-    // A second Visit services it
-    const start = DateTime.fromISO('2026-10-22T09:00')
-    const later = await Visit.create({
-      jobId: visit.jobId,
-      startsAt: start,
-      endsAt: start.plus({ hours: 1 }),
-      status: 'planned',
-    })
-    await later.related('technicians').attach([anna.id])
-    await FieldWork.setServiced(later, [created.id])
-
-    const line = await Charge.query().where('visitId', visit.id).firstOrFail()
-    await client.delete(`/charges/${line.id}`).withCsrfToken().loginAs(anna)
-
-    assert.isNotNull(await InstalledEquipment.find(created.id))
-    const serviced = await db.from('visit_serviced_equipment').where('visit_id', later.id)
-    assert.lengthOf(serviced, 1)
   })
 
   test('serviced equipment: outsiders, closed Visits and cancelled Jobs are refused', async ({
