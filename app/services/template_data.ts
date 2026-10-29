@@ -11,6 +11,7 @@ import Site from '#models/site'
 import { formatDate, todayIso } from '#shared/dates'
 import { parseAmount } from '#shared/money'
 import { own, type TableData, type TemplateField } from '#shared/document_templates'
+import { WORK_STATE_SQL } from '#services/job_status'
 
 /**
  * Values that don't fit their fields, as messages by field key.
@@ -243,8 +244,9 @@ export default class TemplateData {
   }
 
   /**
-   * The Items used on a Job, from its Item Charges (ADR 0010): each once,
-   * in the order first recorded, with the quantities recorded summed.
+   * The Items used on a Job, from its Item Charges (ADR 0010) except those
+   * not done (ADR 0016): each once, in the order first recorded, with the
+   * quantities recorded summed.
    */
   static async itemsUsed(job: Job): Promise<ItemUsed[]> {
     const rows = await db
@@ -252,6 +254,7 @@ export default class TemplateData {
       .join('items', 'items.id', 'charges.item_id')
       .where('charges.job_id', job.id)
       .where('charges.kind', 'item')
+      .whereRaw(`${WORK_STATE_SQL('charges')} <> 'not_done'`)
       .groupBy('items.id')
       .select('items.id', 'items.code', 'items.description', 'items.unit')
       .sum('charges.quantity as quantity')

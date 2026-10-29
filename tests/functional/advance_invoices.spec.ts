@@ -17,6 +17,7 @@ import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
 import { committedData } from '#tests/helpers/committed'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
+import { confirmUsed } from '#tests/helpers/charges'
 import type Job from '#models/job'
 
 /**
@@ -47,6 +48,8 @@ async function acceptedJob() {
     { lineIds: quote.lines.map((line) => line.id), workerName: 'Ditta Rossi' },
     await createUser('office')
   )
+  // Planned until Office confirms the work done (ADR 0016)
+  await confirmUsed(job.id)
   return job
 }
 

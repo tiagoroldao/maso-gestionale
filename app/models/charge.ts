@@ -6,9 +6,9 @@ import InvoiceLine from '#models/invoice_line'
 import Item from '#models/item'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
-import { chargeState, type ChargeKind } from '#shared/charges'
+import { chargeState, workState, type ChargeKind } from '#shared/charges'
 import { lineKindOf, type LineKind } from '#shared/vat'
-import { CHARGE_STATE_SQL } from '#services/job_status'
+import { CHARGE_STATE_SQL, WORK_STATE_SQL } from '#services/job_status'
 
 /**
  * Something a Job can be billed for (ADR 0010): hours someone worked at a
@@ -45,10 +45,13 @@ export default class Charge extends ChargeSchema {
   declare invoiceLines: ManyToMany<typeof InvoiceLine>
 
   /**
-   * Charges to bill: billable, neither held by a draft nor billed.
+   * Charges a draft takes now (isDraftable()): done, billable, neither
+   * held by a draft nor billed (ADR 0016).
    */
   static toBill = scope((query) => {
-    query.whereRaw(`${CHARGE_STATE_SQL('charges')} = 'to_bill'`)
+    query
+      .whereRaw(`${CHARGE_STATE_SQL('charges')} = 'to_bill'`)
+      .whereRaw(`${WORK_STATE_SQL('charges')} = 'done'`)
   })
 
   /**
@@ -102,5 +105,13 @@ export default class Charge extends ChargeSchema {
    */
   get state() {
     return chargeState(this.events, this.heldBy !== null)
+  }
+
+  /**
+   * Whether the work happened: planned, done or not done (needs `events`
+   * ordered by id; ADR 0016).
+   */
+  get workState() {
+    return workState(this.events)
   }
 }

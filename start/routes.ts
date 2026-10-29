@@ -237,6 +237,12 @@ router
           .post('charges/:id/to-bill', [controllers.Charges, 'setBackToBill'])
           .where('id', router.matchers.number())
         router
+          .post('charges/:id/done', [controllers.Charges, 'markDone'])
+          .where('id', router.matchers.number())
+        router
+          .post('charges/:id/not-done', [controllers.Charges, 'markNotDone'])
+          .where('id', router.matchers.number())
+        router
           .get('jobs/:id/quotes/create', [controllers.Quotes, 'create'])
           .where('id', router.matchers.number())
         router

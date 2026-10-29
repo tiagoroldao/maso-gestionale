@@ -8,7 +8,7 @@ import AppLayout from '~/layouts/app.vue'
 import { formatDate, formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
 import { amountForInput } from '@shared/money'
-import type { ChargeState } from '@shared/charges'
+import type { ChargeState, WorkState } from '@shared/charges'
 import type { AdvanceState } from '@shared/advances'
 import { LINE_KINDS } from '@shared/vat'
 import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
@@ -72,6 +72,7 @@ const props = defineProps<{
     unitPrice: string
     amount: string
     state: ChargeState
+    workState: WorkState
   }[]
   job: {
     id: number
@@ -95,6 +96,7 @@ const props = defineProps<{
     survey: boolean
     closableByOffice: boolean
     billed: boolean
+    charges: { id: number; description: string }[]
     technicians: string[]
     notes: { id: number; body: string; author: string | null }[]
     photoIds: number[]
@@ -241,6 +243,16 @@ function confirmCancel() {
                   :params="{ id: visit.id }"
                   :on-before="() => confirm(t('ui.visits.markDoneConfirm'))"
                 >
+                  <!-- Its Charges, all ticked: unticked ones become not done (ADR 0016) -->
+                  <label
+                    v-for="charge in visit.charges"
+                    :key="charge.id"
+                    :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
+                  >
+                    <input type="hidden" name="reviewed[]" :value="charge.id" />
+                    <input type="checkbox" name="done[]" :value="charge.id" checked />
+                    {{ charge.description }}
+                  </label>
                   <button type="submit" class="btn btn--ghost btn--sm">
                     {{ t('ui.visits.markDone') }}
                   </button>
@@ -265,6 +277,7 @@ function confirmCancel() {
               <th>{{ t('ui.charges.quantity') }}</th>
               <th>{{ t('ui.charges.unitPrice') }}</th>
               <th>{{ t('ui.charges.amount') }}</th>
+              <th>{{ t('ui.charges.work') }}</th>
               <th>{{ t('ui.charges.state') }}</th>
               <th />
             </tr>
@@ -289,9 +302,22 @@ function confirmCancel() {
               <td>{{ formatMoney(charge.unitPrice) }}</td>
               <td>{{ formatMoney(charge.amount) }}</td>
               <td>
+                <span class="tag">{{ t(`ui.charges.workStates.${charge.workState}`) }}</span>
+              </td>
+              <td>
                 <span class="tag">{{ t(`ui.charges.states.${charge.state}`) }}</span>
               </td>
               <td class="table__actions">
+                <!-- Planned on the Job itself until Office confirms it used (ADR 0016) -->
+                <Form
+                  v-if="charge.visitId === null && charge.workState === 'planned'"
+                  route="charges.mark_done"
+                  :params="{ id: charge.id }"
+                >
+                  <button type="submit" class="btn btn--ghost btn--sm">
+                    {{ t('ui.charges.confirmUsed') }}
+                  </button>
+                </Form>
                 <Link
                   route="charges.edit"
                   :params="{ id: charge.id }"

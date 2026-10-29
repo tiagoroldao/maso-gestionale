@@ -233,7 +233,7 @@ test.group('Credit Notes credit Charges', () => {
     assert.equal(await bothStates(assert, hours), 'credited')
     assert.equal(await bothStates(assert, pipe), 'credited')
     assert.equal(await bothStates(assert, valve), 'billed')
-    assert.deepEqual(await history(pipe), ['recorded', 'billed', 'credited'])
+    assert.deepEqual(await history(pipe), ['recorded', 'done', 'billed', 'credited'])
     const credited = await ChargeEvent.query()
       .where('chargeId', pipe.id)
       .where('kind', 'credited')
@@ -275,7 +275,7 @@ test.group('Credit Notes credit Charges', () => {
     await Invoices.save(second, { lines: creditLines([[pipeLine, '35']]) })
     await Invoices.finalise(second)
     assert.equal(await bothStates(assert, pipe), 'credited')
-    assert.deepEqual(await history(pipe), ['recorded', 'billed', 'credited'])
+    assert.deepEqual(await history(pipe), ['recorded', 'done', 'billed', 'credited'])
   })
 
   test('Office sets a credited Charge back to bill, to bill it again', async ({
@@ -306,7 +306,7 @@ test.group('Credit Notes credit Charges', () => {
     const back = await post(client, `/charges/${pipe.id}/to-bill`, office)
     back.assertFlashMessage('success', it('flash.chargeSetBackToBill'))
     assert.equal(await bothStates(assert, pipe), 'to_bill')
-    assert.deepEqual(await history(pipe), ['recorded', 'billed', 'credited', 'unbilled'])
+    assert.deepEqual(await history(pipe), ['recorded', 'done', 'billed', 'credited', 'unbilled'])
     const unbilled = await ChargeEvent.query()
       .where('chargeId', pipe.id)
       .where('kind', 'unbilled')
@@ -322,7 +322,14 @@ test.group('Credit Notes credit Charges', () => {
     await Invoices.finalise(next)
     assert.equal(await bothStates(assert, pipe), 'billed')
     // A Credit Note on the first Invoice no longer reaches it
-    assert.deepEqual(await history(pipe), ['recorded', 'billed', 'credited', 'unbilled', 'billed'])
+    assert.deepEqual(await history(pipe), [
+      'recorded',
+      'done',
+      'billed',
+      'credited',
+      'unbilled',
+      'billed',
+    ])
   })
 
   test('a rejected Credit Note corrected below the line gives its Charges back their billing', async ({
@@ -346,7 +353,7 @@ test.group('Credit Notes credit Charges', () => {
     lower.assertFlashMessage('success', it('flash.invoiceSaved'))
     // Billed again by the Invoice, so still nothing to bill
     assert.equal(await bothStates(assert, pipe), 'billed')
-    assert.deepEqual(await history(pipe), ['recorded', 'billed', 'credited', 'uncredited'])
+    assert.deepEqual(await history(pipe), ['recorded', 'done', 'billed', 'credited', 'uncredited'])
     assert.isFalse(await billingOpen(job))
 
     // Corrected again to credit the pipe and the valve in full
@@ -360,6 +367,7 @@ test.group('Credit Notes credit Charges', () => {
     assert.equal(await bothStates(assert, valve), 'credited')
     assert.deepEqual(await history(pipe), [
       'recorded',
+      'done',
       'billed',
       'credited',
       'uncredited',

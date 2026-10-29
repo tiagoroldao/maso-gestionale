@@ -356,7 +356,7 @@ test.group('Charges', () => {
     await client.post(`/charges/${line.id}/not-billable`).withCsrfToken().loginAs(office)
     // Marking it again changes nothing
     await client.post(`/charges/${line.id}/not-billable`).withCsrfToken().loginAs(office)
-    assert.deepEqual(await history(line), ['recorded', 'not_billable'])
+    assert.deepEqual(await history(line), ['recorded', 'done', 'not_billable'])
 
     const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({ timeAndMaterials: { total: '80.00', lines: 1 } })
@@ -386,7 +386,7 @@ test.group('Charges', () => {
     // Billable again: the next draft takes it
     await Invoice.query().where('id', invoice.id).delete()
     await client.post(`/charges/${line.id}/billable`).withCsrfToken().loginAs(office)
-    assert.deepEqual(await history(line), ['recorded', 'not_billable', 'billable'])
+    assert.deepEqual(await history(line), ['recorded', 'done', 'not_billable', 'billable'])
     const next = await Invoices.fromJob(job)
     await next.load('lines')
     assert.lengthOf(next.lines, 2)
@@ -569,6 +569,7 @@ test.group('Charges on the Job itself', () => {
     assert.equal(charge.vatKind, 'material')
     assert.deepEqual(await history(charge), [
       'recorded',
+      'done',
       'corrected',
       'billing_edited',
       'not_billable',

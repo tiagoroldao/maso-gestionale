@@ -38,8 +38,9 @@ export class FieldWorkRefusedError extends Error {
 
 /**
  * What Technicians record on a Visit: hours and Items used (some installed
- * at the Site), as Charges (ADR 0010), notes and photos, and closing it, which takes the Items off
- * stock. Every change locks the Visit, so a colleague closing it at the
+ * at the Site), as Charges (ADR 0010) planned until the Visit closes, notes and photos,
+ * and closing it, which reviews the Charges and takes the done Items off
+ * stock (ADR 0016). Every change locks the Visit, so a colleague closing it at the
  * same moment can't leave lines off stock or reopen it.
  *
  * A closed or cancelled Job's Visits are frozen as history: they leave the
@@ -286,23 +287,28 @@ export default class FieldWork {
 
   /**
    * Changes the Visit's status. Closing it (done, or needs another visit)
-   * takes every Item used off stock in the same transaction; a closed
-   * Visit's status no longer changes.
+   * is the review of its Charges (ADR 0016): each becomes done, an Item
+   * leaving stock in the same transaction, except those in `notDone`
+   * (unticked in the review), which become not done and never touch
+   * stock. A closed Visit's status no longer changes.
    */
-  static async setStatus(visit: Visit, status: VisitStatus, user: User) {
-    await this.whileOpen(visit, (trx, locked) => this.changeStatus(trx, locked, status, user))
+  static async setStatus(visit: Visit, status: VisitStatus, user: User, notDone: number[] = []) {
+    await this.whileOpen(visit, (trx, locked) =>
+      this.changeStatus(trx, locked, status, user, notDone)
+    )
     visit.status = status
   }
 
   /**
    * Office marks done a Visit left open when its Job was cancelled (#153),
-   * so its Items come off stock, its serviced equipment is dated and its
-   * Charges become billable (#111), as when any Visit closes. Only "done":
-   * nobody goes back on a cancelled Job. Refused once the Visit is closed,
-   * and on any Job not cancelled: an active Job's Visits close in the field,
-   * a closed Job is reopened first.
+   * reviewing its Charges as the field does (`notDone`, ADR 0016), so its
+   * done Items come off stock, its serviced equipment is dated and its
+   * done Charges become billable (#111), as when any Visit closes. Only
+   * "done": nobody goes back on a cancelled Job. Refused once the Visit is
+   * closed, and on any Job not cancelled: an active Job's Visits close in
+   * the field, a closed Job is reopened first.
    */
-  static async closeOnCancelledJob(visit: Visit, user: User) {
+  static async closeOnCancelledJob(visit: Visit, user: User, notDone: number[] = []) {
     await db.transaction(async (trx) => {
       const locked = await this.lockOpenVisit(trx, visit)
       // Visit first, then its Job; cancelled is final, so a share lock holds it
@@ -313,34 +319,49 @@ export default class FieldWork {
       if (job.status !== 'cancelled') {
         throw new FieldWorkRefusedError(job.status === 'closed' ? 'closed' : 'notCancelled')
       }
-      await this.changeStatus(trx, locked, 'done', user)
+      await this.changeStatus(trx, locked, 'done', user, notDone)
     })
     visit.status = 'done'
   }
 
   /**
-   * Sets the locked Visit's status; closing it takes its Items off stock
-   * and dates the equipment it serviced.
+   * Sets the locked Visit's status; closing it makes its planned Charges
+   * done (Items off stock) or, for those in `notDone`, not done, and dates
+   * the equipment it serviced.
    */
   private static async changeStatus(
     trx: TransactionClientContract,
     locked: Visit,
     status: VisitStatus,
-    user: User
+    user: User,
+    notDone: number[]
   ) {
     if (CLOSED_VISIT_STATUSES.includes(status)) {
       await locked.load('job')
-      await locked.load('items', (items) => items.whereNull('stock_movement_id').preload('item'))
-      for (const line of locked.items) {
-        const movement = await StockLedger.use(line.item, {
-          quantity: line.quantity,
+      // Locked after the Visit and its Job, as Office's changes do
+      const charges = await Charge.query({ client: trx })
+        .where('visitId', locked.id)
+        .preload('events', (events) => events.orderBy('id'))
+        .preload('item')
+        .orderBy('id')
+        .forUpdate()
+      for (const charge of charges) {
+        if (charge.workState !== 'planned') continue
+        const done = !notDone.includes(charge.id)
+        await ChargeEvent.create(
+          { chargeId: charge.id, kind: done ? 'done' : 'not_done', userId: user.id },
+          { client: trx }
+        )
+        if (!done || charge.kind !== 'item' || charge.stockMovementId) continue
+        const movement = await StockLedger.use(charge.item, {
+          quantity: charge.quantity,
           occurredOn: locked.startsAt.startOf('day'),
           reference: locked.job.number,
           user,
           client: trx,
         })
         await Charge.query({ client: trx })
-          .where('id', line.id)
+          .where('id', charge.id)
           .update({ stock_movement_id: movement.id })
       }
 
