@@ -8,6 +8,12 @@ import type { SdiFailureCode } from '#shared/sdi_failures'
 export type SdiFile = { fileName: string; xml: string }
 
 /**
+ * How a file is sent: with legal archiving (conservazione a norma)
+ * requested from the intermediary, which only one that offers it accepts.
+ */
+export type SubmitOptions = { legalArchiving: boolean }
+
+/**
  * SDI's notice for a file sent through the intermediary: the outcome, the
  * notice's date (the resubmission deadline counts from it), SDI's
  * identifier for the file, and the error codes of a Rejection.
@@ -69,8 +75,10 @@ export interface SdiGateway {
   readonly channel: string
   /** Whether it sends files itself and reports their outcomes */
   readonly automatic: boolean
+  /** Whether it can also hand sent files to legal archiving (ADR 0019) */
+  readonly legalArchiving: boolean
   /** Hands the file to SDI; the intermediary's id for it, if it has one */
-  submit(file: SdiFile): Promise<{ remoteId: string | null }>
+  submit(file: SdiFile, options?: SubmitOptions): Promise<{ remoteId: string | null }>
   /** SDI's final notice for a file sent, or null while there is none */
   outcome(remoteId: string): Promise<SdiOutcomeReport | null>
   /** The ids of files already sent for an Invoice number and date, to settle an unknown send */
@@ -88,8 +96,10 @@ export interface SdiGateway {
  * is nothing to send, poll or receive.
  */
 export class ManualSdiGateway implements SdiGateway {
+  static readonly legalArchiving = false
   readonly channel = 'manual'
   readonly automatic = false
+  readonly legalArchiving = ManualSdiGateway.legalArchiving
   async submit() {
     return { remoteId: null }
   }
@@ -112,24 +122,30 @@ export class ManualSdiGateway implements SdiGateway {
 
 /**
  * An intermediary in memory, for tests: keeps what it is sent, answers
- * the outcomes and serves the files it is given.
+ * the outcomes and serves the files it is given. It offers no legal
+ * archiving unless a test says so.
  */
 export class FakeSdiGateway implements SdiGateway {
   readonly channel = 'fake'
   readonly automatic = true
-  readonly submitted: SdiFile[] = []
+  legalArchiving = false
+  readonly submitted: (SdiFile & SubmitOptions)[] = []
   readonly outcomes = new Map<string, SdiOutcomeReport>()
   readonly files = new Map<string, ReceivedFile & ReceivedRef>()
   /** Makes the next send fail with this error */
   failNext: Error | null = null
 
-  async submit(file: SdiFile) {
+  async submit(file: SdiFile, options: SubmitOptions = { legalArchiving: false }) {
     if (this.failNext) {
       const error = this.failNext
       this.failNext = null
       throw error
     }
-    this.submitted.push(file)
+    // Like an intermediary, it can't archive without the service
+    if (options.legalArchiving && !this.legalArchiving) {
+      throw new SdiSendRefusedError('No legal archiving here')
+    }
+    this.submitted.push({ ...file, legalArchiving: options.legalArchiving })
     return { remoteId: `fake-${this.submitted.length}` }
   }
 

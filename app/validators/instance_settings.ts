@@ -27,6 +27,8 @@ export const instanceSettingsValidator = vine
           (!field.meta.hasToken || ticked(field.parent.clearToken))
       ),
     clearToken: vine.boolean().optional(),
+    // Kept only for an intermediary that offers it (#205)
+    sdiLegalArchiving: vine.boolean().optional(),
     pollingMinutes: vine.number().withoutDecimals().min(5).max(1440),
     webhookEnabled: vine.boolean().optional(),
     webhookSecret: vine
