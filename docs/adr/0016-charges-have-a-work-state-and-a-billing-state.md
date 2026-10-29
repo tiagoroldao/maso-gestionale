@@ -17,6 +17,6 @@ Billing: only done Charges can be billed; a planned Charge keeps the Job's billi
 ## Consequences
 
 - A cancelled Visit status, with restore.
-- Stock shows in stock, committed and available per Item.
+- Stock shows in stock, committed and available per Item. Only planned Charges on Jobs open or in progress are committed: a Job's planned Charges commit nothing while it is closed or cancelled, and reopening a closed Job commits them again (#158).
 - Existing data: Charges on closed Visits are done, on open Visits planned; Job Charges are done, except Item Charges imported from a Quote, which are planned.
 - (Refines ADR 0010's corrections "at any time" and ADR 0012's Job Item Charges.)

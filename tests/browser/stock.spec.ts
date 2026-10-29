@@ -19,7 +19,8 @@ test.group('Stock in the browser', () => {
     await page.locator('#receipt-unit-cost').fill('1,80')
     await page.getByRole('button', { name: it('ui.items.receive') }).click()
 
-    await page.getByText('12,5 m', { exact: true }).waitFor()
+    // In stock, and available alike: nothing is committed
+    await page.getByText('12,5 m', { exact: true }).first().waitFor()
     assert.equal(await StockLedger.levelOf(item), '12.500')
     await item.refresh()
     assert.equal(item.purchasePrice, '1.8000')

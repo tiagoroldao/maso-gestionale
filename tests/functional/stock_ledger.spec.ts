@@ -198,7 +198,7 @@ test.group('Stock screens', () => {
 
     response.assertInertiaComponent('items/show')
     response.assertInertiaPropsContains({
-      stock: '9.000',
+      stock: { inStock: '9.000', committed: '0.000', available: '9.000' },
       movements: [
         { kind: 'adjustment', quantity: '-1.000', reason: 'Rotto' },
         { kind: 'receipt', quantity: '10.000' },

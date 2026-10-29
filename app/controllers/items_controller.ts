@@ -64,13 +64,13 @@ export default class ItemsController {
     else query.withScopes((scopes) => scopes.active())
     if (q) query.withScopes((scopes) => scopes.search(q))
     const results = await query.orderBy(['code', 'id']).paginate(page, PER_PAGE)
-    const levels = await StockLedger.levels(results.all().map((item) => item.id))
+    const quantities = await StockLedger.quantities(results.all().map((item) => item.id))
 
     return inertia.render('items/index', {
       q: q ?? '',
       archived,
       items: results.all().map((item) => ({
-        stock: levels.get(item.id) ?? '0.000',
+        ...quantities.get(item.id)!,
         id: item.id,
         code: item.code,
         description: item.description,
@@ -112,7 +112,8 @@ export default class ItemsController {
   }
 
   /**
-   * The Item with its current stock and Stock Movement history.
+   * The Item with its stock (in stock, committed, available) and Stock
+   * Movement history.
    */
   async show({ params, inertia }: HttpContext) {
     const item = await Item.query()
@@ -146,7 +147,7 @@ export default class ItemsController {
           : false,
         markupPercent: item.category?.markupPercent ?? null,
       },
-      stock: await StockLedger.levelOf(item),
+      stock: await StockLedger.quantitiesOf(item),
       documents: item.documents.map((document) => ({ id: document.id, title: document.title })),
       movements: movements.map((movement) => ({
         id: movement.id,
