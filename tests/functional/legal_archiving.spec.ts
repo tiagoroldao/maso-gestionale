@@ -213,6 +213,8 @@ test.group('Legal archiving: Instance setting', (group) => {
     assert,
   }) => {
     const superuser = await createUser('superuser')
+    // A fiscal id, so the receiving callback registers and the save confirms
+    await completeCompany()
 
     const manual = await client.get('/instance').withInertia().loginAs(superuser)
     manual.assertInertiaPropsContains({
@@ -268,6 +270,7 @@ test.group('Legal archiving: Instance setting', (group) => {
       .loginAs(superuser)
       .redirects(0)
     response.assertFlashMessage('warning', it('flash.legalArchivingOff'))
+    response.assertFlashMissing('success')
     await settings.refresh()
     assert.equal(settings.sdiMode, 'manual')
     assert.isFalse(settings.sdiLegalArchiving)
