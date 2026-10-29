@@ -2,6 +2,7 @@ import { rm } from 'node:fs/promises'
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import i18nManager from '@adonisjs/i18n/services/main'
+import Charge from '#models/charge'
 import DocumentTemplate from '#models/document_template'
 import IssuedDocument from '#models/issued_document'
 import type Job from '#models/job'
@@ -13,15 +14,18 @@ import DocumentRenderer from '#documents/document_renderer'
 import { issuedDocument } from '#documents/issued_document'
 import type { PdfConverter } from '#documents/pdf_converter'
 import Charges from '#services/charges'
+import DocumentTemplates from '#services/document_templates'
 import FieldWork from '#services/field_work'
 import Scheduling from '#services/scheduling'
 import { storagePath } from '#services/storage'
 import { formatDate } from '#shared/dates'
 import { formatMoney } from '#shared/money'
+import type { TemplateNode } from '#shared/document_templates'
 import { completeCompany } from '#tests/helpers/company'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
+import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
 import { it } from '#tests/helpers/i18n'
 import { addedTemplates } from '#tests/helpers/document_templates'
@@ -195,7 +199,14 @@ test.group('Work report for a Job (#180)', (group) => {
       it('documents.workReport.between', { from: shown(4), to: shown(1) })
     )
     assert.deepEqual(document.tables.rapportino, {
-      headers: ['Data', 'Tecnici', 'Descrizione', 'Quantità', 'Prezzo', 'Importo'],
+      headers: [
+        'Data',
+        'Tecnici',
+        'Descrizione',
+        'Quantità',
+        'Prezzo',
+        it('documents.workReport.amount'),
+      ],
       rows: [
         [
           shown(3),
@@ -227,8 +238,46 @@ test.group('Work report for a Job (#180)', (group) => {
       ['', '', 'Valvola', '3 pz', formatMoney('7.5'), formatMoney('22.5')],
       ['', '', 'Elettricista', '1 h', formatMoney('50'), formatMoney('50')],
       ['', '', 'Note: Valvola sostituita', '', '', ''],
-      ['', '', 'Totale', '', '', formatMoney('192.5')],
+      ['', '', it('documents.workReport.total'), '', '', formatMoney('192.5')],
     ])
+  })
+
+  test('with prices, a line shows the quantity billed; without, the one recorded', async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, customer, job, template } = await longJob()
+    // Of Anna's and Bruno's 3 hours, Office bills 2: Anna's 2 become 1
+    const annas = await Charge.query()
+      .where('jobId', job.id)
+      .where('userId', anna.id)
+      .where('quantity', 2)
+      .firstOrFail()
+    await Charges.editBilling(
+      annas,
+      { quantity: '1', unitPrice: annas.unitPrice, description: annas.description },
+      office
+    )
+    const period = { from: iso(10), to: iso(10), notes: false }
+
+    const priced = await issue({ client, office }, template, customer.id, {
+      commessa: job.id,
+      rapportino: { ...period, prices: true },
+    })
+    const plain = await issue({ client, office }, template, customer.id, {
+      commessa: job.id,
+      rapportino: { ...period, prices: false },
+    })
+
+    const withPrices = await IssuedDocument.findOrFail(priced.body().id)
+    assert.deepEqual(withPrices.tables.rapportino.rows[0].slice(2), [
+      'Idraulico',
+      '2 h',
+      formatMoney('40'),
+      formatMoney('80'),
+    ])
+    const withoutPrices = await IssuedDocument.findOrFail(plain.body().id)
+    assert.deepEqual(withoutPrices.tables.rapportino.rows[0].slice(2), ['Idraulico', '3 h'])
   })
 
   test('refused without a Job, with a period ending before it starts, or bad options', async ({
@@ -334,6 +383,46 @@ test.group('Work report for a Job (#180)', (group) => {
 
     page.assertStatus(200)
     assert.deepEqual(page.inertiaProps.prefill.rapportino, { ...options, to: null })
+  })
+
+  test("Technicians don't see work reports, which can print prices, from a Visit", async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, customer, job } = await longJob()
+    const site = await createSite({ label: 'Centrale termica' })
+    await customer.related('sites').attach([site.id])
+    await job.merge({ siteId: site.id }).save()
+    // A work report also chosen for the Site, so it is the Site's document
+    const template = await DocumentTemplates.create({
+      name: 'Rapportino per immobile',
+      fields: [
+        { key: 'site', label: 'Immobile', type: 'site', required: true },
+        { key: 'job', label: 'Commessa', type: 'job', required: true },
+        { key: 'report', label: 'Rapportino', type: 'work_report', required: true },
+      ],
+      body: {
+        type: 'doc',
+        content: [{ type: 'fieldTable', attrs: { key: 'report', label: 'Rapportino' } }],
+      } as TemplateNode,
+    })
+    const response = await issue({ client, office }, template, customer.id, {
+      site: site.id,
+      job: job.id,
+      report: { ...whole, prices: true },
+    })
+    response.assertStatus(200)
+    const document = await IssuedDocument.findOrFail(response.body().id)
+    assert.equal(document.siteId, site.id)
+    const visit = await visitOn(job, [anna], 0, 'planned')
+
+    const page = await client.get(`/my-visits/${visit.id}`).withInertia().loginAs(anna)
+    page.assertStatus(200)
+    assert.deepEqual(page.inertiaProps.issuedDocuments, [])
+    const pdf = await client
+      .get(`/my-visits/${visit.id}/issued-documents/${document.id}`)
+      .loginAs(anna)
+    pdf.assertStatus(404)
   })
 
   test('a template needs a Job field for its work report', async ({ client, assert }) => {

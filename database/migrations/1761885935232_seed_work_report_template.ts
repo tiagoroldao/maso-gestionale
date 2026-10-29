@@ -53,7 +53,9 @@ export default class extends BaseSchema {
 
   /**
    * Removes the seeded template while nothing was issued from it or saved
-   * over it; otherwise it stays, as any template in use does.
+   * over it; otherwise it stays, as any template in use does. A template
+   * of the same name the Admin made before (up() skipped it) differs from
+   * the seed in its first version, and stays too.
    */
   async down() {
     this.defer(async (db) => {
@@ -68,6 +70,14 @@ export default class extends BaseSchema {
             .from('document_template_versions')
             .whereRaw('document_template_id = document_templates.id')
             .where('version', '>', 1)
+        )
+        .whereExists((query) =>
+          query
+            .from('document_template_versions')
+            .whereRaw('document_template_id = document_templates.id')
+            .where('version', 1)
+            .whereRaw('fields = ?::jsonb', [JSON.stringify(FIELDS)])
+            .whereRaw('body = ?::jsonb', [JSON.stringify(BODY)])
         )
         .first()
       if (!template) return

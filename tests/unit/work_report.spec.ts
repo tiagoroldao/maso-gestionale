@@ -25,6 +25,7 @@ const hours = (quantity: string, overrides: Partial<WorkReportCharge> = {}): Wor
   description: 'Idraulico',
   unit: 'h',
   quantity,
+  billQuantity: quantity,
   unitPrice: '40.0000',
   amount: (Number(quantity) * 40).toFixed(2),
   ...overrides,
@@ -103,6 +104,35 @@ test.group('Work report table (#180)', () => {
       ['', '', 'Valvola', '2 pz', formatMoney('7.5'), formatMoney('15')],
       ['', '', 'Note: Valvola sostituita / Impianto in pressione', '', '', ''],
       ['', '', 'Totale', '', '', formatMoney('145')],
+    ])
+  })
+
+  test('with prices a line shows the quantity billed, without them the one recorded', ({
+    assert,
+  }) => {
+    const visits = [
+      {
+        day: '2026-10-20',
+        technicians: ['Anna'],
+        // 3 hours recorded, 2 billed
+        charges: [hours('2', { billQuantity: '1', amount: '40.00' }), hours('1')],
+        notes: [],
+      },
+    ]
+
+    assert.deepEqual(workReportTable(visits, { prices: true, notes: false }, labels).rows[0], [
+      '20/10/2026',
+      'Anna',
+      'Idraulico',
+      '2 h',
+      formatMoney('40'),
+      formatMoney('80'),
+    ])
+    assert.deepEqual(workReportTable(visits, { prices: false, notes: false }, labels).rows[0], [
+      '20/10/2026',
+      'Anna',
+      'Idraulico',
+      '3 h',
     ])
   })
 

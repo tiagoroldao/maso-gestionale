@@ -73,11 +73,11 @@ const props = defineProps<{
     cancelled: number
     next: { startsAt: string; endsAt: string } | null
   }
-  // Hours and Items across the Visits and the Job, by work state (#178)
   // Templates to issue the Job's work report from, and the Job's Issued
   // Documents (#180)
   workReportTemplates: { id: number; name: string }[]
   issuedDocuments: IssuedDocumentRow[]
+  // Hours and Items across the Visits and the Job, by work state (#178)
   summary: {
     hours: (SummaryRow & {
       key: string

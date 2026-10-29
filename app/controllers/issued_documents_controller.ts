@@ -167,12 +167,13 @@ export default class IssuedDocumentsController {
 
   /**
    * For a Technician on a Visit: an Issued Document of the Visit's Site
-   * that hasn't been replaced.
+   * that hasn't been replaced, and isn't a work report (#180).
    */
   async pdfFromVisit({ params, response, logger, i18n, bouncer }: HttpContext) {
     const visit = await Visit.query().where('id', params.id).preload('job').firstOrFail()
     await bouncer.authorize('viewVisit', visit)
     const document = await IssuedDocument.query()
+      .withScopes((scopes) => scopes.forTechnicians())
       .where('id', params.documentId)
       .whereNull('replacedById')
       .whereNotNull('siteId')

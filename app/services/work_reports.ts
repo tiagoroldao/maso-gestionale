@@ -106,16 +106,21 @@ export default class WorkReports {
 
 /**
  * A done Charge as the report lists it: hours under their Labour Rate,
- * an Item under its description; its recorded quantity (ADR 0010), and
- * what it bills, as the Job page counts it: nothing when not billable or
- * credited.
+ * an Item under its description; its recorded and billed quantities (ADR
+ * 0010), and what it bills, as the Job page counts it: nothing when not
+ * billable or credited.
  */
 function reported(charge: Charge): WorkReportCharge {
   const unbilled = charge.state === 'not_billable' || charge.state === 'credited'
   const amount = unbilled
     ? null
     : (charge.billing?.amount ?? lineTotal(charge.billQuantity, charge.unitPrice))
-  const common = { quantity: charge.quantity, unitPrice: charge.unitPrice, amount }
+  const common = {
+    quantity: charge.quantity,
+    billQuantity: charge.billQuantity,
+    unitPrice: charge.unitPrice,
+    amount,
+  }
   if (charge.kind === 'item') {
     return {
       ...common,

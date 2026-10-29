@@ -59,9 +59,10 @@ export function parseWorkReportOptions(value: unknown): WorkReportOptions | null
 }
 
 /**
- * Hours at a Labour Rate or an Item used, as a done Charge recorded it
- * (ADR 0010, 0016): `group` tells apart Labour Rates and Items of the
- * same name, `amount` is what it bills, null when it isn't billed (not
+ * Hours at a Labour Rate or an Item used, as a done Charge has them (ADR
+ * 0010, 0016): `group` tells apart Labour Rates and Items of the same
+ * name; `quantity` is what was recorded, `billQuantity` what Office set to
+ * bill; `amount` is what it bills, null when it isn't billed (not
  * billable, or credited).
  */
 export type WorkReportCharge = {
@@ -69,6 +70,7 @@ export type WorkReportCharge = {
   description: string
   unit: string
   quantity: string
+  billQuantity: string
   unitPrice: string
   amount: string | null
 }
@@ -108,8 +110,9 @@ type Line = WorkReportCharge & { amounts: (string | null)[] }
 
 /**
  * A Visit's Charges as lines, in the order first recorded: hours summed
- * per Labour Rate (whoever worked them) and quantities per Item; with
- * prices, also apart by unit price and whether they bill.
+ * per Labour Rate (whoever worked them) and quantities per Item, recorded
+ * and billed alike; with prices, also apart by unit price and whether
+ * they bill.
  */
 function linesOf(charges: WorkReportCharge[], prices: boolean): Line[] {
   const lines = new Map<string, Line>()
@@ -120,6 +123,7 @@ function linesOf(charges: WorkReportCharge[], prices: boolean): Line[] {
     const line = lines.get(key)
     if (line) {
       line.quantity = new Big(line.quantity).plus(charge.quantity).toString()
+      line.billQuantity = new Big(line.billQuantity).plus(charge.billQuantity).toString()
       line.amounts.push(charge.amount)
     } else {
       lines.set(key, { ...charge, amounts: [charge.amount] })
@@ -130,8 +134,10 @@ function linesOf(charges: WorkReportCharge[], prices: boolean): Line[] {
 
 /**
  * The report as a table: a row per line of each Visit, the Visit's day
- * and Technicians on its first, then its notes when chosen; with prices,
- * each line's unit price and amount, and the total billed at the end.
+ * and Technicians on its first, then its notes when chosen. Without
+ * prices, a line's quantity is what was recorded; with prices, it is what
+ * is billed, with its unit price and amount (before VAT), so quantity ×
+ * price gives the amount, and the total billed comes at the end.
  */
 export function workReportTable(
   visits: WorkReportVisit[],
@@ -148,7 +154,8 @@ export function workReportTable(
     const visitRows = linesOf(visit.charges, options.prices).map((line) => {
       const row = blank()
       row[2] = line.description
-      row[3] = `${quantityFormat.format(Number(line.quantity))} ${line.unit}`.trim()
+      const quantity = options.prices ? line.billQuantity : line.quantity
+      row[3] = `${quantityFormat.format(Number(quantity))} ${line.unit}`.trim()
       if (options.prices) {
         const amounts = line.amounts.filter((amount): amount is string => amount !== null)
         row[4] = formatMoney(line.unitPrice)
@@ -193,6 +200,7 @@ export function sampleWorkReport(labels: WorkReportLabels, today: string): Table
     description,
     unit,
     quantity,
+    billQuantity: quantity,
     unitPrice,
     amount: new Big(quantity).times(unitPrice).toFixed(2),
   })
