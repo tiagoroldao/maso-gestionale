@@ -91,8 +91,11 @@ export default class InstanceController {
     // switching to one that doesn't turns it off, with a warning (#205)
     const archivingOffered = supportsLegalArchiving(data.sdiMode)
     const wantsArchiving = data.sdiLegalArchiving ?? false
+    // One toast shows at a time: a warning says "saved" too, and replaces
+    // the plain confirmation (#215)
+    let warning: string | null = null
     if (!archivingOffered && (wantsArchiving || settings.sdiLegalArchiving)) {
-      session.flash('warning', i18n.t('flash.legalArchivingOff'))
+      warning = i18n.t('flash.legalArchivingOff')
     }
     settings.merge({
       sdiMode: data.sdiMode,
@@ -108,22 +111,21 @@ export default class InstanceController {
     else if (data.clearWebhookSecret) settings.secret = null
     await settings.save()
 
-    session.flash('success', i18n.t('flash.instanceSaved'))
     // Openapi receives Supplier Invoices only with a callback registered
-    // (ADR 0019); the poller retries if this fails
+    // (ADR 0019); the poller retries if this fails. Only in Openapi mode,
+    // so never alongside the archiving warning above.
     if (settings.sdiMode === 'openapi') {
       try {
         await SdiReceiving.ensure(await SdiConnection.gateway())
       } catch (error) {
         const detail = error instanceof Error ? error.message : String(error)
-        session.flash(
-          'error',
-          i18n.t('flash.receivingNotRegistered', {
-            detail: isSdiFailureCode(detail) ? i18n.t(`ui.sdiFailures.${detail}`) : detail,
-          })
-        )
+        warning = i18n.t('flash.receivingNotRegistered', {
+          detail: isSdiFailureCode(detail) ? i18n.t(`ui.sdiFailures.${detail}`) : detail,
+        })
       }
     }
+    if (warning) session.flash('warning', warning)
+    else session.flash('success', i18n.t('flash.instanceSaved'))
     response.redirect().toRoute('instance')
   }
 
