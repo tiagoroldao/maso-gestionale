@@ -230,14 +230,16 @@ test.group('Work report options (#180)', () => {
       }),
       { from: '2026-10-01', to: null, prices: true, notes: false, jobCharges: true }
     )
-    // Issued before #192: no other costs
-    assert.deepEqual(parseWorkReportOptions({ from: null, prices: false, notes: false }), {
+    // Issued before #192: no other costs; new input must say
+    const before192 = { from: null, prices: false, notes: false }
+    assert.deepEqual(parseWorkReportOptions(before192, { issued: true }), {
       from: null,
       to: null,
       prices: false,
       notes: false,
       jobCharges: false,
     })
+    assert.isNull(parseWorkReportOptions(before192))
     for (const refused of [
       null,
       'all',

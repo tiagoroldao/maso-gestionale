@@ -136,12 +136,18 @@ test.group('VAT Codes', () => {
     const names = (list.inertiaProps.vatCodes as { name: string }[]).map((code) => code.name)
     assert.notInclude(names, '5%')
 
+    assert.includeMembers(names, ['22%', '10%', '4%'])
+
+    // The active codes are still offered, to a new Item and to the one using it
+    const activeCodes = await VatCode.query().whereNull('archived_at')
+    const active = activeCodes.map((code) => code.id)
+    assert.isAbove(active.length, 0)
     const otherItem = await client.get('/items/create').withInertia().loginAs(admin)
     const options = (otherItem.inertiaProps.vatCodes as { id: number }[]).map((code) => code.id)
-    assert.notInclude(options, reduced.id)
+    assert.sameMembers(options, active)
     const ownItem = await client.get(`/items/${item.id}/edit`).withInertia().loginAs(admin)
     const ownOptions = (ownItem.inertiaProps.vatCodes as { id: number }[]).map((code) => code.id)
-    assert.include(ownOptions, reduced.id)
+    assert.sameMembers(ownOptions, [...active, reduced.id])
 
     // A new Item can't pick it
     const refused = await client

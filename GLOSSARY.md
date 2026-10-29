@@ -93,7 +93,7 @@ A reference file attached to an Item, such as a manual or datasheet.
 _Avoid_: Attachment, Issued Document
 
 **Stock Movement** (_Movimento di magazzino_):
-A recorded change to an Item's quantity in the Warehouse: a receipt (_carico_), usage on a Visit or the Job (_utilizzo_), a direct sale on an Invoice (_vendita_), or an adjustment with a reason (_rettifica_).
+A recorded change to an Item's quantity in the Warehouse: a receipt (_carico_), usage on a Visit or the Job (_utilizzo_), a direct sale on an Invoice (_vendita_), or an adjustment with a reason (_rettifica_). Once recorded it doesn't change, with one exception: a receipt by hand with no cost takes the cost of the Supplier Invoice line marked already received against it, and loses it again if that is undone.
 _Avoid_: Transaction, stock change, scarico (ambiguous between usage, sale and adjustment)
 
 **Committed** (_Impegnato_):

@@ -19,4 +19,5 @@ export const adjustmentValidator = vine.create({
   quantity: vine.string().use(quantityRule({ allowNegative: true })),
   reason: vine.string().trim().minLength(1).maxLength(1000),
   occurredOn: occurredOn(),
+  reference: vine.string().trim().maxLength(255).optional(),
 })

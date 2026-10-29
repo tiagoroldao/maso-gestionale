@@ -300,7 +300,7 @@ const quantity = (value: string | null) =>
               <td :style="{ textAlign: 'right' }">{{ money(line.total, 8) }}</td>
               <td :style="{ textAlign: 'right' }">{{ vatLabel(line) }}</td>
               <td>
-                <!-- Received onto an Item, or not stock: either can be undone -->
+                <!-- Received onto an Item, already received, or not stock: each can be undone -->
                 <div
                   v-if="line.outcome !== null"
                   :style="{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }"

@@ -93,8 +93,8 @@ const RECENT_DAYS = 30
 /**
  * Handling a Supplier Invoice's lines (#199): Office receives each into
  * stock onto an Item, marks it already received by hand onto one (#210),
- * or marks it not stock, and the invoice is handled once every line is
- * one or the other. Nothing enters stock by itself.
+ * or marks it not stock, and the invoice is handled once every line has
+ * one of these three outcomes. Nothing enters stock by itself.
  *
  * Every change locks the invoice, then the line, then the Item: one
  * change at a time per invoice, so its status can't race, and a line is

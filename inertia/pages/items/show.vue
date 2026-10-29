@@ -194,6 +194,13 @@ const isShort = computed(() => props.stock.available.startsWith('-'))
             <span v-if="errors.reason" class="field__error">{{ errors.reason }}</span>
           </div>
           <div class="field">
+            <label class="field__label" for="adjustment-reference">
+              {{ t('ui.items.reference') }}
+            </label>
+            <input id="adjustment-reference" name="reference" class="field__input" />
+            <span v-if="errors.reference" class="field__error">{{ errors.reference }}</span>
+          </div>
+          <div class="field">
             <label class="field__label" for="adjustment-date">{{ t('ui.items.date') }}</label>
             <input
               id="adjustment-date"
