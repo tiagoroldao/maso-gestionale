@@ -48,7 +48,6 @@
   "documentTemplateSaved": "Modello salvato (versione {version}).",
   "vatRulesSaved": "Regole IVA salvate.",
   "instanceSaved": "Impostazioni dell'istanza salvate.",
-  "legalArchivingOff": "Impostazioni salvate. La conservazione a norma tramite l'intermediario è stata disattivata, perché la modalità scelta non la offre: provvedi in altro modo, per esempio con il servizio gratuito dell'Agenzia delle Entrate.",
   "backupSettingsSaved": "Impostazioni dei backup salvate.",
   "backupStarted": "Backup avviato. Ricarica la pagina tra qualche minuto per vederne l'esito.",
   "backupAlreadyRunning": "Un backup è già in corso.",
@@ -158,6 +157,7 @@
   "submissionSent": "Fattura inviata a SDI tramite Openapi: l'esito arriverà con il prossimo controllo.",
   "submissionSending": "L'invio di questa fattura è in corso o il suo esito non è ancora noto: verrà verificato al prossimo controllo.",
   "submissionSendRefused": "Openapi ha rifiutato il file, che non è stato inviato: correggi e riprova. Dettaglio: {detail}",
+  "legalStorageNotRead": "Impostazioni salvate, ma non è stato possibile leggere da Openapi se la conservazione a norma è attiva: verrà ritentato al prossimo controllo. Dettaglio: {detail}",
   "receivingNotRegistered": "Impostazioni salvate, ma non è stato possibile registrare presso Openapi l'indirizzo per ricevere le fatture passive: verrà ritentato al prossimo controllo. Dettaglio: {detail}",
   "submissionSendUncertain": "Non è stato possibile sapere se il file è arrivato a Openapi: verrà verificato al prossimo controllo, non inviarlo di nuovo. Dettaglio: {detail}",
   "submissionOutcome": {
@@ -266,8 +266,8 @@
   "supplierInvoiceArchived": "Fattura inviata alla conservazione a norma tramite l'intermediario.",
   "supplierInvoiceArchivingFailed": "Invio alla conservazione a norma non riuscito: {detail}",
   "supplierInvoiceArchivingRefused": {
-    "notOffered": "La conservazione a norma tramite l'intermediario non è attiva.",
-    "notWaiting": "La fattura è già stata inviata alla conservazione a norma, o è in invio."
+    "notOffered": "La conservazione a norma presso l'intermediario non è attiva.",
+    "notWaiting": "La fattura è già stata inviata alla conservazione a norma, o è in invio, o l'intermediario l'ha conservata alla ricezione."
   },
   "supplierInvoicesQueued": "{count, plural, =0 {Nessuna fattura passiva da inviare alla conservazione a norma.} one {# fattura passiva verrà inviata alla conservazione a norma al prossimo controllo.} other {# fatture passive verranno inviate alla conservazione a norma al prossimo controllo.}}",
   "supplierInvoiceLineRefused": {

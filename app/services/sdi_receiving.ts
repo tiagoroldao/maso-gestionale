@@ -11,6 +11,16 @@ import { sdiWebhookUrl } from '#shared/instance'
 export const PLACEHOLDER_CALLBACK_URL = 'https://invalid.invalid/sdi/webhook'
 
 /**
+ * The company's fiscal id as the intermediary knows it (Openapi's
+ * `fiscal_id`): the VAT number (or tax code) without the country. Null
+ * without either in Company settings.
+ */
+export async function intermediaryFiscalId(): Promise<string | null> {
+  const company = await CompanySettings.current()
+  return (company.vatNumber || company.taxCode || '').trim().replace(/^IT/i, '') || null
+}
+
+/**
  * The receiving callback the settings ask for: the webhook, with its
  * secret, when enabled; the placeholder otherwise. Null without a fiscal
  * id in Company settings.
@@ -18,9 +28,7 @@ export const PLACEHOLDER_CALLBACK_URL = 'https://invalid.invalid/sdi/webhook'
 export async function receivingCallback(
   settings: InstanceSettings
 ): Promise<ReceivingCallback | null> {
-  const company = await CompanySettings.current()
-  // Openapi's fiscal_id: the VAT number (or tax code) without the country
-  const fiscalId = (company.vatNumber || company.taxCode || '').trim().replace(/^IT/i, '')
+  const fiscalId = await intermediaryFiscalId()
   if (!fiscalId) return null
   const secret = settings.webhookEnabled && settings.publicUrl ? settings.secret : null
   return secret

@@ -19,12 +19,20 @@ export const SUPPLIER_INVOICE_SOURCES = ['upload', 'sdi'] as const
 export type SupplierInvoiceSource = (typeof SUPPLIER_INVOICE_SOURCES)[number]
 
 /**
- * Legal archiving through the SDI intermediary (#214, ADR 0019), per
- * file: queued to go, being sent, requested (the intermediary took it) or
- * failed (retried by the poller, or from the invoice's page). Null when
- * never asked for.
+ * Legal archiving through the SDI intermediary (#214, #224, ADR 0019),
+ * per file. An uploaded file is queued to go, being sent, requested (the
+ * intermediary took it) or failed (retried by the poller, or from the
+ * invoice's page). A file received through the intermediary is
+ * `automatic`: its account archived it on receipt, with nothing to send.
+ * Null when never asked for.
  */
-export const LEGAL_ARCHIVING_STATES = ['queued', 'sending', 'requested', 'failed'] as const
+export const LEGAL_ARCHIVING_STATES = [
+  'queued',
+  'sending',
+  'requested',
+  'failed',
+  'automatic',
+] as const
 export type LegalArchivingState = (typeof LEGAL_ARCHIVING_STATES)[number]
 
 /** The states a file waits to be sent in: by the poller, or by Office from its page */

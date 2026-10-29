@@ -67,6 +67,7 @@ test.group('SDI through Openapi', (group) => {
     openapi = new FakeOpenapi()
       .on('GET', '/invoices', lists('emptyPage', 'emptyPage'))
       .keepsApiConfigurations()
+      .registers('01987654322', false)
     SdiConnection.use(openapi.gateway())
     SdiPolling.registered = null
     // Received files wait unless a test hands them over
@@ -399,6 +400,7 @@ test.group('SDI receiving callback', (group) => {
         fiscal_id: '01987654322',
         callbacks: [{ event: 'customer-notification', url: 'https://elsewhere.example/hook' }],
       })
+      .registers('01987654322', false)
     SdiConnection.use(openapi.gateway())
     SdiPolling.registered = null
     return () => SdiConnection.restore()

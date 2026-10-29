@@ -387,6 +387,8 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       stdout,
       'A Business Registry Configuration exists for 02903752463, `apply_legal_storage`: true'
     )
+    // The app's own read of the flag (#224)
+    assert.include(stdout, '`readLegalStorage` reads 02903752463 as archiving')
     assert.include(stdout, '| 4. Send with legal storage, then find it | PASS |')
     assert.include(stdout, '`legally_stored` after it: true')
     assert.include(stdout, 'Order of `GET /invoices`: oldest first')
@@ -429,18 +431,31 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     assert.include(stdout, 'IT11111111115_00001.xml.p7m (.p7m as it is, received): accepted (201)')
   })
 
-  test('check 8 fails when the import is refused, or answers no uuid', async ({ assert }) => {
-    // As the sandbox refused it on 2026-10-29
+  test('check 8 is skipped when refused for want of the flag, and fails when refused with it, or answering no uuid', async ({
+    assert,
+  }) => {
+    // As the sandbox refused it on 2026-10-29, for a registration without the flag
     const refused = fakeSandbox({ configured: true }).on(
       'POST',
       '/supplier_invoice_imports_legal_storage',
       'importUseSupplierInvoiceImports'
     )
     const first = await run(refused, [])
-    assert.equal(first.exitCode, 1)
-    assert.include(first.stdout, '| 8. Import a received file to legal storage | FAIL |')
+    assert.equal(first.exitCode, 0)
+    assert.include(first.stdout, '| 8. Import a received file to legal storage | SKIP |')
     assert.include(first.stdout, 'IT11111111115_00001.xml through `archiveReceived`: refused (403)')
     assert.include(first.stdout, 'Please use /supplier_invoice_imports for importing invoice')
+    assert.include(first.stdout, 'check 12 tries a registration with it')
+
+    // With the flag, the same refusal fails
+    const flagged = fakeSandbox({ configured: true, mainLegalStorage: true }).on(
+      'POST',
+      '/supplier_invoice_imports_legal_storage',
+      'importUseSupplierInvoiceImports'
+    )
+    const withFlag = await run(flagged, [])
+    assert.equal(withFlag.exitCode, 1)
+    assert.include(withFlag.stdout, '| 8. Import a received file to legal storage | FAIL |')
 
     const noUuid = fakeSandbox({ configured: true }).on(
       'POST',
@@ -713,6 +728,7 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       '9. A plain send is archived for a legal-storage registration',
       '10. `/invoices_legal_storage` for a legal-storage registration',
       '11. A received invoice is archived for a legal-storage registration',
+      '12. Check 8 for a legal-storage registration: import an uploaded file',
     ]) {
       assert.include(stdout, `| ${title} | PASS |`)
     }
@@ -720,6 +736,7 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       stdout,
       `Business Registry Configuration for ${LEGAL}: created, \`apply_legal_storage\`: true`
     )
+    assert.include(stdout, `\`readLegalStorage\` reads ${LEGAL} as archiving`)
     assert.include(
       stdout,
       "Deleting a Business Registry Configuration is left to Openapi's console"
@@ -734,6 +751,18 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       posts(openapi, path).filter((request) => request.body!.includes(`<IdCodice>${LEGAL}`))
     assert.lengthOf(fromLegal('/invoices'), 1)
     assert.lengthOf(fromLegal('/invoices_legal_storage'), 1)
+    // Check 12: a file to it from the supplier, which Openapi never saw
+    const [, uploaded] = posts(openapi, '/supplier_invoice_imports_legal_storage').map((request) =>
+      JSON.parse(request.body!)
+    )
+    const xml = Buffer.from(uploaded.invoice, 'base64').toString('utf8')
+    assert.match(xml, new RegExp(`<CessionarioCommittente>[\\s\\S]*<IdCodice>${LEGAL}</IdCodice>`))
+    assert.match(xml, /<CedentePrestatore>[\s\S]*?<IdCodice>11111111115<\/IdCodice>/)
+    assert.match(uploaded.sdi_id, /^8\d{12}$/)
+    assert.include(
+      stdout,
+      `to ${LEGAL}, never through Openapi, through \`archiveReceived\`: accepted, 1 uuid(s) read`
+    )
   })
 
   test('the legal-storage checks report what Openapi refuses or does not archive', async ({
@@ -745,6 +774,7 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       registrations: { [LEGAL]: true },
     })
     openapi.on('POST', '/invoices_legal_storage', 'legalStorageNotAllowed')
+    openapi.on('POST', '/supplier_invoice_imports_legal_storage', 'importUseSupplierInvoiceImports')
 
     const { exitCode, stdout } = await run(openapi, ['--setup', '--legal-storage-fiscal-id', LEGAL])
 
@@ -768,6 +798,11 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
       stdout,
       '| 11. A received invoice is archived for a legal-storage registration | INCONCLUSIVE |'
     )
+    assert.include(
+      stdout,
+      '| 12. Check 8 for a legal-storage registration: import an uploaded file | FAIL |'
+    )
+    assert.include(stdout, 'through `archiveReceived`: refused (403)')
   })
 
   test('a legal-storage fiscal id registered without the flag is refused, and its checks skipped', async ({
@@ -790,6 +825,10 @@ test.group('Openapi sandbox check (sdi:sandbox-check)', (group) => {
     assert.include(
       stdout,
       '| 11. A received invoice is archived for a legal-storage registration | SKIP |'
+    )
+    assert.include(
+      stdout,
+      '| 12. Check 8 for a legal-storage registration: import an uploaded file | SKIP |'
     )
     assert.lengthOf(posts(openapi, '/business_registry_configurations'), 0)
   })

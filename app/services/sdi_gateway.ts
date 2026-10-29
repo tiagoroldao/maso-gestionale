@@ -9,7 +9,9 @@ export type SdiFile = { fileName: string; xml: string }
 
 /**
  * How a file is sent: with legal archiving (conservazione a norma)
- * requested from the intermediary, which only one that offers it accepts.
+ * requested from the intermediary. Openapi takes it exactly when its
+ * account archives, and refuses it otherwise; with an account that
+ * archives, it refuses a plain send too (ADR 0019).
  */
 export type SubmitOptions = { legalArchiving: boolean }
 
@@ -82,10 +84,6 @@ export interface SdiGateway {
   readonly channel: string
   /** Whether it sends files itself and reports their outcomes */
   readonly automatic: boolean
-  /** Whether it can also hand sent files to legal archiving (ADR 0019) */
-  readonly legalArchiving: boolean
-  /** Whether it can hand received Supplier Invoices to legal archiving (#214) */
-  readonly receivedArchiving: boolean
   /** Hands the file to SDI; the intermediary's id for it, if it has one */
   submit(file: SdiFile, options?: SubmitOptions): Promise<{ remoteId: string | null }>
   /** SDI's final notice for a file sent, or null while there is none */
@@ -99,8 +97,15 @@ export interface SdiGateway {
   /** Keeps the receiving callback registered as given; whether it had to change it */
   ensureReceiving(callback: ReceivingCallback): Promise<boolean>
   /**
-   * Hands a received Supplier Invoice to legal archiving; the
-   * intermediary's id(s) for it (one per invoice in the file)
+   * Whether the intermediary's account archives (conservazione a norma)
+   * what it sends and receives for the fiscal id: an account setting,
+   * made outside the app (ADR 0019)
+   */
+  readLegalStorage(fiscalId: string): Promise<boolean>
+  /**
+   * Hands a Supplier Invoice that never went through the intermediary
+   * (Office's upload) to legal archiving; the intermediary's id(s) for it
+   * (one per invoice in the file)
    */
   archiveReceived(file: ReceivedForArchiving): Promise<{ remoteIds: string[] }>
 }
@@ -110,11 +115,8 @@ export interface SdiGateway {
  * is nothing to send, poll or receive.
  */
 export class ManualSdiGateway implements SdiGateway {
-  static readonly legalArchiving = false
   readonly channel = 'manual'
   readonly automatic = false
-  readonly legalArchiving = ManualSdiGateway.legalArchiving
-  readonly receivedArchiving = false
   async submit() {
     return { remoteId: null }
   }
@@ -133,6 +135,10 @@ export class ManualSdiGateway implements SdiGateway {
   async ensureReceiving() {
     return false
   }
+  /** Nothing is archived without an intermediary: the business does it elsewhere */
+  async readLegalStorage() {
+    return false
+  }
   async archiveReceived(): Promise<{ remoteIds: string[] }> {
     throw new Error('Nothing is archived without an intermediary')
   }
@@ -140,14 +146,20 @@ export class ManualSdiGateway implements SdiGateway {
 
 /**
  * An intermediary in memory, for tests: keeps what it is sent, answers
- * the outcomes and serves the files it is given. It offers no legal
- * archiving, of sent or received files, unless a test says so.
+ * the outcomes and serves the files it is given. Its account doesn't
+ * archive unless a test says so (`legalStorage`); like Openapi, it then
+ * takes only sends with archiving requested, and otherwise only plain
+ * ones.
  */
 export class FakeSdiGateway implements SdiGateway {
   readonly channel = 'fake'
   readonly automatic = true
-  legalArchiving = false
-  receivedArchiving = false
+  /** Whether its account archives (`apply_legal_storage` at Openapi) */
+  legalStorage = false
+  /** The fiscal ids its account setting was read for */
+  readonly legalStorageReads: string[] = []
+  /** Makes the next read of the account setting fail with this error */
+  failNextRead: Error | null = null
   /** Received Supplier Invoices handed to legal archiving */
   readonly archived: ReceivedForArchiving[] = []
   /** Makes the next archiving fail with this error */
@@ -166,9 +178,11 @@ export class FakeSdiGateway implements SdiGateway {
       this.failNext = null
       throw error
     }
-    // Like an intermediary, it can't archive without the service
-    if (options.legalArchiving && !this.legalArchiving) {
-      throw new SdiSendRefusedError('No legal archiving here')
+    // Like Openapi: the account setting picks the one endpoint it takes
+    if (options.legalArchiving !== this.legalStorage) {
+      throw new SdiSendRefusedError(
+        this.legalStorage ? 'Archiving is required here' : 'No legal archiving here'
+      )
     }
     this.submitted.push({ ...file, legalArchiving: options.legalArchiving })
     return { remoteId: `fake-${this.submitted.length}` }
@@ -202,6 +216,16 @@ export class FakeSdiGateway implements SdiGateway {
     return !same
   }
 
+  async readLegalStorage(fiscalId: string) {
+    this.legalStorageReads.push(fiscalId)
+    if (this.failNextRead) {
+      const error = this.failNextRead
+      this.failNextRead = null
+      throw error
+    }
+    return this.legalStorage
+  }
+
   async archiveReceived(file: ReceivedForArchiving) {
     if (this.duringArchive) await this.duringArchive()
     if (this.failNextArchive) {
@@ -209,7 +233,7 @@ export class FakeSdiGateway implements SdiGateway {
       this.failNextArchive = null
       throw error
     }
-    if (!this.receivedArchiving) throw new Error('No legal archiving here')
+    if (!this.legalStorage) throw new Error('No legal archiving here')
     this.archived.push(file)
     return { remoteIds: [`fake-archive-${this.archived.length}`] }
   }

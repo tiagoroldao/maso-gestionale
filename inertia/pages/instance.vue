@@ -3,7 +3,7 @@ import { Form } from '@adonisjs/inertia/vue'
 import Page from '~/components/page.vue'
 import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
-import { SDI_ENVIRONMENTS, SDI_MODES } from '@shared/instance'
+import { SDI_ENVIRONMENTS, SDI_MODES, type LegalStorageStatus } from '@shared/instance'
 import { isSdiFailureCode, type PollFailure } from '@shared/sdi_failures'
 import { formatDateTime } from '@shared/dates'
 import { t } from '~/i18n'
@@ -12,8 +12,8 @@ defineProps<{
   settings: {
     sdiMode: string
     sdiEnvironment: string
-    legalArchivingOffered: boolean
-    legalArchiving: boolean
+    legalStorage: LegalStorageStatus
+    legalStorageReadAt: string | null
     hasToken: boolean
     tokenUnreadable: boolean
     pollingMinutes: number
@@ -107,23 +107,6 @@ const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExisti
             <span v-if="errors.openapiToken" class="field__error">{{ errors.openapiToken }}</span>
           </div>
           <div class="field">
-            <label v-if="settings.legalArchivingOffered">
-              <input
-                type="checkbox"
-                name="sdiLegalArchiving"
-                value="true"
-                :checked="settings.legalArchiving"
-              />
-              {{ t('ui.instance.legalArchiving') }}
-            </label>
-            <span v-if="settings.legalArchivingOffered" class="field__hint">{{
-              t('ui.instance.legalArchivingHint')
-            }}</span>
-            <span v-if="!settings.legalArchiving" class="field__hint">{{
-              t('ui.instance.legalArchivingElsewhere')
-            }}</span>
-          </div>
-          <div class="field">
             <label class="field__label" for="polling">{{ t('ui.instance.pollingMinutes') }}</label>
             <input
               id="polling"
@@ -189,6 +172,25 @@ const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExisti
             {{ t('ui.instance.save') }}
           </button>
         </Form>
+        <h3>{{ t('ui.instance.legalStorageTitle') }}</h3>
+        <p>{{ t(`ui.instance.legalStorage.${settings.legalStorage}`) }}</p>
+        <p
+          v-if="settings.legalStorage !== 'manual' && settings.legalStorageReadAt"
+          class="field__hint"
+        >
+          {{
+            t('ui.instance.legalStorageReadAt', { at: formatDateTime(settings.legalStorageReadAt) })
+          }}
+        </p>
+        <p v-if="settings.legalStorage === 'active'" class="field__hint">
+          {{ t('ui.instance.legalStorageActiveHint') }}
+        </p>
+        <template v-else>
+          <p v-if="settings.legalStorage === 'inactive'" class="field__hint">
+            {{ t('ui.instance.legalStorageSetup') }}
+          </p>
+          <p class="field__hint">{{ t('ui.instance.legalArchivingElsewhere') }}</p>
+        </template>
         <h3>{{ t('ui.instance.pollStatus') }}</h3>
         <p v-if="settings.polledAt">
           {{ t('ui.instance.lastPoll', { at: formatDateTime(settings.polledAt) }) }}
@@ -207,7 +209,7 @@ const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExisti
           {{ t('ui.instance.receivedWaiting', { count: settings.receivedWaiting }) }}
         </p>
         <Form
-          v-if="settings.legalArchiving && settings.receivedNotArchived"
+          v-if="settings.legalStorage === 'active' && settings.receivedNotArchived"
           v-slot="{ processing }"
           route="instance.archive_supplier_invoices"
           :on-before="confirmArchiveExisting"

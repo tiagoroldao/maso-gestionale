@@ -18,7 +18,9 @@ const SECRET = 'whsec_4567890abcdef'
 test.group('Instance settings', (group) => {
   // Saving Openapi mode registers the receiving callback: never live here
   group.each.setup(() => {
-    SdiConnection.use(new FakeOpenapi().keepsApiConfigurations().gateway())
+    SdiConnection.use(
+      new FakeOpenapi().keepsApiConfigurations().registers('01987654322', false).gateway()
+    )
     return () => SdiConnection.restore()
   })
 

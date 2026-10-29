@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import logger from '@adonisjs/core/services/logger'
-import InstanceSettings from '#models/instance_settings'
+import LegalStorage from '#services/legal_storage'
 import SupplierInvoice from '#models/supplier_invoice'
 import SdiConnection from '#services/sdi_connection'
 import type { SdiGateway } from '#services/sdi_gateway'
@@ -17,9 +17,10 @@ import { isArchivingWaiting } from '#shared/supplier_invoices'
 export type ArchivingResult = { outcome: 'requested' } | { outcome: 'failed'; failure: string }
 
 /**
- * Why Office can't send an invoice to archiving now: the setting is off
- * or the intermediary can't archive (`notOffered`), or it isn't waiting
- * to go (`notWaiting`: requested already, or being sent).
+ * Why Office can't send an invoice to archiving now: the intermediary's
+ * account doesn't archive, or there is no intermediary (`notOffered`), or
+ * it isn't waiting to go (`notWaiting`: requested already, being sent, or
+ * received through the intermediary, which archived it on receipt).
  */
 export class ArchivingRefusedError extends Error {
   constructor(readonly reason: 'notOffered' | 'notWaiting') {
@@ -34,17 +35,17 @@ export const ARCHIVING_GRACE_MINUTES = 10
 export type PendingFile = { filePath: string; fileName: string }
 
 /**
- * Legal archiving (conservazione a norma) of received Supplier Invoices
- * through the SDI intermediary (#214, ADR 0019), under the Instance
- * setting that covers sent Invoices too. Archiving is per file, so the
- * invoices of one file move together.
+ * Legal archiving (conservazione a norma) of uploaded Supplier Invoices
+ * through the SDI intermediary (#214, #224, ADR 0019), when its account
+ * archives (LegalStorage). A file received through the intermediary is
+ * archived by the account on receipt, so only Office's uploads, which
+ * never went through it, are sent. Archiving is per file, so the invoices
+ * of one file move together.
  *
- * With the setting on, every Supplier Invoice stored (received through
- * the intermediary or uploaded by Office) is queued and sent at once;
+ * With the account archiving, every upload is queued and sent at once;
  * a failure never refuses the intake: the invoice stays, its archiving
- * failed, and the poller (or Office, from its page) retries. Invoices
- * stored before the setting was on are queued only by the Superuser's
- * one-off action.
+ * failed, and the poller (or Office, from its page) retries. Uploads
+ * stored before are queued only by the Superuser's one-off action.
  *
  * Sending happens outside any lock: the file's rows are claimed
  * (`sending`) under a lock, sent, and the result recorded under the lock
@@ -54,14 +55,12 @@ export type PendingFile = { filePath: string; fileName: string }
  */
 export default class SupplierInvoiceArchiving {
   /**
-   * The gateway to archive with: null when the setting is off or the
-   * intermediary can't archive received invoices.
+   * The gateway to archive with: null when there is no intermediary or
+   * its account doesn't archive.
    */
   static async gateway(): Promise<SdiGateway | null> {
-    const { sdiLegalArchiving } = await InstanceSettings.current()
-    if (!sdiLegalArchiving) return null
     const gateway = await SdiConnection.gateway()
-    return gateway.receivedArchiving ? gateway : null
+    return (await LegalStorage.active(gateway)) ? gateway : null
   }
 
   /**
@@ -187,9 +186,9 @@ export default class SupplierInvoiceArchiving {
   }
 
   /**
-   * The files the poller sends: queued, or failed with SDI's identifier
-   * known (one without waits for Office to give it). Sends cut off past
-   * the grace period are marked failed first, and retried.
+   * The files the poller sends: uploads queued, or failed with SDI's
+   * identifier known (one without waits for Office to give it). Sends cut
+   * off past the grace period are marked failed first, and retried.
    */
   static async pending(): Promise<PendingFile[]> {
     const cutoff = DateTime.now().minus({ minutes: ARCHIVING_GRACE_MINUTES })
@@ -204,6 +203,7 @@ export default class SupplierInvoiceArchiving {
       })
     const rows = await db
       .from('supplier_invoices')
+      .where('received_via', 'upload')
       .where((query) =>
         query
           .where('legal_archiving', 'queued')
@@ -219,24 +219,27 @@ export default class SupplierInvoiceArchiving {
   }
 
   /**
-   * The Superuser's one-off action: queues every Supplier Invoice never
-   * sent to archiving (stored before the setting was on) and asks for an
-   * earlier poll, which sends them. How many it queued.
+   * The Superuser's one-off action: queues every upload never sent to
+   * archiving (stored before the account archived, or before the app
+   * followed it) and asks for an earlier poll, which sends them. How many
+   * it queued.
    */
   static async queueExisting(): Promise<number> {
     if (!(await this.gateway())) throw new ArchivingRefusedError('notOffered')
     const queued = await db
       .from('supplier_invoices')
+      .where('received_via', 'upload')
       .whereNull('legal_archiving')
       .update({ legal_archiving: 'queued', legal_archiving_at: new Date() })
     await db.from('instance_settings').where('id', 1).update({ sdi_poll_requested_at: new Date() })
     return Number(queued)
   }
 
-  /** Supplier Invoices never sent to archiving: what the one-off action would queue */
+  /** Uploads never sent to archiving: what the one-off action would queue */
   static async neverQueued(): Promise<number> {
     const row = await db
       .from('supplier_invoices')
+      .where('received_via', 'upload')
       .whereNull('legal_archiving')
       .count('* as total')
       .first()

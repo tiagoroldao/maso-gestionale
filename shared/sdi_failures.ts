@@ -14,6 +14,8 @@ export const SDI_FAILURE_CODES = [
   // needed and the file has none, or a send was cut off before its answer
   'noSdiIdentifier',
   'archivingInterrupted',
+  // The intermediary's answer didn't say whether its account archives
+  'legalStorageUnread',
 ] as const
 export type SdiFailureCode = (typeof SDI_FAILURE_CODES)[number]
 
@@ -24,6 +26,7 @@ export function isSdiFailureCode(value: string | null | undefined): value is Sdi
 /** The steps of a poll, each named in the catalogue (`ui.instance.pollSteps`) */
 export const POLL_STEPS = [
   'register',
+  'legalStorage',
   'unsettled',
   'settle',
   'waiting',

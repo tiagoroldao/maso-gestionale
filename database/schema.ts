@@ -309,7 +309,7 @@ export class InstalledEquipmentSchema extends BaseModel {
 }
 
 export class InstanceSettingSchema extends BaseModel {
-  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'openapiToken', 'pollingMinutes', 'publicUrl', 'sdiEnvironment', 'sdiLegalArchiving', 'sdiMode', 'sdiPollFailure', 'sdiPollRequestedAt', 'sdiPolledAt', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
+  static $columns = ['backupAccessKeyId', 'backupBucket', 'backupEndpoint', 'backupFailedAt', 'backupFailure', 'backupIdentity', 'backupLastName', 'backupRecipient', 'backupRegion', 'backupRetention', 'backupSecretAccessKey', 'backupStartedAt', 'backupSucceededAt', 'id', 'openapiToken', 'pollingMinutes', 'publicUrl', 'sdiEnvironment', 'sdiLegalStorage', 'sdiLegalStorageReadAt', 'sdiMode', 'sdiPollFailure', 'sdiPollRequestedAt', 'sdiPolledAt', 'updatedAt', 'webhookEnabled', 'webhookSecret'] as const
   $columns = InstanceSettingSchema.$columns
   @column()
   declare backupAccessKeyId: string | null
@@ -348,7 +348,9 @@ export class InstanceSettingSchema extends BaseModel {
   @column()
   declare sdiEnvironment: string
   @column()
-  declare sdiLegalArchiving: boolean
+  declare sdiLegalStorage: boolean | null
+  @column.dateTime()
+  declare sdiLegalStorageReadAt: DateTime | null
   @column()
   declare sdiMode: string
   @column()

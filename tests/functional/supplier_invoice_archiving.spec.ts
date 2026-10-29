@@ -4,11 +4,12 @@ import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { ApiClient } from '@japa/api-client'
-import type User from '#models/user'
+import User from '#models/user'
 import InstanceSettings from '#models/instance_settings'
 import SupplierInvoice from '#models/supplier_invoice'
 import SupplierInvoices from '#services/supplier_invoices'
 import SupplierInvoiceArchiving from '#services/supplier_invoice_archiving'
+import LegalStorage from '#services/legal_storage'
 import SdiConnection from '#services/sdi_connection'
 import SdiPolling from '#services/sdi_polling'
 import { FakeSdiGateway, ManualSdiGateway } from '#services/sdi_gateway'
@@ -23,11 +24,22 @@ import { SUPPLIER_INVOICE_P7M, supplierInvoiceXml } from '#tests/helpers/supplie
 
 const SDI_ID = '1084646898320'
 const UUIDS = ['3f1a2b4c-5d6e-4f70-8a9b-0c1d2e3f4a5b', '7a8b9c0d-1e2f-4a3b-9c4d-5e6f7a8b9c0d']
+/** `completeCompany`'s VAT number, Openapi's fiscal id */
+const FISCAL_ID = '01987654322'
 
-async function archivingSetting(on: boolean) {
-  const settings = await InstanceSettings.current()
-  settings.sdiLegalArchiving = on
-  await settings.save()
+/** The intermediary's account archives, or not, as the poller would read it */
+async function accountArchives(gateway: FakeSdiGateway, on: boolean) {
+  gateway.legalStorage = on
+  await LegalStorage.refresh(gateway)
+}
+
+/** The account setting as last read, without asking the intermediary */
+async function storedLegalStorage(on: boolean | null) {
+  await db.rawQuery('INSERT INTO instance_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING')
+  await db
+    .from('instance_settings')
+    .where('id', 1)
+    .update({ sdi_legal_storage: on, sdi_legal_storage_read_at: on === null ? null : new Date() })
 }
 
 /** A Supplier Invoice file received through the intermediary, as the poller hands it over */
@@ -41,7 +53,19 @@ function receiveFromSdi(changes: { number?: string } = {}, sdiIdentifier: string
   )
 }
 
-/** Office uploads a file (the signed fixture unless another is given) */
+/** Office uploads an XML file, through the intake */
+async function uploaded(changes: { number?: string } = {}, contents?: Buffer) {
+  const user = (await User.findBy('role', 'office')) ?? (await createUser('office'))
+  return SupplierInvoices.receive(
+    {
+      contents: contents ?? Buffer.from(supplierInvoiceXml(changes), 'utf8'),
+      name: 'fattura.xml',
+    },
+    { via: 'upload', user }
+  )
+}
+
+/** Office uploads a file through the page (the signed fixture unless another is given) */
 function upload(client: ApiClient, user: User, file: string = SUPPLIER_INVOICE_P7M) {
   return client
     .post('/supplier-invoices')
@@ -67,7 +91,6 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
   let gateway: FakeSdiGateway
   group.each.setup(async () => {
     gateway = new FakeSdiGateway()
-    gateway.receivedArchiving = true
     SdiConnection.use(gateway)
     await completeCompany()
     return async () => {
@@ -76,21 +99,20 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     }
   })
 
-  test('a Supplier Invoice received through the intermediary is sent once stored, and its page shows it', async ({
+  test('one received through the intermediary was archived by it on receipt: nothing is sent', async ({
     client,
     assert,
   }) => {
-    await archivingSetting(true)
+    await accountArchives(gateway, true)
 
     const [invoice] = await receiveFromSdi()
+    await invoice.refresh()
 
-    assert.lengthOf(gateway.archived, 1)
-    assert.deepInclude(gateway.archived[0], { fileName: 'IT03456789019_00001.xml', sdiId: SDI_ID })
-    assert.equal(gateway.archived[0].xml.toString('utf8'), supplierInvoiceXml())
-    assert.equal(invoice.legalArchiving, 'requested')
-    assert.deepEqual(invoice.legalArchivingIds, ['fake-archive-1'])
-    assert.isNull(invoice.legalArchivingFailure)
+    assert.lengthOf(gateway.archived, 0)
+    assert.equal(invoice.legalArchiving, 'automatic')
     assert.isNotNull(invoice.legalArchivingAt)
+    assert.isNull(invoice.legalArchivingIds)
+    assert.isNull(invoice.legalArchivingFailure)
 
     const office = await createUser('office')
     const page = await client.get(`/supplier-invoices/${invoice.id}`).withInertia().loginAs(office)
@@ -98,26 +120,32 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
       invoice: {
         archivingOffered: true,
         archivingRetryable: false,
-        legalArchiving: { state: 'requested', ids: ['fake-archive-1'], failure: null },
+        legalArchiving: { state: 'automatic', ids: [], failure: null },
       },
     })
 
-    // Requested already: not sent again, by Office or the poller
-    const again = await retry(client, office, invoice.id)
+    // Never sent, by Office or the poller
+    const again = await retry(client, office, invoice.id, { sdiId: SDI_ID })
     again.assertFlashMessage('error', it('flash.supplierInvoiceArchivingRefused.notWaiting'))
     assert.deepInclude(await SdiPolling.poll(), { archived: 0 })
-    assert.lengthOf(gateway.archived, 1)
+    assert.lengthOf(gateway.archived, 0)
+
+    // With the account not archiving, nothing is recorded
+    await accountArchives(gateway, false)
+    const [plain] = await receiveFromSdi({ number: 'FV-2026/2' }, '1084646898321')
+    assert.isNull(plain.legalArchiving)
+    assert.isNull(plain.legalArchivingAt)
   })
 
   test("Office's upload has no SDI identifier: marked failed until Office gives it, then sent as XML", async ({
     client,
     assert,
   }) => {
-    await archivingSetting(true)
+    await accountArchives(gateway, true)
     const office = await createUser('office')
 
-    const uploaded = await upload(client, office)
-    uploaded.assertFlashMessage('success', it('flash.supplierInvoiceUploaded', { count: 1 }))
+    const response = await upload(client, office)
+    response.assertFlashMessage('success', it('flash.supplierInvoiceUploaded', { count: 1 }))
     const invoice = await SupplierInvoice.firstOrFail()
     assert.equal(invoice.legalArchiving, 'failed')
     assert.equal(invoice.legalArchivingFailure, 'noSdiIdentifier')
@@ -126,6 +154,7 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     page.assertInertiaPropsContains({
       invoice: {
         sdiIdentifier: null,
+        archivingRetryable: true,
         legalArchiving: { state: 'failed', failure: 'noSdiIdentifier', ids: [] },
       },
     })
@@ -170,107 +199,60 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     // The poller can't use it either
     assert.deepInclude(await SdiPolling.poll(), { archived: 0 })
 
-    const response = await retry(client, office, invoice.id, { sdiId: SDI_ID })
-    response.assertFlashMessage('success', it('flash.supplierInvoiceArchived'))
+    const sent = await retry(client, office, invoice.id, { sdiId: SDI_ID })
+    sent.assertFlashMessage('success', it('flash.supplierInvoiceArchived'))
     await invoice.refresh()
     assert.equal(invoice.sdiIdentifier, SDI_ID)
     assert.equal(invoice.legalArchiving, 'requested')
     assert.deepEqual(invoice.legalArchivingIds, ['fake-archive-1'])
     // The .p7m goes as the XML it carries, under the name it came with
-    const sent = gateway.archived[0]
-    assert.deepInclude(sent, { sdiId: SDI_ID, fileName: 'supplier_invoice.xml.p7m' })
-    assert.deepEqual(sent.xml, extractXmlBytes(readFileSync(SUPPLIER_INVOICE_P7M)))
-    assert.match(sent.xml.toString('utf8'), /^<\?xml/)
+    const file = gateway.archived[0]
+    assert.deepInclude(file, { sdiId: SDI_ID, fileName: 'supplier_invoice.xml.p7m' })
+    assert.deepEqual(file.xml, extractXmlBytes(readFileSync(SUPPLIER_INVOICE_P7M)))
+    assert.match(file.xml.toString('utf8'), /^<\?xml/)
+
+    // Requested already: not sent again
+    const again = await retry(client, office, invoice.id, { sdiId: SDI_ID })
+    again.assertFlashMessage('error', it('flash.supplierInvoiceArchivingRefused.notWaiting'))
+    assert.lengthOf(gateway.archived, 1)
   })
 
-  test('with the setting off, or an intermediary that cannot, nothing is sent or queued', async ({
+  test('with the account not archiving, or no intermediary, nothing is sent or queued', async ({
     client,
     assert,
   }) => {
     const office = await createUser('office')
 
-    // Off
-    await archivingSetting(false)
-    const [off] = await receiveFromSdi()
-    // On, with an intermediary that can't archive received invoices
-    await archivingSetting(true)
-    gateway.receivedArchiving = false
-    const [cannot] = await receiveFromSdi({ number: 'FV-2026/2' }, '1084646898321')
-
-    assert.lengthOf(gateway.archived, 0)
-    for (const invoice of [off, cannot]) {
-      assert.isNull(invoice.legalArchiving)
-      assert.isNull(invoice.legalArchivingAt)
-    }
+    // The account doesn't archive
+    await accountArchives(gateway, false)
+    const [off] = await uploaded()
+    assert.isNull(off.legalArchiving)
+    assert.isNull(off.legalArchivingAt)
     const page = await client.get(`/supplier-invoices/${off.id}`).withInertia().loginAs(office)
     page.assertInertiaPropsContains({
       invoice: { archivingOffered: false, archivingRetryable: false, legalArchiving: null },
     })
-    const refused = await retry(client, office, off.id)
+    const refused = await retry(client, office, off.id, { sdiId: SDI_ID })
     refused.assertFlashMessage('error', it('flash.supplierInvoiceArchivingRefused.notOffered'))
     assert.deepInclude(await SdiPolling.poll(), { archived: 0 })
+
+    // No intermediary, whatever was read before
+    await storedLegalStorage(true)
+    SdiConnection.use(new ManualSdiGateway())
+    const [manual] = await uploaded({ number: 'FV-2026/2' })
+    assert.isNull(manual.legalArchiving)
+    const queue = await SupplierInvoiceArchiving.queueExisting().catch((error) => error.reason)
+    assert.equal(queue, 'notOffered')
     assert.lengthOf(gateway.archived, 0)
-
-    // The manual mode can't either
-    assert.isFalse(new ManualSdiGateway().receivedArchiving)
-    assert.isFalse(new FakeSdiGateway().receivedArchiving)
   })
 
-  test('a failed send never refuses the invoice; the poller retries and shows the failure', async ({
-    client,
-    assert,
-  }) => {
-    await archivingSetting(true)
-    gateway.failNextArchive = new Error('Openapi 402: credit')
-
-    const [invoice] = await receiveFromSdi()
-
-    // Stored all the same
-    assert.equal(invoice.status, 'to_handle')
-    assert.equal(invoice.legalArchiving, 'failed')
-    assert.equal(invoice.legalArchivingFailure, 'Openapi 402: credit')
-    assert.isNull(invoice.legalArchivingIds)
-    const office = await createUser('office')
-    const page = await client.get(`/supplier-invoices/${invoice.id}`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({
-      invoice: { legalArchiving: { state: 'failed', failure: 'Openapi 402: credit' } },
-    })
-
-    // It fails again: a poll failure for the Superuser
-    gateway.failNextArchive = new Error('Openapi 402: credit')
-    const failed = await SdiPolling.poll()
-    assert.deepInclude(failed, { archived: 0 })
-    assert.deepInclude(failed.polled && failed.failures, {
-      step: 'archive',
-      subject: 'IT03456789019_00001.xml',
-      detail: 'Openapi 402: credit',
-    })
-    const superuser = await createUser('superuser')
-    const instance = await client.get('/instance').withInertia().loginAs(superuser)
-    instance.assertInertiaPropsContains({
-      settings: {
-        pollFailures: [
-          { step: 'archive', subject: 'IT03456789019_00001.xml', detail: 'Openapi 402: credit' },
-        ],
-      },
-    })
-
-    // The next poll sends it
-    assert.deepInclude(await SdiPolling.poll(), { archived: 1, failures: [] })
-    await invoice.refresh()
-    assert.equal(invoice.legalArchiving, 'requested')
-    assert.isNull(invoice.legalArchivingFailure)
-    assert.lengthOf(gateway.archived, 1)
-  })
-
-  test('Office sends a failed one at once from its page', async ({ client, assert }) => {
-    await archivingSetting(true)
-    gateway.failNextArchive = new Error('Openapi 500: unavailable')
-    const [invoice] = await receiveFromSdi()
+  test('Office sends a failed upload at once from its page', async ({ client, assert }) => {
+    await accountArchives(gateway, true)
+    const [invoice] = await uploaded()
     const office = await createUser('office')
 
     gateway.failNextArchive = new Error('Openapi 500: unavailable')
-    const failed = await retry(client, office, invoice.id)
+    const failed = await retry(client, office, invoice.id, { sdiId: SDI_ID })
     failed.assertFlashMessage(
       'error',
       it('flash.supplierInvoiceArchivingFailed', { detail: 'Openapi 500: unavailable' })
@@ -279,26 +261,27 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     assert.equal(invoice.legalArchiving, 'failed')
 
     const admin = await createUser('admin')
-    const response = await retry(client, admin, invoice.id)
+    const response = await retry(client, admin, invoice.id, { sdiId: SDI_ID })
     response.assertFlashMessage('success', it('flash.supplierInvoiceArchived'))
     await invoice.refresh()
     assert.equal(invoice.legalArchiving, 'requested')
     assert.lengthOf(gateway.archived, 1)
   })
 
-  test('a file holding several invoices is sent once, and each records it', async ({ assert }) => {
-    await archivingSetting(true)
+  test('an uploaded file holding several invoices is sent once, and each records it', async ({
+    assert,
+  }) => {
+    await accountArchives(gateway, true)
     const xml = supplierInvoiceXml()
     const body = /<FatturaElettronicaBody>[\s\S]*<\/FatturaElettronicaBody>/.exec(xml)![0]
     const batch = xml.replace(body, `${body}\n${body.replace('FV-2026/1234', 'FV-2026/1235')}`)
 
-    const invoices = await SupplierInvoices.receive(
-      { contents: Buffer.from(batch), name: 'lotto.xml' },
-      { via: 'sdi', sdiIdentifier: SDI_ID }
-    )
+    const invoices = await uploaded({}, Buffer.from(batch))
+    await SupplierInvoiceArchiving.retry(invoices[0], SDI_ID)
 
     assert.lengthOf(invoices, 2)
     assert.lengthOf(gateway.archived, 1)
+    for (const invoice of invoices) await invoice.refresh()
     assert.deepEqual(
       invoices.map((invoice) => [invoice.legalArchiving, invoice.legalArchivingIds]),
       [
@@ -308,20 +291,21 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     )
   })
 
-  test('a send cut off past the grace period is retried by the poller; a recent one is left', async ({
+  test('a send cut off past the grace period is marked failed and retried by the poller; a recent one is left', async ({
     assert,
   }) => {
-    await archivingSetting(false)
-    const [stale] = await receiveFromSdi()
-    const [recent] = await receiveFromSdi({ number: 'FV-2026/2' }, '1084646898321')
-    await archivingSetting(true)
+    const [stale] = await uploaded()
+    const [recent] = await uploaded({ number: 'FV-2026/2' })
+    await accountArchives(gateway, true)
+    // Uploads whose identifier is known, cut off while sending
     const sending = (minutesAgo: number) => ({
+      sdiIdentifier: SDI_ID,
       legalArchiving: 'sending' as const,
       legalArchivingAt: DateTime.now().minus({ minutes: minutesAgo }),
     })
     stale.merge(sending(30))
     await stale.save()
-    recent.merge(sending(1))
+    recent.merge({ ...sending(1), sdiIdentifier: '1084646898321' })
     await recent.save()
 
     assert.deepInclude(await SdiPolling.poll(), { archived: 1 })
@@ -336,16 +320,17 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     )
   })
 
-  test('the one-off action queues the invoices stored before the setting was on', async ({
+  test('the one-off action queues the uploads never sent, not those received through the intermediary', async ({
     client,
     assert,
   }) => {
     const superuser = await createUser('superuser')
-    await archivingSetting(false)
-    const [first] = await receiveFromSdi()
-    const [second] = await receiveFromSdi({ number: 'FV-2026/2' }, '1084646898321')
+    await accountArchives(gateway, false)
+    const [first] = await uploaded()
+    const [second] = await uploaded({ number: 'FV-2026/2' })
+    const [received] = await receiveFromSdi({ number: 'FV-2026/3' }, '1084646898322')
 
-    // Off: refused, nothing queued, and the page doesn't offer it
+    // Not archiving: refused, nothing queued
     const off = await client
       .post('/instance/archive-supplier-invoices')
       .withCsrfToken()
@@ -355,13 +340,12 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     await first.refresh()
     assert.isNull(first.legalArchiving)
 
-    // On: a new one goes at once; the two before wait for the action
-    await archivingSetting(true)
-    const [later] = await receiveFromSdi({ number: 'FV-2026/3' }, '1084646898322')
-    assert.equal(later.legalArchiving, 'requested')
-    assert.deepInclude(await SdiPolling.poll(), { archived: 0 })
+    // Archiving: the two uploads wait for the action
+    await accountArchives(gateway, true)
     const page = await client.get('/instance').withInertia().loginAs(superuser)
-    page.assertInertiaPropsContains({ settings: { legalArchiving: true, receivedNotArchived: 2 } })
+    page.assertInertiaPropsContains({
+      settings: { legalStorage: 'active', receivedNotArchived: 2 },
+    })
 
     const response = await client
       .post('/instance/archive-supplier-invoices')
@@ -373,15 +357,21 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
       await invoice.refresh()
       assert.equal(invoice.legalArchiving, 'queued')
     }
-    // An earlier poll is asked for, and it sends them
+    await received.refresh()
+    assert.isNull(received.legalArchiving)
+    // An earlier poll is asked for; it sends them, and with no SDI
+    // identifier they wait for Office
     const settings = await InstanceSettings.current()
     assert.isNotNull(settings.sdiPollRequestedAt)
-    assert.deepInclude(await SdiPolling.poll(), { archived: 2 })
+    const report = await SdiPolling.poll()
+    assert.deepInclude(report, { archived: 0 })
+    assert.deepInclude(report.polled && report.failures, {
+      step: 'archive',
+      subject: 'fattura.xml',
+      detail: 'noSdiIdentifier',
+    })
     await first.refresh()
-    await second.refresh()
-    assert.equal(first.legalArchiving, 'requested')
-    assert.equal(second.legalArchiving, 'requested')
-    assert.lengthOf(gateway.archived, 3)
+    assert.equal(first.legalArchiving, 'failed')
 
     // Nothing left to queue
     const again = await client
@@ -398,9 +388,8 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     client,
     assert,
   }) => {
-    await archivingSetting(false)
-    const [invoice] = await receiveFromSdi()
-    await archivingSetting(true)
+    const [invoice] = await uploaded()
+    await accountArchives(gateway, true)
 
     for (const role of ['admin', 'office', 'technician'] as const) {
       const user = await createUser(role)
@@ -416,7 +405,6 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     assert.isNull(invoice.legalArchiving)
 
     // Failed, so that it could be sent again
-    gateway.failNextArchive = new Error('Openapi 500')
     await SupplierInvoiceArchiving.queueExisting()
     await SdiPolling.poll()
     await invoice.refresh()
@@ -428,7 +416,7 @@ test.group('Legal archiving of Supplier Invoices', (group) => {
     }
     await invoice.refresh()
     assert.equal(invoice.legalArchiving, 'failed')
-    assert.equal(invoice.sdiIdentifier, SDI_ID)
+    assert.isNull(invoice.sdiIdentifier)
     assert.lengthOf(gateway.archived, 0)
   })
 })
@@ -442,19 +430,26 @@ test.group('Legal archiving of Supplier Invoices through Openapi', (group) => {
     }
   })
 
-  test('the file goes to POST /supplier_invoice_imports_legal_storage, with its uuids recorded', async ({
+  /** Openapi, its account archiving, as read */
+  async function archivingOpenapi(openapi: FakeOpenapi) {
+    const gateway = openapi.registers(FISCAL_ID, true).gateway()
+    SdiConnection.use(gateway)
+    await LegalStorage.refresh(gateway)
+    return gateway
+  }
+
+  test('an upload goes to POST /supplier_invoice_imports_legal_storage, with its uuids recorded', async ({
     assert,
   }) => {
     const openapi = new FakeOpenapi().on('POST', '/supplier_invoice_imports_legal_storage', {
       status: 201,
       body: { uuid: UUIDS },
     })
-    const gateway = openapi.gateway()
-    assert.isTrue(gateway.receivedArchiving)
-    SdiConnection.use(gateway)
-    await archivingSetting(true)
+    await archivingOpenapi(openapi)
 
-    const [invoice] = await receiveFromSdi()
+    const [invoice] = await uploaded()
+    await SupplierInvoiceArchiving.retry(invoice, SDI_ID)
+    await invoice.refresh()
 
     const posts = openapi.requests.filter((request) => request.method === 'POST')
     assert.lengthOf(posts, 1)
@@ -462,11 +457,19 @@ test.group('Legal archiving of Supplier Invoices through Openapi', (group) => {
     assert.equal(posts[0].headers['content-type'], 'application/json')
     assert.deepEqual(JSON.parse(posts[0].body!), {
       invoice: Buffer.from(supplierInvoiceXml(), 'utf8').toString('base64'),
-      invoice_file_name: 'IT03456789019_00001.xml',
+      invoice_file_name: 'fattura.xml',
       sdi_id: SDI_ID,
     })
     assert.equal(invoice.legalArchiving, 'requested')
     assert.deepEqual(invoice.legalArchivingIds, UUIDS)
+
+    // One received through Openapi is never imported
+    const [received] = await receiveFromSdi({ number: 'FV-2026/2' }, '1084646898321')
+    assert.equal(received.legalArchiving, 'automatic')
+    assert.lengthOf(
+      openapi.requests.filter((request) => request.method === 'POST'),
+      1
+    )
   })
 
   test("Openapi's answer is read as { uuid } or { data: { uuid } }; a refusal is a failure", async ({
@@ -480,12 +483,17 @@ test.group('Legal archiving of Supplier Invoices through Openapi', (group) => {
     const openapi = new FakeOpenapi().on('POST', '/supplier_invoice_imports_legal_storage', () =>
       answers.shift()!
     )
-    SdiConnection.use(openapi.gateway())
-    await archivingSetting(true)
+    await archivingOpenapi(openapi)
+    const send = async (number: string, sdiId: string) => {
+      const [invoice] = await uploaded({ number })
+      await SupplierInvoiceArchiving.retry(invoice, sdiId)
+      await invoice.refresh()
+      return invoice
+    }
 
-    const [wrapped] = await receiveFromSdi()
-    const [refused] = await receiveFromSdi({ number: 'FV-2026/2' }, '1084646898321')
-    const [noId] = await receiveFromSdi({ number: 'FV-2026/3' }, '1084646898322')
+    const wrapped = await send('FV-2026/1', SDI_ID)
+    const refused = await send('FV-2026/2', '1084646898321')
+    const noId = await send('FV-2026/3', '1084646898322')
 
     assert.deepEqual(wrapped.legalArchivingIds, [UUIDS[0]])
     assert.equal(refused.legalArchiving, 'failed')
@@ -499,15 +507,17 @@ test.group('Legal archiving of Supplier Invoices and locks', () => {
   test("the file goes while its invoices' rows are not locked", async ({ assert, cleanup }) => {
     cleanup(await committedData())
     const settings = await InstanceSettings.current()
-    const before = settings.sdiLegalArchiving
+    const before = {
+      sdi_legal_storage: settings.sdiLegalStorage ?? null,
+      sdi_legal_storage_read_at: settings.sdiLegalStorageReadAt?.toJSDate() ?? null,
+    }
     cleanup(async () => {
-      await db.from('instance_settings').where('id', 1).update({ sdi_legal_archiving: before })
+      await db.from('instance_settings').where('id', 1).update(before)
       await rm(storagePath(), { recursive: true, force: true })
     })
     await completeCompany()
-    await archivingSetting(true)
     const gateway = new FakeSdiGateway()
-    gateway.receivedArchiving = true
+    await accountArchives(gateway, true)
     let lockedDuringSend: boolean | null = null
     gateway.duringArchive = async () => {
       // Another connection: NOWAIT fails at once if a row is locked
@@ -523,7 +533,9 @@ test.group('Legal archiving of Supplier Invoices and locks', () => {
     SdiConnection.use(gateway)
     cleanup(() => SdiConnection.restore())
 
-    const [invoice] = await receiveFromSdi()
+    const [invoice] = await uploaded()
+    await SupplierInvoiceArchiving.retry(invoice, SDI_ID)
+    await invoice.refresh()
 
     assert.isFalse(lockedDuringSend)
     assert.equal(invoice.legalArchiving, 'requested')

@@ -2,7 +2,7 @@ import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
 import CompanySettings from '#models/company_settings'
-import InstanceSettings from '#models/instance_settings'
+import LegalStorage from '#services/legal_storage'
 import Invoice from '#models/invoice'
 import InvoiceSubmission, { type SubmissionOutcome } from '#models/invoice_submission'
 import type User from '#models/user'
@@ -74,9 +74,9 @@ const OUTCOME_EVENTS: Record<SubmissionOutcome, InvoiceEvent> = {
  * dropped) stays "sending" until the poller finds the file at the
  * intermediary or concludes it never arrived.
  *
- * With legal archiving on in Instance settings, and offered by the
- * intermediary, the file is sent with archiving requested, and the
- * Submission records it (#205).
+ * When the intermediary's account archives (conservazione a norma, #224),
+ * the file is sent with archiving requested, as the account requires, and
+ * the Submission records it.
  */
 export default class Submissions {
   /**
@@ -131,7 +131,8 @@ export default class Submissions {
     user: User | null = null
   ): Promise<'sent' | 'uploaded'> {
     const current = await SdiConnection.gateway()
-    const { sdiLegalArchiving } = await InstanceSettings.current()
+    // The intermediary's account setting picks how it is sent (#224)
+    const archives = await LegalStorage.active(current)
     const sending = await this.locked(invoice, async (trx, locked) => {
       const open = await this.open(trx, locked.id)
       // Already confirmed (a double click): nothing more to do
@@ -156,7 +157,7 @@ export default class Submissions {
         return null
       }
 
-      const legalArchiving = sdiLegalArchiving && gateway.legalArchiving
+      const legalArchiving = archives
       open.merge({
         channel: gateway.channel,
         xml,
@@ -198,6 +199,9 @@ export default class Submissions {
       const message = error instanceof Error ? error.message : String(error)
       if (error instanceof SdiSendRefusedError) {
         await this.unsent(invoice, submissionId, message)
+        // Perhaps refused for the account setting, changed since it was
+        // read: read it again, so the next send follows it
+        await LegalStorage.refresh(gateway).catch(() => {})
         throw new SubmissionSendRefusedError(message)
       }
       await this.whileSending(invoice, submissionId, async (submission) => {
