@@ -24,10 +24,16 @@ import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import {
   editVisitValidator,
   moveVisitValidator,
+  planVisitQueryValidator,
+  repeatedVisitsValidator,
+  repeatVisitValidator,
   scheduleValidator,
   visitValidator,
 } from '#validators/visit'
 import { localDateTime } from '#services/dates'
+import { addDays, isoWeekday, todayIso } from '#shared/dates'
+import { italianHoliday } from '#shared/holidays'
+import { MAX_REPEATED_VISITS, repeatedDates } from '#shared/visit_repeats'
 import StockLedger from '#stock/stock_ledger'
 import { flashWithStockWarning } from '#stock/stock_warning'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -52,16 +58,111 @@ async function technicians(extra: number[] = []) {
 }
 
 /**
+ * When a Visit on `date` starting at `startTime` begins and ends.
+ */
+function timeOn(date: string, startTime: string, durationMinutes: number) {
+  const startsAt = DateTime.fromISO(`${date}T${startTime}`)
+  return { startsAt, endsAt: startsAt.plus({ minutes: durationMinutes }) }
+}
+
+/**
+ * The query string without empty fields, which a form sends for inputs
+ * left blank and the validators would read as given.
+ */
+function withoutBlanks(query: Record<string, unknown>) {
+  return Object.fromEntries(Object.entries(query).filter(([, value]) => value !== ''))
+}
+
+/**
  * Planning Visits for Jobs, and the calendar where Office moves them.
  */
 export default class VisitsController {
-  async create({ params, inertia }: HttpContext) {
+  /**
+   * The form to plan a Visit. With `from`, it starts as a copy of that
+   * Visit of the Job, on a later day ("plan the next Visit", #177):
+   * Technicians, hours and notes, never its Charges. With `repeat`, it also
+   * lists the dates the repeated Visit would fall on, flagging public
+   * holidays and Technicians already booked, for Office to confirm.
+   */
+  async create({ params, request, inertia, response, session, i18n }: HttpContext) {
     const job = await Job.query().where('id', params.id).preload('customer').firstOrFail()
+    const query = withoutBlanks(request.qs())
+    const { from } = await planVisitQueryValidator.validate(query)
+
+    let draft = null
+    let preview = null
+    if (query.repeat) {
+      if (!Scheduling.canSchedule(job)) {
+        session.flash('error', i18n.t('flash.jobNotSchedulable'))
+        return response.redirect().withQs(false).toRoute('jobs.show', { id: job.id })
+      }
+      const input = await repeatVisitValidator.validate(query)
+      const visit = {
+        startTime: input.startTime,
+        durationMinutes: input.durationMinutes,
+        technicianIds: input.technicianIds,
+        notes: input.notes ?? null,
+        survey: input.survey ?? false,
+      }
+      draft = {
+        ...visit,
+        date: input.date.toISODate()!,
+        repeat: input.repeat,
+        weekdays: input.weekdays ?? [],
+        until: input.until?.toISODate() ?? null,
+        count: input.count ?? null,
+      }
+      const { dates, truncated } = repeatedDates({
+        from: draft.date,
+        frequency: input.repeat,
+        weekdays: draft.weekdays,
+        until: draft.until,
+        count: draft.count,
+      })
+      const clashes = await Scheduling.clashes(
+        input.technicianIds,
+        dates.map((date) => timeOn(date, input.startTime, input.durationMinutes))
+      )
+      preview = {
+        ...visit,
+        truncated,
+        dates: dates.map((date, index) => ({
+          date,
+          weekday: isoWeekday(date),
+          holiday: italianHoliday(date),
+          clashes: clashes[index],
+        })),
+      }
+    } else if (from) {
+      const source = await Visit.query()
+        .where('id', from)
+        .where('jobId', job.id)
+        .preload('technicians')
+        .firstOrFail()
+      // The day after the copied Visit, and never in the past
+      const next = addDays(source.startsAt.toISODate()!, 1)
+      const today = todayIso()
+      draft = {
+        date: next > today ? next : today,
+        startTime: source.startsAt.toFormat('HH:mm'),
+        durationMinutes: Math.round(source.endsAt.diff(source.startsAt, 'minutes').minutes),
+        technicianIds: source.technicians.map((technician) => technician.id),
+        notes: source.notes,
+        survey: false,
+        repeat: null,
+        weekdays: [],
+        until: null,
+        count: null,
+      }
+    }
 
     return inertia.render('visits/create', {
       job: { id: job.id, number: job.number, title: job.title, customer: job.customer.displayName },
       technicians: await technicians(),
       visit: null,
+      draft,
+      preview,
+      maxRepeated: MAX_REPEATED_VISITS,
     })
   }
 
@@ -69,11 +170,15 @@ export default class VisitsController {
     const job = await Job.findOrFail(params.id)
     const data = await request.validateUsing(visitValidator)
 
-    const startsAt = DateTime.fromISO(`${data.date.toISODate()}T${data.startTime}`)
+    const { startsAt, endsAt } = timeOn(
+      data.date.toISODate()!,
+      data.startTime,
+      data.durationMinutes
+    )
     try {
       await Scheduling.plan(job, {
         startsAt,
-        endsAt: startsAt.plus({ minutes: data.durationMinutes }),
+        endsAt,
         technicianIds: data.technicianIds,
         notes: data.notes ?? null,
         survey: data.survey ?? false,
@@ -88,6 +193,40 @@ export default class VisitsController {
     response
       .redirect()
       .toRoute('visits.schedule', {}, { qs: { date: startsAt.toFormat('yyyy-MM-dd') } })
+  }
+
+  /**
+   * Plans the repeated Visits Office confirmed (#177), all or none: one
+   * ordinary Visit per date kept, each independent of the others.
+   */
+  async storeRepeated({ params, request, response, session, i18n }: HttpContext) {
+    const job = await Job.findOrFail(params.id)
+    const data = await request.validateUsing(repeatedVisitsValidator)
+
+    const times = data.dates
+      .map((date) => date.toISODate()!)
+      .sort()
+      .map((date) => timeOn(date, data.startTime, data.durationMinutes))
+    try {
+      await Scheduling.planMany(job, times, {
+        technicianIds: data.technicianIds,
+        notes: data.notes ?? null,
+        survey: data.survey ?? false,
+      })
+    } catch (error) {
+      if (!(error instanceof JobNotSchedulableError)) throw error
+      session.flash('error', i18n.t('flash.jobNotSchedulable'))
+      return response.redirect().toRoute('jobs.show', { id: job.id })
+    }
+
+    session.flash('success', i18n.t('flash.visitsPlanned', { count: times.length }))
+    response
+      .redirect()
+      .toRoute(
+        'visits.schedule',
+        {},
+        { qs: { date: times[0].startsAt.toFormat('yyyy-MM-dd'), view: 'week' } }
+      )
   }
 
   /**
@@ -188,7 +327,12 @@ export default class VisitsController {
         // Office cancels a Visit that won't happen, and restores it (#157)
         cancellable: cancellableByOffice(visit.job.isActive, visit.status),
         restorable: restorableByOffice(visit.job.isActive, visit.status),
+        // Copied to a new date as the Job's next Visit (#177)
+        plannable: Scheduling.canSchedule(visit.job),
       },
+      draft: null,
+      preview: null,
+      maxRepeated: MAX_REPEATED_VISITS,
     })
   }
 

@@ -48,9 +48,10 @@ defineProps<{
               <Link
                 route="visits.create"
                 :params="{ id: visit.job.id }"
+                :qs="{ from: visit.id }"
                 class="btn btn--secondary btn--sm"
               >
-                {{ t('ui.visits.plan') }}
+                {{ t('ui.visits.planNext') }}
               </Link>
             </td>
           </tr>

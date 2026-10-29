@@ -898,10 +898,10 @@ export interface Registry {
       body: {}
       paramsTuple: [ParamValue]
       params: { id: ParamValue }
-      query: {}
+      query: ExtractQueryForGet<InferInput<(typeof import('#validators/visit').planVisitQueryValidator)>|InferInput<(typeof import('#validators/visit').repeatVisitValidator)>>
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
-      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
-      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['create']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'visits.store': {
@@ -915,6 +915,19 @@ export interface Registry {
       response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>>
       errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['store']>>> | { status: 422; response: { errors: SimpleError[] } }
+    }
+  }
+  'visits.store_repeated': {
+    methods: ["POST"]
+    pattern: '/jobs/:id/visits/repeated'
+    types: {
+      body: ExtractBody<InferInput<(typeof import('#validators/visit').repeatedVisitsValidator)>>
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: ExtractQuery<InferInput<(typeof import('#validators/visit').repeatedVisitsValidator)>>
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['storeRepeated']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['storeRepeated']>>> | { status: 422; response: { errors: SimpleError[] } }
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/visits_controller').default['storeRepeated']>>> | { status: 422; response: { errors: SimpleError[] } }
     }
   }
   'visits.schedule': {

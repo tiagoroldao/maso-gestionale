@@ -72,6 +72,7 @@
   "quoteDeclined": "Preventivo rifiutato. La commessa resta com'è: annullala a parte se non si farà altro.",
   "quoteNotWritable": "Una commessa chiusa o annullata non può avere nuovi preventivi.",
   "visitPlanned": "Intervento pianificato.",
+  "visitsPlanned": "{count, plural, one {# intervento pianificato} other {# interventi pianificati}}.",
   "visitMoved": "Intervento spostato.",
   "jobNotSchedulable": "Una commessa chiusa o annullata non può avere nuovi interventi.",
   "visitNotMovable": "L'intervento è cambiato nel frattempo o non si può più spostare. Ricarica l'agenda.",

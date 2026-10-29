@@ -47,3 +47,23 @@ export function formatDateTime(iso: string | null | undefined) {
   const part = (type: string) => parts.find((p) => p.type === type)!.value
   return `${part('day')}/${part('month')}/${part('year')} ${part('hour')}:${part('minute')}`
 }
+
+const pad = (value: number) => String(value).padStart(2, '0')
+
+/**
+ * The calendar date `days` after `isoDate` (before, if negative), without
+ * any timezone conversion.
+ */
+export function addDays(isoDate: string, days: number) {
+  const [year, month, day] = isoDate.slice(0, 10).split('-').map(Number)
+  const date = new Date(Date.UTC(year, month - 1, day + days))
+  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`
+}
+
+/**
+ * The day of the week of a calendar date, ISO style: 1 is Monday, 7 Sunday.
+ */
+export function isoWeekday(isoDate: string) {
+  const [year, month, day] = isoDate.slice(0, 10).split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day)).getUTCDay() || 7
+}
