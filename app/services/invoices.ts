@@ -151,6 +151,12 @@ export type InvoiceLineInput = {
 }
 
 /**
+ * The longest list of serial numbers a draft line names (ADR 0017), well
+ * within a line's description.
+ */
+const SERIALS_MAX = 300
+
+/**
  * A line's link to a Charge it bills (or holds, on a draft), and since
  * when this Invoice has held the Charge.
  */
@@ -970,12 +976,16 @@ export default class Invoices {
         ? await trx
             .from('installed_equipment')
             .whereIn('charge_id', singles)
-            .whereNotNull('serial_number')
             .orderBy('id')
             .select('charge_id', 'serial_number')
         : []
-      const serials = (chargeId: number) =>
-        installed.flatMap((row) => (row.charge_id === chargeId ? [row.serial_number] : []))
+      // Without equipment (a Job without a Site installs none), the serial
+      // number recorded on the Charge
+      const serials = (charge: Charge) => {
+        const own = installed.filter((row) => row.charge_id === charge.id)
+        if (!own.length) return charge.equipmentSerialNumber ? [charge.equipmentSerialNumber] : []
+        return own.flatMap((row) => (row.serial_number ? [row.serial_number as string] : []))
+      }
 
       const invoice = await Invoice.create(
         { customerId: locked.customerId, jobId: locked.id, status: 'draft' },
@@ -991,7 +1001,7 @@ export default class Invoices {
             itemId: charge.itemId,
             description:
               line.charges.length === 1
-                ? this.chargeLine(charge, line.charges[0].day, serials(charge.id))
+                ? this.chargeLine(charge, line.charges[0].day, serials(charge))
                 : this.combinedLine(charge, line.charges),
             quantity: line.quantity,
             unit: charge.billUnit,
@@ -1037,16 +1047,25 @@ export default class Invoices {
 
   /**
    * A draft line billing one Charge: its description, the Visit's day
-   * after it, and the serial numbers of the equipment it installed.
+   * after it, and the serial numbers of the equipment it installed, as
+   * many as fit in SERIALS_MAX characters (then "…"). The description is
+   * cut to leave room for both.
    */
   private static chargeLine(charge: Charge, day: string | null, serials: string[]) {
     const i18n = i18nManager.locale(i18nManager.defaultLocale)
+    let listed = ''
+    for (const serial of serials) {
+      const next = listed ? `${listed}, ${serial}` : serial
+      if (next.length > SERIALS_MAX) {
+        listed = listed ? `${listed}, …` : '…'
+        break
+      }
+      listed = next
+    }
     const suffix =
       (day ? ` (${DateTime.fromISO(day).toFormat('dd/MM')})` : '') +
-      (serials.length
-        ? i18n.t('documents.invoice.serialNumbers', { serials: serials.join(', ') })
-        : '')
-    return charge.description.slice(0, CHARGE_DESCRIPTION_MAX - suffix.length) + suffix
+      (listed ? i18n.t('documents.invoice.serialNumbers', { serials: listed }) : '')
+    return charge.description.slice(0, Math.max(0, CHARGE_DESCRIPTION_MAX - suffix.length)) + suffix
   }
 
   /**

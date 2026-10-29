@@ -17,6 +17,8 @@ import { computed, ref } from 'vue'
 import JobIndicatorTags from '~/components/job_indicator_tags.vue'
 
 const confirm = (message: string) => window.confirm(message)
+// A draft from the Charges combines alike ones unless unticked (ADR 0017)
+const combine = ref(true)
 type WorkTotals = { planned: string; done: string; notDone: string }
 type SummaryRow = WorkTotals & { visits: (WorkTotals & { visitId: number | null })[] }
 // The new cost's fields, pre-filled with the call-out fee on request
@@ -628,9 +630,11 @@ function confirmCancel() {
           route="invoices.store_from_job"
           :params="{ id: job.id }"
         >
+          <!-- Sent either way, so the choice is always explicit -->
+          <input type="hidden" name="combine" :value="combine ? 'true' : 'false'" />
           <div class="field">
             <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input type="checkbox" name="combine" value="true" checked />
+              <input v-model="combine" type="checkbox" />
               {{ t('ui.invoices.combineCharges') }}
             </label>
             <span class="field__hint">{{ t('ui.invoices.combineChargesHint') }}</span>

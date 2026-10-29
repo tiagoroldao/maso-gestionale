@@ -115,7 +115,7 @@ test.group('Invoices from Jobs in the browser', () => {
           '160.00',
           2,
         ],
-        [it('ui.invoices.consumablesLine'), '1.000', '36.00', 4],
+        [it('documents.invoice.consumablesLine'), '1.000', '36.00', 4],
       ]
     )
   })

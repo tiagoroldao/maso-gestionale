@@ -2,6 +2,8 @@ import { test } from '@japa/runner'
 import type { ApiClient } from '@japa/api-client'
 import { DateTime } from 'luxon'
 import db from '@adonisjs/lucid/services/db'
+import Charge from '#models/charge'
+import InstalledEquipment from '#models/installed_equipment'
 import Invoice from '#models/invoice'
 import InvoiceLine from '#models/invoice_line'
 import type Job from '#models/job'
@@ -12,6 +14,7 @@ import Charges from '#services/charges'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Submissions from '#services/submissions'
+import { CHARGE_DESCRIPTION_MAX } from '#shared/charges'
 import { sumAmounts } from '#shared/money'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
@@ -19,7 +22,7 @@ import { createSite } from '#tests/helpers/sites'
 import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
-import { stateOf } from '#tests/helpers/charges'
+import { markDone, stateOf } from '#tests/helpers/charges'
 import { it } from '#tests/helpers/i18n'
 
 /**
@@ -167,8 +170,7 @@ test.group('Combining alike Charges on drafts', () => {
 
   test('one line per Charge when not combining, as before', async ({ client, assert }) => {
     const { office, job } = await longJob()
-    // The checkbox unticked sends nothing
-    await draft(client, job, office, {})
+    await draft(client, job, office, { combine: 'false' })
 
     const lines = await linesOf(await draftOf(job))
     assert.lengthOf(lines, 10)
@@ -290,5 +292,166 @@ test.group('Combining alike Charges on drafts', () => {
 
     for (const charge of hoursLine.charges) assert.equal(await stateOf(charge), 'credited')
     for (const charge of valveLine.charges) assert.equal(await stateOf(charge), 'billed')
+  })
+
+  test("Charges on the Job itself combine with the Visits' alike ones", async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, valve } = await longJob()
+    // Valves Office added on the Job itself, at the same price
+    const onJob = await Charge.create({
+      jobId: job.id,
+      kind: 'item',
+      itemId: valve.id,
+      quantity: '4',
+      billQuantity: '4',
+      unitPrice: '7.5',
+      description: 'Valvola',
+    })
+    await markDone(onJob)
+    await draft(client, job, office, { combine: 'true' })
+
+    const drafted = await linesOf(await draftOf(job))
+    const line = drafted.find((l) => l.itemId === valve.id)!
+    // The period counts the Visits only
+    assert.equal(
+      line.description,
+      it('documents.invoice.combinedLine', {
+        name: 'Valvola',
+        visits: 2,
+        from: '05/10',
+        to: '12/10',
+      })
+    )
+    assert.equal(line.quantity, '9.000')
+    assert.equal(line.lineTotal, '67.50')
+    assert.include(
+      line.charges.map((charge) => charge.id),
+      onJob.id
+    )
+  })
+
+  test('many long serial numbers are cut short, never the draft', async ({ client, assert }) => {
+    const { office, job, boiler } = await longJob()
+    const [first] = await Charge.query().where('itemId', boiler.id).orderBy('id')
+    // A description as long as a Charge's can be, and 40 long serials
+    await Charge.query()
+      .where('id', first.id)
+      .update({ description: 'C'.repeat(CHARGE_DESCRIPTION_MAX) })
+    const [unit] = await InstalledEquipment.query().where('chargeId', first.id)
+    for (let n = 0; n < 40; n++) {
+      await InstalledEquipment.create({
+        siteId: unit.siteId,
+        itemId: boiler.id,
+        chargeId: first.id,
+        serialNumber: `SN-${n}-${'X'.repeat(40)}`,
+        equipmentType: unit.equipmentType,
+        installedOn: unit.installedOn,
+      })
+    }
+    const response = await draft(client, job, office, { combine: 'true' })
+    response.assertFlashMessage('success', it('flash.invoiceCreated'))
+
+    const drafted = await linesOf(await draftOf(job))
+    const line = drafted.find((l) => l.charges.some((charge) => charge.id === first.id))!
+    assert.isAtMost(line.description.length, CHARGE_DESCRIPTION_MAX)
+    assert.match(line.description, /^C+ \(05\/10\) — matr\. AB123, SN-0-X+, .*, …$/)
+  })
+
+  test('without equipment at a Site, the serial number recorded on the Charge', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, boiler } = await longJob()
+    // As on a Job without a Site, which installs nothing
+    await InstalledEquipment.query().where('itemId', boiler.id).delete()
+    await draft(client, job, office, { combine: 'true' })
+
+    const lines = await linesOf(await draftOf(job))
+    assert.deepEqual(
+      lines.filter((line) => line.itemId === boiler.id).map((line) => line.description),
+      ['Caldaia (05/10) — matr. AB123', 'Caldaia (19/10) — matr. CD456']
+    )
+  })
+
+  test('a folded draft, saved as the page sends it, bills every Charge on its lump line', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job, valve } = await longJob()
+    const pipe = await createItem({ description: 'Tubo', resalePrice: '3' })
+    const onJob = await Charge.create({
+      jobId: job.id,
+      kind: 'item',
+      itemId: pipe.id,
+      quantity: '2',
+      billQuantity: '2',
+      unitPrice: '3',
+      description: 'Tubo',
+    })
+    await markDone(onJob)
+    await draft(client, job, office, { combine: 'true' })
+    const invoice = await draftOf(job)
+    const lines = await linesOf(invoice)
+    const consumables = lines.filter((line) => [valve.id, pipe.id].includes(line.itemId!))
+    assert.lengthOf(consumables, 2)
+
+    // "Fold consumables": the first becomes the lump, the other goes
+    const [lump] = consumables
+    const body = {
+      lines: lines
+        .filter((line) => line.id !== consumables[1].id)
+        .map((line) =>
+          line.id === lump.id
+            ? {
+                id: line.id,
+                description: it('documents.invoice.consumablesLine'),
+                quantity: '1',
+                unitPrice: '43,50',
+                vatCodeId: line.vatCodeId,
+                chargeIds: consumables.flatMap((c) => c.charges.map((charge) => charge.id)),
+              }
+            : {
+                id: line.id,
+                ...(line.itemId && { itemId: line.itemId }),
+                description: line.description,
+                quantity: line.quantity,
+                unitPrice: line.unitPrice,
+                vatCodeId: line.vatCodeId,
+                chargeIds: line.charges.map((charge) => charge.id),
+              }
+        ),
+    }
+    const saved = await client
+      .put(`/invoices/${invoice.id}`)
+      .json(body)
+      .header('referer', `/invoices/${invoice.id}/edit`)
+      .withCsrfToken()
+      .loginAs(office)
+      .redirects(0)
+    saved.assertFlashMessage('success', it('flash.invoiceSaved'))
+
+    const after = await linesOf(invoice)
+    const folded = after.find((line) => line.id === lump.id)!
+    assert.deepEqual(
+      [folded.description, folded.itemId, folded.quantity, folded.lineTotal, folded.charges.length],
+      [it('documents.invoice.consumablesLine'), null, '1.000', '43.50', 3]
+    )
+    assert.lengthOf(after, lines.length - 1)
+
+    // Finalised, each folded Charge is billed its share of the lump
+    await completeCompany()
+    await Invoices.finalise(invoice)
+    const billed = await db
+      .from('charge_events')
+      .where('invoice_line_id', lump.id)
+      .where('kind', 'billed')
+      .orderBy('charge_id')
+      .select('charge_id', 'amount')
+    assert.deepEqual(
+      billed.map((row) => row.amount),
+      ['22.50', '15.00', '6.00']
+    )
   })
 })

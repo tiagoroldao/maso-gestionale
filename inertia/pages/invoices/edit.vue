@@ -374,7 +374,7 @@ function foldConsumables() {
     Object.assign(first, {
       itemId: null,
       groupable: false,
-      description: t('ui.invoices.consumablesLine'),
+      description: t('documents.invoice.consumablesLine'),
       quantity: '1',
       unit: null,
       unitPrice: amountForInput(amount),

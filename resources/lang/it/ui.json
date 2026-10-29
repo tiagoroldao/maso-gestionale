@@ -821,7 +821,6 @@
     "mergeUp": "Unisci alla riga sopra",
     "foldConsumables": "Accorpa i materiali di consumo",
     "foldConsumablesHint": "Le righe degli articoli accorpabili diventano una sola riga per codice IVA. Salva per confermare.",
-    "consumablesLine": "Materiale di consumo",
     "deductionsTitle": "Acconti da detrarre",
     "deductionsHint": "Quanto detrarre di ogni acconto, IVA inclusa. Le righe di detrazione si aggiornano al salvataggio.",
     "advanceNumber": "Acconto {number}",

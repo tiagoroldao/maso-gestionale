@@ -37,7 +37,8 @@
     "courtesyCopy": "Copia di cortesia: l'originale fiscale è la fattura elettronica trasmessa tramite SDI.",
     "globalDiscountLine": "Sconto {percent}% sul totale",
     "combinedLine": "{name} ({visits, plural, one {# intervento} other {# interventi}}, {from}–{to})",
-    "serialNumbers": " — matr. {serials}"
+    "serialNumbers": " — matr. {serials}",
+    "consumablesLine": "Materiale di consumo"
   },
   "creditNote": {
     "title": "Nota di credito {number}",

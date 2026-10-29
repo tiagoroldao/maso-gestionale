@@ -166,8 +166,8 @@ export default class InvoicesController {
     const { combine, upTo } = await request.validateUsing(invoiceFromJobValidator)
     try {
       const invoice = await Invoices.fromJob(job, {
-        // A checkbox: left out when unticked
-        combine: combine ?? false,
+        // The page always sends it; combined by default, as the service
+        combine: combine ?? true,
         upTo: upTo ? upTo.setZone(TIME_ZONE).toISODate() : null,
       })
       session.flash('success', i18n.t('flash.invoiceCreated'))
