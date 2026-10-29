@@ -19,11 +19,10 @@ Judgement calls the reviewer applies to every diff. Mechanical rules are enforce
 
 ## UI scope
 
-The UI is functional scaffolding until the UX pass (ADR 0009). A screen on the new UI (rendered inside the new app shell; new screens start there once it exists) follows `docs/ui.md` (ADR 0020) in place of "Reachable, not designed", and for navigation (menu, breadcrumbs, previews) in place of "Links". The other rules apply to every screen: "Lists" until the lists round of the UX pass, and "no dashboards, reports, summaries or charts beyond the issue's criteria" always. In each diff:
+The UI is functional scaffolding until the UX pass (ADR 0009). A screen on the new UI (rendered inside the new app shell; new screens start there once it exists) follows `docs/ui.md` (ADR 0020) in place of "Reachable, not designed". The other rules apply to every screen, "Lists" until the lists round of the UX pass. In each diff:
 
 - **Reachable, not designed.** A feature gets a plain page from the existing pieces (`Page`, `Section`, `.table`, `.field` classes). New visual components, styles, layout work and interaction niceties (live previews, drag and drop, inline editing) are out unless the feature can't work without them. Destructive actions (delete, cancel, finalise) get a confirmation; nothing else does.
 - **Lists** are a plain table in an explicit order (by name, or newest first for dated records). Search only where a record must be found or picked; filters, sorting and pagination only when an acceptance criterion or the data volume needs them.
-- **Links** only where a workflow needs the next step (a Job to its Quote, a draft Invoice back to its list). No dashboards, reports, summaries or charts beyond the issue's criteria.
 - **Logic stays out of pages.** Rules, totals and statuses come from services or `shared/` modules; controllers pass plain domain data.
 - **UX gaps found** in review go to `ui-later` (an issue with that label), not into the diff.
 
