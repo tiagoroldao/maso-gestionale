@@ -8,10 +8,10 @@ import {
 
 type Charge = OrganisableCharge & { id: string }
 
-type On = { visitId: number | null; day: string | null }
-const visit1: On = { visitId: 1, day: '2026-10-05' }
-const visit2: On = { visitId: 2, day: '2026-10-12' }
-const onJob: On = { visitId: null, day: null }
+type On = { visitId: number | null; day: string | null; time: string | null }
+const visit1: On = { visitId: 1, day: '2026-10-05', time: '09:00' }
+const visit2: On = { visitId: 2, day: '2026-10-12', time: '09:00' }
+const onJob: On = { visitId: null, day: null, time: null }
 const hours = (id: string, on = visit1): Charge => ({
   id,
   kind: 'labour',
@@ -76,9 +76,20 @@ test.group('organiseCharges', () => {
 
   test("by Visit: each Visit in work order, then the Job's own", ({ assert }) => {
     assert.deepEqual(layout(organiseCharges(work, 'visit')), [
-      [{ type: 'visit', day: '2026-10-05' }, ['h1', 'valve1', 'boiler', 'pipe', 'callout1']],
-      [{ type: 'visit', day: '2026-10-12' }, ['h2', 'valve2']],
+      [
+        { type: 'visit', visitId: 1, day: '2026-10-05', time: '09:00' },
+        ['h1', 'valve1', 'boiler', 'pipe', 'callout1'],
+      ],
+      [{ type: 'visit', visitId: 2, day: '2026-10-12', time: '09:00' }, ['h2', 'valve2']],
       [{ type: 'job' }, ['callout2']],
+    ])
+  })
+
+  test('by Visit: two Visits on one day are two sections', ({ assert }) => {
+    const afternoon: On = { visitId: 3, day: '2026-10-05', time: '14:00' }
+    assert.deepEqual(layout(organiseCharges([hours('h1'), hours('h3', afternoon)], 'visit')), [
+      [{ type: 'visit', visitId: 1, day: '2026-10-05', time: '09:00' }, ['h1']],
+      [{ type: 'visit', visitId: 3, day: '2026-10-05', time: '14:00' }, ['h3']],
     ])
   })
 

@@ -1,4 +1,5 @@
 import { DateTime } from 'luxon'
+import { TIME_ZONE } from '#shared/dates'
 import Big from 'big.js'
 import db from '@adonisjs/lucid/services/db'
 import type { TransactionClientContract } from '@adonisjs/lucid/types/database'
@@ -170,10 +171,21 @@ export type InvoiceLineInput = {
 export type InvoiceSectionInput = { id?: number; title: string; showSubtotal: boolean }
 
 /**
- * A Charge to draft, with its Visit and the Visit's work day (ISO), or
- * none for the Job's own.
+ * A Charge to draft, with its Visit, the Visit's work day (ISO) and start
+ * time (HH:mm), or none for the Job's own.
  */
-type WorkEntry = { visitId: number | null; day: string | null; charge: Charge }
+type WorkEntry = {
+  visitId: number | null
+  day: string | null
+  time: string | null
+  charge: Charge
+}
+
+/**
+ * When a Visit started, or was to start, as a section title gives it.
+ */
+const visitTime = (visit: Visit) =>
+  (visit.startedAt ?? visit.startsAt).setZone(TIME_ZONE).toFormat('HH:mm')
 
 /**
  * The VAT treatment a drafted line takes.
@@ -987,9 +999,14 @@ export default class Invoices {
         .orderBy(['createdAt', 'id'])
       const work: WorkEntry[] = [
         ...visits.flatMap((visit) =>
-          visit.charges.map((charge) => ({ visitId: visit.id, day: dayOf(visit), charge }))
+          visit.charges.map((charge) => ({
+            visitId: visit.id,
+            day: dayOf(visit),
+            time: visitTime(visit),
+            charge,
+          }))
         ),
-        ...onJob.map((charge) => ({ visitId: null, day: null, charge })),
+        ...onJob.map((charge) => ({ visitId: null, day: null, time: null, charge })),
       ]
       if (!work.length) throw new JobNotInvoiceableError()
 
@@ -1115,12 +1132,17 @@ export default class Invoices {
         charges
           .filter((charge) => charge.visitId === visit.id)
           .sort((a, b) => Number(a.kind === 'item') - Number(b.kind === 'item') || byTime(a, b))
-          .map((charge) => ({ visitId: visit.id, day: visit.workDay(now).toISODate()!, charge }))
+          .map((charge) => ({
+            visitId: visit.id,
+            day: visit.workDay(now).toISODate()!,
+            time: visitTime(visit),
+            charge,
+          }))
       ),
       ...charges
         .filter((charge) => !charge.visitId)
         .sort(byTime)
-        .map((charge) => ({ visitId: null, day: null, charge })),
+        .map((charge) => ({ visitId: null, day: null, time: null, charge })),
     ]
   }
 
@@ -1160,32 +1182,41 @@ export default class Invoices {
       })),
       organiseBy
     )
+    // One section per group (two Visits on one day are two sections);
+    // hand lines join the group with their heading, or one of their own
+    const slots: { heading: Heading | null; charges: (typeof groups)[number]['charges'] }[] = [
+      ...groups,
+    ]
     const handHeading = handLinesHeading(organiseBy)
-    const headings = groups.map((group) => group.heading)
-    if (handLines.length && !headings.some((heading) => sameHeading(heading, handHeading))) {
-      headings.push(handHeading)
+    let handSlot = slots.findIndex((slot) => sameHeading(slot.heading, handHeading))
+    if (handLines.length && handSlot < 0) {
+      slots.push({ heading: handHeading, charges: [] })
+      handSlot = slots.length - 1
     }
-    const sectionIds = new Map<string, number>()
+    const headings = slots.map((slot) => slot.heading)
+    const sectionIds: (number | null)[] = []
     for (const heading of headings) {
-      if (!heading) continue
+      if (!heading) {
+        sectionIds.push(null)
+        continue
+      }
       const section = await InvoiceSection.create(
         {
           invoiceId,
-          position: sectionIds.size,
-          title: this.sectionTitle(heading),
+          position: sectionIds.filter((id) => id !== null).length,
+          title: this.sectionTitle(heading, headings),
           showSubtotal: true,
         },
         { client: trx }
       )
-      sectionIds.set(JSON.stringify(heading), section.id)
+      sectionIds.push(section.id)
     }
-    const sectionOf = (heading: Heading | null) =>
-      heading ? sectionIds.get(JSON.stringify(heading))! : null
 
-    const drafted = groups.flatMap((group) =>
-      combineCharges(group.charges, { combine }).map((line) => ({
+    const drafted = slots.flatMap((slot, index) =>
+      combineCharges(slot.charges, { combine }).map((line) => ({
         ...line,
-        sectionId: sectionOf(group.heading),
+        slot: index,
+        sectionId: sectionIds[index],
       }))
     )
     // A line of its own for an Equipment Item names the pieces it
@@ -1210,13 +1241,12 @@ export default class Invoices {
       return own.flatMap((row) => (row.serial_number ? [row.serial_number as string] : []))
     }
 
-    // Each section's lines in turn, hand lines at the end of theirs (or last)
+    // Each section's lines in turn, hand lines at the end of theirs
     const order: ((typeof drafted)[number] | InvoiceLine)[] = []
-    for (const heading of headings) {
-      order.push(...drafted.filter((line) => line.sectionId === sectionOf(heading)))
-      if (sameHeading(heading, handHeading)) order.push(...handLines)
-    }
-    if (!headings.some((heading) => sameHeading(heading, handHeading))) order.push(...handLines)
+    slots.forEach((_, index) => {
+      order.push(...drafted.filter((line) => line.slot === index))
+      if (index === handSlot) order.push(...handLines)
+    })
 
     const created = await InvoiceLine.createMany(
       drafted.map((line) => {
@@ -1257,7 +1287,7 @@ export default class Invoices {
     for (const line of handLines) {
       await line
         .useTransaction(trx)
-        .merge({ sectionId: sectionOf(handHeading), position: order.indexOf(line) })
+        .merge({ sectionId: sectionIds[handSlot], position: order.indexOf(line) })
         .save()
     }
     return order.length
@@ -1265,16 +1295,23 @@ export default class Invoices {
 
   /**
    * A section's title as organising words it (ADR 0018), e.g.
-   * "Manodopera", "Intervento del 03/11", or the Item category's name.
+   * "Manodopera", "Intervento del 03/11", or the Item category's name; a
+   * Visit sharing its day with another among `headings` gets its start
+   * time too, "Intervento del 03/11 (09:00)".
    */
-  private static sectionTitle(heading: Heading) {
+  private static sectionTitle(heading: Heading, headings: (Heading | null)[]) {
     const i18n = i18nManager.locale(i18nManager.defaultLocale)
     if (heading.type === 'kind') return i18n.t(`documents.invoice.sections.${heading.kind}`)
     if (heading.type === 'category') return heading.name.slice(0, 200)
     if (heading.type === 'job') return i18n.t('documents.invoice.sections.job')
-    return i18n.t('documents.invoice.sections.visit', {
-      date: DateTime.fromISO(heading.day).toFormat('dd/MM'),
-    })
+    const date = DateTime.fromISO(heading.day).toFormat('dd/MM')
+    const sameDay = headings.some(
+      (other) =>
+        other?.type === 'visit' && other.visitId !== heading.visitId && other.day === heading.day
+    )
+    return sameDay
+      ? i18n.t('documents.invoice.sections.visitAt', { date, time: heading.time })
+      : i18n.t('documents.invoice.sections.visit', { date })
   }
 
   /**

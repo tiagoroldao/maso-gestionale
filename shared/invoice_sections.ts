@@ -25,9 +25,11 @@ export type OrganisableCharge = {
   equipment: boolean
   // The Item's category, if any
   category: { id: number; name: string } | null
-  // Its Visit and the Visit's work day (ISO), or none for the Job's own
+  // Its Visit, the Visit's work day (ISO) and start time (HH:mm), or none
+  // for the Job's own
   visitId: number | null
   day: string | null
+  time: string | null
 }
 
 /**
@@ -36,7 +38,7 @@ export type OrganisableCharge = {
 export type Heading =
   | { type: 'kind'; kind: SectionKind }
   | { type: 'category'; name: string }
-  | { type: 'visit'; day: string }
+  | { type: 'visit'; visitId: number; day: string; time: string }
   | { type: 'job' }
 
 /**
@@ -92,7 +94,13 @@ export function organiseCharges<T extends OrganisableCharge>(
       } else add('other', ofKind('other'), [2, ''], charge)
     } else if (charge.visitId) {
       // Visits in the order their work first appears
-      add(`visit:${charge.visitId}`, { type: 'visit', day: charge.day! }, [0, ''], charge)
+      const heading = {
+        type: 'visit' as const,
+        visitId: charge.visitId,
+        day: charge.day!,
+        time: charge.time!,
+      }
+      add(`visit:${charge.visitId}`, heading, [0, ''], charge)
     } else add('job', { type: 'job' }, [1, ''], charge)
   })
   return [...groups.values()]

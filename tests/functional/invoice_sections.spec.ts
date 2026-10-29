@@ -170,6 +170,36 @@ async function issue(invoice: Invoice, outcome: 'delivered' | 'rejected') {
   await Submissions.recordOutcome(invoice, { outcome })
 }
 
+/**
+ * A second Visit on 05/10, in the afternoon: Carla works 1 hour.
+ */
+async function afternoonVisit(job: Job) {
+  const carla = await createUser('technician', { fullName: 'Carla' })
+  const rate = await LabourRate.findByOrFail('name', 'Idraulico')
+  const start = DateTime.fromISO('2026-10-05T14:00')
+  const afternoon = await Visit.create({
+    jobId: job.id,
+    startsAt: start,
+    endsAt: start.plus({ hours: 2 }),
+    status: 'planned',
+  })
+  await afternoon.related('technicians').attach([carla.id])
+  await FieldWork.recordHours(afternoon, {
+    technicianId: carla.id,
+    labourRateId: rate.id,
+    hours: '1',
+  })
+  await FieldWork.setStatus(afternoon, 'done', carla)
+}
+
+/**
+ * The positions of the Invoice's lines, in order.
+ */
+async function positionsOf(invoice: Invoice) {
+  const lines = await InvoiceLine.query().where('invoiceId', invoice.id).orderBy('position')
+  return lines.map((line) => line.position)
+}
+
 const combined = (name: string, visits: number, from: string, to: string) =>
   it('documents.invoice.combinedLine', { name, visits, from, to })
 
@@ -213,6 +243,46 @@ test.group('Invoice sections: organising a draft from a Job', () => {
       ['Intervento del 12/10', ['Idraulico – Anna (12/10) × 2', 'Valvola (12/10) × 2']],
       ['Commessa', ['Uscita × 1']],
     ])
+  })
+
+  test('two Visits on one day: a section each, titled with their start times, drafting and organising again', async ({
+    client,
+    assert,
+  }) => {
+    const { office, job } = await workedJob()
+    await afternoonVisit(job)
+    const expected = [
+      [
+        'Intervento del 05/10 (09:00)',
+        [
+          'Idraulico (05/10) × 3',
+          'Valvola (05/10) × 3',
+          'Tubo (05/10) × 2',
+          'Caldaia (05/10) — matr. AB123 × 1',
+        ],
+      ],
+      ['Intervento del 05/10 (14:00)', ['Idraulico – Carla (05/10) × 1']],
+      ['Intervento del 12/10', ['Idraulico – Anna (12/10) × 2', 'Valvola (12/10) × 2']],
+      ['Commessa', ['Uscita × 1']],
+    ]
+
+    await draft(client, job, office, { organiseBy: 'visit', combine: 'true' })
+    const invoice = await draftOf(job)
+    assert.deepEqual(await layoutOf(invoice), expected)
+    assert.deepEqual(await positionsOf(invoice), [0, 1, 2, 3, 4, 5, 6, 7])
+    assert.lengthOf(await InvoiceSection.query().where('invoiceId', invoice.id), 4)
+
+    // Organised again, from no sections
+    for (const organiseBy of ['none', 'visit']) {
+      await client
+        .post(`/invoices/${invoice.id}/organise`)
+        .form({ organiseBy, combine: 'true' })
+        .withCsrfToken()
+        .loginAs(office)
+    }
+    assert.deepEqual(await layoutOf(invoice), expected)
+    assert.deepEqual(await positionsOf(invoice), [0, 1, 2, 3, 4, 5, 6, 7])
+    assert.lengthOf(await InvoiceSection.query().where('invoiceId', invoice.id), 4)
   })
 
   test('by Item category: Manodopera, the categories by name, then Altro', async ({
