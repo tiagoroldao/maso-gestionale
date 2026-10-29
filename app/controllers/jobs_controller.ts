@@ -19,6 +19,7 @@ import Customer from '#models/customer'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
+import { chargeSummary, visitProgress, type SummaryCharge } from '#services/job_summary'
 import { INVOICED_SQL, READY_TO_CLOSE_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import { lineTotal, sumAmounts } from '#shared/money'
@@ -152,6 +153,7 @@ export default class JobsController {
       .preload('invoiceLines', (lines) => lines.preload('invoice'))
       .preload('item')
       .preload('technician')
+      .preload('labourRate')
       .orderBy(['createdAt', 'id'])
     // What a Charge bills: the amount its Invoice billed, otherwise what
     // Office set to bill
@@ -195,6 +197,13 @@ export default class JobsController {
           .orderBy('id')
       : []
     const issued = (invoice: Invoice) => invoice.status !== 'draft'
+    const visits = job.visits.map((visit) => ({
+      id: visit.id,
+      status: visit.status,
+      startsAt: localDateTime(visit.startsAt),
+      endsAt: localDateTime(visit.endsAt),
+    }))
+    const progress = visitProgress(visits)
 
     return inertia.render('jobs/show', {
       // A Job may have several Quotes, written at any time while it isn't
@@ -279,6 +288,18 @@ export default class JobsController {
         lines: amounts.length,
       },
       callOutFee: settings?.callOutFee ?? null,
+      // For Jobs with many Visits (#178): how far the Visits have got, and
+      // the hours and Items across them and the Job itself, by work state
+      progress: {
+        done: progress.done,
+        total: progress.total,
+        cancelled: progress.cancelled,
+        next: progress.next && { startsAt: progress.next.startsAt, endsAt: progress.next.endsAt },
+      },
+      summary: chargeSummary(
+        charges.map((charge) => summaryCharge(charge)),
+        job.visits.map((visit) => visit.id)
+      ),
       charges: charges.map((charge) => ({
         id: charge.id,
         visitId: charge.visitId,
@@ -444,6 +465,33 @@ export default class JobsController {
     }
     response.redirect().toRoute('jobs.show', { id: params.id })
   }
+}
+
+/**
+ * The Charge as the Job's Charges summary reads it (needs `events`,
+ * `item`, `technician` and `labourRate` preloaded).
+ */
+function summaryCharge(charge: Charge): SummaryCharge {
+  const common = { visitId: charge.visitId, quantity: charge.quantity, work: charge.workState }
+  if (charge.kind === 'labour') {
+    return {
+      ...common,
+      kind: 'labour',
+      worker: charge.worker,
+      labourRateId: charge.labourRateId,
+      labourRate: charge.labourRate?.name ?? null,
+    }
+  }
+  if (charge.kind === 'item') {
+    return {
+      ...common,
+      kind: 'item',
+      itemId: charge.itemId!,
+      item: charge.item.description,
+      unit: charge.item.unit,
+    }
+  }
+  return { ...common, kind: 'other' }
 }
 
 /**

@@ -558,7 +558,12 @@
     "billed": "Già fatturato: {amount}",
     "inDraft": "In bozza di fattura: {amount}",
     "visitBilled": "Fatturato",
-    "timeAndMaterialsHint": "IVA esclusa, ai prezzi del momento in cui sono stati registrati"
+    "timeAndMaterialsHint": "IVA esclusa, ai prezzi del momento in cui sono stati registrati",
+    "progress": "{done} di {total} completati",
+    "progressCancelled": "{count, plural, one {# annullato} other {# annullati}}",
+    "progressNext": "prossimo: {when}",
+    "summary": "Riepilogo ore e materiali",
+    "summaryHint": "Su tutti gli interventi e sulla commessa, per esecuzione. Apri una riga per vedere gli interventi da cui viene."
   },
   "rates": {
     "labourTitle": "Tariffe orarie",
