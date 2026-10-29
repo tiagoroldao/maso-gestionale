@@ -11,6 +11,7 @@ import type { InvoiceStatus } from '#shared/invoice_lifecycle'
 import InvoiceSubmission from '#models/invoice_submission'
 import Payment from '#models/payment'
 import LegacyVatRow from '#models/legacy_vat_row'
+import InvoiceSection from '#models/invoice_section'
 import { sumAmounts } from '#shared/money'
 import type { LiquidationStatus, SoleShareholder } from '#shared/company'
 import { credits, type DocumentType, type NumberingSeries } from '#shared/credit_notes'
@@ -107,6 +108,10 @@ export default class Invoice extends InvoiceSchema {
 
   @hasMany(() => InvoiceLine)
   declare lines: HasMany<typeof InvoiceLine>
+
+  /** Headings over its lines on the PDF, in `position` order (ADR 0018) */
+  @hasMany(() => InvoiceSection)
+  declare sections: HasMany<typeof InvoiceSection>
 
   @hasMany(() => InvoiceSubmission)
   declare submissions: HasMany<typeof InvoiceSubmission>

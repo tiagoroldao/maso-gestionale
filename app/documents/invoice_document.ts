@@ -5,6 +5,7 @@ import { recipientFrom, type DocumentInput } from '#documents/document_renderer'
 import { formatDate } from '#shared/dates'
 import { BANK_TRANSFER } from '#shared/payments'
 import { vatLabel } from '#shared/vat'
+import { sectionRuns } from '#shared/invoice_sections'
 
 // Amounts in invoices are always in euro, with up to 4 decimals on prices
 const euro = new Intl.NumberFormat('it-IT', {
@@ -20,9 +21,11 @@ const money = (amount: string) => euro.format(amount as unknown as number)
 /**
  * A finalised Invoice as a document on the Base Layout, built from the
  * Customer and company copies taken when it was finalised (lines must be
- * preloaded). The PDF is a courtesy
- * copy; the fiscal original is the XML. A Credit Note names the Invoice
- * it credits instead of a due date and payment method.
+ * preloaded, in order). The PDF is a courtesy copy; the fiscal original
+ * is the XML. Lines are printed under their sections' headings, with a
+ * section's subtotal when it shows one (ADR 0018); the XML has the same
+ * lines in the same order, without headings. A Credit Note names the
+ * Invoice it credits instead of a due date and payment method.
  */
 export async function invoiceDocument(invoice: Invoice, i18n: I18n): Promise<DocumentInput> {
   const customer = invoice.customerSnapshot
@@ -36,6 +39,19 @@ export async function invoiceDocument(invoice: Invoice, i18n: I18n): Promise<Doc
   const credited = invoice.isCreditNote ? invoice.creditedInvoice : null
   const method = invoice.paymentMethod ? t(`ui.paymentMethods.${invoice.paymentMethod}`) : null
   const iban = invoice.paymentMethod === BANK_TRANSFER ? company.iban : null
+  await invoice.load('sections')
+  const sections = new Map(invoice.sections.map((section) => [section.id, section]))
+  const lineRow = (line: (typeof invoice.lines)[number]) => ({
+    description: line.description,
+    quantity:
+      `${quantityFormat.format(line.quantity as unknown as number)} ${line.unit ?? ''}`.trim(),
+    unitPrice: money(line.unitPrice),
+    discount: Number(line.discountPercent)
+      ? `${Number(line.discountPercent).toLocaleString('it-IT')}%`
+      : '',
+    vat: vatLabel(line),
+    amount: money(line.lineTotal),
+  })
 
   const bodyHtml = await edge.render('documents/invoice_body', {
     numberLabel: t(credited ? 'documents.creditNote.number' : 'documents.invoice.number'),
@@ -49,17 +65,15 @@ export async function invoiceDocument(invoice: Invoice, i18n: I18n): Promise<Doc
           date: formatDate(credited.issuedOn!.toISODate()),
         })
       : null,
-    lines: invoice.lines.map((line) => ({
-      description: line.description,
-      quantity:
-        `${quantityFormat.format(line.quantity as unknown as number)} ${line.unit ?? ''}`.trim(),
-      unitPrice: money(line.unitPrice),
-      discount: Number(line.discountPercent)
-        ? `${Number(line.discountPercent).toLocaleString('it-IT')}%`
-        : '',
-      vat: vatLabel(line),
-      amount: money(line.lineTotal),
-    })),
+    // Runs of lines, each under its section's heading (none outside any)
+    groups: sectionRuns(invoice.lines).map((run) => {
+      const section = run.sectionId ? sections.get(run.sectionId) : undefined
+      return {
+        title: section?.title ?? null,
+        subtotal: section?.showSubtotal ? money(run.subtotal) : null,
+        lines: run.lines.map(lineRow),
+      }
+    }),
     summary: totals.summary.map((row) => ({
       vat: vatLabel(row),
       taxable: money(row.taxable),

@@ -2,6 +2,7 @@ import vine from '@vinejs/vine'
 import type { FieldContext } from '@vinejs/vine/types'
 import { INVOICE_STAGES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
 import { CREDIT_NOTE_NUMBERING_MODES } from '#shared/credit_notes'
+import { ORGANISE_BY } from '#shared/invoice_sections'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
@@ -22,12 +23,23 @@ const LINE_PRICE_MAX = '9999999'
 const LEGACY_AMOUNT_MAX = '9999999999'
 
 /**
- * How a draft from a Job's Charges is made (ADR 0017): whether alike
+ * How a draft from a Job's Charges is made (ADR 0017, 0018): how its
+ * lines are organised into sections (by kind by default), whether alike
  * Charges are combined (by default) and the last work day it bills.
  */
 export const invoiceFromJobValidator = vine.create({
+  organiseBy: vine.enum(ORGANISE_BY).optional(),
   combine: vine.boolean().optional(),
   upTo: vine.date({ formats: ['YYYY-MM-DD'] }).optional(),
+})
+
+/**
+ * Organising a draft again (ADR 0018): both choices are required, as the
+ * page always sends them.
+ */
+export const invoiceOrganiseValidator = vine.create({
+  organiseBy: vine.enum(ORGANISE_BY),
+  combine: vine.boolean(),
 })
 
 export const newInvoiceValidator = vine.create({
@@ -97,9 +109,22 @@ export const invoiceValidator = vine
               db.where((q) => q.whereNull('archived_at').orWhereIn('id', field.meta.vatCodeIds))
             },
           }),
+          // The position in `sections` of the section it sits in (ADR 0018)
+          section: vine.number().withoutDecimals().min(0).max(49).optional(),
         })
       )
       .maxLength(200),
+    // Headings over the lines on the PDF, in order (ADR 0018)
+    sections: vine
+      .array(
+        vine.object({
+          id: vine.number().withoutDecimals().positive().optional(),
+          title: vine.string().trim().minLength(1).maxLength(200),
+          showSubtotal: vine.boolean(),
+        })
+      )
+      .maxLength(50)
+      .optional(),
     // What the Invoice takes back of each Advance Invoice, VAT included
     deductions: vine
       .array(
