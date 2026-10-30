@@ -296,7 +296,6 @@ const screenActions = computed(() =>
   )
 )
 function runAction(name: string) {
-  if (name === 'save') save()
   // A file, not a page: opened beside the screen
   if (name === 'pdf' && props.quote) {
     window.open(urlFor('quotes.pdf', { id: props.quote.id }), '_blank', 'noopener')
@@ -417,6 +416,7 @@ const TEXTAREA =
       :facts="facts"
       :actions="screenActions"
       :key-facts="keyFacts"
+      :busy="processing"
       @dialog="runAction"
     >
       <template #tags>
@@ -814,6 +814,11 @@ const TEXTAREA =
         </ScreenSection>
       </div>
     </EntityScreen>
+
+    <!-- What Save submits (the header's button names it): the lines and terms
+         are sent from the editor's state, so no field sits inside, and Enter
+         in the Item search never saves -->
+    <form id="quote-form" class="hidden" @submit.prevent="save" />
 
     <ItemPreview v-model:item-id="previewedItem" />
   </AppLayout>

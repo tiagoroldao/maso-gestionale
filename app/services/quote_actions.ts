@@ -3,6 +3,9 @@ import type { I18n } from '@adonisjs/i18n'
 import { formatMoney } from '#shared/money'
 import { declareActions, type ScreenActionInput } from '#shared/screen_actions'
 
+/** The page's form Save submits */
+export const QUOTE_FORM = 'quote-form'
+
 /** What the Quote screen's actions depend on, worked out by its controller */
 export type QuoteActionState = {
   /** Null while writing a new Quote, before its first save */
@@ -28,7 +31,13 @@ export function quoteActions(state: QuoteActionState, i18n: I18n) {
   const actions: ScreenActionInput[] = []
 
   if (state.editable) {
-    actions.push({ name: 'save', label: i18n.t('ui.quotes.save'), rank: 'primary', kind: 'dialog' })
+    actions.push({
+      name: 'save',
+      label: i18n.t('ui.quotes.save'),
+      rank: 'primary',
+      kind: 'submit',
+      form: QUOTE_FORM,
+    })
   }
   if (!quote) return declareActions(actions)
   const params = { id: quote.id }
