@@ -7,6 +7,7 @@ import type { InjectionKey, Ref } from 'vue'
 import type { ChargeState, WorkState } from '@shared/charges'
 import type { InvoiceStatus } from '@shared/invoice_lifecycle'
 import type { JobIndicators, JobStatus } from '@shared/jobs'
+import type { PaymentStatus } from '@shared/payment_status'
 import type { QuoteStatus } from '@shared/quotes'
 
 /** Section labels and the breadcrumb: Montserrat in spaced capitals */
@@ -23,6 +24,13 @@ export const TH =
 export const TD = 'border-b border-border px-4 py-2.5 align-top text-sm'
 export const ROW = 'flex items-start gap-2.5 border-t border-border px-3.5 py-3'
 
+/** A search-as-you-type picker (Sites, Items): its results under the field, each a button */
+export const PICKER_RESULTS =
+  'm-0 max-h-64 list-none overflow-y-auto rounded-sm border border-border bg-card p-0'
+export const PICKER_OPTION =
+  'flex min-h-11 w-full cursor-pointer items-center justify-between gap-2 border-0 bg-transparent px-3 py-2 text-left font-sans text-sm text-foreground outline-none hover:bg-background focus-visible:bg-background focus-visible:ring-2 focus-visible:ring-ring md:min-h-9'
+export const PICKER_HINT = 'm-0 text-[13px] text-muted-foreground'
+export const PICKER_ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
 /**
  * A row edited in place (#226): its form (`EDIT_ROW_FORM`: the fields, Save
  * and the row's errors) then the row's other action, stacked on the phone,
@@ -100,4 +108,13 @@ export const INVOICE_TONES: Record<InvoiceStatus, Tone> = {
   delivered: 'green',
   not_deliverable: 'orange',
   rejected: 'orange',
+}
+
+/** An issued Invoice's payment: green once paid, orange while something is owed or to refund */
+export const PAYMENT_TONES: Record<PaymentStatus, Tone> = {
+  unpaid: 'orange',
+  partly_paid: 'orange',
+  paid: 'green',
+  overpaid: 'orange',
+  overdue: 'orange',
 }

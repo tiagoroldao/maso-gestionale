@@ -14,6 +14,13 @@ import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
 import FormField from '~/components/screen/form_field.vue'
+import JobRows from '~/components/screen/job_rows.vue'
+import IssuedDocumentRows from '~/components/screen/issued_document_rows.vue'
+import type { JobRow } from '~/components/job_list.vue'
+import type { IssuedDocumentRow } from '~/components/issued_document_list.vue'
+import SitePicker from '~/components/site_picker.vue'
+import ItemPicker from '~/components/item_picker.vue'
+import { Textarea } from '~/components/ui/textarea'
 import { EDIT_ROW, EDIT_ROW_FORM, TOUCH, type Tone } from '~/components/screen/screen'
 import SettingsNav from '~/components/screen/settings_nav.vue'
 import RowField from '~/components/screen/row_field.vue'
@@ -90,6 +97,57 @@ const sampleFacts: KeyFact[] = [
     value: t('ui.devUi.sampleAmount'),
     amount: true,
     hint: t('ui.devUi.sampleHint'),
+  },
+]
+// A section's rows (#239): a Customer's Jobs and Issued Documents
+const sampleJobs: JobRow[] = [
+  {
+    id: 1,
+    number: t('ui.devUi.sampleCurrent'),
+    title: t('ui.devUi.sampleTitle'),
+    status: 'in_progress',
+    indicators: { workComplete: false, invoiced: false, paid: false },
+    customer: null,
+    site: { id: 1, summary: t('ui.devUi.sampleSite') },
+    createdAt: '2026-10-20',
+  },
+  {
+    id: 2,
+    number: 'C-2026-0098',
+    title: t('ui.devUi.sampleJobTitle'),
+    status: 'closed',
+    indicators: { workComplete: true, invoiced: true, paid: true },
+    customer: null,
+    site: { id: 1, summary: t('ui.devUi.sampleSite') },
+    createdAt: '2026-06-02',
+  },
+  {
+    id: 3,
+    number: 'C-2026-0031',
+    title: t('ui.devUi.sampleJobTitle'),
+    status: 'cancelled',
+    indicators: null,
+    customer: null,
+    site: null,
+    createdAt: '2026-02-11',
+  },
+]
+const sampleDocuments: IssuedDocumentRow[] = [
+  {
+    id: 1,
+    number: 'D-2026-0012',
+    title: t('ui.devUi.sampleDocument'),
+    issuedOn: '2026-10-21',
+    customer: t('ui.devUi.sampleCustomer'),
+    replaced: false,
+  },
+  {
+    id: 2,
+    number: 'D-2026-0007',
+    title: t('ui.devUi.sampleDocument'),
+    issuedOn: '2026-09-03',
+    customer: t('ui.devUi.sampleCustomer'),
+    replaced: true,
   },
 ]
 const TONES: [Tone, string][] = [
@@ -280,6 +338,10 @@ function sampleDialog(name: string) {
             <Label for="gallery-disabled">{{ t('ui.devUi.field.disabled') }}</Label>
             <Input id="gallery-disabled" :default-value="t('ui.devUi.field.value')" disabled />
           </div>
+          <div class="flex flex-col gap-1.5">
+            <Label for="gallery-textarea">{{ t('ui.devUi.field.label') }}</Label>
+            <Textarea id="gallery-textarea" :default-value="t('ui.devUi.sectionText')" rows="2" />
+          </div>
           <AuthField
             name="gallery-invalid"
             type="text"
@@ -351,6 +413,32 @@ function sampleDialog(name: string) {
               <p class="m-0 text-sm">{{ t('ui.devUi.sectionText') }}</p>
             </ScreenSection>
           </div>
+        </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.rows') }}</h2>
+        <p :class="caption">{{ t('ui.devUi.rowsIntro') }}</p>
+        <div class="grid items-start gap-5 md:grid-cols-[2fr_1fr]">
+          <ScreenSection :title="t('ui.jobs.title')" flush>
+            <JobRows :jobs="sampleJobs" :total="12" all-href="/dev/ui" show-site />
+          </ScreenSection>
+          <div class="flex flex-col gap-5">
+            <ScreenSection :title="t('ui.issuedDocuments.title')" flush>
+              <IssuedDocumentRows :documents="sampleDocuments" :show-customer="false" />
+            </ScreenSection>
+            <ScreenSection :title="t('ui.issuedDocuments.title')" flush>
+              <IssuedDocumentRows :documents="[]" />
+            </ScreenSection>
+          </div>
+        </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.pickers') }}</h2>
+        <div class="grid gap-4 rounded-sm border border-border bg-card p-4 md:grid-cols-2">
+          <SitePicker />
+          <ItemPicker />
         </div>
       </section>
 
