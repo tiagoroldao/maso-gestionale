@@ -75,8 +75,12 @@ const itemClass = computed(() =>
   )
 )
 
-const iconButton =
-  'grid size-9 place-items-center rounded-sm border border-sidebar-border text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand focus-visible:outline-none'
+const iconButton = computed(() =>
+  cn(
+    'grid place-items-center rounded-sm border border-sidebar-border text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand focus-visible:outline-none',
+    props.drawer ? 'size-11' : 'size-9'
+  )
+)
 </script>
 
 <template>

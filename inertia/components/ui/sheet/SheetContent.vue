@@ -10,7 +10,7 @@ import SheetOverlay from './SheetOverlay.vue'
 interface SheetContentProps extends DialogContentProps {
   class?: HTMLAttributes['class']
   side?: 'top' | 'right' | 'bottom' | 'left'
-  /** Name of the built-in close button (from the catalogue); without one, the sheet brings its own */
+  /** Name of the built-in close button (from the catalogue); without it there is none, and the caller provides one (e.g. SheetClose) */
   closeLabel?: string
 }
 

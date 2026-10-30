@@ -45,4 +45,45 @@ test.group('App shell in the browser', () => {
       [it('ui.nav.myVisits')]
     )
   })
+
+  test('on a tablet, the sidebar is folded to icons, its items still named', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await browserContext.loginAs(office)
+
+    const page = await visit('/jobs')
+    await page.setViewportSize({ width: 900, height: 800 })
+
+    assert.equal(await page.getByRole('button', { name: it('ui.shell.openMenu') }).count(), 0)
+    const menu = page.getByRole('navigation', { name: it('ui.shell.mainNav') })
+    for (const label of ['ui.nav.jobs', 'ui.nav.customers', 'ui.nav.invoices']) {
+      const link = menu.getByRole('link', { name: it(label), exact: true })
+      await link.waitFor()
+      // The name stays for screen readers (sr-only), but isn't shown
+      const name = await link.getByText(it(label), { exact: true }).boundingBox()
+      assert.isAtMost(name?.width ?? 0, 1, label)
+    }
+  })
+
+  test('on a desktop, the sidebar shows its items’ names and there is no "☰"', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await browserContext.loginAs(office)
+
+    const page = await visit('/jobs')
+    await page.setViewportSize({ width: 1280, height: 800 })
+
+    assert.equal(await page.getByRole('button', { name: it('ui.shell.openMenu') }).count(), 0)
+    const menu = page.getByRole('navigation', { name: it('ui.shell.mainNav') })
+    for (const label of ['ui.nav.jobs', 'ui.nav.customers', 'ui.nav.invoices']) {
+      const name = await menu.getByText(it(label), { exact: true }).boundingBox()
+      assert.isAbove(name?.width ?? 0, 1, label)
+    }
+  })
 })
