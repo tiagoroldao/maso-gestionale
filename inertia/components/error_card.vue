@@ -8,13 +8,11 @@ import type { Component } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
 import { t } from '~/i18n'
+import { Button } from '~/components/ui/button'
 
 defineProps<{ code: number; icon: Component; title: string; lead: string; text: string }>()
 
 const page = usePage()
-
-const action =
-  'mt-8 inline-flex h-11 items-center justify-center rounded-sm bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card max-md:w-full'
 </script>
 
 <template>
@@ -31,9 +29,9 @@ const action =
     <p class="mt-2 text-lg text-foreground-2">{{ lead }}</p>
     <p class="mt-3 text-sm text-pretty text-muted-foreground">{{ text }}</p>
 
-    <Link v-if="page.props.user" route="dashboard" :class="action">
-      {{ t('ui.errors.toDashboard') }}
-    </Link>
-    <Link v-else route="session.create" :class="action">{{ t('ui.errors.signIn') }}</Link>
+    <Button as-child size="touch" class="mt-8 max-md:w-full">
+      <Link v-if="page.props.user" route="dashboard">{{ t('ui.errors.toDashboard') }}</Link>
+      <Link v-else route="session.create">{{ t('ui.errors.signIn') }}</Link>
+    </Button>
   </article>
 </template>

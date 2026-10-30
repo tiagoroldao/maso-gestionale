@@ -2,6 +2,7 @@
 import { t } from '~/i18n'
 import AuthLayout from '~/layouts/auth.vue'
 import AuthField from '~/components/auth_field.vue'
+import { Button } from '~/components/ui/button'
 import { Form } from '@adonisjs/inertia/vue'
 
 type FieldName =
@@ -99,13 +100,9 @@ const sections = [
         />
       </section>
 
-      <button
-        type="submit"
-        class="h-11 w-full rounded-sm bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-60"
-        :disabled="processing"
-      >
+      <Button type="submit" size="touch" class="w-full" :disabled="processing">
         {{ processing ? t('ui.common.processing') : t('ui.setup.submit') }}
-      </button>
+      </Button>
     </Form>
   </AuthLayout>
 </template>
