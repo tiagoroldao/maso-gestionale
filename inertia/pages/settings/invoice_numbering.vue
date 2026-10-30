@@ -1,12 +1,23 @@
 <script setup lang="ts">
+/**
+ * Numerazione fatture, a settings screen on the new UI (docs/ui.md
+ * "Settings"): each year's next number, the Credit Notes' numbering and the
+ * SDI files' letter, each a short form of its own section.
+ */
+import { ref } from 'vue'
 import { Form } from '@adonisjs/inertia/vue'
-import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
-import SettingsLayout from '~/layouts/settings.vue'
 import { t } from '~/i18n'
 import { CREDIT_NOTE_NUMBERING_MODES, type CreditNoteNumberingMode } from '@shared/credit_notes'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import SettingsScreen from '~/components/screen/settings_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import FormField from '~/components/screen/form_field.vue'
+import { TOUCH } from '~/components/screen/screen'
 
-defineProps<{
+const props = defineProps<{
   years: { year: number; nextNumber: number; locked: boolean }[]
   sdiFilePrefix: string
   // This year's mode and next year's; a change applies at once while no
@@ -18,12 +29,17 @@ defineProps<{
     changesNow: boolean
   }
 }>()
+
+const mode = ref<string>(props.creditNotes.next)
+
+const FORM = 'flex flex-col gap-3 md:flex-row md:items-start'
+const SAVE = [TOUCH, 'self-start md:mt-[22px]']
 </script>
 
 <template>
   <AppLayout>
-    <SettingsLayout>
-      <Section
+    <SettingsScreen route="invoice_numbering.index">
+      <ScreenSection
         :title="t('ui.invoiceNumbering.title')"
         :description="t('ui.invoiceNumbering.description')"
       >
@@ -33,43 +49,45 @@ defineProps<{
           v-slot="{ processing, errors }"
           route="invoice_numbering.update"
           :params="{ year: entry.year }"
-          class="field"
+          :class="FORM"
         >
-          <label class="field__label" :for="`next-${entry.year}`">
-            {{ t('ui.invoiceNumbering.nextNumber', { year: entry.year }) }}
-          </label>
-          <div :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-            <input
-              :id="`next-${entry.year}`"
+          <FormField
+            :id="`next-${entry.year}`"
+            v-slot="field"
+            :label="t('ui.invoiceNumbering.nextNumber', { year: entry.year })"
+            :hint="entry.locked ? t('ui.invoiceNumbering.locked') : t('ui.invoiceNumbering.hint')"
+            :error="errors.nextNumber"
+            class="md:w-96"
+          >
+            <Input
+              :id="field.id"
               name="nextNumber"
               type="number"
               min="1"
-              class="field__input"
-              :value="entry.nextNumber"
+              :default-value="entry.nextNumber"
               :disabled="entry.locked"
-              :style="{ maxWidth: '140px' }"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
+              :class="[TOUCH, 'md:w-36']"
             />
-            <button
-              v-if="!entry.locked"
-              type="submit"
-              class="btn btn--secondary btn--sm"
-              :disabled="processing"
-            >
-              {{ t('ui.common.save') }}
-            </button>
-          </div>
-          <span class="field__hint">
-            {{ entry.locked ? t('ui.invoiceNumbering.locked') : t('ui.invoiceNumbering.hint') }}
-          </span>
-          <span v-if="errors.nextNumber" class="field__error">{{ errors.nextNumber }}</span>
+          </FormField>
+          <Button
+            v-if="!entry.locked"
+            type="submit"
+            variant="outline"
+            :class="SAVE"
+            :disabled="processing"
+          >
+            {{ t('ui.common.save') }}
+          </Button>
         </Form>
-      </Section>
+      </ScreenSection>
 
-      <Section
+      <ScreenSection
         :title="t('ui.invoiceNumbering.creditNotes')"
         :description="t('ui.invoiceNumbering.creditNotesDescription')"
       >
-        <p>
+        <p class="m-0 text-sm">
           {{
             t('ui.invoiceNumbering.creditNotesCurrent', {
               year: creditNotes.year,
@@ -88,62 +106,73 @@ defineProps<{
         <Form
           v-slot="{ processing, errors }"
           route="invoice_numbering.update_credit_notes"
-          class="field"
+          :class="FORM"
         >
-          <label class="field__label" for="credit-note-mode">{{
-            t('ui.invoiceNumbering.creditNotes')
-          }}</label>
-          <div :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-            <select
-              id="credit-note-mode"
+          <FormField
+            id="credit-note-mode"
+            v-slot="field"
+            :label="t('ui.invoiceNumbering.creditNotes')"
+            :error="errors.mode"
+            class="md:w-96"
+          >
+            <NativeSelect
+              :id="field.id"
+              v-model="mode"
               name="mode"
-              class="field__input"
-              :value="creditNotes.next"
-              :style="{ maxWidth: '300px' }"
+              :aria-invalid="field.invalid"
+              :aria-describedby="
+                [field.describedBy, 'credit-note-mode-warning'].filter(Boolean).join(' ')
+              "
             >
-              <option v-for="mode in CREDIT_NOTE_NUMBERING_MODES" :key="mode" :value="mode">
-                {{ t(`ui.invoiceNumbering.creditNotesModes.${mode}`) }}
+              <option v-for="option in CREDIT_NOTE_NUMBERING_MODES" :key="option" :value="option">
+                {{ t(`ui.invoiceNumbering.creditNotesModes.${option}`) }}
               </option>
-            </select>
-            <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
-              {{ t('ui.common.save') }}
-            </button>
-          </div>
-          <span class="field__hint" data-testid="credit-note-numbering-warning">
-            {{ t('ui.invoiceNumbering.creditNotesWarning') }}
-          </span>
-          <span v-if="errors.mode" class="field__error">{{ errors.mode }}</span>
+            </NativeSelect>
+          </FormField>
+          <Button type="submit" variant="outline" :class="SAVE" :disabled="processing">
+            {{ t('ui.common.save') }}
+          </Button>
         </Form>
-      </Section>
+        <p
+          id="credit-note-mode-warning"
+          class="m-0 text-[13px] text-muted-foreground"
+          data-testid="credit-note-numbering-warning"
+        >
+          {{ t('ui.invoiceNumbering.creditNotesWarning') }}
+        </p>
+      </ScreenSection>
 
-      <Section
+      <ScreenSection
         :title="t('ui.invoiceNumbering.sdiPrefix')"
         :description="t('ui.invoiceNumbering.sdiPrefixHint')"
       >
         <Form
           v-slot="{ processing, errors }"
           route="invoice_numbering.update_sdi_prefix"
-          class="field"
+          :class="FORM"
         >
-          <label class="field__label" for="sdi-prefix">{{
-            t('ui.invoiceNumbering.sdiPrefix')
-          }}</label>
-          <div :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-            <input
-              id="sdi-prefix"
+          <FormField
+            id="sdi-prefix"
+            v-slot="field"
+            :label="t('ui.invoiceNumbering.sdiPrefix')"
+            :error="errors.sdiFilePrefix"
+            class="md:w-96"
+          >
+            <Input
+              :id="field.id"
               name="sdiFilePrefix"
               maxlength="1"
-              class="field__input mono"
-              :value="sdiFilePrefix"
-              :style="{ maxWidth: '60px' }"
+              :default-value="sdiFilePrefix"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
+              :class="[TOUCH, 'w-16 font-mono']"
             />
-            <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
-              {{ t('ui.common.save') }}
-            </button>
-          </div>
-          <span v-if="errors.sdiFilePrefix" class="field__error">{{ errors.sdiFilePrefix }}</span>
+          </FormField>
+          <Button type="submit" variant="outline" :class="SAVE" :disabled="processing">
+            {{ t('ui.common.save') }}
+          </Button>
         </Form>
-      </Section>
-    </SettingsLayout>
+      </ScreenSection>
+    </SettingsScreen>
   </AppLayout>
 </template>

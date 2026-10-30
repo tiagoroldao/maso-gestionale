@@ -7,8 +7,8 @@
  * below. Everything stacks on the phone, above the primary action's bar.
  *
  * In edit mode (a form to create or edit the record, docs/ui.md "Kinds of
- * screen") the page wraps the screen in its form, so Save, the primary
- * `submit` action, submits it; `busy` holds Save while it is sent.
+ * screen") Save, the primary `submit` action, submits the screen's form;
+ * `busy` holds Save while it is sent.
  */
 import { computed } from 'vue'
 import { Head } from '@inertiajs/vue3'

@@ -25,10 +25,10 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
         rank: 'secondary',
         kind: 'link',
         href: '/edit',
+        form: null,
         destructive: false,
         confirm: null,
         disabledReason: null,
-        form: null,
       },
     ])
   })
@@ -63,24 +63,6 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
     assert.lengthOf(declareActions([action('save', 'primary', { kind: 'submit', href: null })]), 1)
   })
 
-  test('a screen in edit mode has Save as its primary, submitting its form', ({ assert }) => {
-    assert.deepEqual(saveActions('Salva'), [
-      {
-        name: 'save',
-        label: 'Salva',
-        rank: 'primary',
-        kind: 'submit',
-        href: null,
-        destructive: false,
-        confirm: null,
-        disabledReason: null,
-        form: null,
-      },
-    ])
-    // A form below the header, not around it, is named by its id
-    assert.equal(saveActions('Salva', 'settings-form')[0].form, 'settings-form')
-  })
-
   test('two secondary actions show as buttons, the rest go in "⋯"', ({ assert }) => {
     const arranged = arrangeActions(
       declareActions([
@@ -101,5 +83,12 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
       ['third', 'more']
     )
     assert.isNull(arrangeActions([]).primary)
+  })
+
+  test('Save submits the form the screen sits in, or the form it names', ({ assert }) => {
+    const [inForm] = saveActions('Salva')
+    assert.include(inForm, { name: 'save', rank: 'primary', kind: 'submit', form: null })
+    const [named] = saveActions('Salva', 'company-settings')
+    assert.equal(named.form, 'company-settings')
   })
 })

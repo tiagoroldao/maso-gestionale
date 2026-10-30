@@ -11,10 +11,12 @@ export type ActionRank = (typeof ACTION_RANKS)[number]
 
 /**
  * What an action does: open a page (`link`: an app path, or a contact's
- * `tel:` or map URL), post to the server (`post`), open the screen's own
- * dialog (`dialog`: a short form, such as the options of a draft Invoice),
- * which the page renders by the action's name, or submit the form the
- * screen sits in (`submit`: Save, on a screen in edit mode).
+ * `tel:` or map URL), post to the server (`post`),
+ * open the screen's own dialog (`dialog`: a short form, such as the
+ * options of a draft Invoice), which the page renders by the action's name,
+ * or submit the form the screen sits in (`submit`: Save, on a screen in
+ * edit mode), or the page's form its `form` names when that form doesn't
+ * wrap the header.
  */
 export const ACTION_KINDS = ['link', 'post', 'dialog', 'submit'] as const
 export type ActionKind = (typeof ACTION_KINDS)[number]
@@ -28,22 +30,21 @@ export type ScreenAction = {
   kind: ActionKind
   /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` or `submit` */
   href: string | null
+  /**
+   * The id of the page's form a `submit` submits, when the form doesn't wrap
+   * the header; null for a screen sitting in its form, and the other kinds
+   */
+  form: string | null
   /** Delete, cancel, set back to bill: always overflow, always confirmed */
   destructive: boolean
   /** The question asked first, for a destructive or irreversible action */
   confirm: string | null
   /** Blocked by the record's state but expected here: shown disabled, with this reason */
   disabledReason: string | null
-  /**
-   * The id of the form a `submit` submits (its HTML `form` attribute), for a
-   * form that isn't around the header (a settings page's, below it); null
-   * for the form the screen sits in
-   */
-  form: string | null
 }
 
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
-  Partial<Pick<ScreenAction, 'href' | 'destructive' | 'confirm' | 'disabledReason' | 'form'>>
+  Partial<Pick<ScreenAction, 'href' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>>
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
 export class ScreenActionsError extends Error {}
@@ -60,10 +61,10 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     names.add(action.name)
     const full: ScreenAction = {
       href: null,
+      form: null,
       destructive: false,
       confirm: null,
       disabledReason: null,
-      form: null,
       ...action,
     }
     if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
@@ -82,11 +83,13 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
 
 /**
  * A screen in edit mode (a form to create or edit a record): Save, its
- * primary, submits the form the screen sits in, or the form with the id
- * `form` when that form isn't around the header.
+ * primary, submits the form the screen sits in, or the page's form with
+ * the id `form` when that form doesn't wrap the header.
  */
-export function saveActions(label: string, form: string | null = null) {
-  return declareActions([{ name: 'save', label, rank: 'primary', kind: 'submit', form }])
+export function saveActions(label: string, form?: string) {
+  return declareActions([
+    { name: 'save', label, rank: 'primary', kind: 'submit', form: form ?? null },
+  ])
 }
 
 /** Secondary actions shown as buttons; the rest go in "⋯" */

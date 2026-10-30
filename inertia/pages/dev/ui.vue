@@ -21,8 +21,12 @@ import type { IssuedDocumentRow } from '~/components/issued_document_list.vue'
 import SitePicker from '~/components/site_picker.vue'
 import ItemPicker from '~/components/item_picker.vue'
 import { Textarea } from '~/components/ui/textarea'
+import { EDIT_ROW, EDIT_ROW_FORM, TOUCH, type Tone } from '~/components/screen/screen'
+import SettingsNav from '~/components/screen/settings_nav.vue'
+import RowField from '~/components/screen/row_field.vue'
+import RowHeads from '~/components/screen/row_heads.vue'
+import RowErrors from '~/components/screen/row_errors.vue'
 import RecordPreview from '~/components/screen/record_preview.vue'
-import type { Tone } from '~/components/screen/screen'
 import { NativeSelect } from '~/components/ui/native-select'
 import {
   Dialog,
@@ -151,6 +155,15 @@ const TONES: [Tone, string][] = [
   ['orange', 'ui.devUi.tones.orange'],
   ['green', 'ui.devUi.tones.green'],
   ['grey', 'ui.devUi.tones.grey'],
+]
+// Rows edited in place (#226), one refused, as a settings screen shows them
+const sampleRows: { name: string; value: string; errors: Partial<Record<string, string>> }[] = [
+  { name: t('ui.devUi.sampleCustomer'), value: t('ui.devUi.sampleAmount'), errors: {} },
+  {
+    name: t('ui.devUi.sampleSite'),
+    value: t('ui.devUi.sampleAmount'),
+    errors: { name: t('ui.devUi.field.error') },
+  },
 ]
 const dialogOpen = ref(false)
 const confirmOpen = ref(false)
@@ -427,6 +440,53 @@ function sampleDialog(name: string) {
           <SitePicker />
           <ItemPicker />
         </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.settings') }}</h2>
+        <p :class="caption">{{ t('ui.devUi.settingsIntro') }}</p>
+        <SettingsNav current="rates.index" />
+        <ScreenSection
+          :title="t('ui.devUi.section')"
+          :description="t('ui.devUi.sectionText')"
+          flush
+        >
+          <RowHeads
+            :heads="[
+              { label: t('ui.devUi.field.label'), class: 'md:w-60' },
+              { label: t('ui.devUi.field.value'), class: 'md:w-32' },
+            ]"
+          />
+          <ul class="m-0 list-none p-0">
+            <li v-for="row in sampleRows" :key="row.name" :class="EDIT_ROW">
+              <form :class="EDIT_ROW_FORM" @submit.prevent>
+                <RowField :label="t('ui.devUi.field.label')" class="md:w-60">
+                  <Input
+                    :default-value="row.name"
+                    :aria-label="row.name"
+                    :aria-invalid="row.errors.name ? 'true' : undefined"
+                    :class="TOUCH"
+                  />
+                </RowField>
+                <RowField :label="t('ui.devUi.field.value')" class="md:w-32">
+                  <Input
+                    :default-value="row.value"
+                    :aria-label="`${row.name}: ${t('ui.devUi.field.value')}`"
+                    :class="TOUCH"
+                  />
+                </RowField>
+                <Button type="submit" variant="outline" :class="TOUCH">
+                  {{ t('ui.common.save') }}
+                </Button>
+                <RowErrors
+                  :errors="row.errors"
+                  :fields="{ name: t('ui.devUi.field.label'), value: t('ui.devUi.field.value') }"
+                />
+              </form>
+              <Button variant="ghost" :class="TOUCH">{{ t('ui.common.delete') }}</Button>
+            </li>
+          </ul>
+        </ScreenSection>
       </section>
 
       <section :class="section">

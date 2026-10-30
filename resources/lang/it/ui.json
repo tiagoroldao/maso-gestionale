@@ -117,6 +117,8 @@
     "sampleJobTitle": "Manutenzione annuale",
     "sampleDocument": "Dichiarazione di conformità",
     "pickers": "Ricerca di immobili e articoli",
+    "settings": "Impostazioni",
+    "settingsIntro": "Le schede dell'area Impostazioni e le righe modificate sul posto: ogni errore nomina il suo campo.",
     "preview": "Anteprima",
     "previewIntro": "Un record citato nelle righe o negli addebiti di un altro: in basso sul telefono, a destra dal tablet in su.",
     "openPreview": "Apri anteprima",
@@ -354,7 +356,8 @@
     "addDescription": "Ad esempio “30 gg fine mese”.",
     "add": "Aggiungi",
     "paymentMethod": "Modalità di pagamento",
-    "paymentMethodOf": "Modalità di pagamento di {name}"
+    "paymentMethodOf": "Modalità di pagamento di {name}",
+    "deleteConfirm": "Eliminare le condizioni di pagamento «{name}»?"
   },
   "customers": {
     "title": "Clienti",
@@ -513,7 +516,8 @@
     "nameOf": "Nome di {name}",
     "markupFor": "Ricarico per {name}",
     "addTitle": "Aggiungi categoria",
-    "add": "Aggiungi"
+    "add": "Aggiungi",
+    "deleteConfirm": "Eliminare la categoria «{name}»?"
   },
   "items": {
     "title": "Articoli",
@@ -728,7 +732,8 @@
     "archive": "Archivia",
     "callOutTitle": "Diritto di chiamata",
     "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
-    "callOutFee": "Diritto di chiamata (€)"
+    "callOutFee": "Diritto di chiamata (€)",
+    "archiveConfirm": "Archiviare la tariffa «{name}»? Non si potrà più scegliere per nuovi lavori né ripristinare; il lavoro già registrato la conserva."
   },
   "documentTemplates": {
     "title": "Modelli di documento",
@@ -881,7 +886,8 @@
     "legalNoteTooLong": "La nota supera i {max} caratteri: accorciala per poter salvare il codice. In fattura il testo completo va nella causale.",
     "addTitle": "Nuovo codice IVA",
     "add": "Aggiungi codice IVA",
-    "archive": "Archivia"
+    "archive": "Archivia",
+    "archiveConfirm": "Archiviare il codice IVA «{name}»? Non si potrà più scegliere per nuove righe né ripristinare; le righe già registrate lo conservano."
   },
   "quotes": {
     "section": "Preventivi",
