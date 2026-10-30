@@ -9,6 +9,7 @@ import SupplierInvoiceExport from '#services/supplier_invoice_export'
 import SupplierInvoiceArchiving, {
   ArchivingRefusedError,
 } from '#services/supplier_invoice_archiving'
+import { supplierInvoiceActions } from '#services/supplier_invoice_actions'
 import { isSdiFailureCode } from '#shared/sdi_failures'
 import StockLedger from '#stock/stock_ledger'
 import { isArchivingWaiting, lineReceiptRefusal } from '#shared/supplier_invoices'
@@ -97,7 +98,7 @@ export default class SupplierInvoicesController {
    * and its hint); its default amount (the discount spread when the
    * invoice says so); and, when it can only be marked not stock, why.
    */
-  async show({ params, request, inertia }: HttpContext) {
+  async show({ params, request, inertia, i18n }: HttpContext) {
     const { pick = {} } = await supplierInvoicePageValidator.validate(request.qs())
     const invoice = await SupplierInvoice.query()
       .where('id', params.id)
@@ -138,8 +139,12 @@ export default class SupplierInvoicesController {
     const issuedOn = invoice.issuedOn.toISODate()!
     // Whether it can be sent to legal archiving now: the account archives (#224)
     const archivingOffered = (await SupplierInvoiceArchiving.gateway()) !== null
+    // Office can send it now: waiting, with the account archiving (#224)
+    const archivingRetryable = archivingOffered && isArchivingWaiting(invoice.legalArchiving)
 
     return inertia.render('supplier_invoices/show', {
+      // The header's actions (docs/ui.md "Actions")
+      actions: supplierInvoiceActions({ invoice, archivingRetryable }, i18n),
       invoice: {
         id: invoice.id,
         documentType: invoice.documentType,
@@ -167,8 +172,7 @@ export default class SupplierInvoicesController {
             }
           : null,
         archivingOffered,
-        // Office can send it now: waiting, with the account archiving (#224)
-        archivingRetryable: archivingOffered && isArchivingWaiting(invoice.legalArchiving),
+        archivingRetryable,
         // The discount on the whole invoice, and whether it can be spread over its lines
         discount,
         spreadable,

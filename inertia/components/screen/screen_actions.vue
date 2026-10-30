@@ -12,7 +12,7 @@
  * the screen sits in, or the one its `form` names (disabled while it is
  * `busy`, or blocked); a disabled one shows its reason. A `link` outside
  * the app (a contact's `tel:`, a map) is a plain link, a web one opening in
- * a new tab.
+ * a new tab, as a `file` of the app does.
  */
 import { computed, ref, useId } from 'vue'
 import { router } from '@inertiajs/vue3'
@@ -42,10 +42,10 @@ const reasonId = (action: ScreenAction) => `${id}-${action.name}-reason`
 const confirming = ref<ScreenAction | null>(null)
 const confirmOpen = ref(false)
 
-/** A page of the app, opened by Inertia; anything else is a plain link */
-const inApp = (href: string) => href.startsWith('/')
-const outside = (href: string) =>
-  /^https?:/.test(href) ? { target: '_blank', rel: 'noopener' } : {}
+/** A page of the app, opened by Inertia; anything else (a file, a contact) is a plain link */
+const inApp = (action: ScreenAction) => action.href!.startsWith('/') && !action.file
+const outside = (action: ScreenAction) =>
+  action.file || /^https?:/.test(action.href!) ? { target: '_blank', rel: 'noopener' } : {}
 
 function run(action: ScreenAction) {
   if (action.disabledReason || action.kind === 'submit') return
@@ -101,7 +101,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       class="flex min-w-0 flex-1 flex-col gap-1 md:flex-none"
     >
       <Link
-        v-if="action.kind === 'link' && !action.disabledReason && inApp(action.href!)"
+        v-if="action.kind === 'link' && !action.disabledReason && inApp(action)"
         :href="action.href!"
         :class="SECONDARY"
       >
@@ -110,7 +110,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       <a
         v-else-if="action.kind === 'link' && !action.disabledReason"
         :href="action.href!"
-        v-bind="outside(action.href!)"
+        v-bind="outside(action)"
         :class="SECONDARY"
       >
         {{ action.label }}
@@ -149,7 +149,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         v-if="
           arranged.primary.kind === 'link' &&
           !arranged.primary.disabledReason &&
-          inApp(arranged.primary.href!)
+          inApp(arranged.primary)
         "
         :href="arranged.primary.href!"
         :class="PRIMARY"
@@ -159,7 +159,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       <a
         v-else-if="arranged.primary.kind === 'link' && !arranged.primary.disabledReason"
         :href="arranged.primary.href!"
-        v-bind="outside(arranged.primary.href!)"
+        v-bind="outside(arranged.primary)"
         :class="PRIMARY"
       >
         {{ arranged.primary.label }}
@@ -192,8 +192,8 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       <DropdownMenuContent>
         <template v-for="action in arranged.overflow" :key="action.name">
           <DropdownMenuItem v-if="action.kind === 'link' && !action.disabledReason" as-child>
-            <Link v-if="inApp(action.href!)" :href="action.href!">{{ action.label }}</Link>
-            <a v-else :href="action.href!" v-bind="outside(action.href!)">{{ action.label }}</a>
+            <Link v-if="inApp(action)" :href="action.href!">{{ action.label }}</Link>
+            <a v-else :href="action.href!" v-bind="outside(action)">{{ action.label }}</a>
           </DropdownMenuItem>
           <DropdownMenuItem
             v-else

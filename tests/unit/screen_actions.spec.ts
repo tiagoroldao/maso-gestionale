@@ -25,6 +25,7 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
         rank: 'secondary',
         kind: 'link',
         href: '/edit',
+        file: false,
         form: null,
         destructive: false,
         confirm: null,
@@ -59,6 +60,12 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
       ScreenActionsError,
       'needs an href'
     )
+    assert.throws(
+      () => declareActions([action('pdf', 'secondary', { kind: 'post', file: true })]),
+      ScreenActionsError,
+      'it must be a link'
+    )
+    assert.lengthOf(declareActions([action('pdf', 'secondary', { file: true })]), 1)
     assert.lengthOf(declareActions([action('draft', 'primary', { kind: 'dialog', href: null })]), 1)
     assert.lengthOf(declareActions([action('save', 'primary', { kind: 'submit', href: null })]), 1)
   })

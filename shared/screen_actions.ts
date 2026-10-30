@@ -31,6 +31,11 @@ export type ScreenAction = {
   /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` or `submit` */
   href: string | null
   /**
+   * A `link` to a file of the app (an original file, a PDF), not a page:
+   * a plain link opening in a new tab, never an Inertia visit
+   */
+  file: boolean
+  /**
    * The id of the page's form a `submit` submits, when the form doesn't wrap
    * the header; null for a screen sitting in its form, and the other kinds
    */
@@ -44,7 +49,9 @@ export type ScreenAction = {
 }
 
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
-  Partial<Pick<ScreenAction, 'href' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>>
+  Partial<
+    Pick<ScreenAction, 'href' | 'file' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>
+  >
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
 export class ScreenActionsError extends Error {}
@@ -61,6 +68,7 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     names.add(action.name)
     const full: ScreenAction = {
       href: null,
+      file: false,
       form: null,
       destructive: false,
       confirm: null,
@@ -69,6 +77,9 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     }
     if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
       throw new ScreenActionsError(`Action ${full.name} needs an href`)
+    }
+    if (full.file && full.kind !== 'link') {
+      throw new ScreenActionsError(`Action ${full.name} opens a file: it must be a link`)
     }
     if (full.destructive && (full.rank !== 'overflow' || !full.confirm)) {
       throw new ScreenActionsError(`Destructive action ${full.name} must be overflow and confirmed`)
