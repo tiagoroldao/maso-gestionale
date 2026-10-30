@@ -7,6 +7,12 @@ import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
 import { chooseMoreAction } from '#tests/helpers/screen'
+import type { Page } from 'playwright'
+
+/** Answers the confirmation dialog of an action (docs/ui.md "Actions") */
+async function confirm(page: Page, label: string) {
+  await page.getByRole('alertdialog').getByRole('button', { name: label }).click()
+}
 
 test.group('Quotes in the browser', () => {
   test('Office writes a Quote from Items and labour, sends it, then it is accepted', async ({
@@ -21,7 +27,6 @@ test.group('Quotes in the browser', () => {
 
     // Started from the Job page, saved as the Job's first Quote
     const page = await visit(`/jobs/${job.id}`)
-    page.on('dialog', (dialog) => dialog.accept())
     await chooseMoreAction(page, it('ui.quotes.new'))
     await page.waitForURL(`**/jobs/${job.id}/quotes/create`)
     await page.getByLabel(it('ui.quotes.addItem')).fill('cald')
@@ -31,16 +36,23 @@ test.group('Quotes in the browser', () => {
     await page.getByLabel(it('ui.quotes.quantityOf', { position: 2 })).fill('2,5')
 
     // 1200 + 2.5 × 40 = 1300, reverse charged (company maintenance): no VAT on top
-    await page.getByRole('cell', { name: '1.300,00 €', exact: true }).first().waitFor()
+    await page
+      .getByTestId('quote-totals')
+      .getByText('1.300,00 €', { exact: true })
+      .first()
+      .waitFor()
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
     await page.waitForURL(/\/quotes\/\d+$/)
+    // Sending freezes it, so it asks first
     await page.getByRole('button', { name: it('ui.quotes.send') }).click()
+    await confirm(page, it('ui.quotes.send'))
 
     // Sent: frozen, still to be decided
     await page.getByText(it('ui.quotes.statuses.sent'), { exact: true }).waitFor()
     assert.isTrue(await page.getByLabel(it('ui.quotes.quantityOf', { position: 2 })).isDisabled())
     assert.equal(await page.getByRole('button', { name: it('ui.quotes.save') }).count(), 0)
     await page.getByRole('button', { name: it('ui.quotes.accept') }).click()
+    await confirm(page, it('ui.quotes.accept'))
 
     await page.waitForURL(`**/jobs/${job.id}`)
     await page.getByText(`${job.number}-1`).waitFor()
@@ -61,20 +73,24 @@ test.group('Quotes in the browser', () => {
     await createItem({ code: 'VAL-1', description: 'Valvola', resalePrice: '10' })
 
     const page = await visit(`/jobs/${job.id}/quotes/create`)
-    page.on('dialog', (dialog) => dialog.accept())
     await page.getByLabel(it('ui.quotes.addItem')).fill('val')
     await page.getByRole('option', { name: /VAL-1/ }).click()
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
-    await page.getByRole('button', { name: it('ui.quotes.accept') }).waitFor()
+    await page.getByRole('button', { name: it('ui.quotes.send') }).waitFor()
 
-    // Change the price without saving: deciding is blocked
+    // Change the price without saving: sending and deciding are blocked, saying why
     await page.getByLabel(it('ui.quotes.unitPriceOf', { position: 1 })).fill('8')
-    assert.isTrue(await page.getByRole('button', { name: it('ui.quotes.accept') }).isDisabled())
-    assert.isTrue(await page.getByRole('button', { name: it('ui.quotes.decline') }).isDisabled())
+    assert.isTrue(await page.getByRole('button', { name: it('ui.quotes.send') }).isDisabled())
+    await page.getByText(it('ui.quotes.saveBeforeDeciding')).first().waitFor()
+    await page.getByRole('button', { name: it('ui.screen.moreActions') }).click()
+    assert.isTrue(await page.getByRole('menuitem', { name: it('ui.quotes.accept') }).isDisabled())
+    assert.isTrue(await page.getByRole('menuitem', { name: it('ui.quotes.decline') }).isDisabled())
+    await page.keyboard.press('Escape')
 
     await page.getByRole('button', { name: it('ui.quotes.save') }).click()
     await page.getByText(it('ui.quotes.unsaved')).waitFor({ state: 'detached' })
-    await page.getByRole('button', { name: it('ui.quotes.accept') }).click()
+    await chooseMoreAction(page, it('ui.quotes.accept'))
+    await confirm(page, it('ui.quotes.accept'))
     await page.waitForURL(`**/jobs/${job.id}`)
 
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
