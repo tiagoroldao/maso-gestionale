@@ -120,7 +120,9 @@ const SAVE = [TOUCH, 'self-start md:mt-[22px]']
               v-model="mode"
               name="mode"
               :aria-invalid="field.invalid"
-              aria-describedby="credit-note-mode-warning"
+              :aria-describedby="
+                [field.describedBy, 'credit-note-mode-warning'].filter(Boolean).join(' ')
+              "
             >
               <option v-for="option in CREDIT_NOTE_NUMBERING_MODES" :key="option" :value="option">
                 {{ t(`ui.invoiceNumbering.creditNotesModes.${option}`) }}

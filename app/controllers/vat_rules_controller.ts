@@ -2,7 +2,7 @@ import db from '@adonisjs/lucid/services/db'
 import VatCode from '#models/vat_code'
 import VatRule from '#models/vat_rule'
 import { vatRulesValidator } from '#validators/vat_rule'
-import { declareActions } from '#shared/screen_actions'
+import { saveActions } from '#shared/screen_actions'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -23,15 +23,7 @@ export default class VatRulesController {
 
     return inertia.render('settings/vat_rules', {
       // The rules are one form: Save submits it (docs/ui.md "Actions")
-      actions: declareActions([
-        {
-          name: 'save',
-          label: i18n.t('ui.vatRules.save'),
-          rank: 'primary',
-          kind: 'submit',
-          form: 'vat-rules',
-        },
-      ]),
+      actions: saveActions(i18n.t('ui.vatRules.save'), 'vat-rules'),
       rules: rules.map((rule) => ({
         id: rule.id,
         customerType: rule.customerType,

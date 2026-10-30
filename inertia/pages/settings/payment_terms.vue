@@ -133,6 +133,7 @@ function deleteTerms() {
                   name="paymentMethod"
                   :model-value="terms.paymentMethod"
                   :aria-label="t('ui.paymentTerms.paymentMethodOf', { name: terms.name })"
+                  :aria-invalid="errors.paymentMethod ? 'true' : undefined"
                 >
                   <option v-for="method in PAYMENT_METHODS" :key="method" :value="method">
                     {{ t(`ui.paymentMethods.${method}`) }}
@@ -147,7 +148,11 @@ function deleteTerms() {
               </Button>
               <RowErrors
                 :errors="errors"
-                :fields="{ name: t('ui.paymentTerms.name'), days: t('ui.paymentTerms.days') }"
+                :fields="{
+                  name: t('ui.paymentTerms.name'),
+                  days: t('ui.paymentTerms.days'),
+                  paymentMethod: t('ui.paymentTerms.paymentMethod'),
+                }"
               />
             </Form>
             <Button

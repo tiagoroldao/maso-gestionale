@@ -4,7 +4,7 @@
  * rules are one form, saved by the header's primary action. Each row is a
  * Customer type, Work Category and kind of Site, with a code per line kind.
  */
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Form } from '@adonisjs/inertia/vue'
 import { CircleAlert } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
@@ -77,6 +77,9 @@ const firstError = (errors: Record<string, string>) => {
   })
 }
 
+// Save, in the header, waits while the form is sent
+const busy = ref(false)
+
 const WHO = 'md:w-56'
 const CODE = 'md:min-w-0 md:flex-1'
 const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
@@ -84,13 +87,19 @@ const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
 
 <template>
   <AppLayout>
-    <SettingsScreen route="vat_rules.index" :actions="actions">
+    <SettingsScreen route="vat_rules.index" :actions="actions" :busy="busy">
       <ScreenSection
         :title="t('ui.vatRules.title')"
         :description="t('ui.vatRules.description')"
         flush
       >
-        <Form id="vat-rules" v-slot="{ errors }" route="vat_rules.update">
+        <Form
+          id="vat-rules"
+          v-slot="{ errors }"
+          route="vat_rules.update"
+          @start="busy = true"
+          @finish="busy = false"
+        >
           <p
             v-if="Object.keys(errors).length"
             :class="[ERROR, 'border-t border-border px-3.5 py-3 md:px-4']"

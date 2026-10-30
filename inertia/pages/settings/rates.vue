@@ -5,7 +5,9 @@
  * and the Call-out Fee.
  */
 import { ref } from 'vue'
+import { router } from '@inertiajs/vue3'
 import { Form } from '@adonisjs/inertia/vue'
+import { urlFor } from '~/client'
 import AppLayout from '~/layouts/app.vue'
 import { amountForInput } from '@shared/money'
 import { t } from '~/i18n'
@@ -14,6 +16,7 @@ import { Input } from '~/components/ui/input'
 import { Dialog, DialogContent, DialogFooter, DialogTitle } from '~/components/ui/dialog'
 import SettingsScreen from '~/components/screen/settings_screen.vue'
 import ScreenSection from '~/components/screen/screen_section.vue'
+import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
 import FormField from '~/components/screen/form_field.vue'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
@@ -28,6 +31,18 @@ defineProps<{
 const NAME = 'md:w-60'
 const PRICE = 'md:w-32'
 const addOpen = ref(false)
+
+// Archiving can't be undone here, so it asks first (docs/ui.md "Settings")
+const archiving = ref<{ id: number; name: string } | null>(null)
+const archiveOpen = ref(false)
+function askArchive(record: { id: number; name: string }) {
+  archiving.value = record
+  archiveOpen.value = true
+}
+function archive() {
+  archiveOpen.value = false
+  if (archiving.value) router.post(urlFor('rates.archive', { id: archiving.value.id }))
+}
 </script>
 
 <template>
@@ -85,11 +100,9 @@ const addOpen = ref(false)
                   :fields="{ name: t('ui.rates.name'), hourlyPrice: t('ui.rates.hourlyPrice') }"
                 />
               </Form>
-              <Form route="rates.archive" :params="{ id: rate.id }">
-                <Button type="submit" variant="ghost" :class="TOUCH">
-                  {{ t('ui.rates.archive') }}
-                </Button>
-              </Form>
+              <Button type="button" variant="ghost" :class="TOUCH" @click="askArchive(rate)">
+                {{ t('ui.rates.archive') }}
+              </Button>
             </li>
           </ul>
         </template>
@@ -184,5 +197,13 @@ const addOpen = ref(false)
         </Form>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      v-model:open="archiveOpen"
+      :title="t('ui.rates.archive')"
+      :description="t('ui.rates.archiveConfirm', { name: archiving?.name ?? '' })"
+      :confirm-label="t('ui.rates.archive')"
+      @confirm="archive"
+    />
   </AppLayout>
 </template>

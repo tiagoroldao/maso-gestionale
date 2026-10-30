@@ -4,7 +4,9 @@
  * VAT Codes edited in place, a new one added from the section's dialog.
  */
 import { ref } from 'vue'
+import { router } from '@inertiajs/vue3'
 import { Form } from '@adonisjs/inertia/vue'
+import { urlFor } from '~/client'
 import { CircleAlert } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
 import { amountForInput } from '@shared/money'
@@ -22,6 +24,7 @@ import {
 } from '~/components/ui/dialog'
 import SettingsScreen from '~/components/screen/settings_screen.vue'
 import ScreenSection from '~/components/screen/screen_section.vue'
+import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
 import FormField from '~/components/screen/form_field.vue'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
@@ -57,6 +60,18 @@ const newNatura = ref('')
 function added() {
   addOpen.value = false
   newNatura.value = ''
+}
+
+// Archiving can't be undone here, so it asks first (docs/ui.md "Settings")
+const archiving = ref<{ id: number; name: string } | null>(null)
+const archiveOpen = ref(false)
+function askArchive(record: { id: number; name: string }) {
+  archiving.value = record
+  archiveOpen.value = true
+}
+function archive() {
+  archiveOpen.value = false
+  if (archiving.value) router.post(urlFor('vat_codes.archive', { id: archiving.value.id }))
 }
 </script>
 
@@ -143,11 +158,9 @@ function added() {
                 </p>
                 <RowErrors :errors="errors" :fields="rowLabels" />
               </Form>
-              <Form route="vat_codes.archive" :params="{ id: code.id }">
-                <Button type="submit" variant="ghost" :class="TOUCH">
-                  {{ t('ui.vatCodes.archive') }}
-                </Button>
-              </Form>
+              <Button type="button" variant="ghost" :class="TOUCH" @click="askArchive(code)">
+                {{ t('ui.vatCodes.archive') }}
+              </Button>
             </li>
           </ul>
         </template>
@@ -236,5 +249,13 @@ function added() {
         </Form>
       </DialogContent>
     </Dialog>
+
+    <ConfirmDialog
+      v-model:open="archiveOpen"
+      :title="t('ui.vatCodes.archive')"
+      :description="t('ui.vatCodes.archiveConfirm', { name: archiving?.name ?? '' })"
+      :confirm-label="t('ui.vatCodes.archive')"
+      @confirm="archive"
+    />
   </AppLayout>
 </template>

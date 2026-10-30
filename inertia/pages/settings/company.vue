@@ -103,16 +103,20 @@ const logoUrl = props.settings.updatedAt
 const taxRegime = ref(props.settings.taxRegime ?? 'RF01')
 const soleShareholder = ref(props.settings.soleShareholder ?? '')
 const liquidationStatus = ref(props.settings.liquidationStatus)
+// Save, in the header, waits while the form is sent
+const busy = ref(false)
 </script>
 
 <template>
   <AppLayout>
-    <SettingsScreen route="company_settings.edit" :actions="actions">
+    <SettingsScreen route="company_settings.edit" :actions="actions" :busy="busy">
       <Form
         id="company-settings"
         v-slot="{ errors }"
         route="company_settings.update"
         class="flex flex-col gap-3 md:gap-5"
+        @start="busy = true"
+        @finish="busy = false"
       >
         <ScreenSection
           v-for="section in sections"

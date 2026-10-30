@@ -19,8 +19,10 @@ const props = withDefaults(
     /** The page's route, naming it and marking its tab */
     route: NavRoute
     actions?: ScreenAction[]
+    /** The page's form is being submitted: Save waits */
+    busy?: boolean
   }>(),
-  { actions: () => [] }
+  { actions: () => [], busy: false }
 )
 const emit = defineEmits<{ dialog: [name: string] }>()
 
@@ -39,6 +41,7 @@ const crumbs = computed(() =>
     :current="isHome ? t('ui.settings.title') : title"
     :title="title"
     :actions="actions"
+    :busy="busy"
     @dialog="(name) => emit('dialog', name)"
   >
     <SettingsNav :current="route" />

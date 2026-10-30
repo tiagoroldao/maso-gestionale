@@ -1,5 +1,7 @@
 import { test } from '@japa/runner'
 import CompanySettings from '#models/company_settings'
+import LabourRate from '#models/labour_rate'
+import PaymentTerms from '#models/payment_terms'
 import { createUser } from '#tests/helpers/users'
 import { it } from '#tests/helpers/i18n'
 import { seriousA11yViolations } from '#tests/helpers/axe'
@@ -124,5 +126,71 @@ test.group('Settings screens in the browser', () => {
       .waitFor()
 
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+  })
+
+  test('Enter in a company field saves, as Save in the header does', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('admin'))
+
+    const page = await visit('/settings/company')
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page.getByLabel(it('ui.company.name')).fill('Idraulica Maso S.r.l.')
+    await page.getByLabel(it('ui.company.vatNumber')).fill('12345678903')
+    await page.getByLabel(it('ui.company.taxCode')).fill('12345678903')
+    await page.getByLabel(it('ui.address.street'), { exact: true }).fill('Via Roma')
+    await page.getByLabel(it('ui.address.postalCode'), { exact: true }).fill('20121')
+    await page.getByLabel(it('ui.address.city')).fill('Milano')
+    await page.getByLabel(it('ui.address.province'), { exact: true }).fill('MI')
+    await page.getByLabel(it('ui.address.city')).press('Enter')
+
+    await page.getByText(it('flash.companySaved')).waitFor()
+    const settings = await CompanySettings.findOrFail(1)
+    assert.equal(settings.city, 'Milano')
+  })
+
+  test('deleting Payment Terms and archiving a rate ask first', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('admin'))
+    const terms = await PaymentTerms.create({
+      name: '90 gg data fattura',
+      days: 90,
+      endOfMonth: false,
+      paymentMethod: 'MP05',
+    })
+    const rate = await LabourRate.create({ name: 'Apprendista', hourlyPrice: '25' })
+
+    const page = await visit('/settings/payment-terms')
+    await page
+      .getByRole('listitem')
+      .filter({ has: page.getByLabel(it('ui.paymentTerms.nameOf', { name: terms.name })) })
+      .getByRole('button', { name: it('ui.common.delete') })
+      .click()
+    const dialog = page.getByRole('alertdialog')
+    await dialog.getByText(it('ui.paymentTerms.deleteConfirm', { name: terms.name })).waitFor()
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+    await dialog.getByRole('button', { name: it('ui.common.delete') }).click()
+    await page.getByText(it('flash.paymentTermsDeleted', { name: terms.name })).waitFor()
+    assert.isNull(await PaymentTerms.find(terms.id))
+
+    await page.goto('/settings/rates')
+    await page
+      .getByRole('listitem')
+      .filter({ has: page.getByLabel(it('ui.rates.nameOf', { name: rate.name })) })
+      .getByRole('button', { name: it('ui.rates.archive') })
+      .click()
+    // Going back leaves the rate as it was
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.screen.goBack') })
+      .click()
+    await page.getByRole('alertdialog').waitFor({ state: 'hidden' })
+    await rate.refresh()
+    assert.isNull(rate.archivedAt)
   })
 })

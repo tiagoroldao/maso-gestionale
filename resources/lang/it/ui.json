@@ -722,7 +722,8 @@
     "archive": "Archivia",
     "callOutTitle": "Diritto di chiamata",
     "callOutDescription": "Importo fisso per l'uscita, indipendente dalle ore di lavoro.",
-    "callOutFee": "Diritto di chiamata (€)"
+    "callOutFee": "Diritto di chiamata (€)",
+    "archiveConfirm": "Archiviare la tariffa «{name}»? Non si potrà più scegliere per nuovi lavori né ripristinare; il lavoro già registrato la conserva."
   },
   "documentTemplates": {
     "title": "Modelli di documento",
@@ -875,7 +876,8 @@
     "legalNoteTooLong": "La nota supera i {max} caratteri: accorciala per poter salvare il codice. In fattura il testo completo va nella causale.",
     "addTitle": "Nuovo codice IVA",
     "add": "Aggiungi codice IVA",
-    "archive": "Archivia"
+    "archive": "Archivia",
+    "archiveConfirm": "Archiviare il codice IVA «{name}»? Non si potrà più scegliere per nuove righe né ripristinare; le righe già registrate lo conservano."
   },
   "quotes": {
     "section": "Preventivi",

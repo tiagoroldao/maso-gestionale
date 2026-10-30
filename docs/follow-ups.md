@@ -27,6 +27,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                                                           | The UX pass                                           |
 | #204  | Check in the Openapi sandbox that a queued sent file is found by number, and that an undelivered Supplier Invoice stays listable | The business (`needs-human`): sandbox callback set-up |
 | #209  | Supplier Invoice export: keep the dates after a refused range (`ui-later`)                                                       | The UX pass                                           |
+| #266  | VAT rules: long VAT Code names cut off at tablet width (`ui-later`)                                                              | The UX pass                                           |
 
 ## Added to existing issues
 

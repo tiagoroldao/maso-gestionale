@@ -8,9 +8,9 @@
  *
  * A `post` action asks first when it has a question (destructive or
  * irreversible ones); a `dialog` action is the page's own short form,
- * opened through the `dialog` event; a `submit` action submits the page's
- * form whose id it names (Save, on a screen in edit mode); a disabled one
- * shows its reason.
+ * opened through the `dialog` event; a `submit` action submits the form
+ * the screen sits in, or the one its `form` names (disabled while it is
+ * `busy`); a disabled one shows its reason.
  */
 import { computed, ref, useId } from 'vue'
 import { router } from '@inertiajs/vue3'
@@ -27,7 +27,9 @@ import {
 } from '~/components/ui/dropdown-menu'
 import ConfirmDialog from './confirm_dialog.vue'
 
-const props = defineProps<{ actions: ScreenAction[] }>()
+const props = withDefaults(defineProps<{ actions: ScreenAction[]; busy?: boolean }>(), {
+  busy: false,
+})
 const emit = defineEmits<{ dialog: [name: string] }>()
 
 const arranged = computed(() => arrangeActions(props.actions))
@@ -39,7 +41,7 @@ const confirming = ref<ScreenAction | null>(null)
 const confirmOpen = ref(false)
 
 function run(action: ScreenAction) {
-  if (action.disabledReason) return
+  if (action.disabledReason || action.kind === 'submit') return
   if (action.kind === 'dialog') {
     emit('dialog', action.name)
   } else if (action.kind === 'post' && action.confirm) {
@@ -47,9 +49,6 @@ function run(action: ScreenAction) {
     confirmOpen.value = true
   } else if (action.kind === 'post') {
     router.post(action.href!)
-  } else if (action.kind === 'submit') {
-    const form = document.getElementById(action.form!)
-    if (form instanceof HTMLFormElement) form.requestSubmit()
   }
 }
 
@@ -64,7 +63,8 @@ function confirmed() {
 }
 
 const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand'
-const DISABLED = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-60'
+const DISABLED =
+  'disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60'
 /** On the black band on the phone, bordered on white from 768px */
 const SECONDARY = cn(
   'inline-flex h-11 items-center justify-center gap-2 rounded-sm border border-sidebar-border bg-sidebar-accent px-4 text-sm font-semibold whitespace-nowrap text-white md:h-9 md:border-border md:bg-card md:text-foreground md:hover:bg-background md:focus-visible:ring-ring',
@@ -102,7 +102,9 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       </Link>
       <button
         v-else
-        type="button"
+        :type="action.kind === 'submit' ? 'submit' : 'button'"
+        :form="action.kind === 'submit' ? (action.form ?? undefined) : undefined"
+        :disabled="action.kind === 'submit' && busy"
         :class="SECONDARY"
         :aria-disabled="action.disabledReason ? 'true' : undefined"
         :aria-describedby="action.disabledReason ? reasonId(action) : undefined"
@@ -137,7 +139,11 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       </Link>
       <button
         v-else
-        type="button"
+        :type="arranged.primary.kind === 'submit' ? 'submit' : 'button'"
+        :form="
+          arranged.primary.kind === 'submit' ? (arranged.primary.form ?? undefined) : undefined
+        "
+        :disabled="arranged.primary.kind === 'submit' && busy"
         :class="PRIMARY"
         :aria-disabled="arranged.primary.disabledReason ? 'true' : undefined"
         :aria-describedby="arranged.primary.disabledReason ? reasonId(arranged.primary) : undefined"

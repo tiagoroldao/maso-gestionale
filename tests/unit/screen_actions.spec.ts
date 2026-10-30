@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import {
   arrangeActions,
   declareActions,
+  saveActions,
   ScreenActionsError,
   type ScreenActionInput,
 } from '#shared/screen_actions'
@@ -58,16 +59,8 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
       ScreenActionsError,
       'needs an href'
     )
-    assert.throws(
-      () => declareActions([action('save', 'primary', { kind: 'submit', href: null })]),
-      ScreenActionsError,
-      'needs a form'
-    )
     assert.lengthOf(declareActions([action('draft', 'primary', { kind: 'dialog', href: null })]), 1)
-    assert.lengthOf(
-      declareActions([action('save', 'primary', { kind: 'submit', href: null, form: 'company' })]),
-      1
-    )
+    assert.lengthOf(declareActions([action('save', 'primary', { kind: 'submit', href: null })]), 1)
   })
 
   test('two secondary actions show as buttons, the rest go in "⋯"', ({ assert }) => {
@@ -90,5 +83,12 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
       ['third', 'more']
     )
     assert.isNull(arrangeActions([]).primary)
+  })
+
+  test('Save submits the form the screen sits in, or the form it names', ({ assert }) => {
+    const [inForm] = saveActions('Salva')
+    assert.include(inForm, { name: 'save', rank: 'primary', kind: 'submit', form: null })
+    const [named] = saveActions('Salva', 'company-settings')
+    assert.equal(named.form, 'company-settings')
   })
 })

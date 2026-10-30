@@ -23,8 +23,10 @@ const props = withDefaults(
     title: string
     facts?: string
     actions?: ScreenAction[]
+    /** The screen's form is being submitted: Save waits */
+    busy?: boolean
   }>(),
-  { facts: '', actions: () => [] }
+  { facts: '', actions: () => [], busy: false }
 )
 const emit = defineEmits<{ dialog: [name: string] }>()
 
@@ -80,6 +82,7 @@ onBeforeUnmount(() => {
         <ScreenActions
           v-if="actions.length"
           :actions="actions"
+          :busy="busy"
           @dialog="(name) => emit('dialog', name)"
         />
       </div>
