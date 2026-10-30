@@ -80,8 +80,9 @@
   --radius-lg: 3px;
   --radius-xl: 3px;
 
-  /* Shadows only on what floats: the phone menu drawer, from the right */
+  /* Shadows only on what floats: the phone menu drawer, from the right; menus and dialogs */
   --shadow-drawer: -10px 0 30px rgb(0 0 0 / 0.35);
+  --shadow-float: 0 8px 28px rgb(0 0 0 / 0.22);
 }
 
 :root[data-theme='dark'] {

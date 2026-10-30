@@ -10,6 +10,7 @@ import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
+import { chooseMoreAction } from '#tests/helpers/screen'
 
 test.group('Legacy Invoices in the browser', (group) => {
   group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
@@ -23,7 +24,7 @@ test.group('Legacy Invoices in the browser', (group) => {
     const job = await createJob(await createCustomer())
 
     const page = await visit(`/jobs/${job.id}`)
-    await page.getByRole('link', { name: it('ui.legacyInvoices.new') }).click()
+    await chooseMoreAction(page, it('ui.legacyInvoices.new'))
     await page.getByLabel(it('ui.legacyInvoices.number')).fill('42/2025')
     await page.getByLabel(it('ui.legacyInvoices.issuedOn')).fill('2025-09-15')
     await page.getByLabel(it('ui.legacyInvoices.taxable')).fill('100,00')

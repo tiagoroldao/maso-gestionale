@@ -21,6 +21,7 @@ import Site from '#models/site'
 import { likePattern } from '#services/search'
 import { jobSearchValidator, jobValidator } from '#validators/job'
 import { jobRow } from '#services/job_rows'
+import { jobActions } from '#services/job_actions'
 import { chargeSummary, visitProgress, type SummaryCharge } from '#services/job_summary'
 import { INVOICED_SQL, READY_TO_CLOSE_SQL, WORK_COMPLETE_SQL } from '#services/job_status'
 import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
@@ -146,7 +147,7 @@ export default class JobsController {
     response.redirect().toRoute('jobs.show', { id: job.id })
   }
 
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, bouncer, i18n }: HttpContext) {
     const job = await Job.query()
       .withScopes((scopes) => scopes.withBillingState())
       .where('id', params.id)
@@ -219,8 +220,33 @@ export default class JobsController {
       endsAt: localDateTime(visit.endsAt),
     }))
     const progress = visitProgress(visits, job.isActive)
+    const draftWaiting = ownInvoices.some((invoice) => invoice.status === 'draft')
+    // Every Job invoices from its Charges, Quote or not (ADR 0012), even
+    // once closed or cancelled (#111), while some is to bill and no draft
+    // waits
+    const canInvoice =
+      !draftWaiting &&
+      (hasBillableWork(
+        job.visits.map((visit) => ({
+          status: visit.status,
+          unbilledLines: work.filter((line) => line.visitId === visit.id && line.draftable).length,
+        }))
+      ) ||
+        // Done Charges on the Job itself are billable at once
+        work.some((line) => line.visitId === null && line.draftable))
 
     return inertia.render('jobs/show', {
+      // The page's header actions, for the user's role and the Job's status
+      actions: jobActions(
+        {
+          job,
+          canInvoice,
+          draftWaiting,
+          visits,
+          can: { invoices: await bouncer.allows('manageInvoices') },
+        },
+        i18n
+      ),
       // A Job may have several Quotes, written at any time while it isn't
       // cancelled (ADR 0013)
       quotes: quotes.map((quote) => ({
@@ -259,20 +285,7 @@ export default class JobsController {
             })),
         }
       }),
-      // Every Job invoices from its Charges, Quote or not (ADR 0012), even
-      // once closed or cancelled (#111), while some is to bill and no draft
-      // waits
-      canInvoice:
-        !ownInvoices.some((invoice) => invoice.status === 'draft') &&
-        (hasBillableWork(
-          job.visits.map((visit) => ({
-            status: visit.status,
-            unbilledLines: work.filter((line) => line.visitId === visit.id && line.draftable)
-              .length,
-          }))
-        ) ||
-          // Done Charges on the Job itself are billable at once
-          work.some((line) => line.visitId === null && line.draftable)),
+      canInvoice,
       // An advance is for work to come
       canInvoiceAdvance: job.isActive,
       // What closing would leave behind, shown as a warning (ADR 0015)
@@ -300,6 +313,7 @@ export default class JobsController {
       },
       timeAndMaterials: {
         total: sumAmounts(amounts),
+        toBill: sumOf('to_bill'),
         billed: sumOf('billed'),
         inDraft: sumOf('in_draft'),
         lines: amounts.length,

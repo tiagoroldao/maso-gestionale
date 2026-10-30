@@ -45,7 +45,12 @@ test.group('Invoices from Jobs in the browser', () => {
     // Planned until Office confirms it happened (ADR 0016)
     await page.getByRole('button', { name: it('ui.charges.confirmUsed') }).click()
     await page.getByText(it('flash.chargeWork.done')).waitFor()
+    // The header's primary action opens the draft's options
     await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: it('ui.invoices.fromCharges') })
+      .click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
     await page.getByRole('button', { name: it('ui.invoices.finalise') }).click()
     await page.getByRole('button', { name: it('ui.invoices.prepareSubmission') }).click()
@@ -92,6 +97,10 @@ test.group('Invoices from Jobs in the browser', () => {
     // Combining is ticked by default
     const page = await visit(`/jobs/${job.id}`)
     await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: it('ui.invoices.fromCharges') })
+      .click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
     await page.getByRole('button', { name: it('ui.invoices.foldConsumables') }).click()
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
@@ -166,8 +175,12 @@ test.group('Invoices from Jobs in the browser', () => {
 
     const page = await visit(`/jobs/${job.id}`)
     page.on('dialog', (dialog) => dialog.accept())
-    await page.getByLabel(it('ui.invoices.organiseBy')).selectOption('visit')
     await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
+    await page.getByLabel(it('ui.invoices.organiseBy')).selectOption('visit')
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: it('ui.invoices.fromCharges') })
+      .click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
 
     // A new section; the last line moves down into it with the arrow

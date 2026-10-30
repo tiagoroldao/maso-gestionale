@@ -88,12 +88,17 @@ test.group('Charges in the browser', () => {
     const job = await createJob(await createCustomer())
 
     const page = await visit(`/jobs/${job.id}`)
+    // The section's button opens the short form; its own button adds the cost
+    await page.getByRole('button', { name: it('ui.charges.add') }).click()
     await page.getByLabel(it('ui.charges.description')).fill('Collaboratore esterno')
     await page.getByLabel(it('ui.charges.quantity')).fill('8')
     await page.getByLabel(it('ui.charges.unit')).fill('h')
     await page.getByLabel(it('ui.charges.unitPrice')).fill('30')
     await page.getByLabel(it('ui.charges.vatKind')).selectOption('material')
-    await page.getByRole('button', { name: it('ui.charges.add') }).click()
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: it('ui.charges.add') })
+      .click()
 
     await page.getByText(it('flash.chargeAdded')).waitFor()
     await page.getByTestId('charges').getByText('Collaboratore esterno').waitFor()

@@ -4,10 +4,13 @@
  * (folded to icons from 768 to 1023px), and on the phone a black bar whose
  * "☰", always top right, opens the same sidebar as a drawer from the
  * right. The page renders in the content area as it did before the shell.
+ * On a screen with a header (`ScreenHeader`), the bar's left holds that
+ * screen's "‹" back to its parent in place of the logo.
  */
-import { ref } from 'vue'
+import { provide, ref } from 'vue'
 import { Link } from '@adonisjs/inertia/vue'
-import { Menu, X } from 'lucide-vue-next'
+import { ChevronLeft, Menu, X } from 'lucide-vue-next'
+import { SHELL_BACK, type Crumb } from '~/components/screen/screen'
 import { t } from '~/i18n'
 import AppSidebar from '~/components/app_sidebar.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
@@ -16,6 +19,8 @@ import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '~/com
 import { BAR_BUTTON } from '~/components/shell_classes'
 
 const drawerOpen = ref(false)
+const back = ref<Crumb | null>(null)
+provide(SHELL_BACK, back)
 </script>
 
 <template>
@@ -31,6 +36,16 @@ const drawerOpen = ref(false)
         class="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between bg-sidebar pr-1 pl-4 font-sans md:hidden"
       >
         <Link
+          v-if="back"
+          :href="back.href"
+          :aria-label="t('ui.screen.back', { label: back.label })"
+          class="-ml-2 flex h-11 min-w-0 items-center gap-0.5 rounded-sm pr-2 text-sm text-sidebar-foreground outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand"
+        >
+          <ChevronLeft :size="20" aria-hidden="true" class="shrink-0" />
+          <span class="truncate">{{ back.label }}</span>
+        </Link>
+        <Link
+          v-else
           href="/"
           class="rounded-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand"
         >
@@ -58,9 +73,9 @@ const drawerOpen = ref(false)
       </SheetContent>
     </Sheet>
 
-    <div class="app-main min-w-0 flex-1">
+    <main class="app-main min-w-0 flex-1">
       <slot />
-    </div>
+    </main>
   </div>
   <FlashToasts />
 </template>

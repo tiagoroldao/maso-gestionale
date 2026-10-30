@@ -5,6 +5,7 @@ import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
+import { chooseMoreAction } from '#tests/helpers/screen'
 
 test.group('Visits left open on a cancelled Job in the browser', () => {
   test('cancelling lists the open Visit, then Office marks it done', async ({
@@ -23,19 +24,19 @@ test.group('Visits left open on a cancelled Job in the browser', () => {
     })
 
     const page = await visit(`/jobs/${job.id}`)
-    const messages: string[] = []
-    page.on('dialog', (dialog) => {
-      messages.push(dialog.message())
-      dialog.accept()
-    })
-    await page.getByRole('button', { name: it('ui.jobs.cancel') }).click()
+    // Cancelling is destructive: the question names the Visit left open
+    await chooseMoreAction(page, it('ui.jobs.cancel'))
+    const question = page.getByRole('alertdialog')
+    assert.include(await question.textContent(), '03/10/2026 09:00–11:00')
+    await question.getByRole('button', { name: it('ui.jobs.cancel') }).click()
     await page.getByRole('button', { name: it('ui.visits.markDone') }).waitFor()
-    assert.include(messages[0], '03/10/2026 09:00–11:00')
 
+    // Marking it done is final, so it asks too
     await page.getByRole('button', { name: it('ui.visits.markDone') }).click()
+    await question.getByText(it('ui.visits.markDoneConfirm')).waitFor()
+    await question.getByRole('button', { name: it('ui.visits.markDone') }).click()
     await page.getByText(it('flash.visitMarkedDone')).waitFor()
     await open.refresh()
     assert.equal(open.status, 'done')
-    assert.lengthOf(messages, 2)
   })
 })

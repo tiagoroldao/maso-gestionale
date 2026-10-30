@@ -34,6 +34,10 @@ test.group('Invoices from Jobs without a Quote in the browser', () => {
 
     const page = await visit(`/jobs/${job.id}`)
     await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: it('ui.invoices.fromCharges') })
+      .click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
 
     // 2 h × 40 = 80, reverse charged by the default rules (company maintenance)

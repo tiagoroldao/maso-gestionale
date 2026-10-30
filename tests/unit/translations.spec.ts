@@ -103,6 +103,8 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
     'waterSoftener',
     'pressurePump',
   ],
+  // The gallery's status tags, one per tone (inertia/components/screen/screen.ts)
+  'ui.devUi.tones': ['blue', 'orange', 'green', 'grey'],
   'ui.instance.pollSteps': POLL_STEPS,
   'ui.instance.sdiModes': SDI_MODES,
   'ui.instance.sdiEnvironments': SDI_ENVIRONMENTS,
@@ -277,6 +279,8 @@ const BUILT_ON_SERVER: Record<string, readonly (string | number)[]> = {
   }),
   'ui.sdiFailures': SDI_FAILURE_CODES,
   'ui.jobs.leftToClose': BUILT_IN_PAGES['ui.jobs.leftToClose'],
+  // The open Visits named in the Job's cancel question (job_actions.ts)
+  'ui.visits.statuses': VISIT_STATUSES,
   'ui.paymentMethods': PAYMENT_METHODS,
   'documents.invoice.sections': SECTION_KINDS,
   'documents.workReport': valuesOf<keyof WorkReportLabels>({

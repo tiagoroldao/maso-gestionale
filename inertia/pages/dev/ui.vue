@@ -5,7 +5,25 @@
  * (`npm run ui:shots -- /dev/ui`, light and dark). Add a component here
  * when it joins the kit.
  */
+import { ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
+import { declareActions } from '@shared/screen_actions'
+import ScreenHeader from '~/components/screen/screen_header.vue'
+import KeyFacts, { type KeyFact } from '~/components/screen/key_facts.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import StatusTag from '~/components/screen/status_tag.vue'
+import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
+import FormField from '~/components/screen/form_field.vue'
+import type { Tone } from '~/components/screen/screen'
+import { NativeSelect } from '~/components/ui/native-select'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { ORGANISE_BY } from '@shared/invoice_sections'
 import { Briefcase, LogOut, Menu, Plus, X } from 'lucide-vue-next'
 import { t } from '~/i18n'
 import { cn } from '~/lib/utils'
@@ -38,12 +56,51 @@ const BUTTON_VARIANTS: [NonNullable<ButtonVariants['variant']>, string][] = [
 ]
 const BUTTON_SIZES: NonNullable<ButtonVariants['size']>[] = ['default', 'sm', 'touch']
 const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-sidebar-foreground'
+
+// The Entity screen kit (#235), with actions as the server would declare them
+const sampleActions = declareActions([
+  { name: 'primary', label: t('ui.devUi.action.primary'), rank: 'primary', kind: 'dialog' },
+  {
+    name: 'secondary',
+    label: t('ui.devUi.action.secondary'),
+    rank: 'secondary',
+    kind: 'link',
+    href: '/dev/ui',
+  },
+  { name: 'overflow', label: t('ui.devUi.action.overflow'), rank: 'overflow', kind: 'dialog' },
+  {
+    name: 'disabled',
+    label: t('ui.devUi.action.disabled'),
+    rank: 'overflow',
+    kind: 'dialog',
+    disabledReason: t('ui.devUi.action.disabledReason'),
+  },
+  { name: 'confirm', label: t('ui.devUi.action.destructive'), rank: 'overflow', kind: 'dialog' },
+])
+const sampleFacts: KeyFact[] = [
+  { label: t('ui.jobs.customer'), value: t('ui.devUi.sampleCustomer'), href: '/dev/ui' },
+  { label: t('ui.jobs.site'), value: t('ui.devUi.sampleSite') },
+  {
+    label: t('ui.jobs.toBill'),
+    value: t('ui.devUi.sampleAmount'),
+    amount: true,
+    hint: t('ui.devUi.sampleHint'),
+  },
+]
+const TONES: Tone[] = ['blue', 'orange', 'green', 'grey']
+const dialogOpen = ref(false)
+const confirmOpen = ref(false)
+const sampleSelect = ref('kind')
+function sampleDialog(name: string) {
+  if (name === 'confirm') confirmOpen.value = true
+  else dialogOpen.value = true
+}
 </script>
 
 <template>
   <AppLayout>
     <Head :title="t('ui.devUi.title')" />
-    <div class="flex max-w-5xl flex-col gap-6 p-6 font-sans text-foreground md:p-10">
+    <div class="flex max-w-5xl flex-col gap-6 p-6 pb-24 font-sans text-foreground md:p-10">
       <header class="flex flex-col gap-2">
         <h1 class="m-0 text-2xl font-semibold">{{ t('ui.devUi.title') }}</h1>
         <p :class="caption">{{ t('ui.devUi.intro') }}</p>
@@ -224,6 +281,109 @@ const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-si
             <figcaption :class="caption">{{ t('ui.devUi.drawer') }}</figcaption>
           </figure>
         </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.statusTags') }}</h2>
+        <div class="flex flex-wrap gap-2 rounded-sm border border-border bg-card p-4">
+          <StatusTag v-for="tone in TONES" :key="tone" :tone="tone">
+            {{ t(`ui.devUi.tones.${tone}`) }}
+          </StatusTag>
+        </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.screen') }}</h2>
+        <p :class="caption">{{ t('ui.devUi.screenIntro') }}</p>
+        <!-- As on a screen: header, key facts, sections -->
+        <div class="flex flex-col overflow-hidden rounded-sm border border-border bg-background">
+          <ScreenHeader
+            :crumbs="[{ label: t('ui.devUi.sampleParent'), href: '/dev/ui' }]"
+            :current="t('ui.devUi.sampleCurrent')"
+            :title="t('ui.devUi.sampleTitle')"
+            :facts="t('ui.devUi.sampleFacts')"
+            :actions="sampleActions"
+            @dialog="sampleDialog"
+          >
+            <template #tags>
+              <StatusTag tone="orange">{{ t('ui.devUi.tones.orange') }}</StatusTag>
+            </template>
+          </ScreenHeader>
+          <div class="flex flex-col gap-3 p-3.5 md:gap-5 md:p-5">
+            <KeyFacts :facts="sampleFacts" />
+            <ScreenSection :title="t('ui.devUi.section')">
+              <template #actions>
+                <Button variant="outline" class="h-11 md:h-9" @click="dialogOpen = true">
+                  {{ t('ui.devUi.sectionAction') }}
+                </Button>
+              </template>
+              <p class="m-0 text-sm">{{ t('ui.devUi.sectionText') }}</p>
+            </ScreenSection>
+          </div>
+        </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.dialog') }}</h2>
+        <div class="flex flex-wrap gap-3">
+          <Button variant="outline" @click="dialogOpen = true">
+            {{ t('ui.devUi.openDialog') }}
+          </Button>
+          <Button variant="outline" @click="confirmOpen = true">
+            {{ t('ui.devUi.openConfirm') }}
+          </Button>
+        </div>
+        <div class="grid gap-4 rounded-sm border border-border bg-card p-4 md:grid-cols-2">
+          <FormField
+            id="gallery-select"
+            v-slot="field"
+            :label="t('ui.invoices.organiseBy')"
+            :hint="t('ui.devUi.dialogText')"
+          >
+            <NativeSelect
+              :id="field.id"
+              v-model="sampleSelect"
+              :aria-describedby="field.describedBy"
+            >
+              <option v-for="option in ORGANISE_BY" :key="option" :value="option">
+                {{ t(`ui.invoices.organiseOptions.${option}`) }}
+              </option>
+            </NativeSelect>
+          </FormField>
+          <FormField
+            id="gallery-field-error"
+            v-slot="field"
+            :label="t('ui.devUi.field.label')"
+            :error="t('ui.devUi.field.error')"
+          >
+            <Input
+              :id="field.id"
+              class="h-11 md:h-9"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
+            />
+          </FormField>
+        </div>
+        <Dialog v-model:open="dialogOpen">
+          <DialogContent :close-label="t('ui.screen.closeDialog')">
+            <DialogTitle>{{ t('ui.devUi.dialog') }}</DialogTitle>
+            <DialogDescription>{{ t('ui.devUi.dialogText') }}</DialogDescription>
+            <DialogFooter>
+              <Button variant="outline" class="h-11 md:h-9" @click="dialogOpen = false">
+                {{ t('ui.screen.goBack') }}
+              </Button>
+              <Button class="h-11 md:h-9" @click="dialogOpen = false">
+                {{ t('ui.devUi.confirm') }}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <ConfirmDialog
+          v-model:open="confirmOpen"
+          :title="t('ui.devUi.action.destructive')"
+          :description="t('ui.devUi.confirmText')"
+          :confirm-label="t('ui.devUi.action.destructive')"
+        />
       </section>
     </div>
   </AppLayout>
