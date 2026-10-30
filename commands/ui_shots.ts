@@ -16,6 +16,9 @@ const ROLES = {
   superuser: DEV_LOGINS.superuser,
 } as const
 type Role = keyof typeof ROLES
+/** `--role=none`: signed out, for the sign-in and setup screens */
+const SIGNED_OUT = 'none'
+const ROLE_CHOICES = [...Object.keys(ROLES), SIGNED_OUT].join(', ')
 
 const THEMES = ['light', 'dark'] as const
 const OUT_DIR = 'tmp/ui-shots'
@@ -24,7 +27,8 @@ const SERVER_START_SECONDS = 90
 /**
  * Screenshots of app pages for checking a screen against docs/ui.md
  * (#252): each path at the three screen sizes (shared/screen_sizes.ts),
- * light and dark, logged in as one of the dev seeder's accounts. Prints the
+ * light and dark, logged in as one of the dev seeder's accounts (or signed
+ * out, with `--role=none`). Prints the
  * PNGs' absolute paths (in tmp/ui-shots, git-ignored).
  *
  * Uses the server on this checkout's HOST and PORT, or starts `node ace
@@ -44,7 +48,7 @@ export default class UiShots extends BaseCommand {
   declare paths: string[]
 
   @flags.string({
-    description: `The dev seeder account to log in as: ${Object.keys(ROLES).join(', ')}`,
+    description: `The dev seeder account to log in as (none: signed out): ${ROLE_CHOICES}`,
     default: 'office',
   })
   declare role: string
@@ -55,8 +59,8 @@ export default class UiShots extends BaseCommand {
       this.exitCode = 1
       return
     }
-    if (!(this.role in ROLES)) {
-      this.logger.error(`Unknown role "${this.role}": use ${Object.keys(ROLES).join(', ')}`)
+    if (!(this.role in ROLES) && this.role !== SIGNED_OUT) {
+      this.logger.error(`Unknown role "${this.role}": use ${ROLE_CHOICES}`)
       this.exitCode = 1
       return
     }
@@ -86,7 +90,10 @@ export default class UiShots extends BaseCommand {
       // Imported here: playwright is a dev dependency, absent from the production image
       const { chromium } = await import('playwright')
       browser = await chromium.launch()
-      const storageState = await this.logIn(browser, base, ROLES[this.role as Role])
+      const storageState =
+        this.role === SIGNED_OUT
+          ? undefined
+          : await this.logIn(browser, base, ROLES[this.role as Role])
 
       for (const path of paths) {
         for (const theme of THEMES) {
