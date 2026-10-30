@@ -9,6 +9,7 @@ import { t } from '~/i18n'
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
 import ThemeToggle from '~/components/theme_toggle.vue'
+import { sidebarIconButtonClass } from '~/components/shell_classes'
 </script>
 
 <template>
@@ -22,9 +23,7 @@ import ThemeToggle from '~/components/theme_toggle.vue'
       >
         <div class="flex items-center justify-between gap-4 md:items-start">
           <Logo stacked />
-          <ThemeToggle
-            class="size-11 rounded-sm border-sidebar-border text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand focus-visible:outline-none"
-          />
+          <ThemeToggle :class="sidebarIconButtonClass(true)" />
         </div>
         <p
           class="hidden max-w-[22ch] font-display text-2xl leading-snug font-semibold text-balance text-white md:block lg:text-[28px]"

@@ -7,6 +7,7 @@
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
 import ThemeToggle from '~/components/theme_toggle.vue'
+import { sidebarIconButtonClass } from '~/components/shell_classes'
 </script>
 
 <template>
@@ -15,9 +16,7 @@ import ThemeToggle from '~/components/theme_toggle.vue'
       class="sticky top-0 z-40 flex shrink-0 items-center justify-between gap-4 bg-sidebar py-1.5 pr-1 pl-4 md:pr-4 md:pl-8"
     >
       <Logo />
-      <ThemeToggle
-        class="size-11 rounded-sm border-sidebar-border text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand focus-visible:outline-none"
-      />
+      <ThemeToggle :class="sidebarIconButtonClass(true)" />
     </header>
 
     <main

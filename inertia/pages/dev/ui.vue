@@ -6,13 +6,18 @@
  * when it joins the kit.
  */
 import { Head } from '@inertiajs/vue3'
-import { Briefcase, LogOut, Menu, X } from 'lucide-vue-next'
+import { Briefcase, LogOut, Menu, Plus, X } from 'lucide-vue-next'
 import { t } from '~/i18n'
 import { cn } from '~/lib/utils'
 import AppLayout from '~/layouts/app.vue'
 import AppSidebar from '~/components/app_sidebar.vue'
+import Logo from '~/components/logo.vue'
 import LogoMark from '~/components/logo_mark.vue'
 import ThemeToggle from '~/components/theme_toggle.vue'
+import AuthField from '~/components/auth_field.vue'
+import { Button, buttonVariants, type ButtonVariants } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
 import { BAR_BUTTON, sidebarIconButtonClass, sidebarItemClass } from '~/components/shell_classes'
 import {
   Sheet,
@@ -26,6 +31,8 @@ import {
 const section = 'flex flex-col gap-3 border-t border-border pt-5'
 const heading = 'm-0 font-display text-[11px] font-semibold tracking-[0.2em] uppercase'
 const caption = 'm-0 text-xs text-muted-foreground'
+const BUTTON_VARIANTS: NonNullable<ButtonVariants['variant']>[] = ['default', 'outline', 'ghost']
+const BUTTON_SIZES: NonNullable<ButtonVariants['size']>[] = ['default', 'sm', 'touch']
 const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-sidebar-foreground'
 </script>
 
@@ -48,15 +55,16 @@ const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-si
             <figcaption :class="caption">{{ t('ui.devUi.onSurface') }}</figcaption>
           </figure>
           <figure class="m-0 flex flex-col gap-2">
-            <div :class="[frame, 'text-white']">
-              <LogoMark class="h-[26px] w-11" cut-class="fill-sidebar-brand" />
-              <span
-                class="font-display text-[10px] font-semibold tracking-[0.24em] whitespace-nowrap uppercase"
-              >
-                {{ t('ui.shell.wordmark') }}
-              </span>
+            <div :class="frame">
+              <Logo />
             </div>
             <figcaption :class="caption">{{ t('ui.devUi.onFrame') }}</figcaption>
+          </figure>
+          <figure class="m-0 flex flex-col gap-2">
+            <div :class="frame">
+              <Logo stacked />
+            </div>
+            <figcaption :class="caption">{{ t('ui.devUi.stacked') }}</figcaption>
           </figure>
         </div>
       </section>
@@ -146,12 +154,50 @@ const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-si
       </section>
 
       <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.controls') }}</h2>
+        <div
+          v-for="size in BUTTON_SIZES"
+          :key="size"
+          class="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-4"
+        >
+          <Button v-for="variant in BUTTON_VARIANTS" :key="variant" :variant="variant" :size="size">
+            {{ t(`ui.devUi.button.${variant}`) }}
+          </Button>
+          <Button :size="size" disabled>{{ t('ui.devUi.button.disabled') }}</Button>
+          <Button variant="outline" :size="size === 'touch' ? 'icon-touch' : 'icon'">
+            <Plus aria-hidden="true" />
+            <span class="sr-only">{{ t('ui.devUi.button.icon') }}</span>
+          </Button>
+          <span :class="caption">{{ size }}</span>
+        </div>
+        <div class="grid gap-4 rounded-sm border border-border bg-card p-4 md:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <Label for="gallery-empty">{{ t('ui.devUi.field.label') }}</Label>
+            <Input id="gallery-empty" :placeholder="t('ui.devUi.field.placeholder')" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <Label for="gallery-filled">{{ t('ui.devUi.field.label') }}</Label>
+            <Input id="gallery-filled" :default-value="t('ui.devUi.field.value')" />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <Label for="gallery-disabled">{{ t('ui.devUi.field.disabled') }}</Label>
+            <Input id="gallery-disabled" :default-value="t('ui.devUi.field.value')" disabled />
+          </div>
+          <AuthField
+            name="gallery-invalid"
+            type="text"
+            autocomplete="off"
+            :label="t('ui.devUi.field.touch')"
+            :error="t('ui.devUi.field.error')"
+          />
+        </div>
+      </section>
+
+      <section :class="section">
         <h2 :class="heading">{{ t('ui.devUi.sheet') }}</h2>
         <div class="flex flex-wrap items-start gap-6">
           <Sheet>
-            <SheetTrigger
-              class="h-9 rounded-sm border border-border bg-card px-3 text-sm text-foreground hover:bg-background"
-            >
+            <SheetTrigger :class="buttonVariants({ variant: 'outline' })">
               {{ t('ui.devUi.openSheet') }}
             </SheetTrigger>
             <SheetContent side="right" :close-label="t('ui.shell.closeMenu')">

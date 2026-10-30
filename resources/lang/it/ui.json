@@ -60,7 +60,24 @@
     "buttons": "Pulsanti",
     "sheet": "Cassetto (Sheet)",
     "openSheet": "Apri il cassetto",
-    "sheetText": "Un pannello che scorre da destra, come il menu sul telefono."
+    "sheetText": "Un pannello che scorre da destra, come il menu sul telefono.",
+    "stacked": "Impilato (accesso, da 768px)",
+    "controls": "Pulsanti e campi",
+    "button": {
+      "default": "Primario",
+      "outline": "Secondario",
+      "ghost": "Discreto",
+      "disabled": "Disattivato",
+      "icon": "Aggiungi"
+    },
+    "field": {
+      "label": "Campo",
+      "placeholder": "Testo di esempio",
+      "value": "Valore",
+      "disabled": "Campo disattivato",
+      "touch": "Campo da 44px, con errore",
+      "error": "Spiega che cosa correggere."
+    }
   },
   "roles": {
     "superuser": "Superuser",

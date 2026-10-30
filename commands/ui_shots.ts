@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { mkdir, open } from 'node:fs/promises'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -72,13 +72,15 @@ export default class UiShots extends BaseCommand {
     const outDir = this.app.makePath(OUT_DIR)
     await mkdir(outDir, { recursive: true })
 
-    let server: ChildProcess | undefined
+    let stopServer: (() => void) | undefined
     let browser: Browser | undefined
     try {
       if (await this.isUp(base)) {
-        this.logger.info(`Using the server already running at ${base}`)
+        this.logger.warning(
+          `A server already answers at ${base}: using it. If it isn't this checkout's (another worktree on the same PORT), stop it or set another PORT.`
+        )
       } else {
-        server = await this.startServer(base, join(outDir, 'server.log'))
+        stopServer = await this.startServer(base, join(outDir, 'server.log'))
       }
 
       // Imported here: playwright is a dev dependency, absent from the production image
@@ -111,20 +113,25 @@ export default class UiShots extends BaseCommand {
       this.exitCode = 1
     } finally {
       await browser?.close()
-      if (server?.pid) process.kill(-server.pid, 'SIGTERM')
+      stopServer?.()
     }
   }
 
   private async isUp(base: string) {
     try {
-      await fetch(`${base}/login`, { redirect: 'manual' })
+      await fetch(`${base}/login`, { redirect: 'manual', signal: AbortSignal.timeout(2000) })
       return true
     } catch {
       return false
     }
   }
 
-  /** `node ace serve` in its own process group, so stopping it stops its child too */
+  /**
+   * `node ace serve` in its own process group, so stopping it stops its
+   * child too. Returns the function that stops it; until then, Ctrl-C or
+   * the command exiting stops it as well, so no server is left behind
+   * holding the database.
+   */
   private async startServer(base: string, logPath: string) {
     this.logger.info(`Starting the server at ${base} (log: ${logPath})`)
     const log = await open(logPath, 'w')
@@ -136,12 +143,35 @@ export default class UiShots extends BaseCommand {
     })
     // The server has its own copy of the descriptor
     await log.close()
+
+    const kill = () => {
+      if (!server.pid || server.exitCode !== null) return
+      try {
+        process.kill(-server.pid, 'SIGTERM')
+      } catch {
+        // Already gone
+      }
+    }
+    const onSignal = (signal: NodeJS.Signals) => {
+      kill()
+      process.exit(signal === 'SIGINT' ? 130 : 143)
+    }
+    process.once('SIGINT', onSignal)
+    process.once('SIGTERM', onSignal)
+    process.once('exit', kill)
+    const stop = () => {
+      process.off('SIGINT', onSignal)
+      process.off('SIGTERM', onSignal)
+      process.off('exit', kill)
+      kill()
+    }
+
     for (let waited = 0; waited < SERVER_START_SECONDS; waited++) {
       if (server.exitCode !== null) break
-      if (await this.isUp(base)) return server
+      if (await this.isUp(base)) return stop
       await sleep(1000)
     }
-    if (server.pid && server.exitCode === null) process.kill(-server.pid, 'SIGTERM')
+    stop()
     throw new Error(`The server did not start at ${base}: see ${logPath}`)
   }
 
