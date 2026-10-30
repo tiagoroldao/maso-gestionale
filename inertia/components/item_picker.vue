@@ -4,7 +4,16 @@
  * the chosen one. Never shows prices, so it is safe for every role.
  */
 import { onBeforeUnmount, ref, useId, watch } from 'vue'
+import { CircleAlert } from 'lucide-vue-next'
 import { urlFor } from '~/client'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
+import {
+  PICKER_ERROR,
+  PICKER_HINT,
+  PICKER_OPTION,
+  PICKER_RESULTS,
+} from '~/components/screen/screen'
 import { t } from '~/i18n'
 
 export type PickedItem = {
@@ -73,32 +82,35 @@ function choose(item: PickedItem) {
 </script>
 
 <template>
-  <div class="field">
-    <label class="field__label" :for="inputId">{{ label ?? t('ui.items.picker.label') }}</label>
-    <input
+  <div class="flex flex-col gap-1.5">
+    <Label :for="inputId">{{ label ?? t('ui.items.picker.label') }}</Label>
+    <Input
       :id="inputId"
       v-model="query"
       type="search"
-      class="field__input"
+      class="h-11 md:h-9"
       :placeholder="t('ui.items.picker.placeholder')"
       autocomplete="off"
     />
     <ul
       v-if="results.length"
-      class="picker__results"
+      :class="PICKER_RESULTS"
       role="listbox"
       :aria-label="t('ui.items.title')"
     >
       <li v-for="item in results" :key="item.id">
-        <button type="button" class="picker__option" role="option" @click="choose(item)">
+        <button type="button" :class="PICKER_OPTION" role="option" @click="choose(item)">
           <span
-            ><span class="mono">{{ item.code }}</span> · {{ item.description }}</span
+            ><span class="font-semibold">{{ item.code }}</span> · {{ item.description }}</span
           >
         </button>
       </li>
     </ul>
-    <p v-else-if="status === 'failed'" class="field__error">{{ t('ui.items.picker.failed') }}</p>
-    <p v-else-if="query && status === 'done'" class="field__hint">
+    <p v-else-if="status === 'failed'" :class="PICKER_ERROR">
+      <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+      {{ t('ui.items.picker.failed') }}
+    </p>
+    <p v-else-if="query && status === 'done'" :class="PICKER_HINT">
       {{ t('ui.items.picker.noMatches') }}
     </p>
   </div>

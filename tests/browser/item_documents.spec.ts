@@ -57,6 +57,9 @@ test.group('Item Documents in the browser', (group) => {
     assert.equal(await form.getByLabel(it('ui.equipment.type')).inputValue(), 'Caldaia')
     await form.getByRole('button', { name: it('ui.equipment.save') }).click()
     await form.waitForURL(`**/sites/${site.id}`)
-    await form.getByText('CALD-25').waitFor()
+    await form
+      .getByTestId('installed-equipment')
+      .getByText(/CALD-25/)
+      .waitFor()
   })
 })

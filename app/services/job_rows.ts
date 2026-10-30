@@ -1,5 +1,6 @@
 import Job from '#models/job'
 import { jobIndicators } from '#services/job_status'
+import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 
 /** How many Jobs the Customer and Site pages show; the rest are on the filtered Jobs list */
 export const RECENT_JOBS = 25
@@ -23,6 +24,15 @@ export async function recentJobs(owner: { customerId: number } | { siteId: numbe
   else query.where('siteId', owner.siteId)
   const results = await query.paginate(1, RECENT_JOBS)
   return { rows: results.all().map((job) => jobRow(job)), total: results.total }
+}
+
+/** How many of a Customer's or a Site's Jobs still take work (open or in progress) */
+export async function openJobCount(owner: { customerId: number } | { siteId: number }) {
+  const query = Job.query().whereIn('status', [...ACTIVE_JOB_STATUSES])
+  if ('customerId' in owner) query.where('customerId', owner.customerId)
+  else query.where('siteId', owner.siteId)
+  const [{ $extras }] = await query.count('* as total')
+  return Number($extras.total)
 }
 
 /**

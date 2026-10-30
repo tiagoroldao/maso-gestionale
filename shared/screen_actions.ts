@@ -10,7 +10,8 @@ export const ACTION_RANKS = ['primary', 'secondary', 'overflow'] as const
 export type ActionRank = (typeof ACTION_RANKS)[number]
 
 /**
- * What an action does: open a page (`link`), post to the server (`post`),
+ * What an action does: open a page (`link`: an app path, or a contact's
+ * `tel:` or map URL), post to the server (`post`),
  * open the screen's own dialog (`dialog`: a short form, such as the
  * options of a draft Invoice), which the page renders by the action's name,
  * or submit the form the screen sits in (`submit`: Save, on a screen in
