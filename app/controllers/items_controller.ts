@@ -57,6 +57,20 @@ async function vatCodeOptions(current?: number) {
   return codes.map((code) => ({ id: code.id, name: code.name }))
 }
 
+/**
+ * What names an Item on its page and in its preview: the preview is the
+ * page's top, so the two read the same.
+ */
+function itemIdentity(item: Item) {
+  return {
+    id: item.id,
+    code: item.code,
+    description: item.description,
+    unit: item.unit,
+    category: item.category?.name ?? null,
+  }
+}
+
 export default class ItemsController {
   async index({ request, inertia }: HttpContext) {
     const { q, page = 1, archived = false } = await itemSearchValidator.validate(request.qs())
@@ -137,11 +151,7 @@ export default class ItemsController {
 
     return inertia.render('items/show', {
       item: {
-        id: item.id,
-        code: item.code,
-        description: item.description,
-        unit: item.unit,
-        category: item.category?.name ?? null,
+        ...itemIdentity(item),
         // The Supplier linked by a Supplier Invoice (#199), else the name typed on the Item
         supplierName: item.supplier?.name ?? item.supplierName,
         supplierCode: item.supplierCode,
@@ -166,6 +176,17 @@ export default class ItemsController {
         author: movement.author?.fullName ?? movement.author?.email ?? null,
       })),
     })
+  }
+
+  /**
+   * The Item's preview (docs/ui.md "Hierarchy and references"), as JSON:
+   * opened from a Job's Charges without leaving the Job, so it answers to
+   * the same roles as the Item's page.
+   */
+  async preview({ params }: HttpContext) {
+    const item = await Item.query().where('id', params.id).preload('category').firstOrFail()
+    const { inStock, available } = await StockLedger.quantitiesOf(item)
+    return { item: { ...itemIdentity(item), inStock, available } }
   }
 
   async edit({ params, inertia }: HttpContext) {

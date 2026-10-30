@@ -804,6 +804,12 @@ const routes = {
     tokens: [[0,"items"],[1,"id"]],
     types: placeholder as Registry['items.show']['types'],
   },
+  'items.preview': {
+    methods: ["GET","HEAD"],
+    pattern: '/items/:id/preview',
+    tokens: [[0,"items"],[1,"id"],[0,"preview"]],
+    types: placeholder as Registry['items.preview']['types'],
+  },
   'stock_movements.receive': {
     methods: ["POST"],
     pattern: '/items/:id/receipts',

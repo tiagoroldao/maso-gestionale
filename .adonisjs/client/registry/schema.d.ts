@@ -1736,6 +1736,19 @@ export interface Registry {
       rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['show']>>>
     }
   }
+  'items.preview': {
+    methods: ["GET","HEAD"]
+    pattern: '/items/:id/preview'
+    types: {
+      body: {}
+      paramsTuple: [ParamValue]
+      params: { id: ParamValue }
+      query: {}
+      response: ExtractResponse<Awaited<ReturnType<import('#controllers/items_controller').default['preview']>>>
+      errorResponse: ExtractErrorResponse<Awaited<ReturnType<import('#controllers/items_controller').default['preview']>>>
+      rawResponse: ExtractRawResponse<Awaited<ReturnType<import('#controllers/items_controller').default['preview']>>>
+    }
+  }
   'stock_movements.receive': {
     methods: ["POST"]
     pattern: '/items/:id/receipts'

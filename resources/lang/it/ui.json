@@ -111,7 +111,16 @@
       "orange": "In corso",
       "green": "Completato",
       "grey": "Bozza"
-    }
+    },
+    "preview": "Anteprima",
+    "previewIntro": "Un record citato nelle righe o negli addebiti di un altro: in basso sul telefono, a destra dal tablet in su.",
+    "openPreview": "Apri anteprima",
+    "openPreviewLoading": "Anteprima in caricamento",
+    "openPreviewFailed": "Anteprima non riuscita",
+    "sampleItem": "Kit scarico fumi coassiale",
+    "sampleItemLine": "KSF-60 · Fumisteria",
+    "sampleStock": "5 pz",
+    "sampleAvailable": "3 pz"
   },
   "roles": {
     "superuser": "Superuser",
@@ -1668,6 +1677,11 @@
     "moreActions": "Altre azioni",
     "keyFacts": "Riepilogo",
     "goBack": "Torna indietro",
-    "closeDialog": "Chiudi"
+    "closeDialog": "Chiudi",
+    "preview": {
+      "openPage": "Apri scheda",
+      "loading": "Caricamento…",
+      "failed": "Anteprima non disponibile. Riprova, o apri la scheda."
+    }
   }
 }
