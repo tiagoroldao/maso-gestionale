@@ -116,7 +116,16 @@
     "rowsIntro": "Le commesse e i documenti emessi di un cliente o di un immobile: tabella su desktop, righe sul telefono.",
     "sampleJobTitle": "Manutenzione annuale",
     "sampleDocument": "Dichiarazione di conformità",
-    "pickers": "Ricerca di immobili e articoli"
+    "pickers": "Ricerca di immobili e articoli",
+    "preview": "Anteprima",
+    "previewIntro": "Un record citato nelle righe o negli addebiti di un altro: in basso sul telefono, a destra dal tablet in su.",
+    "openPreview": "Apri anteprima",
+    "openPreviewLoading": "Anteprima in caricamento",
+    "openPreviewFailed": "Anteprima non riuscita",
+    "sampleItem": "Kit scarico fumi coassiale",
+    "sampleItemLine": "KSF-60 · Fumisteria",
+    "sampleStock": "5 pz",
+    "sampleAvailable": "3 pz"
   },
   "roles": {
     "superuser": "Superuser",
@@ -1680,6 +1689,11 @@
     "goBack": "Torna indietro",
     "closeDialog": "Chiudi",
     "call": "Chiama",
-    "map": "Mappa"
+    "map": "Mappa",
+    "preview": {
+      "openPage": "Apri scheda",
+      "loading": "Caricamento…",
+      "failed": "Anteprima non disponibile. Riprova, o apri la scheda."
+    }
   }
 }

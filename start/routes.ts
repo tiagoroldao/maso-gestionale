@@ -379,6 +379,10 @@ router
         router.get('items/create', [controllers.Items, 'create'])
         router.post('items', [controllers.Items, 'store'])
         router.get('items/:id', [controllers.Items, 'show']).where('id', router.matchers.number())
+        // The Item's preview, opened from Charges without leaving the record (#236)
+        router
+          .get('items/:id/preview', [controllers.Items, 'preview'])
+          .where('id', router.matchers.number())
         router
           .post('items/:id/receipts', [controllers.StockMovements, 'receive'])
           .where('id', router.matchers.number())
