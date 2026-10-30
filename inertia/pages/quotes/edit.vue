@@ -1,14 +1,32 @@
 <script setup lang="ts">
+/**
+ * A Quote, an Entity screen on the new UI (docs/ui.md): one screen for
+ * writing it and for reading it once sent. Its header actions come from
+ * the server; Save is the primary while it is a draft. The lines are the
+ * main work and stay editable while it is a draft, their totals worked out
+ * as you type (shared/ rules, run again by the server on save); an Item on
+ * a line opens its preview. An accepted Quote's lines are imported as
+ * Charges under them; adding lines, the notes and validity come last.
+ */
 import { QUOTE_VALIDITY_DAYS, type QuoteStatus } from '@shared/quotes'
+import type { ScreenAction } from '@shared/screen_actions'
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
-import { Form, Link } from '@adonisjs/inertia/vue'
-import { ArrowDown, ArrowUp, FileText, Trash2 } from 'lucide-vue-next'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
+import { ArrowDown, ArrowUp, CircleAlert, Trash2 } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
+import ItemPreview from '~/components/item_preview.vue'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import StatusTag from '~/components/screen/status_tag.vue'
+import FormField from '~/components/screen/form_field.vue'
+import type { KeyFact } from '~/components/screen/key_facts.vue'
+import { LABEL, LINK, QUOTE_TONES } from '~/components/screen/screen'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
 import { urlFor } from '~/client'
+import { cn } from '~/lib/utils'
 import { formatMoney, formatUnitPrice, t } from '~/i18n'
 import { amountForInput, lineTotal, parseAmount, parseQuantity } from '@shared/money'
 import { lineKindOf, needsSignificantGoodSplit, vatLabel, type LineKind } from '@shared/vat'
@@ -31,7 +49,16 @@ type Line = {
 }
 
 const props = defineProps<{
-  job: { id: number; number: string; title: string; status: string; customer: string }
+  // The header's actions, for the user's role and the Quote's status
+  actions: ScreenAction[]
+  job: {
+    id: number
+    number: string
+    title: string
+    status: string
+    customer: string
+    customerId: number
+  }
   // Null while writing a new Quote, saved as a draft
   quote: {
     id: number
@@ -64,6 +91,8 @@ const props = defineProps<{
   decidable: boolean
   // An accepted Quote on a Job not cancelled: its lines can become Charges
   importable: boolean
+  // An Item on a line opens its preview, for those who may open the Item
+  previewItems: boolean
   openVisits: { id: number; startsAt: string; technicianIds: number[] }[]
   technicians: { id: number; name: string }[]
   labourRates: { id: number; name: string; hourlyPrice: string }[]
@@ -102,8 +131,8 @@ function splitWarning(line: Line) {
 
 const lines = reactive<Line[]>(linesFromProps())
 const notes = ref(props.quote?.notes ?? '')
-// A number input's v-model gives numbers; '' while empty
-const validityDays = ref<number | ''>(props.quote?.validityDays ?? '')
+// '' while empty; a number input's v-model gives numbers otherwise
+const validityDays = ref<number | string>(props.quote?.validityDays ?? '')
 
 /**
  * What the server has, in the same shape as the editor's state, so unsaved
@@ -133,7 +162,7 @@ watch(
   }
 )
 const processing = ref(false)
-const labourRateId = ref<number | ''>('')
+const labourRateId = ref('')
 
 function totalOf(line: Line) {
   const quantity = parseQuantity(line.quantity)
@@ -177,7 +206,7 @@ function addItem(item: PickedItem & { resalePrice?: string; vatCodeId?: number }
 }
 
 function addLabour() {
-  const rate = props.labourRates.find((r) => r.id === labourRateId.value)
+  const rate = props.labourRates.find((r) => String(r.id) === labourRateId.value)
   if (!rate) return
   lines.push({
     key: nextKey++,
@@ -230,6 +259,7 @@ function move(index: number, offset: number) {
 }
 
 function save() {
+  if (processing.value) return
   const body = {
     notes: notes.value,
     ...(validityDays.value !== '' && { validityDays: validityDays.value }),
@@ -255,15 +285,70 @@ function save() {
   else router.post(urlFor('quotes.store', { id: props.job.id }), body, options)
 }
 
-const lineError = (index: number, field: string) => errors.value[`lines.${index}.${field}`]
+// The header: unsaved edits hold back sending and the Customer's answer,
+// which would freeze what the server has, not what is on screen
+const DECISIONS = ['send', 'accept', 'decline']
+const screenActions = computed(() =>
+  props.actions.map((action) =>
+    dirty.value && DECISIONS.includes(action.name)
+      ? { ...action, disabledReason: t('ui.quotes.saveBeforeDeciding') }
+      : action
+  )
+)
+function runAction(name: string) {
+  if (name === 'save') save()
+  // A file, not a page: opened beside the screen
+  if (name === 'pdf' && props.quote) {
+    window.open(urlFor('quotes.pdf', { id: props.quote.id }), '_blank', 'noopener')
+  }
+}
 
-const confirmDecision = (message: string) => () => window.confirm(message)
+const facts = computed(() =>
+  [
+    props.job.title,
+    props.quote?.sentAt && t('ui.quotes.sentOn', { date: formatDate(props.quote.sentAt) }),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+)
+const keyFacts = computed<KeyFact[]>(() => [
+  {
+    label: t('ui.quotes.job'),
+    value: props.job.number,
+    href: urlFor('jobs.show', { id: props.job.id }),
+  },
+  {
+    label: t('ui.quotes.customer'),
+    value: props.job.customer,
+    href: urlFor('customers.show', { id: props.job.customerId }),
+  },
+  {
+    label: t('ui.quotes.total'),
+    value: formatMoney(totals.value.total),
+    amount: true,
+    hint: t('ui.quotes.totalsTaxable', { amount: formatMoney(totals.value.taxable) }),
+  },
+  {
+    label: t('ui.quotes.dated'),
+    value: props.quote?.issuedOn ? formatDate(props.quote.issuedOn) : '—',
+    hint: props.quote?.validityDays
+      ? t('ui.quotes.validFor', { count: props.quote.validityDays })
+      : undefined,
+  },
+])
+
+const lineErrors = (index: number) =>
+  ['description', 'itemId', 'labourRateId', 'quantity', 'unitPrice', 'vatCodeId'].flatMap(
+    (field) => errors.value[`lines.${index}.${field}`] ?? []
+  )
+const invalid = (index: number, field: string) =>
+  errors.value[`lines.${index}.${field}`] ? 'true' : undefined
 
 // Importing lines as Charges (ADR 0012): every priced line chosen at first
 const priced = computed(() => (props.quote?.lines ?? []).filter((line) => line.kind !== 'text'))
 const chosen = ref<number[]>(priced.value.map((line) => line.id))
-const target = ref<number | ''>('')
-const technicianId = ref<number | ''>('')
+const target = ref('')
+const technicianId = ref('')
 const workerName = ref('')
 const importing = ref(false)
 const needsWorker = computed(() =>
@@ -271,7 +356,7 @@ const needsWorker = computed(() =>
 )
 // On a Visit, its Technicians; on the Job itself, any active Technician
 const workers = computed(() => {
-  const visit = props.openVisits.find((open) => open.id === target.value)
+  const visit = props.openVisits.find((open) => String(open.id) === target.value)
   return visit
     ? props.technicians.filter((user) => visit.technicianIds.includes(user.id))
     : props.technicians
@@ -282,8 +367,9 @@ function importLines() {
     urlFor('quotes.import_lines', { id: props.quote!.id }),
     {
       lineIds: chosen.value,
-      ...(target.value !== '' && { visitId: target.value }),
-      ...(needsWorker.value && technicianId.value !== '' && { technicianId: technicianId.value }),
+      ...(target.value !== '' && { visitId: Number(target.value) }),
+      ...(needsWorker.value &&
+        technicianId.value !== '' && { technicianId: Number(technicianId.value) }),
       ...(needsWorker.value && technicianId.value === '' && { workerName: workerName.value }),
     },
     {
@@ -293,362 +379,442 @@ function importLines() {
     }
   )
 }
+
+// The Item a line names, previewed over the Quote (docs/ui.md "Hierarchy and references")
+const previewedItem = ref<number | null>(null)
+const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
+
+/**
+ * A line: on the phone a card (description, then quantity and price side
+ * by side, VAT, amount and the line's buttons); from 768px one row of a
+ * grid whose columns the header row names.
+ */
+const GRID = computed(() =>
+  props.editable
+    ? 'md:grid-cols-[minmax(0,1fr)_6.5rem_8rem_10rem_7rem_auto]'
+    : 'md:grid-cols-[minmax(0,1fr)_6.5rem_8rem_10rem_7rem]'
+)
+const ROW = 'grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-3.5 py-3 md:gap-x-3 md:px-4'
+const CELL_LABEL = 'text-xs font-medium text-muted-foreground md:hidden'
+const FIELD = 'h-11 md:h-9'
+const BUTTON = 'h-11 md:h-9'
+const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
+const HINT = 'm-0 text-[13px] text-muted-foreground'
+const TEXTAREA =
+  'min-h-20 w-full rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive md:text-sm'
 </script>
 
 <template>
   <AppLayout>
-    <Page
+    <EntityScreen
+      :document-title="quote ? t('ui.quotes.title', { number: quote.number }) : t('ui.quotes.new')"
+      :crumbs="[
+        { label: t('ui.jobs.title'), href: urlFor('jobs.index') },
+        { label: job.number, href: urlFor('jobs.show', { id: job.id }) },
+      ]"
+      :current="quote?.number ?? t('ui.quotes.new')"
       :title="quote ? t('ui.quotes.title', { number: quote.number }) : t('ui.quotes.new')"
-      :description="`${job.title} · ${job.customer}`"
+      :facts="facts"
+      :actions="screenActions"
+      :key-facts="keyFacts"
+      @dialog="runAction"
     >
-      <template #actions>
-        <Link route="jobs.show" :params="{ id: job.id }" class="btn btn--ghost btn--sm">
-          {{ t('ui.quotes.backToJob') }}
-        </Link>
-        <a
-          v-if="quote"
-          :href="urlFor('quotes.pdf', { id: quote.id })"
-          target="_blank"
-          rel="noopener"
-          class="btn btn--secondary btn--sm"
-        >
-          <FileText :size="15" /> {{ t('ui.quotes.pdf') }}
-        </a>
+      <template #tags>
+        <StatusTag v-if="quote" :tone="QUOTE_TONES[quote.status]" data-testid="quote-status">
+          {{ t(`ui.quotes.statuses.${quote.status}`) }}
+        </StatusTag>
       </template>
 
-      <Section>
-        <p v-if="quote" data-testid="quote-status">
-          <span class="tag">{{ t(`ui.quotes.statuses.${quote.status}`) }}</span>
-          <span v-if="quote.sentAt" class="field__hint">
-            · {{ t('ui.quotes.sentOn', { date: formatDate(quote.sentAt) }) }}
-          </span>
-        </p>
-        <p v-if="!editable" class="field__hint">{{ t('ui.quotes.notEditable') }}</p>
+      <template #main>
+        <ScreenSection :title="t('ui.quotes.lines')" flush>
+          <template #actions>
+            <span v-if="dirty" role="status" class="text-[13px] text-muted-foreground">
+              {{ t('ui.quotes.unsaved') }}
+            </span>
+          </template>
+          <p v-if="!editable" :class="cn(HINT, 'px-3.5 pb-2 md:px-4')">
+            {{ t('ui.quotes.notEditable') }}
+          </p>
 
-        <table class="table">
-          <thead>
-            <tr>
-              <th v-if="importable" :style="{ width: '40px' }" />
-              <th>{{ t('ui.quotes.description') }}</th>
-              <th :style="{ width: '110px' }">{{ t('ui.quotes.quantity') }}</th>
-              <th :style="{ width: '140px' }">{{ t('ui.quotes.unitPrice') }}</th>
-              <th :style="{ width: '170px' }">{{ t('ui.quotes.vatCode') }}</th>
-              <th :style="{ textAlign: 'right', width: '120px' }">{{ t('ui.quotes.amount') }}</th>
-              <th v-if="editable" />
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(line, index) in lines" :key="line.key">
-              <td v-if="importable">
-                <input
-                  v-if="line.kind !== 'text'"
-                  v-model="chosen"
-                  type="checkbox"
-                  :value="quote!.lines[index].id"
-                  :aria-label="t('ui.quotes.importLineOf', { position: index + 1 })"
-                />
-              </td>
-              <td>
-                <span class="field__hint">{{ t(`ui.quotes.kinds.${line.kind}`) }}</span>
-                <span
-                  v-if="quote?.lines[index]?.imported"
-                  class="tag"
-                  data-testid="imported"
-                  :style="{ marginLeft: '6px' }"
-                >
-                  {{ t('ui.quotes.imported', { count: quote.lines[index].imported }) }}
-                </span>
-                <input
+          <div
+            aria-hidden="true"
+            :class="cn('hidden border-t border-border px-4 py-2 md:grid md:gap-x-3', GRID)"
+          >
+            <span :class="LABEL">{{ t('ui.quotes.description') }}</span>
+            <span :class="LABEL">{{ t('ui.quotes.quantity') }}</span>
+            <span :class="LABEL">{{ t('ui.quotes.unitPrice') }}</span>
+            <span :class="LABEL">{{ t('ui.quotes.vatCode') }}</span>
+            <span :class="cn(LABEL, 'text-right')">{{ t('ui.quotes.amount') }}</span>
+          </div>
+
+          <ol v-if="lines.length" class="m-0 list-none p-0" data-testid="quote-lines">
+            <li
+              v-for="(line, index) in lines"
+              :key="line.key"
+              :class="cn(ROW, GRID)"
+              :aria-label="t('ui.quotes.lineOf', { position: index + 1 })"
+            >
+              <!-- What the line is, then its description -->
+              <div class="col-span-2 flex min-w-0 flex-col gap-1.5 md:col-span-1">
+                <div class="flex min-h-6 flex-wrap items-center gap-2 text-[13px]">
+                  <label
+                    v-if="importable && line.kind !== 'text'"
+                    class="flex min-h-11 items-center md:min-h-0"
+                  >
+                    <input
+                      v-model="chosen"
+                      type="checkbox"
+                      class="size-4"
+                      :value="quote!.lines[index].id"
+                      :aria-label="t('ui.quotes.importLineOf', { position: index + 1 })"
+                    />
+                  </label>
+                  <button
+                    v-if="line.kind === 'item' && line.itemId !== null && previewItems"
+                    type="button"
+                    aria-haspopup="dialog"
+                    :aria-label="t('ui.quotes.previewItemOf', { position: index + 1 })"
+                    :class="cn(LINK, PREVIEW_LINK, 'flex min-h-11 items-center md:min-h-0')"
+                    @click="previewedItem = line.itemId"
+                  >
+                    {{ t(`ui.quotes.kinds.${line.kind}`) }}
+                  </button>
+                  <span v-else class="text-muted-foreground">
+                    {{ t(`ui.quotes.kinds.${line.kind}`) }}
+                  </span>
+                  <StatusTag
+                    v-if="quote?.lines[index]?.imported"
+                    tone="green"
+                    data-testid="imported"
+                  >
+                    {{ t('ui.quotes.imported', { count: quote.lines[index].imported }) }}
+                  </StatusTag>
+                </div>
+                <Input
                   v-model="line.description"
-                  class="field__input"
+                  :class="FIELD"
                   :disabled="!editable"
                   :aria-label="t('ui.quotes.descriptionOf', { position: index + 1 })"
+                  :aria-invalid="invalid(index, 'description')"
                 />
-                <span v-if="lineError(index, 'description')" class="field__error">
-                  {{ lineError(index, 'description') }}
-                </span>
-                <span
-                  v-if="lineError(index, 'itemId') || lineError(index, 'labourRateId')"
-                  class="field__error"
-                >
-                  {{ lineError(index, 'itemId') ?? lineError(index, 'labourRateId') }}
-                </span>
-              </td>
-              <td>
-                <template v-if="line.kind !== 'text'">
-                  <input
-                    v-model="line.quantity"
-                    inputmode="decimal"
-                    class="field__input"
-                    :disabled="!editable"
-                    :aria-label="t('ui.quotes.quantityOf', { position: index + 1 })"
-                  />
-                  <span class="field__hint">{{ line.unit }}</span>
-                  <span v-if="lineError(index, 'quantity')" class="field__error">
-                    {{ lineError(index, 'quantity') }}
-                  </span>
-                </template>
-              </td>
-              <td>
-                <template v-if="line.kind !== 'text'">
-                  <input
+              </div>
+
+              <template v-if="line.kind !== 'text'">
+                <div class="flex min-w-0 flex-col gap-1 md:pt-[30px]">
+                  <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.quantity') }}</span>
+                  <div class="flex items-center gap-1.5">
+                    <Input
+                      v-model="line.quantity"
+                      inputmode="decimal"
+                      :class="FIELD"
+                      :disabled="!editable"
+                      :aria-label="t('ui.quotes.quantityOf', { position: index + 1 })"
+                      :aria-invalid="invalid(index, 'quantity')"
+                    />
+                    <span v-if="line.unit" class="text-[13px] text-muted-foreground">
+                      {{ line.unit }}
+                    </span>
+                  </div>
+                </div>
+                <div class="flex min-w-0 flex-col gap-1 md:pt-[30px]">
+                  <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.unitPrice') }}</span>
+                  <Input
                     v-model="line.unitPrice"
                     inputmode="decimal"
-                    class="field__input"
+                    :class="FIELD"
                     :disabled="!editable"
                     :aria-label="t('ui.quotes.unitPriceOf', { position: index + 1 })"
+                    :aria-invalid="invalid(index, 'unitPrice')"
                   />
-                  <span v-if="lineError(index, 'unitPrice')" class="field__error">
-                    {{ lineError(index, 'unitPrice') }}
-                  </span>
-                </template>
-              </td>
-              <td>
-                <template v-if="line.kind !== 'text'">
-                  <select
-                    v-model="line.vatCodeId"
-                    class="field__input"
+                </div>
+                <div class="col-span-2 flex min-w-0 flex-col gap-1 md:col-span-1 md:pt-[30px]">
+                  <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.vatCode') }}</span>
+                  <NativeSelect
+                    :model-value="line.vatCodeId === null ? '' : String(line.vatCodeId)"
                     :disabled="!editable"
                     :aria-label="t('ui.quotes.vatCodeOf', { position: index + 1 })"
+                    :aria-invalid="invalid(index, 'vatCodeId')"
+                    @update:model-value="(value) => (line.vatCodeId = value ? Number(value) : null)"
                   >
-                    <option v-for="code in vatCodes" :key="code.id" :value="code.id">
+                    <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
                       {{ code.name }}
                     </option>
-                  </select>
-                  <span v-if="lineError(index, 'vatCodeId')" class="field__error">
-                    {{ lineError(index, 'vatCodeId') }}
-                  </span>
-                  <span v-if="splitWarning(line)" class="field__hint" data-testid="split-warning">
+                  </NativeSelect>
+                  <p v-if="splitWarning(line)" :class="HINT" data-testid="split-warning">
                     {{ t('ui.invoices.significantGoodSplit') }}
-                  </span>
-                </template>
-              </td>
-              <td :style="{ textAlign: 'right' }">
-                {{ totalOf(line) ? formatMoney(totalOf(line)!) : '' }}
-              </td>
-              <td v-if="editable" class="table__actions">
-                <button
+                  </p>
+                </div>
+              </template>
+              <template v-else>
+                <span class="hidden md:block" />
+                <span class="hidden md:block" />
+                <span class="hidden md:block" />
+              </template>
+
+              <div
+                class="flex items-center gap-1.5 md:block md:pt-[30px] md:text-right"
+                :class="line.kind === 'text' && 'max-md:hidden'"
+              >
+                <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.amount') }}</span>
+                <span
+                  class="text-[15px] font-semibold whitespace-nowrap md:inline-flex md:h-9 md:items-center md:text-sm"
+                >
+                  {{ totalOf(line) ? formatMoney(totalOf(line)!) : '' }}
+                </span>
+              </div>
+
+              <div
+                v-if="editable"
+                class="flex items-center justify-end gap-1 md:pt-[30px]"
+                :class="line.kind === 'text' && 'col-span-2 md:col-span-1'"
+              >
+                <Button
                   type="button"
-                  class="iconbtn"
+                  variant="ghost"
+                  size="icon-touch"
+                  class="md:size-9"
                   :disabled="index === 0"
                   :aria-label="t('ui.quotes.moveUp')"
                   @click="move(index, -1)"
                 >
-                  <ArrowUp :size="14" />
-                </button>
-                <button
+                  <ArrowUp aria-hidden="true" />
+                </Button>
+                <Button
                   type="button"
-                  class="iconbtn"
+                  variant="ghost"
+                  size="icon-touch"
+                  class="md:size-9"
                   :disabled="index === lines.length - 1"
                   :aria-label="t('ui.quotes.moveDown')"
                   @click="move(index, 1)"
                 >
-                  <ArrowDown :size="14" />
-                </button>
-                <button
+                  <ArrowDown aria-hidden="true" />
+                </Button>
+                <Button
                   type="button"
-                  class="iconbtn"
+                  variant="ghost"
+                  size="icon-touch"
+                  class="md:size-9"
                   :aria-label="t('ui.quotes.removeLine')"
                   @click="lines.splice(index, 1)"
                 >
-                  <Trash2 :size="14" />
-                </button>
-              </td>
-            </tr>
-            <tr v-if="lines.length === 0">
-              <td :colspan="importable ? 7 : 6" :style="{ color: 'var(--subtle)' }">
-                {{ t('ui.quotes.noLines') }}
-              </td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr v-for="row in totals.summary" :key="`${row.vatRate}-${row.natura}`">
-              <td v-if="importable" />
-              <td colspan="4" :style="{ textAlign: 'right' }">
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </div>
+
+              <div v-if="lineErrors(index).length" class="col-span-full flex flex-col gap-1">
+                <p v-for="message in lineErrors(index)" :key="message" :class="ERROR">
+                  <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+                  {{ message }}
+                </p>
+              </div>
+            </li>
+          </ol>
+          <p
+            v-else
+            class="m-0 border-t border-border px-3.5 py-3 text-sm text-muted-foreground md:px-4"
+          >
+            {{ t('ui.quotes.noLines') }}
+          </p>
+          <p v-if="errors.lines" :class="cn(ERROR, 'border-t border-border px-3.5 py-3 md:px-4')">
+            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+            {{ errors.lines }}
+          </p>
+
+          <!-- The totals, as you type -->
+          <dl
+            class="m-0 flex flex-col gap-1 border-t border-border px-3.5 py-3 text-sm tabular-nums md:px-4"
+            data-testid="quote-totals"
+          >
+            <div
+              v-for="row in totals.summary"
+              :key="`${row.vatRate}-${row.natura}`"
+              class="flex justify-end gap-4 text-muted-foreground"
+            >
+              <dt>
                 {{
                   t('ui.quotes.vatRow', { vat: vatLabel(row), taxable: formatMoney(row.taxable) })
                 }}
-              </td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(row.vat) }}</td>
-              <td v-if="editable" />
-            </tr>
-            <tr>
-              <td v-if="importable" />
-              <td colspan="4" :style="{ textAlign: 'right' }">{{ t('ui.quotes.taxable') }}</td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(totals.taxable) }}</td>
-              <td v-if="editable" />
-            </tr>
-            <tr>
-              <td v-if="importable" />
-              <td colspan="4" :style="{ textAlign: 'right' }">
-                <strong>{{ t('ui.quotes.total') }}</strong>
-              </td>
-              <td :style="{ textAlign: 'right' }">
-                <strong>{{ formatMoney(totals.total) }}</strong>
-              </td>
-              <td v-if="editable" />
-            </tr>
-          </tfoot>
-        </table>
-      </Section>
+              </dt>
+              <dd class="m-0 min-w-24 text-right">{{ formatMoney(row.vat) }}</dd>
+            </div>
+            <div class="flex justify-end gap-4">
+              <dt>{{ t('ui.quotes.taxable') }}</dt>
+              <dd class="m-0 min-w-24 text-right">{{ formatMoney(totals.taxable) }}</dd>
+            </div>
+            <div class="flex justify-end gap-4 text-[15px] font-bold">
+              <dt>{{ t('ui.quotes.total') }}</dt>
+              <dd class="m-0 min-w-24 text-right">{{ formatMoney(totals.total) }}</dd>
+            </div>
+          </dl>
+        </ScreenSection>
+      </template>
 
-      <Section
-        v-if="importable"
-        :title="t('ui.quotes.importTitle')"
-        :description="t('ui.quotes.importHint')"
-      >
-        <div class="field">
-          <label class="field__label" for="import-target">{{ t('ui.quotes.importOnto') }}</label>
-          <select id="import-target" v-model="target" class="field__input">
-            <option value="">{{ t('ui.quotes.importOntoJob') }}</option>
-            <option v-for="visit in openVisits" :key="visit.id" :value="visit.id">
-              {{ t('ui.charges.visit', { date: formatDate(visit.startsAt) }) }}
-              {{ visit.startsAt.slice(11, 16) }}
-            </option>
-          </select>
-          <span class="field__hint">{{ t('ui.quotes.importOntoHint') }}</span>
-          <span v-if="errors.visitId" class="field__error">{{ errors.visitId }}</span>
-        </div>
-        <template v-if="needsWorker">
-          <div class="field">
-            <label class="field__label" for="import-worker">{{ t('ui.charges.worker') }}</label>
-            <select id="import-worker" v-model="technicianId" class="field__input">
-              <option value="">{{ t('ui.charges.someoneElse') }}</option>
-              <option v-for="user in workers" :key="user.id" :value="user.id">
-                {{ user.name }}
-              </option>
-            </select>
-            <span class="field__hint">{{ t('ui.quotes.importWorkerHint') }}</span>
-          </div>
-          <div v-if="technicianId === ''" class="field">
-            <label class="field__label" for="import-worker-name">{{
-              t('ui.charges.workerName')
-            }}</label>
-            <input id="import-worker-name" v-model="workerName" class="field__input" />
-            <span v-if="errors.workerName" class="field__error">{{ errors.workerName }}</span>
-          </div>
-        </template>
-        <span v-if="errors.lineIds" class="field__error">{{ errors.lineIds }}</span>
-        <div>
-          <button
-            type="button"
-            class="btn btn--primary btn--sm"
-            :disabled="importing || !chosen.length"
-            @click="importLines"
+      <ScreenSection v-if="importable" :title="t('ui.quotes.importTitle')">
+        <p :class="HINT">{{ t('ui.quotes.importHint') }}</p>
+        <div class="grid gap-4 md:grid-cols-2">
+          <FormField
+            id="import-target"
+            v-slot="field"
+            :label="t('ui.quotes.importOnto')"
+            :hint="t('ui.quotes.importOntoHint')"
+            :error="errors.visitId"
           >
-            {{ t('ui.quotes.import', { count: chosen.length }) }}
-          </button>
-        </div>
-      </Section>
-
-      <Section v-if="editable" :title="t('ui.quotes.addTitle')">
-        <ItemPicker :label="t('ui.quotes.addItem')" @select="addItem" />
-        <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end' }">
-          <div class="field">
-            <label class="field__label" for="labour-rate">{{ t('ui.quotes.addLabour') }}</label>
-            <select id="labour-rate" v-model="labourRateId" class="field__input">
-              <option value="" disabled>{{ t('ui.quotes.chooseRate') }}</option>
-              <option v-for="rate in labourRates" :key="rate.id" :value="rate.id">
-                {{ rate.name }} · {{ formatUnitPrice(rate.hourlyPrice) }}/h
+            <NativeSelect
+              :id="field.id"
+              v-model="target"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
+            >
+              <option value="">{{ t('ui.quotes.importOntoJob') }}</option>
+              <option v-for="visit in openVisits" :key="visit.id" :value="String(visit.id)">
+                {{ t('ui.charges.visit', { date: formatDate(visit.startsAt) }) }}
+                {{ visit.startsAt.slice(11, 16) }}
               </option>
-            </select>
-          </div>
-          <button
-            type="button"
-            class="btn btn--secondary btn--sm"
-            :disabled="!labourRateId"
-            @click="addLabour"
-          >
-            {{ t('ui.quotes.addLabourButton') }}
-          </button>
-          <button type="button" class="btn btn--secondary btn--sm" @click="addCallOut">
-            {{ t('ui.quotes.addCallOut') }}
-          </button>
-          <button type="button" class="btn btn--secondary btn--sm" @click="addText">
-            {{ t('ui.quotes.addText') }}
-          </button>
+            </NativeSelect>
+          </FormField>
+          <template v-if="needsWorker">
+            <FormField
+              id="import-worker"
+              v-slot="field"
+              :label="t('ui.charges.worker')"
+              :hint="t('ui.quotes.importWorkerHint')"
+            >
+              <NativeSelect
+                :id="field.id"
+                v-model="technicianId"
+                :aria-describedby="field.describedBy"
+              >
+                <option value="">{{ t('ui.charges.someoneElse') }}</option>
+                <option v-for="user in workers" :key="user.id" :value="String(user.id)">
+                  {{ user.name }}
+                </option>
+              </NativeSelect>
+            </FormField>
+            <FormField
+              v-if="technicianId === ''"
+              id="import-worker-name"
+              v-slot="field"
+              :label="t('ui.charges.workerName')"
+              :error="errors.workerName"
+            >
+              <Input
+                :id="field.id"
+                v-model="workerName"
+                :class="FIELD"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+          </template>
         </div>
-      </Section>
+        <p v-if="errors.lineIds" :class="ERROR">
+          <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+          {{ errors.lineIds }}
+        </p>
+        <Button
+          type="button"
+          :class="cn(BUTTON, 'self-start')"
+          :disabled="importing || !chosen.length"
+          @click="importLines"
+        >
+          {{ t('ui.quotes.import', { count: chosen.length }) }}
+        </Button>
+      </ScreenSection>
 
-      <Section :title="t('ui.quotes.notes')">
-        <textarea
-          v-model="notes"
-          class="field__input"
-          rows="3"
-          :disabled="!editable"
-          :aria-label="t('ui.quotes.notes')"
-        />
-        <span v-if="errors.notes" class="field__error">{{ errors.notes }}</span>
-        <div class="field">
-          <label class="field__label" for="validity-days">{{ t('ui.quotes.validityDays') }}</label>
-          <input
+      <!-- Adding lines and the terms, under the lines -->
+      <div class="grid items-start gap-3 md:grid-cols-2 md:gap-5">
+        <ScreenSection v-if="editable" :title="t('ui.quotes.addTitle')">
+          <ItemPicker :label="t('ui.quotes.addItem')" @select="addItem" />
+          <div class="flex items-end gap-2">
+            <div class="min-w-0 flex-1">
+              <FormField id="labour-rate" v-slot="field" :label="t('ui.quotes.addLabour')">
+                <NativeSelect :id="field.id" v-model="labourRateId">
+                  <option value="" disabled>{{ t('ui.quotes.chooseRate') }}</option>
+                  <option v-for="rate in labourRates" :key="rate.id" :value="String(rate.id)">
+                    {{ rate.name }} · {{ formatUnitPrice(rate.hourlyPrice) }}/h
+                  </option>
+                </NativeSelect>
+              </FormField>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              :class="BUTTON"
+              :disabled="!labourRateId"
+              @click="addLabour"
+            >
+              {{ t('ui.quotes.addLabourButton') }}
+            </Button>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" :class="BUTTON" @click="addCallOut">
+              {{ t('ui.quotes.addCallOut') }}
+            </Button>
+            <Button type="button" variant="outline" :class="BUTTON" @click="addText">
+              {{ t('ui.quotes.addText') }}
+            </Button>
+          </div>
+        </ScreenSection>
+
+        <ScreenSection v-if="editable" :title="t('ui.quotes.terms')">
+          <FormField
+            id="quote-notes"
+            v-slot="field"
+            :label="t('ui.quotes.notes')"
+            :error="errors.notes"
+          >
+            <textarea
+              :id="field.id"
+              v-model="notes"
+              rows="3"
+              :class="TEXTAREA"
+              :aria-invalid="field.invalid === 'true'"
+              :aria-describedby="field.describedBy"
+            />
+          </FormField>
+          <FormField
             id="validity-days"
-            v-model="validityDays"
-            type="number"
-            :min="QUOTE_VALIDITY_DAYS.min"
-            :max="QUOTE_VALIDITY_DAYS.max"
-            class="field__input"
-            :disabled="!editable"
-            :style="{ maxWidth: '120px' }"
-          />
-          <span class="field__hint">
-            {{
+            v-slot="field"
+            :label="t('ui.quotes.validityDays')"
+            :hint="
               quote?.issuedOn
                 ? t('ui.quotes.issuedOn', { date: formatDate(quote.issuedOn) })
                 : t('ui.quotes.validityHint')
-            }}
-          </span>
-          <span v-if="errors.validityDays" class="field__error">{{ errors.validityDays }}</span>
-        </div>
-      </Section>
-
-      <Section v-if="editable">
-        <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-          <button type="button" class="btn btn--primary" :disabled="processing" @click="save">
-            {{ t('ui.quotes.save') }}
-          </button>
-          <span v-if="dirty" class="field__hint">{{ t('ui.quotes.unsaved') }}</span>
-        </div>
-        <span v-if="errors.lines" class="field__error">{{ errors.lines }}</span>
-      </Section>
-
-      <Section v-if="quote && decidable" :title="t('ui.quotes.decisionTitle')">
-        <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-          <Form
-            v-if="sendable"
-            route="quotes.send"
-            :params="{ id: quote.id }"
-            :on-before="confirmDecision(t('ui.quotes.sendConfirm'))"
-          >
-            <button type="submit" class="btn btn--secondary btn--sm" :disabled="dirty">
-              {{ t('ui.quotes.send') }}
-            </button>
-          </Form>
-          <Form
-            route="quotes.accept"
-            :params="{ id: quote.id }"
-            :on-before="
-              confirmDecision(
-                t('ui.quotes.acceptConfirm', { total: formatMoney(quote.totals.total) })
-              )
             "
+            :error="errors.validityDays"
           >
-            <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
-              {{ t('ui.quotes.accept') }}
-            </button>
-          </Form>
-          <Form
-            route="quotes.decline"
-            :params="{ id: quote.id }"
-            :on-before="confirmDecision(t('ui.quotes.declineConfirm', { number: quote.number }))"
-          >
-            <button type="submit" class="btn btn--ghost btn--sm" :disabled="dirty">
-              {{ t('ui.quotes.decline') }}
-            </button>
-          </Form>
-        </div>
-        <p v-if="dirty" class="field__hint">{{ t('ui.quotes.saveBeforeDeciding') }}</p>
-      </Section>
-    </Page>
+            <Input
+              :id="field.id"
+              v-model="validityDays"
+              type="number"
+              :min="QUOTE_VALIDITY_DAYS.min"
+              :max="QUOTE_VALIDITY_DAYS.max"
+              :class="cn(FIELD, 'max-w-32')"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
+            />
+          </FormField>
+        </ScreenSection>
+        <!-- Frozen: what went out, as text -->
+        <ScreenSection
+          v-else-if="quote && (quote.notes || quote.validityDays)"
+          :title="t('ui.quotes.terms')"
+        >
+          <dl class="m-0 flex flex-col gap-3 text-sm">
+            <div v-if="quote.notes" class="flex flex-col gap-1">
+              <dt class="font-medium">{{ t('ui.quotes.notes') }}</dt>
+              <dd class="m-0 whitespace-pre-line">{{ quote.notes }}</dd>
+            </div>
+            <div v-if="quote.validityDays" class="flex flex-col gap-1">
+              <dt class="font-medium">{{ t('ui.quotes.validityDays') }}</dt>
+              <dd class="m-0">{{ quote.validityDays }}</dd>
+            </div>
+          </dl>
+        </ScreenSection>
+      </div>
+    </EntityScreen>
+
+    <ItemPreview v-model:item-id="previewedItem" />
   </AppLayout>
 </template>

@@ -120,7 +120,7 @@
     "sampleItem": "Kit scarico fumi coassiale",
     "sampleItemLine": "KSF-60 · Fumisteria",
     "sampleStock": "5 pz",
-    "sampleAvailable": "3 pz"
+    "sampleAvailable": "-2 pz"
   },
   "roles": {
     "superuser": "Superuser",
@@ -542,6 +542,7 @@
     "pricesHint": "Il prezzo di vendita resta quello inserito: non cambia se cambiano il prezzo di acquisto o il ricarico della categoria.",
     "save": "Salva articolo",
     "itemSection": "Articolo",
+    "record": "Articolo",
     "archived": "Archiviato",
     "showArchived": "Mostra archiviati",
     "hideArchived": "Nascondi archiviati",
@@ -877,7 +878,6 @@
     "section": "Preventivi",
     "new": "Nuovo preventivo",
     "title": "Preventivo {number}",
-    "backToJob": "Torna alla commessa",
     "pdf": "PDF",
     "notEditable": "Il preventivo non è più modificabile.",
     "description": "Descrizione",
@@ -902,7 +902,6 @@
     "callOutDescription": "Diritto di chiamata",
     "notes": "Note",
     "save": "Salva preventivo",
-    "decisionTitle": "Invio ed esito",
     "send": "Segna come inviato",
     "sendConfirm": "Confermi che il preventivo è stato inviato al cliente? Non sarà più modificabile.",
     "sentOn": "Inviato il {date}",
@@ -939,7 +938,16 @@
     "importWorkerHint": "Per le ore di manodopera importate; si può cambiare poi su ogni addebito.",
     "importLineOf": "Importa la riga {position}",
     "import": "{count, plural, one {Importa # riga} other {Importa # righe}}",
-    "imported": "{count, plural, one {importata} other {importata # volte}}"
+    "imported": "{count, plural, one {importata} other {importata # volte}}",
+    "lines": "Righe",
+    "job": "Commessa",
+    "customer": "Cliente",
+    "dated": "Data",
+    "validFor": "{count, plural, one {Valido # giorno} other {Valido # giorni}}",
+    "totalsTaxable": "Imponibile {amount}",
+    "terms": "Condizioni",
+    "previewItemOf": "Articolo della riga {position}",
+    "lineOf": "Riga {position}"
   },
   "invoices": {
     "title": "Fatture",
@@ -1681,7 +1689,8 @@
     "preview": {
       "openPage": "Apri scheda",
       "loading": "Caricamento…",
-      "failed": "Anteprima non disponibile. Riprova, o apri la scheda."
+      "failed": "Anteprima non disponibile. Riprova, o apri la scheda.",
+      "retry": "Riprova"
     }
   }
 }

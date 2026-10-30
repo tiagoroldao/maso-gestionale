@@ -1,7 +1,7 @@
 <script setup lang="ts">
 /**
- * An Item's preview (#236), opened from a Charge without leaving the
- * record it is on: set `itemId` to open it, and it loads the Item from
+ * An Item's preview (#236), opened from a Charge or a Quote's line without
+ * leaving the record it is on: set `itemId` to open it, and it loads the Item from
  * its preview endpoint; closing sets it back to null.
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -63,9 +63,18 @@ const open = computed({
 const facts = computed<PreviewFact[]>(() => {
   if (!item.value) return []
   const { unit, inStock, available } = item.value
+  // Tagged as on the Item's page, so a shortfall isn't only a minus sign
   return [
-    { label: t('ui.items.stock'), value: `${quantity(inStock)} ${unit}` },
-    { label: t('ui.items.available'), value: `${quantity(available)} ${unit}` },
+    {
+      label: t('ui.items.stock'),
+      value: `${quantity(inStock)} ${unit}`,
+      alert: inStock.startsWith('-') ? t('ui.items.negativeStock') : undefined,
+    },
+    {
+      label: t('ui.items.available'),
+      value: `${quantity(available)} ${unit}`,
+      alert: available.startsWith('-') ? t('ui.items.negativeAvailable') : undefined,
+    },
   ]
 })
 </script>
@@ -73,11 +82,12 @@ const facts = computed<PreviewFact[]>(() => {
 <template>
   <RecordPreview
     v-model:open="open"
-    :kind="t('ui.items.itemSection')"
+    :kind="t('ui.items.record')"
     :title="item?.description"
     :subtitle="item ? [item.code, item.category].filter(Boolean).join(' · ') : undefined"
     :href="urlFor('items.show', { id: shownId })"
     :state="state"
     :facts="facts"
+    @retry="load(shownId)"
   />
 </template>

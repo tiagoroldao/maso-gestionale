@@ -104,4 +104,22 @@ test.group('Item preview in the browser', () => {
     await page.waitForURL(`**/items/${valve.id}`)
     await page.getByRole('dialog').waitFor({ state: 'detached' })
   })
+
+  test('when the Item fails to load, "Riprova" loads it again', async ({
+    browserContext,
+    visit,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { job } = await jobWithAValve()
+
+    const page = await visit(`/jobs/${job.id}`)
+    // The first load fails, the next goes through
+    await page.route('**/items/*/preview', (route) => route.fulfill({ status: 500 }), { times: 1 })
+    await page.getByRole('button', { name: 'Valvola a sfera' }).click()
+
+    const preview = page.getByRole('dialog')
+    await preview.getByText(it('ui.screen.preview.failed')).waitFor()
+    await preview.getByRole('button', { name: it('ui.screen.preview.retry') }).click()
+    await page.getByRole('dialog', { name: 'Valvola a sfera' }).getByText('VAL-01').waitFor()
+  })
 })
