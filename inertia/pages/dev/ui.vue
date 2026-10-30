@@ -568,15 +568,20 @@ function sampleDialog(name: string) {
         </div>
         <RecordPreview
           v-model:open="previewOpen"
-          :kind="t('ui.items.itemSection')"
+          :kind="t('ui.items.record')"
           :title="previewState === 'loading' ? undefined : t('ui.devUi.sampleItem')"
           :subtitle="previewState === 'loading' ? undefined : t('ui.devUi.sampleItemLine')"
           href="/dev/ui"
           :state="previewState"
           :facts="[
             { label: t('ui.items.stock'), value: t('ui.devUi.sampleStock') },
-            { label: t('ui.items.available'), value: t('ui.devUi.sampleAvailable') },
+            {
+              label: t('ui.items.available'),
+              value: t('ui.devUi.sampleAvailable'),
+              alert: t('ui.items.negativeAvailable'),
+            },
           ]"
+          @retry="previewState = 'ready'"
         />
       </section>
     </div>

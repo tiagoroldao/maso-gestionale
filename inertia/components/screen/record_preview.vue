@@ -10,9 +10,10 @@
  *
  * The caller loads the record (`state`) and passes its name as on its
  * page (kind, title, the line under it), two or four facts in a
- * two-column grid, and anything else short in the default slot.
+ * two-column grid, and anything else short in the default slot. When
+ * loading failed, "Riprova" asks the caller to load it again (`retry`).
  */
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { Link } from '@adonisjs/inertia/vue'
 import { CircleAlert } from 'lucide-vue-next'
 import {
@@ -27,9 +28,11 @@ import { t } from '~/i18n'
 import { cn } from '~/lib/utils'
 import { buttonVariants } from '~/components/ui/button'
 import { DIALOG_OVERLAY } from '~/components/ui/dialog'
+import StatusTag from './status_tag.vue'
 import { LABEL } from './screen'
 
-export type PreviewFact = { label: string; value: string }
+/** A fact, with a tag under its value when it needs attention (negative stock) */
+export type PreviewFact = { label: string; value: string; alert?: string }
 
 withDefaults(
   defineProps<{
@@ -48,6 +51,14 @@ withDefaults(
   { title: undefined, subtitle: undefined, facts: () => [], state: 'ready' }
 )
 const open = defineModel<boolean>('open', { required: true })
+const emit = defineEmits<{ retry: [] }>()
+
+// "Riprova" disappears while it loads again: focus moves to the panel's title
+const panelTitle = ref<{ $el: HTMLElement } | null>(null)
+function retry() {
+  panelTitle.value?.$el.focus()
+  emit('retry')
+}
 
 // Opened from a row rather than a trigger: focus goes back to what opened it
 let opener: HTMLElement | null = null
@@ -89,7 +100,11 @@ const button = (variant: 'default' | 'outline') =>
         />
         <div class="flex min-w-0 flex-col gap-1">
           <span v-if="title" :class="LABEL">{{ kind }}</span>
-          <DialogTitle class="m-0 text-lg font-bold break-words">
+          <DialogTitle
+            ref="panelTitle"
+            tabindex="-1"
+            class="m-0 text-lg font-bold break-words outline-none"
+          >
             {{ title ?? kind }}
           </DialogTitle>
           <span v-if="subtitle" class="text-[13px] text-muted-foreground">{{ subtitle }}</span>
@@ -98,10 +113,15 @@ const button = (variant: 'default' | 'outline') =>
         <p v-if="state === 'loading'" role="status" class="m-0 text-sm text-muted-foreground">
           {{ t('ui.screen.preview.loading') }}
         </p>
-        <p v-else-if="state === 'failed'" role="alert" class="m-0 flex items-start gap-2 text-sm">
-          <CircleAlert :size="18" aria-hidden="true" class="shrink-0 text-destructive" />
-          {{ t('ui.screen.preview.failed') }}
-        </p>
+        <div v-else-if="state === 'failed'" class="flex flex-col items-start gap-2.5">
+          <p role="alert" class="m-0 flex items-start gap-2 text-sm">
+            <CircleAlert :size="18" aria-hidden="true" class="shrink-0 text-destructive" />
+            {{ t('ui.screen.preview.failed') }}
+          </p>
+          <button type="button" :class="cn(button('outline'), 'flex-none')" @click="retry">
+            {{ t('ui.screen.preview.retry') }}
+          </button>
+        </div>
         <template v-else>
           <dl
             v-if="facts.length"
@@ -114,6 +134,9 @@ const button = (variant: 'default' | 'outline') =>
             >
               <dt :class="LABEL">{{ fact.label }}</dt>
               <dd class="m-0 text-[17px] font-bold break-words">{{ fact.value }}</dd>
+              <dd v-if="fact.alert" class="m-0">
+                <StatusTag tone="orange">{{ fact.alert }}</StatusTag>
+              </dd>
             </div>
           </dl>
           <slot />
