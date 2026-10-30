@@ -14,6 +14,7 @@ import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
 import FormField from '~/components/screen/form_field.vue'
+import RecordPreview from '~/components/screen/record_preview.vue'
 import type { Tone } from '~/components/screen/screen'
 import { NativeSelect } from '~/components/ui/native-select'
 import {
@@ -96,6 +97,18 @@ const TONES: [Tone, string][] = [
 const dialogOpen = ref(false)
 const confirmOpen = ref(false)
 const sampleSelect = ref('kind')
+// The preview of a referenced record (#236), in each of its states
+const previewState = ref<'ready' | 'loading' | 'failed'>('ready')
+const previewOpen = ref(false)
+function openPreview(state: 'ready' | 'loading' | 'failed') {
+  previewState.value = state
+  previewOpen.value = true
+}
+const PREVIEW_STATES = [
+  ['ready', 'ui.devUi.openPreview'],
+  ['loading', 'ui.devUi.openPreviewLoading'],
+  ['failed', 'ui.devUi.openPreviewFailed'],
+] as const
 function sampleDialog(name: string) {
   if (name === 'confirm') confirmOpen.value = true
   else dialogOpen.value = true
@@ -388,6 +401,34 @@ function sampleDialog(name: string) {
           :title="t('ui.devUi.action.destructive')"
           :description="t('ui.devUi.confirmText')"
           :confirm-label="t('ui.devUi.action.destructive')"
+        />
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.preview') }}</h2>
+        <p :class="caption">{{ t('ui.devUi.previewIntro') }}</p>
+        <div class="flex flex-wrap gap-3">
+          <Button
+            v-for="[state, label] in PREVIEW_STATES"
+            :key="state"
+            variant="outline"
+            aria-haspopup="dialog"
+            @click="openPreview(state)"
+          >
+            {{ t(label) }}
+          </Button>
+        </div>
+        <RecordPreview
+          v-model:open="previewOpen"
+          :kind="t('ui.items.itemSection')"
+          :title="previewState === 'loading' ? undefined : t('ui.devUi.sampleItem')"
+          :subtitle="previewState === 'loading' ? undefined : t('ui.devUi.sampleItemLine')"
+          href="/dev/ui"
+          :state="previewState"
+          :facts="[
+            { label: t('ui.items.stock'), value: t('ui.devUi.sampleStock') },
+            { label: t('ui.items.available'), value: t('ui.devUi.sampleAvailable') },
+          ]"
         />
       </section>
     </div>

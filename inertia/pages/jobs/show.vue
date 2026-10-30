@@ -31,6 +31,7 @@ import EntityScreen from '~/components/screen/entity_screen.vue'
 import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
+import ItemPreview from '~/components/item_preview.vue'
 import FormField from '~/components/screen/form_field.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
 import {
@@ -113,6 +114,8 @@ const props = defineProps<{
     id: number
     visitId: number | null
     description: string
+    // An Item's Charge opens the Item's preview; null for others, or when the user can't open Items
+    itemId: number | null
     unit: string | null
     quantity: string
     unitPrice: string
@@ -272,6 +275,11 @@ function askMarkDone(submit: () => void) {
   markDone = submit
   markDoneOpen.value = true
 }
+
+// The Item a Charge names, previewed over the Job (docs/ui.md "Hierarchy and references")
+const previewedItem = ref<number | null>(null)
+// Underlined throughout, so the phone (no hover) shows it opens something
+const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
 
 const BUTTON = 'h-11 md:h-9'
 const SUB = 'm-0 text-xs font-semibold text-muted-foreground'
@@ -665,7 +673,16 @@ const SUMMARY_TOGGLE =
               <tbody>
                 <tr v-for="charge in charges" :key="charge.id">
                   <td :class="TD">
-                    {{ charge.description }}
+                    <button
+                      v-if="charge.itemId !== null"
+                      type="button"
+                      aria-haspopup="dialog"
+                      :class="cn(LINK, PREVIEW_LINK)"
+                      @click="previewedItem = charge.itemId"
+                    >
+                      {{ charge.description }}
+                    </button>
+                    <template v-else>{{ charge.description }}</template>
                     <p class="m-0 text-[13px] text-muted-foreground">
                       {{ chargeSource(charge.visitId) }}
                     </p>
@@ -715,7 +732,16 @@ const SUMMARY_TOGGLE =
             <li v-for="charge in charges" :key="charge.id" :class="cn(ROW, 'flex-col gap-2')">
               <div class="flex w-full items-start gap-2.5">
                 <div class="flex min-w-0 flex-1 flex-col gap-1">
-                  <span class="text-sm">{{ charge.description }}</span>
+                  <button
+                    v-if="charge.itemId !== null"
+                    type="button"
+                    aria-haspopup="dialog"
+                    :class="cn(LINK, PREVIEW_LINK, 'self-start text-sm')"
+                    @click="previewedItem = charge.itemId"
+                  >
+                    {{ charge.description }}
+                  </button>
+                  <span v-else class="text-sm">{{ charge.description }}</span>
                   <span class="text-[13px] text-muted-foreground">
                     {{ chargeSource(charge.visitId) }} ·
                     {{
@@ -1061,5 +1087,7 @@ const SUMMARY_TOGGLE =
       :confirm-label="t('ui.visits.markDone')"
       @confirm="markDone?.()"
     />
+
+    <ItemPreview v-model:item-id="previewedItem" />
   </AppLayout>
 </template>
