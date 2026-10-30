@@ -150,8 +150,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
 <template>
   <AppLayout>
     <Form
-      id="item-form"
-      v-slot="{ errors }"
+      v-slot="{ processing, errors }"
       :route="item ? 'items.update' : 'items.store'"
       :params="item ? { id: item.id } : undefined"
       class="w-full min-w-0"
@@ -163,6 +162,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
         :title="title"
         :facts="item?.code"
         :actions="actions"
+        :busy="processing"
       >
         <template v-if="item?.archived" #tags>
           <StatusTag tone="grey">{{ t('ui.items.archived') }}</StatusTag>
@@ -214,7 +214,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                 name="description"
                 rows="2"
                 class="w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring/40 aria-invalid:border-destructive md:text-sm"
-                :aria-invalid="field.invalid"
+                :aria-invalid="field.invalid === 'true'"
                 :aria-describedby="field.describedBy"
               />
             </FormField>

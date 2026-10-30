@@ -8,6 +8,7 @@ import StockLedger from '#stock/stock_ledger'
 import { isBelowMarkup } from '#shared/money'
 import { reorderReason } from '#shared/stock'
 import { itemActions } from '#services/item_actions'
+import { saveActions } from '#shared/screen_actions'
 import { itemSearchValidator, itemValidator } from '#validators/item'
 import { isForeignKeyViolation, isUniqueViolation } from '#services/database_errors'
 import { storagePath } from '#services/storage'
@@ -107,8 +108,9 @@ export default class ItemsController {
     })
   }
 
-  async create({ inertia }: HttpContext) {
+  async create({ inertia, i18n }: HttpContext) {
     return inertia.render('items/form', {
+      actions: saveActions(i18n.t('ui.items.save')),
       item: null,
       categories: await categoryOptions(),
       vatCodes: await vatCodeOptions(),
@@ -205,10 +207,11 @@ export default class ItemsController {
     return { item: { ...itemIdentity(item), inStock, available } }
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const item = await Item.findOrFail(params.id)
 
     return inertia.render('items/form', {
+      actions: saveActions(i18n.t('ui.items.save')),
       item: {
         id: item.id,
         code: item.code,

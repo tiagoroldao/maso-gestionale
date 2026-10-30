@@ -469,7 +469,6 @@
     "model": "Modello",
     "installedOn": "Data di installazione",
     "maintenanceSection": "Manutenzione",
-    "warehouseSection": "Magazzino",
     "maintenanceDescription": "Il prossimo controllo scade un intervallo dopo l'ultima manutenzione, o dopo l'installazione.",
     "interval": "Intervallo di manutenzione (mesi)",
     "lastServicedOn": "Ultima manutenzione",
@@ -600,6 +599,7 @@
       "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
     },
     "maintenanceSection": "Manutenzione",
+    "warehouseSection": "Magazzino",
     "maintenanceInterval": "Intervallo di manutenzione predefinito (mesi)",
     "maintenanceIntervalHint": "Facoltativo. Proposto quando l'articolo viene collegato a un apparecchio installato.",
     "documentsTitle": "Documenti",

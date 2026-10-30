@@ -5,6 +5,7 @@ import StockLedger from '#stock/stock_ledger'
 import type { ScreenAction } from '#shared/screen_actions'
 import { createUser } from '#tests/helpers/users'
 import { createItem } from '#tests/helpers/items'
+import Supplier from '#models/supplier'
 import { it } from '#tests/helpers/i18n'
 
 /** The Item page's header actions (docs/ui.md "Actions"), as `name:rank` */
@@ -89,5 +90,33 @@ test.group('Item page actions (#242)', () => {
 
     const page = await client.get(`/items/${item.id}`).withInertia().loginAs(office)
     assert.equal(page.inertiaProps.reorder, 'low')
+  })
+
+  test('the Item and Supplier forms are in edit mode: Save is their only action', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const item = await createItem()
+    const supplier = await Supplier.create({
+      name: 'Idrotermica Srl',
+      vatCountry: 'IT',
+      vatNumber: '01234567890',
+    })
+
+    for (const [url, label] of [
+      ['/items/create', 'ui.items.save'],
+      [`/items/${item.id}/edit`, 'ui.items.save'],
+      ['/suppliers/create', 'ui.suppliers.create'],
+      [`/suppliers/${supplier.id}/edit`, 'ui.suppliers.save'],
+    ]) {
+      const page = await client.get(url).withInertia().loginAs(office)
+      const actions = page.inertiaProps.actions as ScreenAction[]
+      assert.deepEqual(
+        actions.map((action) => [action.name, action.rank, action.kind, action.label]),
+        [['save', 'primary', 'submit', it(label)]],
+        url
+      )
+    }
   })
 })

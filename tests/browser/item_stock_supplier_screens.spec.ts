@@ -1,6 +1,8 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
 import StockLedger from '#stock/stock_ledger'
+import Item from '#models/item'
+import Supplier from '#models/supplier'
 import { createUser } from '#tests/helpers/users'
 import { createItem } from '#tests/helpers/items'
 import { it } from '#tests/helpers/i18n'
@@ -117,5 +119,82 @@ test.group('Item, Stock and Supplier screens in the browser', () => {
     await page.setViewportSize(SCREEN_SIZES.desktop)
     await page.getByTestId('to-reorder').getByRole('link', { name: item.code }).waitFor()
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'desktop')
+  })
+
+  test("a new Item is saved from the phone's bottom bar, its edit screen under the Item", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+
+    const page = await visit('/items/create')
+    await page.setViewportSize(SCREEN_SIZES.phone)
+    await page
+      .getByRole('link', { name: it('ui.screen.back', { label: it('ui.items.title') }) })
+      .waitFor()
+    await page.getByLabel(it('ui.items.code'), { exact: true }).fill('RAC-12')
+    await page.getByLabel(it('ui.items.description')).fill('Raccordo a T')
+    await page.getByLabel(it('ui.items.purchasePrice')).fill('10')
+    await page.getByLabel(it('ui.items.resalePrice')).fill('14')
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+    await page
+      .getByTestId('primary-action')
+      .getByRole('button', { name: it('ui.items.save') })
+      .click()
+    await page.waitForURL(/\/items\/\d+$/)
+    const item = await Item.findByOrFail('code', 'RAC-12')
+
+    // Editing sits under the Item: Articoli / RAC-12 / Modifica, Save the only action
+    const edit = await visit(`/items/${item.id}/edit`)
+    await edit.setViewportSize(SCREEN_SIZES.desktop)
+    const breadcrumb = edit.getByRole('navigation', { name: it('ui.screen.breadcrumb') })
+    await breadcrumb.getByRole('link', { name: 'RAC-12' }).waitFor()
+    await breadcrumb.getByText(it('ui.common.edit')).waitFor()
+    const buttons = await edit.locator('main header').getByRole('button').allTextContents()
+    assert.deepEqual(
+      buttons.map((label) => label.trim()),
+      [it('ui.items.save')]
+    )
+    assert.deepEqual(await seriousA11yViolations(edit, { content: true }), [], 'edit')
+  })
+
+  test('a Supplier is edited under Fornitori, its VAT number fixed', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const supplier = await Supplier.create({
+      name: 'Idrotermica Srl',
+      vatCountry: 'IT',
+      vatNumber: '01234567890',
+    })
+
+    const page = await visit(`/suppliers/${supplier.id}/edit`)
+    await page.setViewportSize(SCREEN_SIZES.phone)
+    await page
+      .getByRole('link', { name: it('ui.screen.back', { label: it('ui.suppliers.title') }) })
+      .waitFor()
+    await page.getByText('IT01234567890').waitFor()
+    assert.equal(await page.getByLabel(it('ui.suppliers.vatNumber')).count(), 0)
+    await page.getByLabel(it('ui.suppliers.city')).fill('Trento')
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+    await page
+      .getByTestId('primary-action')
+      .getByRole('button', { name: it('ui.suppliers.save') })
+      .click()
+    await page.waitForURL(/\/suppliers$/)
+    await supplier.refresh()
+    assert.equal(supplier.city, 'Trento')
+
+    const create = await visit('/suppliers/create')
+    await create.setViewportSize(SCREEN_SIZES.desktop)
+    await create.getByLabel(it('ui.suppliers.vatNumber')).waitFor()
+    await create
+      .locator('main header')
+      .getByRole('button', { name: it('ui.suppliers.create') })
+      .waitFor()
+    assert.deepEqual(await seriousA11yViolations(create, { content: true }), [], 'new')
   })
 })

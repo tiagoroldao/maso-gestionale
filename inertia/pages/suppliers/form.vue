@@ -43,8 +43,7 @@ const INPUT = 'h-11 md:h-9'
 <template>
   <AppLayout>
     <Form
-      id="supplier-form"
-      v-slot="{ errors }"
+      v-slot="{ processing, errors }"
       :route="supplier ? 'suppliers.update' : 'suppliers.store'"
       :params="supplier ? { id: supplier.id } : undefined"
       class="w-full min-w-0"
@@ -56,6 +55,7 @@ const INPUT = 'h-11 md:h-9'
         :title="title"
         :facts="vatId"
         :actions="actions"
+        :busy="processing"
       >
         <template #main>
           <ScreenSection :title="t('ui.suppliers.companySection')">
