@@ -35,6 +35,8 @@ import { formatMoney, sumAmounts } from '#shared/money'
 import { formatDate, TIME_ZONE } from '#shared/dates'
 import { canTransition, isEditable, RESUBMISSION_DAYS } from '#shared/invoice_lifecycle'
 import { DEFAULT_ORGANISE_BY } from '#shared/invoice_sections'
+import { saveActions } from '#shared/screen_actions'
+import { invoiceActions } from '#services/invoice_actions'
 import type { I18n } from '@adonisjs/i18n'
 import {
   paymentValidator,
@@ -151,8 +153,11 @@ export default class InvoicesController {
     })
   }
 
-  async create({ inertia }: HttpContext) {
-    return inertia.render('invoices/create', {})
+  async create({ inertia, i18n }: HttpContext) {
+    return inertia.render('invoices/create', {
+      // A screen in edit mode: creating the draft is its Save
+      actions: saveActions(i18n.t('ui.invoices.create')),
+    })
   }
 
   async store({ request, response, session, i18n }: HttpContext) {
@@ -255,7 +260,7 @@ export default class InvoicesController {
     }
   }
 
-  async edit({ params, inertia, response, i18n }: HttpContext) {
+  async edit({ params, inertia, response, i18n, bouncer }: HttpContext) {
     // A Legacy Invoice has its own page: no lines, no SDI (#27)
     const found = await Invoice.findOrFail(params.id)
     if (found.isLegacy) return response.redirect().toRoute('legacy_invoices.show', { id: found.id })
@@ -316,7 +321,49 @@ export default class InvoicesController {
       .count('* as waiting')
       .first()
 
+    const editable = isEditable(invoice.status) && !open
+    const organisable =
+      invoice.status === 'draft' &&
+      invoice.jobId !== null &&
+      !invoice.advance &&
+      !invoice.isCreditNote
+    const canCredit =
+      creditRefusal(invoice) === null && (!ownAdvance || Number(ownAdvance.left) > 0)
+    const openSubmission = open
+      ? {
+          id: open.id,
+          fileName: open.fileName,
+          submitted: Boolean(open.submittedAt),
+          // Sent by the app through the intermediary, or uploaded by Office
+          automatic: open.channel !== 'manual' && sdiAutomatic,
+          sending: Boolean(open.sendingAt) && !open.submittedAt,
+          sendFailure: open.sendFailure && sdiFailure(i18n, open.sendFailure),
+          sentByApp: Boolean(open.remoteId),
+        }
+      : null
+    const unsubmittedCount = Number(unsubmitted?.$extras.waiting ?? 0)
+
     return inertia.render('invoices/edit', {
+      // The header's actions, for the Invoice's stage (Office and the Admin alike)
+      actions: invoiceActions(
+        {
+          invoice: {
+            id: invoice.id,
+            status: invoice.status,
+            creditNote: invoice.isCreditNote,
+            issued: invoice.status !== 'draft',
+          },
+          editable,
+          organisable,
+          hasLines: invoice.lines.length > 0,
+          canCredit,
+          openSubmission,
+          unsubmittedCount,
+        },
+        i18n
+      ),
+      // An Item on a line opens its preview, for those who may open the Item
+      previewItems: await bouncer.allows('manageItems'),
       invoice: {
         id: invoice.id,
         status: invoice.status,
@@ -369,13 +416,9 @@ export default class InvoicesController {
         })),
       },
       // Not while a prepared Submission's file may already be on SDI
-      editable: isEditable(invoice.status) && !open,
+      editable,
       // A draft from a Job can be organised again (ADR 0018)
-      organisable:
-        invoice.status === 'draft' &&
-        invoice.jobId !== null &&
-        !invoice.advance &&
-        !invoice.isCreditNote,
+      organisable,
       // An Invoice's Credit Notes, and whether another can be issued
       creditNotes: invoice.isCreditNote
         ? null
@@ -385,7 +428,7 @@ export default class InvoicesController {
             status: note.status,
             total: note.total,
           })),
-      canCredit: creditRefusal(invoice) === null && (!ownAdvance || Number(ownAdvance.left) > 0),
+      canCredit,
       canSubmit: canTransition(invoice.status, 'submit'),
       submissions: invoice.submissions.map((submission) => ({
         id: submission.id,
@@ -400,24 +443,13 @@ export default class InvoicesController {
         // Sent with legal archiving requested from the intermediary (#205)
         legalArchiving: submission.legalArchiving,
       })),
-      openSubmission: open
-        ? {
-            id: open.id,
-            fileName: open.fileName,
-            submitted: Boolean(open.submittedAt),
-            // Sent by the app through the intermediary, or uploaded by Office
-            automatic: open.channel !== 'manual' && sdiAutomatic,
-            sending: Boolean(open.sendingAt) && !open.submittedAt,
-            sendFailure: open.sendFailure && sdiFailure(i18n, open.sendFailure),
-            sentByApp: Boolean(open.remoteId),
-          }
-        : null,
+      openSubmission,
       // SDI's window to resubmit after a Rejection, from its notice
       resubmitBy:
         invoice.status === 'rejected' && lastRejection?.noticeOn
           ? lastRejection.noticeOn.plus({ days: RESUBMISSION_DAYS }).toISODate()
           : null,
-      unsubmittedCount: Number(unsubmitted?.$extras.waiting ?? 0),
+      unsubmittedCount,
       deductions:
         advances
           ?.map(({ advance, left }) => ({

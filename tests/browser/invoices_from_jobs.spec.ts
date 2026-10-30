@@ -53,6 +53,10 @@ test.group('Invoices from Jobs in the browser', () => {
       .click()
     await page.waitForURL(/\/invoices\/\d+\/edit$/)
     await page.getByRole('button', { name: it('ui.invoices.finalise') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.invoices.finalise') })
+      .click()
     await page.getByRole('button', { name: it('ui.invoices.prepareSubmission') }).click()
     const download = page.waitForEvent('download')
     await page.getByRole('link', { name: /\.xml/ }).click()
@@ -130,7 +134,7 @@ test.group('Invoices from Jobs in the browser', () => {
     )
   })
 
-  test('sections: organised by Visit, a line moved and dragged, a section added, then by kind', async ({
+  test('sections: organised by Visit, lines moved with the arrows, a section added, then by kind', async ({
     browserContext,
     visit,
     assert,
@@ -174,7 +178,6 @@ test.group('Invoices from Jobs in the browser', () => {
     }
 
     const page = await visit(`/jobs/${job.id}`)
-    page.on('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: it('ui.invoices.fromCharges') }).click()
     await page.getByLabel(it('ui.invoices.organiseBy')).selectOption('visit')
     await page
@@ -190,11 +193,11 @@ test.group('Invoices from Jobs in the browser', () => {
       .getByRole('button', { name: it('ui.invoices.moveDown') })
       .last()
       .click()
-    // The first line is dragged outside the sections
+    // The first line moves up, out of the first section (no drag and drop, ADR 0020)
     await page
-      .locator('td.table__actions [draggable="true"]')
+      .getByRole('button', { name: it('ui.invoices.moveUp') })
       .first()
-      .dragTo(page.getByTestId('outside-sections'))
+      .click()
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
     await page.getByText(it('flash.invoiceSaved')).waitFor()
     assert.deepEqual(await layout(), [
@@ -204,9 +207,12 @@ test.group('Invoices from Jobs in the browser', () => {
       ['Materiale extra', 'Valvola (12/10)'],
     ])
 
-    // Organised again by kind, after confirming
-    await page.getByLabel(it('ui.invoices.organiseBy')).selectOption('kind')
-    await page.getByRole('button', { name: it('ui.invoices.organise') }).click()
+    // Organised again by kind, from "⋯": the dialog says what it replaces
+    await page.getByRole('button', { name: it('ui.screen.moreActions') }).click()
+    await page.getByRole('menuitem', { name: it('ui.invoices.organise') }).click()
+    const organise = page.getByRole('dialog')
+    await organise.getByLabel(it('ui.invoices.organiseBy')).selectOption('kind')
+    await organise.getByRole('button', { name: it('ui.invoices.organise') }).click()
     await page.getByText(it('flash.invoiceOrganised')).waitFor()
     assert.deepEqual(await layout(), [
       [

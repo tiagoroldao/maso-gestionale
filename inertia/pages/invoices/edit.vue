@@ -1,22 +1,50 @@
 <script setup lang="ts">
+/**
+ * An Invoice, Advance Invoice or Credit Note, an Entity screen on the new
+ * UI (docs/ui.md): one screen for drafting it and for following it once
+ * issued. Its header actions come from the server, each stage's next step
+ * the primary (finalising a draft, then its Submission to SDI). The lines
+ * are the main work: editable while it is a draft or after a Rejection,
+ * their totals worked out as you type (shared/ rules, run again by the
+ * server on save), in Sections moved with the up and down buttons only
+ * (ADR 0018 as amended by 0020). An Item on a line opens its preview.
+ * Adding lines, the advances it takes back and the notes follow; once
+ * issued, its Submissions, Payments and Credit Notes.
+ */
 import { computed, reactive, ref, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import { Form, Link } from '@adonisjs/inertia/vue'
-import { ArrowDown, ArrowUp, FileText, GripVertical, Merge, Trash2 } from 'lucide-vue-next'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
+import { ArrowDown, ArrowUp, CircleAlert, Merge, Trash2 } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
+import ItemPreview from '~/components/item_preview.vue'
 import InvoicePayments from '~/components/invoice_payments.vue'
-import { urlFor } from '~/client'
-import { formatMoney, t, todayIso } from '~/i18n'
-import { formatDate } from '@shared/dates'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import StatusTag from '~/components/screen/status_tag.vue'
+import FormField from '~/components/screen/form_field.vue'
+import RowErrors from '~/components/screen/row_errors.vue'
+import RowField from '~/components/screen/row_field.vue'
+import RowHeads from '~/components/screen/row_heads.vue'
+import type { KeyFact } from '~/components/screen/key_facts.vue'
+import { EMPTY, INVOICE_TONES, LINK, ROW } from '~/components/screen/screen'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { Textarea } from '~/components/ui/textarea'
+import { NativeSelect } from '~/components/ui/native-select'
 import {
-  SUBMISSION_OUTCOMES,
-  canTransition,
-  isDeletable,
-  type InvoiceStatus,
-} from '@shared/invoice_lifecycle'
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogTitle,
+} from '~/components/ui/dialog'
+import { urlFor } from '~/client'
+import { cn } from '~/lib/utils'
+import { formatMoney, formatUnitPrice, t, todayIso } from '~/i18n'
+import { formatDate } from '@shared/dates'
+import { SUBMISSION_OUTCOMES, type InvoiceStatus } from '@shared/invoice_lifecycle'
+import type { ScreenAction } from '@shared/screen_actions'
 import { amountForInput, parseAmount, parseQuantity, sumAmounts } from '@shared/money'
 import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
 import {
@@ -65,6 +93,10 @@ type InvoiceSection = { key: number; id: number | null; title: string; showSubto
 type VatCodeOption = { id: number; name: string; rate: string; natura: string | null }
 
 const props = defineProps<{
+  // The header's actions, for the Invoice's stage
+  actions: ScreenAction[]
+  // An Item on a line opens its preview, for those who may open the Item
+  previewItems: boolean
   invoice: {
     id: number
     status: InvoiceStatus
@@ -439,60 +471,6 @@ function subtotalOf(sectionKey: number) {
   return sumAmounts(membersOf(sectionKey).flatMap((line) => amountOf(line) ?? []))
 }
 
-// Drag and drop (ADR 0018); the arrows do the same from the keyboard
-const dragged = ref<{ line: Line } | { section: InvoiceSection } | null>(null)
-
-/**
- * A line or section dropped on a line: a line takes its place in that
- * line's section (after it when dragged down, before it when dragged up);
- * a section goes where that line's section is.
- */
-function dropOnLine(target: Line) {
-  const drag = dragged.value
-  dragged.value = null
-  // Deductions stay last, outside any section
-  if (!drag || isDeduction(target)) return
-  if ('section' in drag) {
-    const at = sections.findIndex((section) => section.key === target.sectionKey)
-    if (at >= 0) placeSection(drag.section, at)
-    return
-  }
-  const { line } = drag
-  if (line === target) return
-  const down = lines.indexOf(line) < lines.indexOf(target)
-  lines.splice(lines.indexOf(line), 1)
-  lines.splice(lines.indexOf(target) + (down ? 1 : 0), 0, line)
-  line.sectionKey = target.sectionKey
-  reorder()
-}
-
-/**
- * Dropped on a section's heading (null: "outside sections"): a line
- * becomes that section's first; a section takes that place.
- */
-function dropOnSection(sectionKey: number | null) {
-  const drag = dragged.value
-  dragged.value = null
-  if (!drag) return
-  if ('section' in drag) {
-    const at = sections.findIndex((section) => section.key === sectionKey)
-    placeSection(drag.section, Math.max(at, 0))
-    return
-  }
-  const { line } = drag
-  const first = membersOf(sectionKey).find((other) => other !== line)
-  lines.splice(lines.indexOf(line), 1)
-  lines.splice(first ? lines.indexOf(first) : 0, 0, line)
-  line.sectionKey = sectionKey
-  reorder()
-}
-
-function placeSection(section: InvoiceSection, at: number) {
-  sections.splice(sections.indexOf(section), 1)
-  sections.splice(at, 0, section)
-  reorder()
-}
-
 /**
  * Whether the line can join the one above: both bill Charges, have an
  * amount and share their VAT treatment (the merged line keeps it).
@@ -573,6 +551,7 @@ function foldConsumables() {
 const processing = ref(false)
 
 function save() {
+  if (processing.value) return
   router.put(
     urlFor('invoices.update', { id: props.invoice.id }),
     {
@@ -614,64 +593,71 @@ function save() {
   )
 }
 
-const lineError = (line: Line, field: string) =>
-  errors.value[`lines.${lines.indexOf(line)}.${field}`]
+// A line's errors show after its inputs, each naming its field (#226)
+const LINE_FIELDS = computed(() => ({
+  description: t('ui.invoices.description'),
+  itemId: t('ui.invoices.itemLine'),
+  quantity: t('ui.invoices.quantity'),
+  unitPrice: t('ui.invoices.unitPrice'),
+  discountPercent: t('ui.invoices.lineDiscount'),
+  vatCodeId: t('ui.invoices.vatCode'),
+}))
+const lineErrors = (line: Line) => {
+  const index = lines.indexOf(line)
+  return Object.fromEntries(
+    Object.keys(LINE_FIELDS.value).flatMap((field) => {
+      const message = errors.value[`lines.${index}.${field}`]
+      return message ? [[field, message]] : []
+    })
+  ) as Record<string, string>
+}
+const invalid = (line: Line, field: string) =>
+  errors.value[`lines.${lines.indexOf(line)}.${field}`] ? 'true' : undefined
 const sectionError = (index: number) => errors.value[`sections.${index}.title`]
-
-// Organising again (ADR 0018): by kind and combined unless chosen otherwise
-const organiseBy = ref(DEFAULT_ORGANISE_BY)
-const organiseCombine = ref(true)
-const confirmOrganise = () => window.confirm(t('ui.invoices.organiseConfirm'))
-
-/**
- * The lines table's rows: lines outside any section (under a heading to
- * drop lines on, once there are sections), then each section's heading,
- * lines and subtotal, then deduction lines. A line's position is its
- * place among the lines as saved.
- */
-type Row = { key: string } & (
-  | { type: 'outside' }
-  | { type: 'section'; section: InvoiceSection; index: number }
-  | { type: 'subtotal'; section: InvoiceSection }
-  | { type: 'line'; line: Line; position: number }
-)
-const rows = computed<Row[]>(() => {
-  const lineRow = (line: Line): Row => ({
-    key: `line-${line.key}`,
-    type: 'line',
-    line,
-    position: lines.indexOf(line) + 1,
-  })
-  return [
-    ...(props.editable && sections.length ? [{ key: 'outside', type: 'outside' as const }] : []),
-    ...membersOf(null).map(lineRow),
-    ...sections.flatMap((section, index): Row[] => [
-      { key: `section-${section.key}`, type: 'section', section, index },
-      ...membersOf(section.key).map(lineRow),
-      ...(section.showSubtotal
-        ? [{ key: `subtotal-${section.key}`, type: 'subtotal' as const, section }]
-        : []),
-    ]),
-    ...lines.filter(isDeduction).map(lineRow),
-  ]
-})
 const deductionError = computed(
   () => Object.entries(errors.value).find(([key]) => key.startsWith('deductions'))?.[1]
 )
-const confirmDelete = () =>
-  window.confirm(
-    t(creditNote.value ? 'ui.invoices.deleteCreditNoteConfirm' : 'ui.invoices.deleteConfirm')
+
+/**
+ * The lines as shown: those outside any section (named so once there are
+ * sections), each section with its lines, then the deduction lines.
+ */
+type Group = { key: string; section: InvoiceSection | null; index: number; lines: Line[] }
+const groups = computed<Group[]>(() => [
+  { key: 'outside', section: null, index: -1, lines: membersOf(null) },
+  ...sections.map((section, index) => ({
+    key: `section-${section.key}`,
+    section,
+    index,
+    lines: membersOf(section.key),
+  })),
+  { key: 'deductions', section: null, index: -1, lines: lines.filter(isDeduction) },
+])
+const position = (line: Line) => lines.indexOf(line) + 1
+
+// Organising again (ADR 0018): by kind and combined unless chosen otherwise
+const organiseOpen = ref(false)
+const organiseBy = ref(DEFAULT_ORGANISE_BY)
+const organiseCombine = ref(true)
+// SDI's outcome, recorded by hand when Office uploaded the file (ADR 0019)
+const outcomeOpen = ref(false)
+const today = todayIso()
+
+// The header: unsaved edits hold back the steps that freeze or replace
+// what the server has, not what is on screen
+const WAIT_FOR_SAVE = ['finalise', 'prepareSubmission', 'organise']
+const screenActions = computed(() =>
+  props.actions.map((action) =>
+    dirty.value && WAIT_FOR_SAVE.includes(action.name)
+      ? { ...action, disabledReason: t('ui.invoices.saveFirst') }
+      : action
   )
-const confirmFinalise = () => {
-  const question = t(
-    creditNote.value ? 'ui.invoices.finaliseCreditNoteConfirm' : 'ui.invoices.finaliseConfirm'
-  )
-  return window.confirm(
-    props.unsubmittedCount
-      ? `${t('ui.invoices.unsubmittedWarning', { count: props.unsubmittedCount })}\n\n${question}`
-      : question
-  )
+)
+function runAction(name: string) {
+  if (name === 'organise') organiseOpen.value = true
+  if (name === 'recordOutcome') outcomeOpen.value = true
 }
+
 const title = computed(() => {
   if (creditNote.value) {
     return props.invoice.number
@@ -682,709 +668,829 @@ const title = computed(() => {
     ? t('ui.invoices.invoiceTitle', { number: props.invoice.number })
     : t('ui.invoices.draftTitle')
 })
-const today = todayIso()
-const confirmUpload = () => window.confirm(t('ui.invoices.confirmUploadConfirm'))
-const confirmSend = () => window.confirm(t('ui.invoices.sendConfirm'))
-const dateTime = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '')
+const kind = computed(() =>
+  t(
+    `ui.invoices.kinds.${creditNote.value ? 'credit_note' : props.invoice.advance ? 'advance' : 'invoice'}`
+  )
+)
+const facts = computed(() =>
+  [
+    kind.value,
+    props.invoice.issuedOn &&
+      t('ui.invoices.issuedOn', { date: formatDate(props.invoice.issuedOn) }),
+    props.invoice.dueOn && t('ui.invoices.dueOn', { date: formatDate(props.invoice.dueOn) }),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+)
+const keyFacts = computed<KeyFact[]>(() => {
+  const { invoice, paymentSummary } = props
+  return [
+    {
+      label: t('ui.invoices.customer'),
+      value: invoice.customer.displayName,
+      href: urlFor('customers.show', { id: invoice.customer.id }),
+    },
+    ...(invoice.credits
+      ? [
+          {
+            label: t('ui.invoices.creditsFact'),
+            value: invoice.credits.number,
+            href: urlFor('invoices.edit', { id: invoice.credits.id }),
+            hint: t('ui.invoices.creditLeft', {
+              left: formatMoney(invoice.credits.left),
+              total: formatMoney(invoice.credits.total),
+            }),
+          },
+        ]
+      : []),
+    ...(invoice.job
+      ? [
+          {
+            label: t('ui.invoices.jobFact'),
+            value: invoice.job.number,
+            href: urlFor('jobs.show', { id: invoice.job.id }),
+          },
+        ]
+      : []),
+    {
+      label: t('ui.invoices.total'),
+      value: formatMoney(totals.value.total),
+      amount: true,
+      hint: t('ui.invoices.totalHint', {
+        taxable: formatMoney(totals.value.taxable),
+        vat: formatMoney(totals.value.vat),
+      }),
+    },
+    ...(paymentSummary
+      ? [
+          {
+            label: t('ui.invoices.paidFact'),
+            value: formatMoney(paymentSummary.paid),
+            hint: t('ui.invoices.owedHint', { amount: formatMoney(paymentSummary.owed) }),
+          },
+        ]
+      : []),
+  ]
+})
+
+// The Item a line names, previewed over the Invoice (docs/ui.md "Hierarchy and references")
+const previewedItem = ref<number | null>(null)
+const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
+
+/**
+ * A line: on the phone a card (its kind and buttons, the description,
+ * then its figures two by two, each named above it); from 768px one row,
+ * its fields under the column heads (`RowField`, `RowHeads`, #226). The
+ * figures are narrower until 1024px, so the row fits a tablet with room
+ * left for the description.
+ */
+const LINE =
+  'grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-3.5 py-3 md:flex md:flex-wrap md:items-start md:gap-x-2 md:px-4'
+const DESCRIPTION = 'md:min-w-32 md:flex-1 lg:min-w-40'
+const QUANTITY = 'md:w-20 lg:w-24'
+const PRICE = 'md:w-24 lg:w-28'
+const DISCOUNT = 'md:w-14 lg:w-20'
+const VAT = 'md:w-28 lg:w-40'
+const AMOUNT = 'md:w-20 md:text-right lg:w-28'
+const heads = computed(() => [
+  { label: t('ui.invoices.description'), class: DESCRIPTION },
+  { label: t('ui.invoices.quantity'), class: QUANTITY },
+  { label: t('ui.invoices.unitPrice'), class: PRICE },
+  { label: t('ui.invoices.lineDiscount'), class: DISCOUNT },
+  { label: t('ui.invoices.vatCode'), class: VAT },
+  { label: t('ui.invoices.amount'), class: AMOUNT },
+])
+const FIELD = 'h-11 md:h-9'
+// A figure of a line that can no longer change, in its field's place
+const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
+const BUTTON = 'h-11 md:h-9'
+const ICON = 'md:size-9'
+const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
+const HINT = 'm-0 text-[13px] text-muted-foreground'
+const PAD = 'px-3.5 md:px-4'
+const dateOf = (iso: string | null) => (iso ? formatDate(iso.slice(0, 10)) : '')
+// What went to SDI: a Submission prepared and not yet sent shows as its file to upload
+const history = computed(() =>
+  props.submissions.filter(
+    (submission) => submission.submittedAt || submission.id !== props.openSubmission?.id
+  )
+)
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="title" :description="invoice.customer.displayName">
-      <template #actions>
-        <Form v-if="canCredit" route="invoices.store_credit_note" :params="{ id: invoice.id }">
-          <button type="submit" class="btn btn--secondary btn--sm">
-            {{ t('ui.invoices.newCreditNote') }}
-          </button>
-        </Form>
-        <a
-          v-if="invoice.number"
-          :href="urlFor('invoices.pdf', { id: invoice.id })"
-          target="_blank"
-          rel="noopener"
-          class="btn btn--secondary btn--sm"
-        >
-          <FileText :size="15" /> {{ t('ui.invoices.pdf') }}
-        </a>
-        <a
-          v-if="invoice.number"
-          :href="urlFor('invoices.xml', { id: invoice.id })"
-          class="btn btn--secondary btn--sm"
-        >
-          {{ t('ui.invoices.xml') }}
-        </a>
-        <Link
-          v-if="invoice.job"
-          route="jobs.show"
-          :params="{ id: invoice.job.id }"
-          class="btn btn--ghost btn--sm"
-        >
-          {{ t('ui.invoices.job', { number: invoice.job.number }) }}
-        </Link>
-        <Link route="invoices.index" class="btn btn--ghost btn--sm">
-          {{ t('ui.invoices.backToList') }}
-        </Link>
+    <EntityScreen
+      :document-title="title"
+      :crumbs="[{ label: t('ui.invoices.title'), href: urlFor('invoices.index') }]"
+      :current="invoice.number ?? title"
+      :title="title"
+      :facts="facts"
+      :actions="screenActions"
+      :key-facts="keyFacts"
+      :busy="processing"
+      @dialog="runAction"
+    >
+      <template #tags>
+        <StatusTag :tone="INVOICE_TONES[invoice.status]" data-testid="invoice-status">
+          {{ t(`ui.invoices.statuses.${invoice.status}`) }}
+        </StatusTag>
       </template>
 
-      <p v-if="invoice.advance" class="field__hint" data-testid="advance">
-        {{ t('ui.invoices.advanceHint') }}
-      </p>
-      <template v-if="invoice.credits">
-        <p data-testid="credits">
-          <Link route="invoices.edit" :params="{ id: invoice.credits.id }" class="il">
-            {{
-              t('ui.invoices.creditsInvoice', {
-                number: invoice.credits.number,
-                date: formatDate(invoice.credits.issuedOn),
-              })
-            }}
-          </Link>
-        </p>
-        <p class="field__hint">
-          {{ t('ui.invoices.creditNoteHint') }}
-          {{
-            t('ui.invoices.creditLeft', {
-              left: formatMoney(invoice.credits.left),
-              total: formatMoney(invoice.credits.total),
-            })
-          }}
-        </p>
-      </template>
+      <template #main>
+        <ScreenSection :title="t('ui.invoices.lines')" flush>
+          <template #actions>
+            <span v-if="dirty" role="status" class="text-[13px] text-muted-foreground">
+              {{ t('ui.invoices.unsaved') }}
+            </span>
+          </template>
+          <div class="flex flex-col gap-2 pb-3 empty:hidden" :class="PAD">
+            <p v-if="resubmitBy" :class="ERROR">
+              <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+              {{ t('ui.invoices.resubmitBy', { date: formatDate(resubmitBy) }) }}
+            </p>
+            <p v-if="invoice.advance" :class="HINT" data-testid="advance">
+              {{ t('ui.invoices.advanceHint') }}
+            </p>
+            <p v-if="creditNote && editable" :class="HINT">
+              {{ t('ui.invoices.creditNoteHint') }}
+            </p>
+            <p v-if="!invoice.number && !editable" :class="HINT">
+              {{ t('ui.invoices.notEditable') }}
+            </p>
+            <p v-if="editable && (sections.length || lines.length > 1)" :class="HINT">
+              {{ t('ui.invoices.moveHint') }}
+            </p>
+          </div>
 
-      <Section>
-        <p>
-          <span class="tag">{{ t(`ui.invoices.statuses.${invoice.status}`) }}</span>
-        </p>
-        <p v-if="resubmitBy" class="field__error">
-          {{ t('ui.invoices.resubmitBy', { date: formatDate(resubmitBy) }) }}
-        </p>
-        <p v-if="invoice.number" class="field__hint">
-          {{
-            invoice.dueOn
-              ? t('ui.invoices.issued', {
-                  date: formatDate(invoice.issuedOn),
-                  due: formatDate(invoice.dueOn),
-                })
-              : t('ui.invoices.creditNoteIssued', { date: formatDate(invoice.issuedOn) })
-          }}
-        </p>
-        <p v-else-if="!editable" class="field__hint">{{ t('ui.invoices.notEditable') }}</p>
+          <RowHeads :heads="heads" />
 
-        <table class="table">
-          <thead>
-            <tr>
-              <th>{{ t('ui.invoices.description') }}</th>
-              <th :style="{ width: '100px' }">{{ t('ui.invoices.quantity') }}</th>
-              <th :style="{ width: '120px' }">{{ t('ui.invoices.unitPrice') }}</th>
-              <th :style="{ width: '90px' }">{{ t('ui.invoices.lineDiscount') }}</th>
-              <th :style="{ width: '170px' }">{{ t('ui.invoices.vatCode') }}</th>
-              <th :style="{ textAlign: 'right', width: '110px' }">
-                {{ t('ui.invoices.amount') }}
-              </th>
-              <th v-if="editable" />
-            </tr>
-          </thead>
-          <tbody>
-            <template v-for="row in rows" :key="row.key">
-              <!-- Where lines outside any section are dropped -->
-              <tr
-                v-if="row.type === 'outside'"
-                data-testid="outside-sections"
-                @dragover.prevent
-                @drop.prevent="dropOnSection(null)"
-              >
-                <td colspan="7" class="field__hint">{{ t('ui.invoices.outsideSections') }}</td>
-              </tr>
-              <tr
-                v-else-if="row.type === 'section'"
-                data-testid="invoice-section"
-                @dragover.prevent
-                @drop.prevent="dropOnSection(row.section.key)"
-              >
-                <td colspan="5">
-                  <template v-if="editable">
-                    <div :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-                      <span
-                        draggable="true"
-                        class="iconbtn"
-                        :aria-hidden="true"
-                        :style="{ cursor: 'grab' }"
-                        @dragstart="dragged = { section: row.section }"
-                        @dragend="dragged = null"
-                      >
-                        <GripVertical :size="14" />
-                      </span>
-                      <input
-                        v-model="row.section.title"
-                        class="field__input"
-                        :aria-label="t('ui.invoices.sectionTitleOf', { position: row.index + 1 })"
-                      />
-                      <label :style="{ display: 'flex', gap: '4px', whiteSpace: 'nowrap' }">
-                        <input v-model="row.section.showSubtotal" type="checkbox" />
-                        {{ t('ui.invoices.showSubtotal') }}
-                      </label>
-                    </div>
-                    <span v-if="sectionError(row.index)" class="field__error">
-                      {{ sectionError(row.index) }}
-                    </span>
-                  </template>
-                  <strong v-else>{{ row.section.title }}</strong>
-                </td>
-                <td />
-                <td v-if="editable" class="table__actions">
-                  <button
+          <template v-for="group in groups" :key="group.key">
+            <!-- Outside any section: named once there are sections -->
+            <h3
+              v-if="group.key === 'outside' && sections.length && (editable || group.lines.length)"
+              :class="cn(HINT, 'border-t border-border py-2', PAD)"
+              data-testid="outside-sections"
+            >
+              {{ t('ui.invoices.outsideSections') }}
+            </h3>
+            <!-- A section's heading: its title, its subtotal switch and its buttons -->
+            <div
+              v-if="group.section"
+              class="flex flex-col gap-1.5 border-t border-border bg-background py-2"
+              :class="PAD"
+              data-testid="invoice-section"
+            >
+              <div v-if="editable" class="flex flex-wrap items-center gap-2">
+                <Input
+                  v-model="group.section.title"
+                  form="invoice-form"
+                  :class="cn(FIELD, 'min-w-0 flex-[1_1_12rem] font-semibold')"
+                  :aria-label="t('ui.invoices.sectionTitleOf', { position: group.index + 1 })"
+                  :aria-invalid="sectionError(group.index) ? 'true' : undefined"
+                />
+                <label class="flex min-h-11 items-center gap-2 text-sm md:min-h-0">
+                  <input v-model="group.section.showSubtotal" type="checkbox" class="size-4" />
+                  {{ t('ui.invoices.showSubtotal') }}
+                </label>
+                <span class="ml-auto flex items-center gap-1">
+                  <Button
                     type="button"
-                    class="iconbtn"
-                    :disabled="row.index === 0"
+                    variant="ghost"
+                    size="icon-touch"
+                    :class="ICON"
+                    :disabled="group.index === 0"
                     :aria-label="t('ui.invoices.moveSectionUp')"
-                    @click="moveSection(row.index, -1)"
+                    @click="moveSection(group.index, -1)"
                   >
-                    <ArrowUp :size="14" />
-                  </button>
-                  <button
+                    <ArrowUp aria-hidden="true" />
+                  </Button>
+                  <Button
                     type="button"
-                    class="iconbtn"
-                    :disabled="row.index === sections.length - 1"
+                    variant="ghost"
+                    size="icon-touch"
+                    :class="ICON"
+                    :disabled="group.index === sections.length - 1"
                     :aria-label="t('ui.invoices.moveSectionDown')"
-                    @click="moveSection(row.index, 1)"
+                    @click="moveSection(group.index, 1)"
                   >
-                    <ArrowDown :size="14" />
-                  </button>
-                  <button
+                    <ArrowDown aria-hidden="true" />
+                  </Button>
+                  <Button
                     type="button"
-                    class="iconbtn"
+                    variant="ghost"
+                    size="icon-touch"
+                    :class="ICON"
                     :aria-label="t('ui.invoices.removeSection')"
-                    :title="t('ui.invoices.removeSectionHint')"
-                    @click="removeSection(row.index)"
+                    @click="removeSection(group.index)"
                   >
-                    <Trash2 :size="14" />
-                  </button>
-                </td>
-              </tr>
-              <tr v-else-if="row.type === 'subtotal'" data-testid="section-subtotal">
-                <td colspan="5" :style="{ textAlign: 'right' }">
-                  {{ t('ui.invoices.sectionSubtotalOf', { title: row.section.title }) }}
-                </td>
-                <td :style="{ textAlign: 'right' }">
-                  <strong>{{ formatMoney(subtotalOf(row.section.key)) }}</strong>
-                </td>
-                <td v-if="editable" />
-              </tr>
-              <tr
-                v-else-if="row.type === 'line'"
-                @dragover.prevent
-                @drop.prevent="dropOnLine(row.line)"
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </span>
+              </div>
+              <h3 v-else class="m-0 text-sm font-semibold">{{ group.section.title }}</h3>
+              <p v-if="sectionError(group.index)" :class="ERROR">
+                <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+                {{
+                  t('ui.common.fieldError', {
+                    field: t('ui.invoices.sectionTitleOf', { position: group.index + 1 }),
+                    message: sectionError(group.index),
+                  })
+                }}
+              </p>
+            </div>
+
+            <ol v-if="group.lines.length" class="m-0 list-none p-0">
+              <li
+                v-for="line in group.lines"
+                :key="line.key"
+                :class="LINE"
+                :aria-label="t('ui.invoices.lineOf', { position: position(line) })"
               >
-                <td>
-                  <span class="field__hint">
-                    {{ row.line.itemId ? t('ui.invoices.itemLine') : t('ui.invoices.freeLine') }}
-                    <template v-if="row.line.chargeIds.length">
-                      · {{ t('ui.invoices.billsCharges', { count: row.line.chargeIds.length }) }}
-                    </template>
+                <!-- What the line is, and its own buttons, across the row -->
+                <div
+                  class="col-span-2 flex min-h-11 items-center gap-2 text-[13px] md:min-h-9 md:basis-full"
+                >
+                  <span class="flex min-w-0 flex-1 flex-wrap items-center gap-x-2">
+                    <span v-if="isDeduction(line)" class="text-muted-foreground">
+                      {{ t('ui.invoices.deductionLine') }}
+                    </span>
+                    <button
+                      v-else-if="line.itemId !== null && previewItems"
+                      type="button"
+                      aria-haspopup="dialog"
+                      :aria-label="t('ui.invoices.previewItemOf', { position: position(line) })"
+                      :class="cn(LINK, PREVIEW_LINK, 'flex min-h-11 items-center md:min-h-0')"
+                      @click="previewedItem = line.itemId"
+                    >
+                      {{ t('ui.invoices.itemLine') }}
+                    </button>
+                    <span v-else class="text-muted-foreground">
+                      {{ line.itemId ? t('ui.invoices.itemLine') : t('ui.invoices.freeLine') }}
+                    </span>
+                    <span v-if="line.chargeIds.length" class="text-muted-foreground">
+                      · {{ t('ui.invoices.billsCharges', { count: line.chargeIds.length }) }}
+                    </span>
                   </span>
-                  <input
-                    v-model="row.line.description"
-                    class="field__input"
-                    :disabled="!editable || row.line.deductsInvoiceId !== null"
-                    :aria-label="t('ui.invoices.descriptionOf', { position: row.position })"
-                  />
-                  <span v-if="lineError(row.line, 'description')" class="field__error">
-                    {{ lineError(row.line, 'description') }}
-                  </span>
-                  <span v-if="lineError(row.line, 'itemId')" class="field__error">
-                    {{ lineError(row.line, 'itemId') }}
-                  </span>
-                </td>
-                <td>
-                  <input
-                    v-model="row.line.quantity"
-                    inputmode="decimal"
-                    class="field__input"
-                    :disabled="!editable || row.line.deductsInvoiceId !== null"
-                    :aria-label="t('ui.invoices.quantityOf', { position: row.position })"
-                  />
-                  <span class="field__hint">{{ row.line.unit }}</span>
-                  <span v-if="lineError(row.line, 'quantity')" class="field__error">
-                    {{ lineError(row.line, 'quantity') }}
-                  </span>
-                </td>
-                <td>
-                  <input
-                    v-model="row.line.unitPrice"
-                    inputmode="decimal"
-                    class="field__input"
-                    :disabled="!editable || row.line.deductsInvoiceId !== null"
-                    :aria-label="t('ui.invoices.unitPriceOf', { position: row.position })"
-                  />
-                  <span v-if="lineError(row.line, 'unitPrice')" class="field__error">
-                    {{ lineError(row.line, 'unitPrice') }}
-                  </span>
-                </td>
-                <td>
-                  <input
-                    v-model="row.line.discountPercent"
-                    inputmode="decimal"
-                    class="field__input"
-                    :disabled="!editable || row.line.deductsInvoiceId !== null"
-                    :aria-label="t('ui.invoices.lineDiscountOf', { position: row.position })"
-                  />
-                  <span v-if="lineError(row.line, 'discountPercent')" class="field__error">
-                    {{ lineError(row.line, 'discountPercent') }}
-                  </span>
-                </td>
-                <td>
-                  <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
-                  <span v-if="fixedLines" data-testid="credited-vat">
-                    {{ codes.get(row.line.vatCodeId)?.name ?? '' }}
-                    ({{ vatLabel({ vatRate: row.line.vatRate ?? '0', natura: row.line.natura }) }})
-                  </span>
-                  <select
-                    v-else
-                    v-model="row.line.vatCodeId"
-                    class="field__input"
-                    :disabled="!editable || row.line.deductsInvoiceId !== null"
-                    :aria-label="t('ui.invoices.vatCodeOf', { position: row.position })"
+                  <!-- A Credit Note's deduction line is kept or removed whole (ADR 0014) -->
+                  <span
+                    v-if="editable && (!isDeduction(line) || creditNote)"
+                    class="flex shrink-0 items-center gap-1"
                   >
-                    <option v-for="code in vatCodes" :key="code.id" :value="code.id">
+                    <template v-if="!isDeduction(line)">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-touch"
+                        :class="ICON"
+                        :disabled="!canMove(line, -1)"
+                        :aria-label="t('ui.invoices.moveUp')"
+                        @click="moveLine(line, -1)"
+                      >
+                        <ArrowUp aria-hidden="true" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-touch"
+                        :class="ICON"
+                        :disabled="!canMove(line, 1)"
+                        :aria-label="t('ui.invoices.moveDown')"
+                        @click="moveLine(line, 1)"
+                      >
+                        <ArrowDown aria-hidden="true" />
+                      </Button>
+                      <Button
+                        v-if="canMergeUp(position(line) - 1)"
+                        type="button"
+                        variant="ghost"
+                        size="icon-touch"
+                        :class="ICON"
+                        :aria-label="t('ui.invoices.mergeUp')"
+                        @click="mergeUp(position(line) - 1)"
+                      >
+                        <Merge aria-hidden="true" />
+                      </Button>
+                    </template>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-touch"
+                      :class="ICON"
+                      :aria-label="t('ui.invoices.removeLine')"
+                      @click="removeLine(line)"
+                    >
+                      <Trash2 aria-hidden="true" />
+                    </Button>
+                  </span>
+                </div>
+
+                <div :class="cn('col-span-2 flex min-w-0 flex-col', DESCRIPTION)">
+                  <p v-if="!editable" class="m-0 text-sm font-medium md:pt-2">
+                    {{ line.description }}
+                  </p>
+                  <Input
+                    v-else
+                    v-model="line.description"
+                    form="invoice-form"
+                    :class="FIELD"
+                    :disabled="isDeduction(line)"
+                    :aria-label="t('ui.invoices.descriptionOf', { position: position(line) })"
+                    :aria-invalid="invalid(line, 'description')"
+                  />
+                </div>
+                <RowField :label="t('ui.invoices.quantity')" :class="QUANTITY">
+                  <span v-if="!editable" :class="READ">
+                    {{ line.quantity }} {{ line.unit ?? '' }}
+                  </span>
+                  <div v-else class="flex items-center gap-1.5">
+                    <Input
+                      v-model="line.quantity"
+                      form="invoice-form"
+                      inputmode="decimal"
+                      :class="FIELD"
+                      :disabled="isDeduction(line)"
+                      :aria-label="t('ui.invoices.quantityOf', { position: position(line) })"
+                      :aria-invalid="invalid(line, 'quantity')"
+                    />
+                    <span v-if="line.unit" class="text-[13px] text-muted-foreground">
+                      {{ line.unit }}
+                    </span>
+                  </div>
+                </RowField>
+                <RowField :label="t('ui.invoices.unitPrice')" :class="PRICE">
+                  <span v-if="!editable" :class="READ">{{
+                    formatUnitPrice(parseAmount(line.unitPrice)?.toFixed() ?? 0)
+                  }}</span>
+                  <Input
+                    v-else
+                    v-model="line.unitPrice"
+                    form="invoice-form"
+                    inputmode="decimal"
+                    :class="FIELD"
+                    :disabled="isDeduction(line)"
+                    :aria-label="t('ui.invoices.unitPriceOf', { position: position(line) })"
+                    :aria-invalid="invalid(line, 'unitPrice')"
+                  />
+                </RowField>
+                <RowField :label="t('ui.invoices.lineDiscount')" :class="DISCOUNT">
+                  <span v-if="!editable" :class="READ">{{ line.discountPercent }}</span>
+                  <Input
+                    v-else
+                    v-model="line.discountPercent"
+                    form="invoice-form"
+                    inputmode="decimal"
+                    :class="FIELD"
+                    :disabled="isDeduction(line)"
+                    :aria-label="t('ui.invoices.lineDiscountOf', { position: position(line) })"
+                    :aria-invalid="invalid(line, 'discountPercent')"
+                  />
+                </RowField>
+                <RowField :label="t('ui.invoices.vatCode')" :class="VAT">
+                  <!-- A Credit Note reverses VAT at the rate the Invoice charged -->
+                  <span v-if="fixedLines" :class="READ" data-testid="credited-vat">
+                    {{ codes.get(line.vatCodeId)?.name ?? '' }}
+                    ({{ vatLabel({ vatRate: line.vatRate ?? '0', natura: line.natura }) }})
+                  </span>
+                  <span v-else-if="!editable" :class="READ">
+                    {{ codes.get(line.vatCodeId)?.name ?? '' }}
+                  </span>
+                  <NativeSelect
+                    v-else
+                    :model-value="String(line.vatCodeId)"
+                    :disabled="isDeduction(line)"
+                    :aria-label="t('ui.invoices.vatCodeOf', { position: position(line) })"
+                    :aria-invalid="invalid(line, 'vatCodeId')"
+                    @update:model-value="(value) => (line.vatCodeId = Number(value))"
+                  >
+                    <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
                       {{ code.name }}
                     </option>
-                  </select>
-                  <span v-if="lineError(row.line, 'vatCodeId')" class="field__error">
-                    {{ lineError(row.line, 'vatCodeId') }}
-                  </span>
+                  </NativeSelect>
+                </RowField>
+                <RowField :label="t('ui.invoices.amount')" :class="cn(AMOUNT, 'md:items-end')">
                   <span
-                    v-if="splitWarning(row.line)"
-                    class="field__hint"
-                    data-testid="split-warning"
+                    class="text-[15px] font-semibold whitespace-nowrap md:inline-flex md:h-9 md:items-center md:text-sm"
                   >
-                    {{ t('ui.invoices.significantGoodSplit') }}
+                    {{ amountOf(line) ? formatMoney(amountOf(line)!) : '' }}
                   </span>
-                </td>
-                <td :style="{ textAlign: 'right' }">
-                  {{ amountOf(row.line) ? formatMoney(amountOf(row.line)!) : '' }}
-                </td>
-                <!-- A Credit Note's deduction line is kept or removed whole (ADR 0014) -->
-                <td v-if="editable && creditNote && row.line.deductsInvoiceId !== null">
-                  <button
-                    type="button"
-                    class="iconbtn"
-                    :aria-label="t('ui.invoices.removeLine')"
-                    @click="removeLine(row.line)"
-                  >
-                    <Trash2 :size="14" />
-                  </button>
-                </td>
-                <td v-else-if="editable && row.line.deductsInvoiceId !== null" />
-                <td v-else-if="editable" class="table__actions">
-                  <span
-                    draggable="true"
-                    class="iconbtn"
-                    :aria-hidden="true"
-                    :style="{ cursor: 'grab' }"
-                    @dragstart="dragged = { line: row.line }"
-                    @dragend="dragged = null"
-                  >
-                    <GripVertical :size="14" />
-                  </span>
-                  <button
-                    type="button"
-                    class="iconbtn"
-                    :disabled="!canMove(row.line, -1)"
-                    :aria-label="t('ui.invoices.moveUp')"
-                    @click="moveLine(row.line, -1)"
-                  >
-                    <ArrowUp :size="14" />
-                  </button>
-                  <button
-                    type="button"
-                    class="iconbtn"
-                    :disabled="!canMove(row.line, 1)"
-                    :aria-label="t('ui.invoices.moveDown')"
-                    @click="moveLine(row.line, 1)"
-                  >
-                    <ArrowDown :size="14" />
-                  </button>
-                  <button
-                    v-if="canMergeUp(row.position - 1)"
-                    type="button"
-                    class="iconbtn"
-                    :aria-label="t('ui.invoices.mergeUp')"
-                    :title="t('ui.invoices.mergeUp')"
-                    @click="mergeUp(row.position - 1)"
-                  >
-                    <Merge :size="14" />
-                  </button>
-                  <button
-                    type="button"
-                    class="iconbtn"
-                    :aria-label="t('ui.invoices.removeLine')"
-                    @click="removeLine(row.line)"
-                  >
-                    <Trash2 :size="14" />
-                  </button>
-                </td>
-              </tr>
-            </template>
-            <tr v-if="lines.length === 0 && sections.length === 0">
-              <td colspan="7" :style="{ color: 'var(--subtle)' }">
-                {{ t('ui.invoices.noLines') }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-if="editable">
-          <button type="button" class="btn btn--secondary btn--sm" @click="addSection">
-            {{ t('ui.invoices.addSection') }}
-          </button>
-          <span class="field__hint">{{ t('ui.invoices.dragHint') }}</span>
-        </p>
-      </Section>
+                </RowField>
 
-      <!-- Organising again replaces the sections (ADR 0018) -->
-      <Section
-        v-if="editable && organisable"
-        :title="t('ui.invoices.sectionsTitle')"
-        :description="t('ui.invoices.organiseByHint')"
-      >
-        <Form route="invoices.organise" :params="{ id: invoice.id }" :on-before="confirmOrganise">
+                <div
+                  v-if="splitWarning(line) || Object.keys(lineErrors(line)).length"
+                  class="col-span-full flex flex-col gap-1 md:basis-full"
+                >
+                  <p v-if="splitWarning(line)" :class="HINT" data-testid="split-warning">
+                    {{ t('ui.invoices.significantGoodSplit') }}
+                  </p>
+                  <RowErrors :errors="lineErrors(line)" :fields="LINE_FIELDS" />
+                </div>
+              </li>
+            </ol>
+
+            <div
+              v-if="group.section?.showSubtotal"
+              class="flex justify-end gap-4 border-t border-border py-2 text-sm"
+              :class="PAD"
+              data-testid="section-subtotal"
+            >
+              <span>{{ t('ui.invoices.sectionSubtotalOf', { title: group.section.title }) }}</span>
+              <strong class="min-w-24 text-right">
+                {{ formatMoney(subtotalOf(group.section.key)) }}
+              </strong>
+            </div>
+          </template>
+
+          <p v-if="!lines.length && !sections.length" :class="EMPTY">
+            {{ t('ui.invoices.noLines') }}
+          </p>
+          <p v-if="errors.lines" :class="cn(ERROR, 'border-t border-border py-3', PAD)">
+            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+            {{ errors.lines }}
+          </p>
+
+          <!-- The global discount and the totals, as you type -->
+          <div
+            class="flex flex-col gap-3 border-t border-border py-3 md:flex-row md:items-start md:justify-between"
+            :class="PAD"
+          >
+            <FormField
+              v-if="editable && !creditNote"
+              id="discount"
+              v-slot="field"
+              :label="t('ui.invoices.globalDiscount')"
+              :hint="t('ui.invoices.globalDiscountHint')"
+              :error="errors.discountPercent"
+            >
+              <Input
+                :id="field.id"
+                v-model="discountPercent"
+                form="invoice-form"
+                inputmode="decimal"
+                :class="cn(FIELD, 'max-w-32')"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+            <p v-else-if="Number(invoice.discountPercent)" class="m-0 text-sm">
+              {{ t('ui.invoices.globalDiscount') }}: {{ discountPercent }}
+            </p>
+            <span v-else aria-hidden="true" />
+            <dl
+              class="m-0 flex flex-col gap-1 text-sm tabular-nums md:min-w-72"
+              data-testid="invoice-totals"
+            >
+              <div
+                v-for="row in totals.summary"
+                :key="`${row.vatRate}-${row.natura}`"
+                class="flex justify-end gap-4 text-muted-foreground"
+              >
+                <dt>
+                  {{
+                    t('ui.invoices.vatRow', {
+                      vat: vatLabel(row),
+                      taxable: formatMoney(row.taxable),
+                    })
+                  }}
+                </dt>
+                <dd class="m-0 min-w-24 text-right">{{ formatMoney(row.vat) }}</dd>
+              </div>
+              <div v-if="Number(totals.discount)" class="flex justify-end gap-4">
+                <dt>{{ t('ui.invoices.discount') }}</dt>
+                <dd class="m-0 min-w-24 text-right">−{{ formatMoney(totals.discount) }}</dd>
+              </div>
+              <div class="flex justify-end gap-4">
+                <dt>{{ t('ui.invoices.taxable') }}</dt>
+                <dd class="m-0 min-w-24 text-right">{{ formatMoney(totals.taxable) }}</dd>
+              </div>
+              <div class="flex justify-end gap-4">
+                <dt>{{ t('ui.invoices.vatAmount') }}</dt>
+                <dd class="m-0 min-w-24 text-right">{{ formatMoney(totals.vat) }}</dd>
+              </div>
+              <div class="flex justify-end gap-4 text-[15px] font-bold">
+                <dt>{{ t('ui.invoices.total') }}</dt>
+                <dd class="m-0 min-w-24 text-right" data-testid="invoice-total">
+                  {{ formatMoney(totals.total) }}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </ScreenSection>
+      </template>
+
+      <div class="grid items-start gap-3 md:grid-cols-2 md:gap-5">
+        <!-- A Credit Note's lines are the credited Invoice's, lowered; its sections can change -->
+        <ScreenSection v-if="editable" :title="t('ui.invoices.addTitle')">
+          <ItemPicker v-if="!creditNote" :label="t('ui.invoices.addItem')" @select="addItem" />
+          <div class="flex flex-wrap gap-2">
+            <Button
+              v-if="!fixedLines"
+              type="button"
+              variant="outline"
+              :class="BUTTON"
+              @click="addFreeLine"
+            >
+              {{ t('ui.invoices.addFreeLine') }}
+            </Button>
+            <Button type="button" variant="outline" :class="BUTTON" @click="addSection">
+              {{ t('ui.invoices.addSection') }}
+            </Button>
+          </div>
+          <div
+            v-if="!creditNote && folds.length"
+            class="flex flex-col gap-1.5"
+            data-testid="fold-consumables"
+          >
+            <Button
+              type="button"
+              variant="outline"
+              :class="cn(BUTTON, 'self-start')"
+              @click="foldConsumables"
+            >
+              {{ t('ui.invoices.foldConsumables') }}
+            </Button>
+            <p :class="HINT">{{ t('ui.invoices.foldConsumablesHint') }}</p>
+          </div>
+        </ScreenSection>
+
+        <ScreenSection
+          v-if="deductions?.length"
+          :title="t('ui.invoices.deductionsTitle')"
+          :description="t('ui.invoices.deductionsHint')"
+          flush
+        >
+          <ul class="m-0 list-none p-0" data-testid="deductions">
+            <li
+              v-for="row in deductions"
+              :key="row.advanceId"
+              :class="cn(ROW, 'flex-wrap items-center justify-between md:px-4')"
+            >
+              <div class="flex min-w-0 flex-col gap-0.5 text-sm">
+                <span class="font-semibold">
+                  {{ t('ui.invoices.advanceNumber', { number: row.number }) }}
+                </span>
+                <span :class="HINT">
+                  {{
+                    t('ui.invoices.advanceLeft', {
+                      left: formatMoney(row.left),
+                      total: formatMoney(row.total),
+                    })
+                  }}
+                </span>
+              </div>
+              <Input
+                v-model="deductionAmounts[row.advanceId]"
+                form="invoice-form"
+                inputmode="decimal"
+                :class="cn(FIELD, 'w-36')"
+                :disabled="!editable"
+                :aria-label="t('ui.invoices.deductionOf', { number: row.number })"
+              />
+            </li>
+          </ul>
+          <p v-if="deductionError" :class="cn(ERROR, 'border-t border-border py-3', PAD)">
+            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+            {{ deductionError }}
+          </p>
+        </ScreenSection>
+
+        <ScreenSection v-if="invoice.number" :title="t('ui.invoices.sdiTitle')" flush>
+          <div class="flex flex-col gap-2 pb-3 empty:hidden" :class="PAD">
+            <template v-if="openSubmission && !openSubmission.submitted">
+              <a
+                :href="urlFor('invoices.xml', { id: invoice.id })"
+                download
+                :class="cn(LINK, 'self-start text-sm')"
+              >
+                {{ t('ui.invoices.downloadXml', { file: openSubmission.fileName }) }}
+              </a>
+              <p v-if="openSubmission.sending" :class="HINT">{{ t('ui.invoices.sending') }}</p>
+              <p v-if="openSubmission.sendFailure" :class="ERROR">
+                <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+                {{ t('ui.invoices.sendFailure', { detail: openSubmission.sendFailure }) }}
+              </p>
+            </template>
+            <p v-if="openSubmission?.submitted && openSubmission.sentByApp" :class="HINT">
+              {{ t('ui.invoices.outcomePolled') }}
+            </p>
+          </div>
+          <ul v-if="history.length" class="m-0 list-none p-0" data-testid="submissions">
+            <li
+              v-for="submission in history"
+              :key="submission.id"
+              :class="cn(ROW, 'flex-col gap-1 md:px-4')"
+            >
+              <a
+                v-if="submission.hasFile"
+                :href="
+                  urlFor('invoices.submission_xml', {
+                    id: invoice.id,
+                    submissionId: submission.id,
+                  })
+                "
+                download
+                :title="t('ui.invoices.downloadSent')"
+                :class="cn(LINK, 'font-mono text-sm')"
+                >{{ submission.fileName }}</a
+              >
+              <span v-else class="font-mono text-sm">{{ submission.fileName }}</span>
+              <span :class="HINT">
+                {{
+                  [
+                    submission.submittedAt &&
+                      `${t('ui.invoices.uploadedOn')} ${dateOf(submission.submittedAt)}`,
+                    submission.legalArchiving && t('ui.invoices.legalArchivingRequested'),
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')
+                }}
+              </span>
+              <span v-if="submission.outcome" class="text-sm">
+                {{ t(`ui.invoices.outcomes.${submission.outcome}`) }}
+                · {{ formatDate(submission.noticeOn) }}
+                <span v-if="submission.sdiId" class="font-mono">· {{ submission.sdiId }}</span>
+              </span>
+              <span v-if="submission.outcomeNotes" :class="HINT">
+                {{ submission.outcomeNotes }}
+              </span>
+            </li>
+          </ul>
+          <p v-else-if="!openSubmission" :class="EMPTY">{{ t('ui.invoices.noSubmissions') }}</p>
+        </ScreenSection>
+
+        <InvoicePayments
+          v-if="paymentSummary"
+          :invoice-id="invoice.id"
+          :payments="payments"
+          :summary="paymentSummary"
+        />
+
+        <ScreenSection v-if="creditNotes?.length" :title="t('ui.invoices.creditNotesTitle')" flush>
+          <ul class="m-0 list-none p-0" data-testid="credit-notes">
+            <li v-for="note in creditNotes" :key="note.id" :class="cn(ROW, 'items-center md:px-4')">
+              <Link
+                route="invoices.edit"
+                :params="{ id: note.id }"
+                :class="cn(LINK, 'min-w-0 flex-1 text-sm')"
+              >
+                {{ note.number ?? t('ui.invoices.creditNoteDraftTitle') }}
+              </Link>
+              <StatusTag :tone="INVOICE_TONES[note.status]">
+                {{ t(`ui.invoices.statuses.${note.status}`) }}
+              </StatusTag>
+              <span class="min-w-20 text-right text-sm font-semibold">
+                {{ note.total ? formatMoney(note.total) : '' }}
+              </span>
+            </li>
+          </ul>
+        </ScreenSection>
+
+        <ScreenSection v-if="editable" :title="t('ui.invoices.notes')">
+          <Textarea
+            v-model="notes"
+            rows="3"
+            :aria-label="t('ui.invoices.notes')"
+            :aria-invalid="errors.notes ? 'true' : undefined"
+          />
+          <p v-if="errors.notes" :class="ERROR">
+            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+            {{ errors.notes }}
+          </p>
+        </ScreenSection>
+        <ScreenSection v-else-if="invoice.notes" :title="t('ui.invoices.notes')">
+          <p class="m-0 text-sm whitespace-pre-line">{{ invoice.notes }}</p>
+        </ScreenSection>
+      </div>
+    </EntityScreen>
+
+    <!-- What Save submits (the header's button names it). The lines' inputs
+         belong to it (`form`), so Enter in them saves; the body is sent from
+         the editor's state. The Item search stays out, so Enter there never saves -->
+    <form id="invoice-form" class="hidden" @submit.prevent="save" />
+
+    <!-- Organising again replaces the sections and the Charges' lines (ADR 0018) -->
+    <Dialog v-model:open="organiseOpen">
+      <DialogContent :close-label="t('ui.screen.closeDialog')">
+        <DialogTitle>{{ t('ui.invoices.organise') }}</DialogTitle>
+        <DialogDescription>{{ t('ui.invoices.organiseConfirm') }}</DialogDescription>
+        <Form
+          v-slot="{ processing: organising }"
+          route="invoices.organise"
+          :params="{ id: invoice.id }"
+          class="flex flex-col gap-4"
+          @success="organiseOpen = false"
+        >
           <input type="hidden" name="combine" :value="organiseCombine ? 'true' : 'false'" />
-          <div class="field">
-            <label class="field__label" for="organise-by">{{ t('ui.invoices.organiseBy') }}</label>
-            <select
-              id="organise-by"
+          <FormField
+            id="organise-by"
+            v-slot="field"
+            :label="t('ui.invoices.organiseBy')"
+            :hint="t('ui.invoices.organiseByHint')"
+          >
+            <NativeSelect
+              :id="field.id"
               v-model="organiseBy"
               name="organiseBy"
-              class="field__input"
-              :style="{ maxWidth: '360px' }"
+              :aria-describedby="field.describedBy"
             >
               <option v-for="option in ORGANISE_BY" :key="option" :value="option">
                 {{ t(`ui.invoices.organiseOptions.${option}`) }}
               </option>
-            </select>
-          </div>
-          <div class="field">
-            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input v-model="organiseCombine" type="checkbox" />
-              {{ t('ui.invoices.combineCharges') }}
-            </label>
-          </div>
-          <button type="submit" class="btn btn--secondary btn--sm" :disabled="dirty">
-            {{ t('ui.invoices.organise') }}
-          </button>
-          <span v-if="dirty" class="field__hint">{{ t('ui.invoices.organiseUnsaved') }}</span>
+            </NativeSelect>
+          </FormField>
+          <label class="flex min-h-11 items-center gap-2.5 text-sm font-medium md:min-h-0">
+            <input v-model="organiseCombine" type="checkbox" class="size-4" />
+            {{ t('ui.invoices.combineCharges') }}
+          </label>
+          <DialogFooter>
+            <Button type="button" variant="outline" :class="BUTTON" @click="organiseOpen = false">
+              {{ t('ui.screen.goBack') }}
+            </Button>
+            <Button type="submit" :class="BUTTON" :disabled="organising">
+              {{ t('ui.invoices.organise') }}
+            </Button>
+          </DialogFooter>
         </Form>
-      </Section>
+      </DialogContent>
+    </Dialog>
 
-      <Section
-        v-if="deductions?.length"
-        :title="t('ui.invoices.deductionsTitle')"
-        :description="t('ui.invoices.deductionsHint')"
-      >
-        <table class="table" data-testid="deductions">
-          <tbody>
-            <tr v-for="row in deductions" :key="row.advanceId">
-              <td>{{ t('ui.invoices.advanceNumber', { number: row.number }) }}</td>
-              <td>
-                {{
-                  t('ui.invoices.advanceLeft', {
-                    left: formatMoney(row.left),
-                    total: formatMoney(row.total),
-                  })
-                }}
-              </td>
-              <td :style="{ width: '160px' }">
-                <input
-                  v-model="deductionAmounts[row.advanceId]"
-                  inputmode="decimal"
-                  class="field__input"
-                  :disabled="!editable"
-                  :aria-label="t('ui.invoices.deductionOf', { number: row.number })"
-                />
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <span v-if="deductionError" class="field__error">{{ deductionError }}</span>
-      </Section>
-
-      <p v-if="editable && !creditNote && folds.length" data-testid="fold-consumables">
-        <button type="button" class="btn btn--secondary btn--sm" @click="foldConsumables">
-          {{ t('ui.invoices.foldConsumables') }}
-        </button>
-        <span class="field__hint">{{ t('ui.invoices.foldConsumablesHint') }}</span>
-      </p>
-
-      <!-- A Credit Note's lines are the credited Invoice's, lowered -->
-      <Section v-if="editable && !fixedLines" :title="t('ui.invoices.addTitle')">
-        <ItemPicker v-if="!creditNote" :label="t('ui.invoices.addItem')" @select="addItem" />
-        <button type="button" class="btn btn--secondary btn--sm" @click="addFreeLine">
-          {{ t('ui.invoices.addFreeLine') }}
-        </button>
-      </Section>
-
-      <Section :title="t('ui.invoices.totalsTitle')">
-        <div class="field">
-          <label class="field__label" for="discount">{{ t('ui.invoices.globalDiscount') }}</label>
-          <input
-            id="discount"
-            v-model="discountPercent"
-            inputmode="decimal"
-            class="field__input"
-            :disabled="!editable || creditNote"
-            :style="{ maxWidth: '120px' }"
-          />
-          <span class="field__hint">{{ t('ui.invoices.globalDiscountHint') }}</span>
-          <span v-if="errors.discountPercent" class="field__error">
-            {{ errors.discountPercent }}
-          </span>
-        </div>
-
-        <table class="table">
-          <thead>
-            <tr>
-              <th>{{ t('ui.invoices.vat') }}</th>
-              <th :style="{ textAlign: 'right' }">{{ t('ui.invoices.linesTotal') }}</th>
-              <th :style="{ textAlign: 'right' }">{{ t('ui.invoices.discount') }}</th>
-              <th :style="{ textAlign: 'right' }">{{ t('ui.invoices.taxable') }}</th>
-              <th :style="{ textAlign: 'right' }">{{ t('ui.invoices.vatAmount') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in totals.summary" :key="`${row.vatRate}-${row.natura}`">
-              <td>{{ vatLabel(row) }}</td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(row.linesTotal) }}</td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(row.discount) }}</td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(row.taxable) }}</td>
-              <td :style="{ textAlign: 'right' }">{{ formatMoney(row.vat) }}</td>
-            </tr>
-          </tbody>
-          <tfoot>
-            <tr>
-              <td colspan="3" :style="{ textAlign: 'right' }">{{ t('ui.invoices.taxable') }}</td>
-              <td colspan="2" :style="{ textAlign: 'right' }">
-                {{ formatMoney(totals.taxable) }}
-              </td>
-            </tr>
-            <tr>
-              <td colspan="3" :style="{ textAlign: 'right' }">{{ t('ui.invoices.vatAmount') }}</td>
-              <td colspan="2" :style="{ textAlign: 'right' }">{{ formatMoney(totals.vat) }}</td>
-            </tr>
-            <tr>
-              <td colspan="3" :style="{ textAlign: 'right' }">
-                <strong>{{ t('ui.invoices.total') }}</strong>
-              </td>
-              <td colspan="2" :style="{ textAlign: 'right' }" data-testid="invoice-total">
-                <strong>{{ formatMoney(totals.total) }}</strong>
-              </td>
-            </tr>
-          </tfoot>
-        </table>
-      </Section>
-
-      <Section v-if="invoice.number" :title="t('ui.invoices.sdiTitle')">
-        <template v-if="openSubmission && !openSubmission.submitted">
-          <p>
-            <a
-              :href="urlFor('invoices.xml', { id: invoice.id })"
-              class="btn btn--secondary btn--sm"
-            >
-              {{ t('ui.invoices.downloadXml', { file: openSubmission.fileName }) }}
-            </a>
-          </p>
-          <p v-if="openSubmission.sending">{{ t('ui.invoices.sending') }}</p>
-          <p v-if="openSubmission.sendFailure" class="field__error">
-            {{ t('ui.invoices.sendFailure', { detail: openSubmission.sendFailure }) }}
-          </p>
-          <Form
-            v-if="!openSubmission.sending"
-            route="invoices.confirm_submission"
-            :params="{ id: invoice.id }"
-            :on-before="openSubmission.automatic ? confirmSend : confirmUpload"
-          >
-            <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
-              {{ t(openSubmission.automatic ? 'ui.invoices.send' : 'ui.invoices.confirmUpload') }}
-            </button>
-          </Form>
-        </template>
+    <!-- SDI's outcome for the Submission in progress -->
+    <Dialog v-model:open="outcomeOpen">
+      <DialogContent :close-label="t('ui.screen.closeDialog')" :aria-describedby="undefined">
+        <DialogTitle>{{ t('ui.invoices.recordOutcome') }}</DialogTitle>
         <Form
-          v-else-if="canSubmit"
-          route="invoices.prepare_submission"
-          :params="{ id: invoice.id }"
-        >
-          <button type="submit" class="btn btn--primary btn--sm" :disabled="dirty">
-            {{ t('ui.invoices.prepareSubmission') }}
-          </button>
-        </Form>
-        <p v-if="openSubmission?.submitted && openSubmission.sentByApp" class="field__hint">
-          {{ t('ui.invoices.outcomePolled') }}
-        </p>
-        <Form
-          v-if="openSubmission?.submitted"
           v-slot="{ processing: recording, errors: outcomeErrors }"
           route="invoices.record_outcome"
           :params="{ id: invoice.id }"
+          class="flex flex-col gap-4"
+          @success="outcomeOpen = false"
         >
-          <div class="field">
-            <label class="field__label" for="outcome">{{ t('ui.invoices.outcome') }}</label>
-            <select id="outcome" name="outcome" class="field__input" :style="{ maxWidth: '260px' }">
+          <FormField id="outcome" v-slot="field" :label="t('ui.invoices.outcome')">
+            <NativeSelect :id="field.id" name="outcome">
               <option v-for="code in SUBMISSION_OUTCOMES" :key="code" :value="code">
                 {{ t(`ui.invoices.outcomes.${code}`) }}
               </option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field__label" for="notice-on">{{ t('ui.invoices.noticeOn') }}</label>
-            <input
-              id="notice-on"
+            </NativeSelect>
+          </FormField>
+          <FormField
+            id="notice-on"
+            v-slot="field"
+            :label="t('ui.invoices.noticeOn')"
+            :error="outcomeErrors.noticeOn"
+          >
+            <Input
+              :id="field.id"
               name="noticeOn"
               type="date"
-              class="field__input"
-              :value="today"
+              :default-value="today"
               :max="today"
-              :style="{ maxWidth: '200px' }"
+              :class="FIELD"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
             />
-            <span v-if="outcomeErrors.noticeOn" class="field__error">{{
-              outcomeErrors.noticeOn
-            }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="sdi-id">{{ t('ui.invoices.sdiId') }}</label>
-            <input
-              id="sdi-id"
+          </FormField>
+          <FormField
+            id="sdi-id"
+            v-slot="field"
+            :label="t('ui.invoices.sdiId')"
+            :error="outcomeErrors.sdiId"
+          >
+            <Input
+              :id="field.id"
               name="sdiId"
-              class="field__input"
               inputmode="numeric"
-              :style="{ maxWidth: '200px' }"
+              :class="FIELD"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
             />
-            <span v-if="outcomeErrors.sdiId" class="field__error">{{ outcomeErrors.sdiId }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="outcome-notes">{{
-              t('ui.invoices.outcomeNotes')
-            }}</label>
-            <textarea id="outcome-notes" name="notes" class="field__input" rows="2" />
-            <span class="field__hint">{{ t('ui.invoices.outcomeNotesHint') }}</span>
-            <span v-if="outcomeErrors.notes" class="field__error">{{ outcomeErrors.notes }}</span>
-          </div>
-          <button type="submit" class="btn btn--secondary btn--sm" :disabled="recording">
-            {{ t('ui.invoices.recordOutcome') }}
-          </button>
+          </FormField>
+          <FormField
+            id="outcome-notes"
+            v-slot="field"
+            :label="t('ui.invoices.outcomeNotes')"
+            :hint="t('ui.invoices.outcomeNotesHint')"
+            :error="outcomeErrors.notes"
+          >
+            <Textarea
+              :id="field.id"
+              name="notes"
+              rows="2"
+              :aria-invalid="field.invalid"
+              :aria-describedby="field.describedBy"
+            />
+          </FormField>
+          <DialogFooter>
+            <Button type="button" variant="outline" :class="BUTTON" @click="outcomeOpen = false">
+              {{ t('ui.screen.goBack') }}
+            </Button>
+            <Button type="submit" :class="BUTTON" :disabled="recording">
+              {{ t('ui.invoices.recordOutcome') }}
+            </Button>
+          </DialogFooter>
         </Form>
+      </DialogContent>
+    </Dialog>
 
-        <table v-if="submissions.length" class="table">
-          <thead>
-            <tr>
-              <th>{{ t('ui.invoices.file') }}</th>
-              <th>{{ t('ui.invoices.uploadedOn') }}</th>
-              <th>{{ t('ui.invoices.outcome') }}</th>
-              <th>{{ t('ui.invoices.legalArchiving') }}</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="submission in submissions" :key="submission.id">
-              <td class="mono">
-                <a
-                  v-if="submission.hasFile"
-                  :href="
-                    urlFor('invoices.submission_xml', {
-                      id: invoice.id,
-                      submissionId: submission.id,
-                    })
-                  "
-                  :title="t('ui.invoices.downloadSent')"
-                  >{{ submission.fileName }}</a
-                >
-                <template v-else>{{ submission.fileName }}</template>
-              </td>
-              <td>{{ dateTime(submission.submittedAt) }}</td>
-              <td>
-                <template v-if="submission.outcome">
-                  {{ t(`ui.invoices.outcomes.${submission.outcome}`) }}
-                  · {{ formatDate(submission.noticeOn) }}
-                  <span v-if="submission.sdiId" class="mono">· {{ submission.sdiId }}</span>
-                  <span v-if="submission.outcomeNotes" class="field__hint">
-                    {{ submission.outcomeNotes }}
-                  </span>
-                </template>
-              </td>
-              <td>
-                <template v-if="submission.legalArchiving">{{
-                  t('ui.invoices.legalArchivingRequested')
-                }}</template>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </Section>
-
-      <Section v-if="creditNotes?.length" :title="t('ui.invoices.creditNotesTitle')">
-        <table class="table" data-testid="credit-notes">
-          <tbody>
-            <tr v-for="note in creditNotes" :key="note.id">
-              <td class="mono">
-                <Link route="invoices.edit" :params="{ id: note.id }" class="il">
-                  {{ note.number ?? t('ui.invoices.creditNoteDraftTitle') }}
-                </Link>
-              </td>
-              <td>
-                <span class="tag">{{ t(`ui.invoices.statuses.${note.status}`) }}</span>
-              </td>
-              <td :style="{ textAlign: 'right' }">
-                {{ note.total ? formatMoney(note.total) : '' }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </Section>
-
-      <InvoicePayments
-        v-if="paymentSummary"
-        :invoice-id="invoice.id"
-        :payments="payments"
-        :summary="paymentSummary"
-      />
-
-      <Section :title="t('ui.invoices.notes')">
-        <textarea
-          v-model="notes"
-          class="field__input"
-          rows="3"
-          :disabled="!editable"
-          :aria-label="t('ui.invoices.notes')"
-        />
-        <span v-if="errors.notes" class="field__error">{{ errors.notes }}</span>
-      </Section>
-
-      <Section v-if="editable">
-        <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }">
-          <button type="button" class="btn btn--primary" :disabled="processing" @click="save">
-            {{ t('ui.invoices.save') }}
-          </button>
-          <span v-if="dirty" class="field__hint">{{ t('ui.invoices.unsaved') }}</span>
-          <Form
-            v-if="canTransition(invoice.status, 'finalise')"
-            route="invoices.finalise"
-            :params="{ id: invoice.id }"
-            :on-before="confirmFinalise"
-          >
-            <button type="submit" class="btn btn--secondary" :disabled="dirty || !lines.length">
-              {{ creditNote ? t('ui.invoices.finaliseCreditNote') : t('ui.invoices.finalise') }}
-            </button>
-          </Form>
-          <Form
-            v-if="isDeletable(invoice.status)"
-            route="invoices.destroy"
-            :params="{ id: invoice.id }"
-            :on-before="confirmDelete"
-            :style="{ marginLeft: 'auto' }"
-          >
-            <button type="submit" class="btn btn--ghost btn--sm">
-              <Trash2 :size="14" /> {{ t('ui.invoices.delete') }}
-            </button>
-          </Form>
-        </div>
-        <span v-if="errors.lines" class="field__error">{{ errors.lines }}</span>
-      </Section>
-    </Page>
+    <ItemPreview v-model:item-id="previewedItem" />
   </AppLayout>
 </template>
