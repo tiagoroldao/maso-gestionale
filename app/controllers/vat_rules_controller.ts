@@ -2,6 +2,7 @@ import db from '@adonisjs/lucid/services/db'
 import VatCode from '#models/vat_code'
 import VatRule from '#models/vat_rule'
 import { vatRulesValidator } from '#validators/vat_rule'
+import { declareActions } from '#shared/screen_actions'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -10,7 +11,7 @@ import type { HttpContext } from '@adonisjs/core/http'
  * commercialista to review; existing lines never change.
  */
 export default class VatRulesController {
-  async index({ inertia }: HttpContext) {
+  async index({ inertia, i18n }: HttpContext) {
     const rules = await VatRule.query().orderBy('id')
     const used = rules.map((rule) => rule.vatCodeId)
     const codes = await VatCode.query()
@@ -21,6 +22,16 @@ export default class VatRulesController {
       ])
 
     return inertia.render('settings/vat_rules', {
+      // The rules are one form: Save submits it (docs/ui.md "Actions")
+      actions: declareActions([
+        {
+          name: 'save',
+          label: i18n.t('ui.vatRules.save'),
+          rank: 'primary',
+          kind: 'submit',
+          form: 'vat-rules',
+        },
+      ]),
       rules: rules.map((rule) => ({
         id: rule.id,
         customerType: rule.customerType,

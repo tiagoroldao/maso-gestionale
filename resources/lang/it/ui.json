@@ -111,7 +111,9 @@
       "orange": "In corso",
       "green": "Completato",
       "grey": "Bozza"
-    }
+    },
+    "settings": "Impostazioni",
+    "settingsIntro": "Le schede dell'area Impostazioni e le righe modificate sul posto: ogni errore nomina il suo campo."
   },
   "roles": {
     "superuser": "Superuser",
@@ -340,7 +342,8 @@
     "addDescription": "Ad esempio “30 gg fine mese”.",
     "add": "Aggiungi",
     "paymentMethod": "Modalità di pagamento",
-    "paymentMethodOf": "Modalità di pagamento di {name}"
+    "paymentMethodOf": "Modalità di pagamento di {name}",
+    "deleteConfirm": "Eliminare le condizioni di pagamento «{name}»?"
   },
   "customers": {
     "title": "Clienti",
@@ -495,7 +498,8 @@
     "nameOf": "Nome di {name}",
     "markupFor": "Ricarico per {name}",
     "addTitle": "Aggiungi categoria",
-    "add": "Aggiungi"
+    "add": "Aggiungi",
+    "deleteConfirm": "Eliminare la categoria «{name}»?"
   },
   "items": {
     "title": "Articoli",

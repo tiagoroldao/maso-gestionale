@@ -8,7 +8,9 @@
  *
  * A `post` action asks first when it has a question (destructive or
  * irreversible ones); a `dialog` action is the page's own short form,
- * opened through the `dialog` event; a disabled one shows its reason.
+ * opened through the `dialog` event; a `submit` action submits the page's
+ * form whose id it names (Save, on a screen in edit mode); a disabled one
+ * shows its reason.
  */
 import { computed, ref, useId } from 'vue'
 import { router } from '@inertiajs/vue3'
@@ -45,6 +47,9 @@ function run(action: ScreenAction) {
     confirmOpen.value = true
   } else if (action.kind === 'post') {
     router.post(action.href!)
+  } else if (action.kind === 'submit') {
+    const form = document.getElementById(action.form!)
+    if (form instanceof HTMLFormElement) form.requestSubmit()
   }
 }
 

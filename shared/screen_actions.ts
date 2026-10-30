@@ -11,10 +11,12 @@ export type ActionRank = (typeof ACTION_RANKS)[number]
 
 /**
  * What an action does: open a page (`link`), post to the server (`post`),
- * or open the screen's own dialog (`dialog`: a short form, such as the
- * options of a draft Invoice), which the page renders by the action's name.
+ * open the screen's own dialog (`dialog`: a short form, such as the
+ * options of a draft Invoice), which the page renders by the action's name,
+ * or submit the form the screen edits (`submit`: Save on a screen in edit
+ * mode), which the page renders with the action's `form` as its id.
  */
-export const ACTION_KINDS = ['link', 'post', 'dialog'] as const
+export const ACTION_KINDS = ['link', 'post', 'dialog', 'submit'] as const
 export type ActionKind = (typeof ACTION_KINDS)[number]
 
 export type ScreenAction = {
@@ -24,8 +26,10 @@ export type ScreenAction = {
   label: string
   rank: ActionRank
   kind: ActionKind
-  /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` */
+  /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` or `submit` */
   href: string | null
+  /** The id of the page's form a `submit` submits; null for the other kinds */
+  form: string | null
   /** Delete, cancel, set back to bill: always overflow, always confirmed */
   destructive: boolean
   /** The question asked first, for a destructive or irreversible action */
@@ -35,14 +39,15 @@ export type ScreenAction = {
 }
 
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
-  Partial<Pick<ScreenAction, 'href' | 'destructive' | 'confirm' | 'disabledReason'>>
+  Partial<Pick<ScreenAction, 'href' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>>
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
 export class ScreenActionsError extends Error {}
 
 /**
  * The actions of a screen, checked against docs/ui.md "Actions": one
- * primary at most, unique names, a destination for links and posts, and
+ * primary at most, unique names, a destination for links and posts, a
+ * form for submits, and
  * destructive ones in the overflow and confirmed.
  */
 export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
@@ -52,13 +57,17 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     names.add(action.name)
     const full: ScreenAction = {
       href: null,
+      form: null,
       destructive: false,
       confirm: null,
       disabledReason: null,
       ...action,
     }
-    if (full.kind !== 'dialog' && !full.href) {
+    if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
       throw new ScreenActionsError(`Action ${full.name} needs an href`)
+    }
+    if (full.kind === 'submit' && !full.form) {
+      throw new ScreenActionsError(`Action ${full.name} needs a form`)
     }
     if (full.destructive && (full.rank !== 'overflow' || !full.confirm)) {
       throw new ScreenActionsError(`Destructive action ${full.name} must be overflow and confirmed`)

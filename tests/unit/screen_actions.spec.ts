@@ -24,6 +24,7 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
         rank: 'secondary',
         kind: 'link',
         href: '/edit',
+        form: null,
         destructive: false,
         confirm: null,
         disabledReason: null,
@@ -57,7 +58,16 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
       ScreenActionsError,
       'needs an href'
     )
+    assert.throws(
+      () => declareActions([action('save', 'primary', { kind: 'submit', href: null })]),
+      ScreenActionsError,
+      'needs a form'
+    )
     assert.lengthOf(declareActions([action('draft', 'primary', { kind: 'dialog', href: null })]), 1)
+    assert.lengthOf(
+      declareActions([action('save', 'primary', { kind: 'submit', href: null, form: 'company' })]),
+      1
+    )
   })
 
   test('two secondary actions show as buttons, the rest go in "⋯"', ({ assert }) => {

@@ -23,6 +23,22 @@ export const TH =
 export const TD = 'border-b border-border px-4 py-2.5 align-top text-sm'
 export const ROW = 'flex items-start gap-2.5 border-t border-border px-3.5 py-3'
 
+/**
+ * A row edited in place (#226): its form (`EDIT_ROW_FORM`: the fields, Save
+ * and the row's errors) then the row's other action, stacked on the phone,
+ * in a line on desktop under the list's `RowHeads`.
+ */
+export const EDIT_ROW =
+  'flex flex-col gap-2 border-t border-border px-3.5 py-3 md:flex-row md:items-start md:px-4'
+export const EDIT_ROW_FORM =
+  'flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:flex-wrap md:items-start'
+
+/** A section's line when it has nothing to list */
+export const EMPTY = 'm-0 border-t border-border px-3.5 py-3 text-sm text-muted-foreground md:px-4'
+
+/** A button or a field of a form: 44px on touch screens, compact from 768px */
+export const TOUCH = 'h-11 md:h-9'
+
 /** A place in the hierarchy: a breadcrumb's step, or where "‹" goes back to */
 export type Crumb = { label: string; href: string }
 

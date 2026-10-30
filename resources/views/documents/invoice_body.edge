@@ -1,31 +1,98 @@
 <style>
-  .invoice-meta { width: 100%; margin-bottom: 4mm; }
-  .invoice-meta td { padding: 0.5mm 0; }
-  .invoice-lines, .invoice-summary { width: 100%; border-collapse: collapse; margin-top: 4mm; }
-  .invoice-lines th, .invoice-lines td, .invoice-summary th, .invoice-summary td { padding: 2mm 1.5mm; border-bottom: 0.2mm solid #d0d7de; text-align: left; vertical-align: top; }
-  .invoice-lines th, .invoice-summary th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #57606a; }
-  .num { text-align: right !important; white-space: nowrap; }
-  .invoice-lines tr { page-break-inside: avoid; }
-  .invoice-lines .section-title td { padding-top: 4mm; font-weight: bold; border-bottom: 0.3mm solid #24292f; page-break-after: avoid; }
-  .invoice-lines .section-subtotal td { font-weight: bold; }
-  .invoice-totals { margin-top: 4mm; margin-left: auto; }
-  .invoice-totals td { padding: 0.8mm 1.5mm; }
-  .invoice-totals .grand td { font-size: 12pt; font-weight: bold; border-top: 0.3mm solid #24292f; }
-  .invoice-note { margin-top: 5mm; white-space: pre-line; }
-  .invoice-legal { margin-top: 5mm; font-size: 8.5pt; color: #57606a; }
+  .invoice-meta {
+    width: 100%;
+    margin-bottom: 4mm;
+  }
+  .invoice-meta td {
+    padding: 0.5mm 0;
+  }
+  .invoice-lines,
+  .invoice-summary {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4mm;
+  }
+  .invoice-lines th,
+  .invoice-lines td,
+  .invoice-summary th,
+  .invoice-summary td {
+    padding: 2mm 1.5mm;
+    border-bottom: 0.2mm solid #d0d7de;
+    text-align: left;
+    vertical-align: top;
+  }
+  .invoice-lines th,
+  .invoice-summary th {
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #57606a;
+  }
+  .num {
+    text-align: right !important;
+    white-space: nowrap;
+  }
+  .invoice-lines tr {
+    page-break-inside: avoid;
+  }
+  .invoice-lines .section-title td {
+    padding-top: 4mm;
+    font-weight: bold;
+    border-bottom: 0.3mm solid #24292f;
+    page-break-after: avoid;
+  }
+  .invoice-lines .section-subtotal td {
+    font-weight: bold;
+  }
+  .invoice-totals {
+    margin-top: 4mm;
+    margin-left: auto;
+  }
+  .invoice-totals td {
+    padding: 0.8mm 1.5mm;
+  }
+  .invoice-totals .grand td {
+    font-size: 12pt;
+    font-weight: bold;
+    border-top: 0.3mm solid #24292f;
+  }
+  .invoice-note {
+    margin-top: 5mm;
+    white-space: pre-line;
+  }
+  .invoice-legal {
+    margin-top: 5mm;
+    font-size: 8.5pt;
+    color: #57606a;
+  }
 </style>
 
 <table class="invoice-meta">
-  <tr><td>{{ numberLabel }}</td><td><strong>{{ number }}</strong></td></tr>
-  <tr><td>{{ t('documents.invoice.issuedOn') }}</td><td>{{ issuedOn }}</td></tr>
+  <tr>
+    <td>{{ numberLabel }}</td>
+    <td><strong>{{ number }}</strong></td>
+  </tr>
+  <tr>
+    <td>{{ t('documents.invoice.issuedOn') }}</td>
+    <td>{{ issuedOn }}</td>
+  </tr>
   @if(credits)
-    <tr><td>{{ t('documents.creditNote.creditsLabel') }}</td><td>{{ credits }}</td></tr>
+    <tr>
+      <td>{{ t('documents.creditNote.creditsLabel') }}</td>
+      <td>{{ credits }}</td>
+    </tr>
   @end
   @if(dueOn)
-    <tr><td>{{ t('documents.invoice.dueOn') }}</td><td>{{ dueOn }}</td></tr>
+    <tr>
+      <td>{{ t('documents.invoice.dueOn') }}</td>
+      <td>{{ dueOn }}</td>
+    </tr>
   @end
   @if(payment)
-    <tr><td>{{ t('documents.invoice.paymentMethod') }}</td><td>{{ payment }}</td></tr>
+    <tr>
+      <td>{{ t('documents.invoice.paymentMethod') }}</td>
+      <td>{{ payment }}</td>
+    </tr>
   @end
 </table>
 
@@ -43,7 +110,9 @@
   <tbody>
     @each(group in groups)
       @if(group.title)
-        <tr class="section-title"><td colspan="6">{{ group.title }}</td></tr>
+        <tr class="section-title">
+          <td colspan="6">{{ group.title }}</td>
+        </tr>
       @end
       @each(line in group.lines)
         <tr>
@@ -86,17 +155,28 @@
 
 <table class="invoice-totals">
   @if(discount)
-    <tr><td>{{ t('documents.invoice.globalDiscount') }}</td><td class="num">{{ discount }}</td></tr>
+    <tr>
+      <td>{{ t('documents.invoice.globalDiscount') }}</td>
+      <td class="num">{{ discount }}</td>
+    </tr>
   @end
-  <tr><td>{{ t('documents.invoice.taxable') }}</td><td class="num">{{ taxable }}</td></tr>
-  <tr><td>{{ t('documents.invoice.vatAmount') }}</td><td class="num">{{ vat }}</td></tr>
-  <tr class="grand"><td>{{ t('documents.invoice.total') }}</td><td class="num">{{ total }}</td></tr>
-</table>
 
+  <tr>
+    <td>{{ t('documents.invoice.taxable') }}</td>
+    <td class="num">{{ taxable }}</td>
+  </tr>
+  <tr>
+    <td>{{ t('documents.invoice.vatAmount') }}</td>
+    <td class="num">{{ vat }}</td>
+  </tr>
+  <tr class="grand">
+    <td>{{ t('documents.invoice.total') }}</td>
+    <td class="num">{{ total }}</td>
+  </tr>
+</table>
 @if(notes)
   <p class="invoice-note">{{ notes }}</p>
 @end
-
 @each(note in legalNotes)
   <p class="invoice-legal">{{ note }}</p>
 @end
