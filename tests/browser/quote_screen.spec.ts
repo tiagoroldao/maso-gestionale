@@ -172,4 +172,27 @@ test.group('Quote screen in the browser', () => {
     await quote.load('lines')
     assert.equal(Number(quote.lines[0].quantity), 5)
   })
+
+  test("on a tablet, a line's fields keep one row under their heads", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { quote } = await draftWithAValve()
+
+    const page = await visit(`/quotes/${quote.id}`)
+    await page.setViewportSize(SCREEN_SIZES.tablet)
+    const box = (label: string) => page.getByLabel(label).boundingBox()
+    const description = await box(it('ui.quotes.descriptionOf', { position: 1 }))
+    const vat = await box(it('ui.quotes.vatCodeOf', { position: 1 }))
+    const remove = await page
+      .getByRole('button', { name: it('ui.quotes.removeLine') })
+      .boundingBox()
+
+    // The VAT on the description's line, the line's buttons above it, room to type
+    assert.equal(Math.round(vat!.y), Math.round(description!.y))
+    assert.isBelow(remove!.y + remove!.height, description!.y + 1)
+    assert.isAtLeast(description!.width, 160)
+  })
 })

@@ -400,28 +400,26 @@ const previewedItem = ref<number | null>(null)
 const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
 
 /**
- * A line: on the phone a card (description, then quantity and price side
- * by side, VAT, amount and the line's buttons, each field named above
- * it); from 768px one row, its fields under the column heads (`RowField`,
- * `RowHeads`, #226), each head taking its field's width.
+ * A line: on the phone a card (its kind and buttons, the description,
+ * then quantity and price side by side, VAT and amount, each field named
+ * above it); from 768px one row, its fields under the column heads
+ * (`RowField`, `RowHeads`, #226), each head taking its field's width. The
+ * figures are narrower until 1024px, so the row fits a tablet (about
+ * 41rem) with room left for the description.
  */
 const ROW =
   'grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-3.5 py-3 md:flex md:flex-wrap md:items-start md:gap-x-2 md:px-4'
-const DESCRIPTION = 'md:min-w-0 md:flex-1'
-const QUANTITY = 'md:w-28'
-const PRICE = 'md:w-32'
-const VAT = 'md:w-40'
-const AMOUNT = 'md:w-28 md:text-right'
-const LINE_BUTTONS = 'md:w-[7.5rem]'
-// Fields sit level with the description's input, under the line's kind
-const UNDER_KIND = 'md:pt-[30px]'
+const DESCRIPTION = 'md:min-w-40 md:flex-1'
+const QUANTITY = 'md:w-24 lg:w-28'
+const PRICE = 'md:w-28 lg:w-32'
+const VAT = 'md:w-32 lg:w-40'
+const AMOUNT = 'md:w-24 md:text-right lg:w-28'
 const heads = computed(() => [
   { label: t('ui.quotes.description'), class: DESCRIPTION },
   { label: t('ui.quotes.quantity'), class: QUANTITY },
   { label: t('ui.quotes.unitPrice'), class: PRICE },
   { label: t('ui.quotes.vatCode'), class: VAT },
   { label: t('ui.quotes.amount'), class: AMOUNT },
-  ...(props.editable ? [{ label: '', class: LINE_BUTTONS }] : []),
 ])
 const FIELD = 'h-11 md:h-9'
 const BUTTON = 'h-11 md:h-9'
@@ -471,42 +469,75 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
               :class="ROW"
               :aria-label="t('ui.quotes.lineOf', { position: index + 1 })"
             >
-              <!-- What the line is, then its description -->
-              <div :class="cn('col-span-2 flex min-w-0 flex-col gap-1.5', DESCRIPTION)">
-                <div class="flex min-h-6 flex-wrap items-center gap-2 text-[13px]">
-                  <label
-                    v-if="importable && line.kind !== 'text'"
-                    class="flex min-h-11 min-w-11 items-center md:min-h-0 md:min-w-0"
-                  >
-                    <input
-                      v-model="chosen"
-                      type="checkbox"
-                      class="size-4"
-                      :value="quote!.lines[index].id"
-                      :aria-label="t('ui.quotes.importLineOf', { position: index + 1 })"
-                    />
-                  </label>
-                  <button
-                    v-if="line.kind === 'item' && line.itemId !== null && previewItems"
+              <!-- What the line is, and its own buttons, across the row -->
+              <div
+                class="col-span-2 flex min-h-11 flex-wrap items-center gap-2 text-[13px] md:min-h-9 md:basis-full"
+              >
+                <label
+                  v-if="importable && line.kind !== 'text'"
+                  class="flex min-h-11 min-w-11 items-center md:min-h-0 md:min-w-0"
+                >
+                  <input
+                    v-model="chosen"
+                    type="checkbox"
+                    class="size-4"
+                    :value="quote!.lines[index].id"
+                    :aria-label="t('ui.quotes.importLineOf', { position: index + 1 })"
+                  />
+                </label>
+                <button
+                  v-if="line.kind === 'item' && line.itemId !== null && previewItems"
+                  type="button"
+                  aria-haspopup="dialog"
+                  :aria-label="t('ui.quotes.previewItemOf', { position: index + 1 })"
+                  :class="cn(LINK, PREVIEW_LINK, 'flex min-h-11 items-center md:min-h-0')"
+                  @click="previewedItem = line.itemId"
+                >
+                  {{ t(`ui.quotes.kinds.${line.kind}`) }}
+                </button>
+                <span v-else class="text-muted-foreground">
+                  {{ t(`ui.quotes.kinds.${line.kind}`) }}
+                </span>
+                <StatusTag v-if="quote?.lines[index]?.imported" tone="green" data-testid="imported">
+                  {{ t('ui.quotes.imported', { count: quote.lines[index].imported }) }}
+                </StatusTag>
+                <!-- The line's own buttons, on its kind's line, so its fields keep the row -->
+                <span v-if="editable" class="ml-auto flex items-center gap-1">
+                  <Button
                     type="button"
-                    aria-haspopup="dialog"
-                    :aria-label="t('ui.quotes.previewItemOf', { position: index + 1 })"
-                    :class="cn(LINK, PREVIEW_LINK, 'flex min-h-11 items-center md:min-h-0')"
-                    @click="previewedItem = line.itemId"
+                    variant="ghost"
+                    size="icon-touch"
+                    class="md:size-9"
+                    :disabled="index === 0"
+                    :aria-label="t('ui.quotes.moveUp')"
+                    @click="move(index, -1)"
                   >
-                    {{ t(`ui.quotes.kinds.${line.kind}`) }}
-                  </button>
-                  <span v-else class="text-muted-foreground">
-                    {{ t(`ui.quotes.kinds.${line.kind}`) }}
-                  </span>
-                  <StatusTag
-                    v-if="quote?.lines[index]?.imported"
-                    tone="green"
-                    data-testid="imported"
+                    <ArrowUp aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-touch"
+                    class="md:size-9"
+                    :disabled="index === lines.length - 1"
+                    :aria-label="t('ui.quotes.moveDown')"
+                    @click="move(index, 1)"
                   >
-                    {{ t('ui.quotes.imported', { count: quote.lines[index].imported }) }}
-                  </StatusTag>
-                </div>
+                    <ArrowDown aria-hidden="true" />
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-touch"
+                    class="md:size-9"
+                    :aria-label="t('ui.quotes.removeLine')"
+                    @click="lines.splice(index, 1)"
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                </span>
+              </div>
+              <div :class="cn('col-span-2 flex min-w-0 flex-col', DESCRIPTION)">
                 <Input
                   v-model="line.description"
                   form="quote-form"
@@ -518,7 +549,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
               </div>
 
               <template v-if="line.kind !== 'text'">
-                <RowField :label="t('ui.quotes.quantity')" :class="cn(QUANTITY, UNDER_KIND)">
+                <RowField :label="t('ui.quotes.quantity')" :class="cn(QUANTITY)">
                   <div class="flex items-center gap-1.5">
                     <Input
                       v-model="line.quantity"
@@ -534,7 +565,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                     </span>
                   </div>
                 </RowField>
-                <RowField :label="t('ui.quotes.unitPrice')" :class="cn(PRICE, UNDER_KIND)">
+                <RowField :label="t('ui.quotes.unitPrice')" :class="cn(PRICE)">
                   <Input
                     v-model="line.unitPrice"
                     form="quote-form"
@@ -545,10 +576,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                     :aria-invalid="invalid(index, 'unitPrice')"
                   />
                 </RowField>
-                <RowField
-                  :label="t('ui.quotes.vatCode')"
-                  :class="cn('col-span-2', VAT, UNDER_KIND)"
-                >
+                <RowField :label="t('ui.quotes.vatCode')" :class="cn('col-span-2', VAT)">
                   <NativeSelect
                     :model-value="line.vatCodeId === null ? '' : String(line.vatCodeId)"
                     :disabled="!editable"
@@ -564,10 +592,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                     {{ t('ui.invoices.significantGoodSplit') }}
                   </p>
                 </RowField>
-                <RowField
-                  :label="t('ui.quotes.amount')"
-                  :class="cn(AMOUNT, UNDER_KIND, 'md:items-end')"
-                >
+                <RowField :label="t('ui.quotes.amount')" :class="cn(AMOUNT, 'md:items-end')">
                   <span
                     class="text-[15px] font-semibold whitespace-nowrap md:inline-flex md:h-9 md:items-center md:text-sm"
                   >
@@ -582,51 +607,6 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                 <span :class="cn('hidden md:block', VAT)" />
                 <span :class="cn('hidden md:block', AMOUNT)" />
               </template>
-
-              <div
-                v-if="editable"
-                :class="
-                  cn(
-                    'flex items-center justify-end gap-1',
-                    LINE_BUTTONS,
-                    UNDER_KIND,
-                    line.kind === 'text' && 'col-span-2'
-                  )
-                "
-              >
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-touch"
-                  class="md:size-9"
-                  :disabled="index === 0"
-                  :aria-label="t('ui.quotes.moveUp')"
-                  @click="move(index, -1)"
-                >
-                  <ArrowUp aria-hidden="true" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-touch"
-                  class="md:size-9"
-                  :disabled="index === lines.length - 1"
-                  :aria-label="t('ui.quotes.moveDown')"
-                  @click="move(index, 1)"
-                >
-                  <ArrowDown aria-hidden="true" />
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-touch"
-                  class="md:size-9"
-                  :aria-label="t('ui.quotes.removeLine')"
-                  @click="lines.splice(index, 1)"
-                >
-                  <Trash2 aria-hidden="true" />
-                </Button>
-              </div>
 
               <div
                 v-if="Object.keys(lineErrors(index)).length"

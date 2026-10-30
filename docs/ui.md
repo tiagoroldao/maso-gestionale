@@ -11,7 +11,7 @@ Rules for every screen on the new UI: a screen is on it once its content is buil
 ## Kinds of screen
 
 - **List:** a collection of one kind of record (Commesse, Clienti, Fatture). Its layout and filters are still to be decided.
-- **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`), and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for. A record with no page of its own (a Supplier) sits under its list, its name as title and breadcrumb's last step.
+- **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`; a record edited in place on its own screen, like a draft Quote, keeps its other actions beside Save), and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for. A record with no page of its own (a Supplier) sits under its list, its name as title and breadcrumb's last step.
 - **Bespoke:** Agenda, dashboards. Only the header and menu rules apply.
 
 ## Header
