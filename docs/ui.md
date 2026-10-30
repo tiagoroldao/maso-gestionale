@@ -1,6 +1,6 @@
 # UI conventions ("Carbonio", ADR 0020)
 
-Rules for every screen on the new UI: a screen is on it once it renders inside the new app shell, and once the shell exists new screens start there. Which rules apply to which screens is under "UI scope" in `CODING_STANDARDS.md`. The mockups these rules come from are in `docs/ui/mockups/` (copied from the design canvas "Maso Gestionale UI directions", page Carbonio).
+Rules for every screen on the new UI: a screen is on it once its content is built from the new components (`inertia/components/ui/` and the shell's), with no `Page`, `Section` or `app.css` markup. A screen moves in its own issue; new screens start there. Every page already sits inside the app shell (#234), except sign-in, first-run setup and the error pages, which sit outside it with no menu (#247); being inside the shell alone doesn't make it a screen on the new UI. Which rules apply to which screens is under "UI scope" in `CODING_STANDARDS.md`. The mockups these rules come from are in `docs/ui/mockups/` (copied from the design canvas "Maso Gestionale UI directions", page Carbonio).
 
 ## Screen sizes
 
