@@ -1,5 +1,6 @@
 import Supplier from '#models/supplier'
 import { isUniqueViolation } from '#services/database_errors'
+import { saveActions } from '#shared/screen_actions'
 import { newSupplierValidator, pageValidator, supplierValidator } from '#validators/supplier'
 import type { Infer } from '@vinejs/vine/types'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -36,8 +37,11 @@ export default class SuppliersController {
     })
   }
 
-  async create({ inertia }: HttpContext) {
-    return inertia.render('suppliers/form', { supplier: null })
+  async create({ inertia, i18n }: HttpContext) {
+    return inertia.render('suppliers/form', {
+      actions: saveActions(i18n.t('ui.suppliers.create')),
+      supplier: null,
+    })
   }
 
   async store({ request, response, session, i18n }: HttpContext) {
@@ -54,9 +58,10 @@ export default class SuppliersController {
     return response.redirect().toRoute('suppliers.index')
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const supplier = await Supplier.findOrFail(params.id)
     return inertia.render('suppliers/form', {
+      actions: saveActions(i18n.t('ui.suppliers.save')),
       supplier: {
         id: supplier.id,
         name: supplier.name,

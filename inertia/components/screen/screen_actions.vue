@@ -6,9 +6,10 @@
  * header's action row, and the primary is a bar fixed at the bottom of the
  * screen. The same elements serve both: only their styles change at 768px.
  *
- * A `post` action asks first when it has a question (destructive or
- * irreversible ones); a `dialog` action is the page's own short form,
- * opened through the `dialog` event; a `submit` action submits the form
+ * A `post` action (a POST, or a DELETE when its `method` says so) asks
+ * first when it has a question (destructive or irreversible ones); a
+ * `dialog` action is the page's own short form, opened through the
+ * `dialog` event; a `submit` action submits the form
  * the screen sits in, or the one its `form` names (disabled while it is
  * `busy`, or blocked); a disabled one shows its reason. A `link` outside
  * the app (a contact's `tel:`, a map) is a plain link, a web one opening in
@@ -55,8 +56,14 @@ function run(action: ScreenAction) {
     confirming.value = action
     confirmOpen.value = true
   } else if (action.kind === 'post') {
-    router.post(action.href!)
+    send(action)
   }
+}
+
+/** A `post` action's request: a POST, or a DELETE when its method says so */
+function send(action: ScreenAction) {
+  if (action.method === 'delete') router.delete(action.href!)
+  else router.post(action.href!)
 }
 
 /** From "⋯": once the menu has closed, so the dialog opened next keeps the focus */
@@ -66,7 +73,7 @@ function runFromMenu(action: ScreenAction) {
 
 function confirmed() {
   confirmOpen.value = false
-  if (confirming.value) router.post(confirming.value.href!)
+  if (confirming.value) send(confirming.value)
 }
 
 const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand'

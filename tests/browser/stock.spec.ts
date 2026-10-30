@@ -15,9 +15,11 @@ test.group('Stock in the browser', () => {
     const item = await createItem({ unit: 'm' })
 
     const page = await visit(`/items/${item.id}`)
-    await page.locator('#receipt-quantity').fill('12,5')
-    await page.locator('#receipt-unit-cost').fill('1,80')
     await page.getByRole('button', { name: it('ui.items.receive') }).click()
+    const dialog = page.getByRole('dialog', { name: it('ui.items.receiptTitle') })
+    await dialog.locator('#receipt-quantity').fill('12,5')
+    await dialog.locator('#receipt-unit-cost').fill('1,80')
+    await dialog.getByRole('button', { name: it('ui.items.receive') }).click()
 
     // In stock, and available alike: nothing is committed
     await page.getByText('12,5 m', { exact: true }).first().waitFor()
@@ -35,9 +37,11 @@ test.group('Stock in the browser', () => {
     await StockLedger.receive(item, { quantity: '2', occurredOn: DateTime.now() })
 
     const page = await visit(`/items/${item.id}`)
-    await page.locator('#adjustment-quantity').fill('-5')
-    await page.locator('#adjustment-reason').fill('Inventario')
     await page.getByRole('button', { name: it('ui.items.adjust') }).click()
+    const dialog = page.getByRole('dialog', { name: it('ui.items.adjustmentTitle') })
+    await dialog.locator('#adjustment-quantity').fill('-5')
+    await dialog.locator('#adjustment-reason').fill('Inventario')
+    await dialog.getByRole('button', { name: it('ui.items.adjust') }).click()
 
     await page.getByText(it('ui.items.negativeStock')).waitFor()
   })

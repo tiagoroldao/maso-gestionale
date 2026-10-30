@@ -11,10 +11,10 @@ export type ActionRank = (typeof ACTION_RANKS)[number]
 
 /**
  * What an action does: open a page (`link`: an app path, or a contact's
- * `tel:` or map URL), post to the server (`post`),
- * open the screen's own dialog (`dialog`: a short form, such as the
- * options of a draft Invoice), which the page renders by the action's name,
- * or submit the form the screen sits in (`submit`: Save, on a screen in
+ * `tel:` or map URL), send a request to the server (`post`: a POST, or the
+ * DELETE its `method` names), open the screen's own dialog (`dialog`: a
+ * short form, such as the options of a draft Invoice), which the page
+ * renders by the action's name, or submit the form the screen sits in (`submit`: Save, on a screen in
  * edit mode), or the page's form its `form` names when that form doesn't
  * wrap the header.
  */
@@ -30,6 +30,8 @@ export type ScreenAction = {
   kind: ActionKind
   /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` or `submit` */
   href: string | null
+  /** How a `post` sends its request: 'delete' for a route that deletes; 'post' otherwise */
+  method: ActionMethod
   /**
    * A `link` to a file of the app (an original file, a PDF), not a page:
    * a plain link opening in a new tab, never an Inertia visit
@@ -48,9 +50,15 @@ export type ScreenAction = {
   disabledReason: string | null
 }
 
+export const ACTION_METHODS = ['post', 'delete'] as const
+export type ActionMethod = (typeof ACTION_METHODS)[number]
+
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
   Partial<
-    Pick<ScreenAction, 'href' | 'file' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>
+    Pick<
+      ScreenAction,
+      'href' | 'method' | 'file' | 'form' | 'destructive' | 'confirm' | 'disabledReason'
+    >
   >
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
@@ -58,8 +66,8 @@ export class ScreenActionsError extends Error {}
 
 /**
  * The actions of a screen, checked against docs/ui.md "Actions": one
- * primary at most, unique names, a destination for links and posts, and
- * destructive ones in the overflow and confirmed.
+ * primary at most, unique names, a destination for links and posts, a
+ * method only on posts, a file only on links, and destructive ones in the overflow and confirmed.
  */
 export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
   const names = new Set<string>()
@@ -68,6 +76,7 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     names.add(action.name)
     const full: ScreenAction = {
       href: null,
+      method: 'post',
       file: false,
       form: null,
       destructive: false,
@@ -77,6 +86,9 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     }
     if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
       throw new ScreenActionsError(`Action ${full.name} needs an href`)
+    }
+    if (full.method !== 'post' && full.kind !== 'post') {
+      throw new ScreenActionsError(`Action ${full.name} sends no request: it has no method`)
     }
     if (full.file && full.kind !== 'link') {
       throw new ScreenActionsError(`Action ${full.name} opens a file: it must be a link`)

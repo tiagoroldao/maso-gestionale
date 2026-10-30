@@ -35,20 +35,22 @@ test.group('Items in the browser', () => {
     await browserContext.loginAs(await createUser('office'))
     const item = await createItem({ code: 'RAC-12', description: 'Raccordo a T' })
 
-    const page = await visit(`/items/${item.id}/edit`)
-    const messages: string[] = []
-    page.on('dialog', (dialog) => {
-      messages.push(dialog.message())
-      return messages.length === 1 ? dialog.dismiss() : dialog.accept()
-    })
-    const remove = page.getByRole('button', { name: it('ui.items.delete'), exact: true })
+    const page = await visit(`/items/${item.id}`)
+    const more = page.getByRole('button', { name: it('ui.screen.moreActions') })
+    const remove = page.getByRole('menuitem', { name: it('ui.items.delete'), exact: true })
+    const confirm = page.getByRole('alertdialog', { name: it('ui.items.delete') })
     // Dismissed: the Item stays
+    await more.click()
     await remove.click()
+    await confirm.getByText(it('ui.items.deleteConfirm')).waitFor()
+    await confirm.getByRole('button', { name: it('ui.screen.goBack') }).click()
+    await confirm.waitFor({ state: 'hidden' })
     assert.isNotNull(await Item.find(item.id))
     // Confirmed: deleted
+    await more.click()
     await remove.click()
+    await confirm.getByRole('button', { name: it('ui.items.delete') }).click()
     await page.waitForURL(/\/items$/)
-    assert.deepEqual(messages, [it('ui.items.deleteConfirm'), it('ui.items.deleteConfirm')])
     assert.isNull(await Item.find(item.id))
   })
 })
