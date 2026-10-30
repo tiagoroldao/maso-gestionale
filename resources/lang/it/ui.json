@@ -77,6 +77,40 @@
       "disabled": "Campo disattivato",
       "touch": "Campo da 44px, con errore",
       "error": "Spiega che cosa correggere."
+    },
+    "screen": "Schermata di un record",
+    "screenIntro": "Intestazione, azioni e riepilogo come li dichiara il server. Sul telefono l'azione principale sta nella barra in fondo.",
+    "sampleParent": "Componenti",
+    "sampleCurrent": "C-2026-0142",
+    "sampleTitle": "Sostituzione caldaia",
+    "sampleFacts": "C-2026-0142 · Manutenzione · aperta il 20/10/2026",
+    "sampleCustomer": "Rossi Mario",
+    "sampleSite": "Via Roma 1, Trento",
+    "sampleAmount": "353,00 €",
+    "sampleHint": "su 2.388,00 € registrati",
+    "statusTags": "Stati",
+    "section": "Sezione",
+    "sectionText": "Il contenuto di una sezione, su una superficie bordata.",
+    "sectionAction": "Aggiungi",
+    "dialog": "Finestra",
+    "openDialog": "Apri la finestra",
+    "dialogText": "Solo per compiti brevi: una conferma, un piccolo modulo.",
+    "confirm": "Conferma",
+    "openConfirm": "Chiedi conferma",
+    "confirmText": "Un'azione distruttiva o irreversibile chiede sempre conferma.",
+    "action": {
+      "primary": "Azione principale",
+      "secondary": "Secondaria",
+      "overflow": "Nel menu",
+      "disabled": "Bloccata",
+      "disabledReason": "Il motivo per cui ora non si può.",
+      "destructive": "Distruttiva"
+    },
+    "tones": {
+      "blue": "Pianificato",
+      "orange": "In corso",
+      "green": "Completato",
+      "grey": "Bozza"
     }
   },
   "roles": {
@@ -606,7 +640,6 @@
     "cancel": "Annulla commessa",
     "cancelledOn": "annullata il {date}",
     "close": "Chiudi commessa",
-    "closeSection": "Chiusura",
     "closedOn": "chiusa il {date}",
     "reopen": "Riapri commessa",
     "nothingLeft": "Non resta nulla da fare, fatturare o incassare.",
@@ -647,17 +680,22 @@
     "cancelConfirm": "Annullare la commessa {number}? Non si potrà riaprire.",
     "cancelConfirmOpenVisits": "Annullare la commessa {number}? Non si potrà riaprire.\n\nInterventi ancora aperti, che resteranno fermi finché non li segni come completati:\n{visits}",
     "cancelledNotEditable": "Una commessa annullata non si può modificare.",
-    "timeAndMaterials": "Ore e materiali registrati",
-    "billed": "Già fatturato: {amount}",
-    "inDraft": "In bozza di fattura: {amount}",
     "visitBilled": "Fatturato",
-    "timeAndMaterialsHint": "IVA esclusa, ai prezzi del momento in cui sono stati registrati",
     "progress": "{done} di {total} completati",
     "progressCancelled": "{count, plural, one {# annullato} other {# annullati}}",
     "progressNext": "prossimo: {when}",
     "summary": "Riepilogo ore e materiali",
     "summaryHint": "Su tutti gli interventi e sulla commessa, per stato di esecuzione. Apri una riga per vedere gli interventi da cui proviene.",
-    "issueWorkReport": "Emetti: {name}"
+    "issueWorkReport": "Emetti: {name}",
+    "openedOn": "aperta il {date}",
+    "draftWaiting": "Una bozza di fattura dagli addebiti aspetta già: completala prima.",
+    "nothingToBill": "Niente da fatturare per ora.",
+    "noSite": "Nessuno",
+    "toBill": "Da fatturare",
+    "toBillInDraft": "in bozza di fattura: {amount}",
+    "invoiced": "Fatturato",
+    "invoicedOf": "su {amount} registrati, IVA esclusa",
+    "documents": "Documenti"
   },
   "rates": {
     "labourTitle": "Tariffe orarie",
@@ -1008,7 +1046,6 @@
     "advance": "acconto",
     "advanceHint": "Fattura di acconto (TD02): la fattura finale della commessa la detrarrà.",
     "newAdvance": "Crea fattura di acconto",
-    "invoicedSoFarOf": "Fatturato finora (imponibile): {amount} su {of}",
     "quotedTotal": "preventivi accettati: {amount} (solo per confronto)",
     "file": "File",
     "uploadedOn": "Caricato il",
@@ -1175,7 +1212,8 @@
       "immaculate": "Immacolata Concezione",
       "christmas": "Natale",
       "saintStephen": "Santo Stefano"
-    }
+    },
+    "time": "Orario"
   },
   "field": {
     "title": "I miei interventi",
@@ -1362,7 +1400,8 @@
       "labour": "Manodopera",
       "material": "Materiale",
       "significant_good": "Bene significativo"
-    }
+    },
+    "quantityAtPrice": "{quantity} × {price}"
   },
   "issuedDocuments": {
     "title": "Documenti emessi",
@@ -1622,5 +1661,13 @@
     "empty": "Nessun fornitore.",
     "create": "Crea",
     "save": "Salva"
+  },
+  "screen": {
+    "breadcrumb": "Percorso",
+    "back": "Indietro: {label}",
+    "moreActions": "Altre azioni",
+    "keyFacts": "Riepilogo",
+    "goBack": "Torna indietro",
+    "closeDialog": "Chiudi"
   }
 }

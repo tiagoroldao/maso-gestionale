@@ -5,6 +5,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createSite } from '#tests/helpers/sites'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
+import { chooseMoreAction } from '#tests/helpers/screen'
 
 test.group('Jobs in the browser', () => {
   test('Office opens a Job from a Customer, picking one of their Sites', async ({
@@ -36,8 +37,11 @@ test.group('Jobs in the browser', () => {
     const job = await createJob(await createCustomer())
 
     const page = await visit(`/jobs/${job.id}`)
-    await page.getByText(it('ui.jobs.nothingLeft')).waitFor()
-    await page.getByRole('button', { name: it('ui.jobs.close') }).click()
+    // Closing shows first what it leaves behind (ADR 0015)
+    await chooseMoreAction(page, it('ui.jobs.close'))
+    const dialog = page.getByRole('dialog')
+    await dialog.getByText(it('ui.jobs.nothingLeft')).waitFor()
+    await dialog.getByRole('button', { name: it('ui.jobs.close') }).click()
     await page.getByText(it('ui.jobs.statuses.closed'), { exact: true }).waitFor()
     await job.refresh()
     assert.equal(job.status, 'closed')

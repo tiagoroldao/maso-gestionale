@@ -6,6 +6,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
+import { chooseMoreAction } from '#tests/helpers/screen'
 
 test.group('Quotes in the browser', () => {
   test('Office writes a Quote from Items and labour, sends it, then it is accepted', async ({
@@ -21,7 +22,7 @@ test.group('Quotes in the browser', () => {
     // Started from the Job page, saved as the Job's first Quote
     const page = await visit(`/jobs/${job.id}`)
     page.on('dialog', (dialog) => dialog.accept())
-    await page.getByRole('link', { name: it('ui.quotes.new') }).click()
+    await chooseMoreAction(page, it('ui.quotes.new'))
     await page.waitForURL(`**/jobs/${job.id}/quotes/create`)
     await page.getByLabel(it('ui.quotes.addItem')).fill('cald')
     await page.getByRole('option', { name: /CALD-25/ }).click()

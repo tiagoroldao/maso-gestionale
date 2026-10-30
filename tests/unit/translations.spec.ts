@@ -277,6 +277,8 @@ const BUILT_ON_SERVER: Record<string, readonly (string | number)[]> = {
   }),
   'ui.sdiFailures': SDI_FAILURE_CODES,
   'ui.jobs.leftToClose': BUILT_IN_PAGES['ui.jobs.leftToClose'],
+  // The open Visits named in the Job's cancel question (job_actions.ts)
+  'ui.visits.statuses': VISIT_STATUSES,
   'ui.paymentMethods': PAYMENT_METHODS,
   'documents.invoice.sections': SECTION_KINDS,
   'documents.workReport': valuesOf<keyof WorkReportLabels>({
