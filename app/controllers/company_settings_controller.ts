@@ -4,15 +4,18 @@ import { DEFAULT_LIQUIDATION_STATUS } from '#shared/company'
 import { storagePath } from '#services/storage'
 import { TAX_REGIMES } from '#fiscal/tax_regimes'
 import { companySettingsValidator } from '#validators/company_settings'
+import { saveActions } from '#shared/screen_actions'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const LOGO_DIRECTORY = 'company'
 
 export default class CompanySettingsController {
-  async edit({ inertia }: HttpContext) {
+  async edit({ inertia, i18n }: HttpContext) {
     const settings = await CompanySettings.current()
 
     return inertia.render('settings/company', {
+      // The screen is its own form: Save submits it (docs/ui.md "Actions")
+      actions: saveActions(i18n.t('ui.company.save'), 'company-settings'),
       settings: {
         name: settings.name ?? null,
         vatNumber: settings.vatNumber ?? null,

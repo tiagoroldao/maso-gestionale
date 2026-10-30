@@ -12,6 +12,9 @@ test.group('VAT Codes in the browser', () => {
     await browserContext.loginAs(await createUser('admin'))
 
     const page = await visit('/settings/vat-codes')
+    // Added from the section's dialog
+    await page.getByRole('button', { name: it('ui.vatCodes.add') }).click()
+    await page.getByRole('dialog').waitFor()
     await page
       .getByLabel(it('ui.vatCodes.name'), { exact: true })
       .fill('Inversione contabile – rottami')
@@ -38,7 +41,7 @@ test.group('VAT Codes in the browser', () => {
     const page = await visit('/settings/vat-codes')
     await page.getByLabel(it('ui.vatCodes.nameOf', { name: code.name })).fill('')
     await page
-      .getByRole('row')
+      .getByRole('listitem')
       .filter({ has: page.getByLabel(it('ui.vatCodes.nameOf', { name: code.name })) })
       .getByRole('button', { name: it('ui.common.save') })
       .click()

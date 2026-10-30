@@ -27,6 +27,7 @@ Work deliberately left for later: review findings not fixed in their PR, decisio
 | #194  | Say when "Fino al" leaves nothing to bill (`ui-later`)                                                                           | The UX pass                                           |
 | #204  | Check in the Openapi sandbox that a queued sent file is found by number, and that an undelivered Supplier Invoice stays listable | The business (`needs-human`): sandbox callback set-up |
 | #209  | Supplier Invoice export: keep the dates after a refused range (`ui-later`)                                                       | The UX pass                                           |
+| #266  | VAT rules: long VAT Code names cut off at tablet width (`ui-later`)                                                              | The UX pass                                           |
 
 ## Added to existing issues
 
@@ -212,3 +213,5 @@ Review findings folded into planned work, so they are picked up with it:
 - **The Agenda move validator reads the Visit's team before the lock** (#65): `VisitsController.move` loads the team for `moveVisitValidator` before `Scheduling.move` locks the Visit, so a team changed in between is checked against the old one. `Scheduling.move` still refuses a stale hand-over (the source Technician no longer on the Visit); the window is tiny.
 - **No HTTP test replaces a work report issued before #192** (#65): Issued Documents can't be changed in the database, so a test can't strip `jobCharges` from a stored one; the unit test of `parseWorkReportOptions(…, { issued: true })` covers the default.
 - **The week view misses a Visit that started the evening before the week** (#65): the week lists a Visit on its start day only, so one starting on Sunday night and running into Monday doesn't show in the next week (`ui-later`).
+- **The old settings layout stays until the Document Templates move** (#244): `inertia/layouts/settings.vue` and the `.sidebar-layout` styles in `app.css` serve only the Document Templates pages now; delete both when those pages move to `SettingsScreen`.
+- **Rows edited in place are long on the phone** (#244): each row of Tariffe, Codici IVA, Condizioni di pagamento and Categorie stacks every field with its name, then Save and its other action on lines of their own; a list of eight VAT Codes runs to several screens. A row could show as one line that opens its form, if Admins edit these on the phone (`ui-later`).

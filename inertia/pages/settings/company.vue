@@ -1,11 +1,24 @@
 <script setup lang="ts">
+/**
+ * The company's details, the settings area's home (docs/ui.md "Settings"):
+ * a screen in edit mode, its sections one form that the header's primary
+ * action saves.
+ */
+import { ref } from 'vue'
 import { t } from '~/i18n'
 import { Form } from '@adonisjs/inertia/vue'
 import { urlFor } from '~/client'
-import Section from '~/components/section.vue'
+import { cn } from '~/lib/utils'
 import AppLayout from '~/layouts/app.vue'
-import SettingsLayout from '~/layouts/settings.vue'
 import { LIQUIDATION_STATUSES, SOLE_SHAREHOLDER } from '@shared/company'
+import type { ScreenAction } from '@shared/screen_actions'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import { buttonVariants } from '~/components/ui/button'
+import SettingsScreen from '~/components/screen/settings_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import FormField from '~/components/screen/form_field.vue'
+import { TOUCH } from '~/components/screen/screen'
 
 type TextField =
   | 'name'
@@ -24,6 +37,8 @@ type TextField =
   | 'phone'
 
 const props = defineProps<{
+  // Save, submitting the form
+  actions: ScreenAction[]
   settings: Record<TextField | 'taxRegime' | 'soleShareholder', string | null> & {
     liquidationStatus: string
     hasLogo: boolean
@@ -84,124 +99,160 @@ const sections: { key: string; title: string; description?: string; fields: Fiel
 const logoUrl = props.settings.updatedAt
   ? `/company/logo?v=${encodeURIComponent(props.settings.updatedAt)}`
   : '/company/logo'
+
+const taxRegime = ref(props.settings.taxRegime ?? 'RF01')
+const soleShareholder = ref(props.settings.soleShareholder ?? '')
+const liquidationStatus = ref(props.settings.liquidationStatus)
+// Save, in the header, waits while the form is sent
+const busy = ref(false)
 </script>
 
 <template>
   <AppLayout>
-    <SettingsLayout>
-      <Form v-slot="{ processing, errors }" route="company_settings.update">
-        <Section
+    <SettingsScreen route="company_settings.edit" :actions="actions" :busy="busy">
+      <Form
+        id="company-settings"
+        v-slot="{ errors }"
+        route="company_settings.update"
+        class="flex flex-col gap-3 md:gap-5"
+        @start="busy = true"
+        @finish="busy = false"
+      >
+        <ScreenSection
           v-for="section in sections"
           :key="section.key"
           :title="section.title"
           :description="section.description"
         >
-          <div v-for="field in section.fields" :key="field.name" class="field">
-            <label class="field__label" :for="field.name">{{ field.label }}</label>
-            <input
+          <div class="grid gap-4 md:grid-cols-2">
+            <FormField
+              v-for="field in section.fields"
               :id="field.name"
-              :name="field.name"
-              :type="field.type ?? 'text'"
-              class="field__input"
-              :value="settings[field.name] ?? ''"
-              :aria-invalid="errors[field.name] ? 'true' : 'false'"
-            />
-            <span v-if="field.hint" class="field__hint">{{ field.hint }}</span>
-            <span v-if="errors[field.name]" class="field__error">{{ errors[field.name] }}</span>
-          </div>
-
-          <div v-if="section.key === 'company'" class="field">
-            <label class="field__label" for="taxRegime">{{ t('ui.company.taxRegime') }}</label>
-            <select
-              id="taxRegime"
-              name="taxRegime"
-              class="field__input"
-              :value="settings.taxRegime ?? 'RF01'"
+              :key="field.name"
+              v-slot="control"
+              :label="field.label"
+              :hint="field.hint"
+              :error="errors[field.name]"
             >
-              <option v-for="(label, code) in taxRegimes" :key="code" :value="code">
-                {{ code }} – {{ label }}
-              </option>
-            </select>
-            <span v-if="errors.taxRegime" class="field__error">{{ errors.taxRegime }}</span>
-          </div>
+              <Input
+                :id="control.id"
+                :name="field.name"
+                :type="field.type ?? 'text'"
+                :default-value="settings[field.name] ?? ''"
+                :aria-invalid="control.invalid"
+                :aria-describedby="control.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
 
-          <template v-if="section.key === 'rea'">
-            <div class="field">
-              <label class="field__label" for="soleShareholder">{{
-                t('ui.company.soleShareholder')
-              }}</label>
-              <select
+            <FormField
+              v-if="section.key === 'company'"
+              id="taxRegime"
+              v-slot="control"
+              :label="t('ui.company.taxRegime')"
+              :error="errors.taxRegime"
+            >
+              <NativeSelect
+                :id="control.id"
+                v-model="taxRegime"
+                name="taxRegime"
+                :aria-invalid="control.invalid"
+                :aria-describedby="control.describedBy"
+              >
+                <option v-for="(label, code) in taxRegimes" :key="code" :value="code">
+                  {{ code }} – {{ label }}
+                </option>
+              </NativeSelect>
+            </FormField>
+
+            <template v-if="section.key === 'rea'">
+              <FormField
                 id="soleShareholder"
-                name="soleShareholder"
-                class="field__input"
-                :value="settings.soleShareholder ?? ''"
+                v-slot="control"
+                :label="t('ui.company.soleShareholder')"
+                :error="errors.soleShareholder"
               >
-                <option value="">{{ t('ui.company.notApplicable') }}</option>
-                <option v-for="code in SOLE_SHAREHOLDER" :key="code" :value="code">
-                  {{ t(`ui.company.soleShareholders.${code}`) }}
-                </option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="field__label" for="liquidationStatus">{{
-                t('ui.company.liquidationStatus')
-              }}</label>
-              <select
+                <NativeSelect
+                  :id="control.id"
+                  v-model="soleShareholder"
+                  name="soleShareholder"
+                  :aria-invalid="control.invalid"
+                  :aria-describedby="control.describedBy"
+                >
+                  <option value="">{{ t('ui.company.notApplicable') }}</option>
+                  <option v-for="code in SOLE_SHAREHOLDER" :key="code" :value="code">
+                    {{ t(`ui.company.soleShareholders.${code}`) }}
+                  </option>
+                </NativeSelect>
+              </FormField>
+              <FormField
                 id="liquidationStatus"
-                name="liquidationStatus"
-                class="field__input"
-                :value="settings.liquidationStatus"
+                v-slot="control"
+                :label="t('ui.company.liquidationStatus')"
+                :error="errors.liquidationStatus"
               >
-                <option v-for="code in LIQUIDATION_STATUSES" :key="code" :value="code">
-                  {{ t(`ui.company.liquidationStatuses.${code}`) }}
-                </option>
-              </select>
-            </div>
-          </template>
-        </Section>
+                <NativeSelect
+                  :id="control.id"
+                  v-model="liquidationStatus"
+                  name="liquidationStatus"
+                  :aria-invalid="control.invalid"
+                  :aria-describedby="control.describedBy"
+                >
+                  <option v-for="code in LIQUIDATION_STATUSES" :key="code" :value="code">
+                    {{ t(`ui.company.liquidationStatuses.${code}`) }}
+                  </option>
+                </NativeSelect>
+              </FormField>
+            </template>
+          </div>
+        </ScreenSection>
 
-        <Section
+        <ScreenSection
           :title="t('ui.company.logoSection')"
           :description="t('ui.company.logoDescription')"
         >
-          <img
-            v-if="settings.hasLogo"
-            :src="logoUrl"
-            :alt="t('ui.company.currentLogo')"
-            :style="{ maxHeight: '80px', maxWidth: '240px', objectFit: 'contain' }"
-          />
-          <div class="field">
-            <label class="field__label" for="logo">
-              {{ settings.hasLogo ? t('ui.company.replaceLogo') : t('ui.company.uploadLogo') }}
-            </label>
-            <input id="logo" name="logo" type="file" accept=".png,.jpg,.jpeg,.webp" />
-            <span v-if="errors.logo" class="field__error">{{ errors.logo }}</span>
-          </div>
-          <label
-            v-if="settings.hasLogo"
-            :style="{ display: 'flex', gap: '8px', alignItems: 'center' }"
-          >
-            <input type="checkbox" name="removeLogo" value="true" />
-            {{ t('ui.company.removeLogo') }}
-          </label>
-        </Section>
-
-        <Section>
-          <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-            <button type="submit" class="btn btn--primary" :disabled="processing">
-              {{ t('ui.company.save') }}
-            </button>
+          <template #actions>
+            <!-- A PDF, outside the app: a plain link, in a new tab -->
             <a
               :href="urlFor('letterhead_preview.pdf')"
               target="_blank"
               rel="noopener"
-              class="btn btn--secondary"
+              :class="cn(buttonVariants({ variant: 'outline' }), TOUCH)"
             >
               {{ t('ui.company.previewLetterhead') }}
             </a>
-          </div>
-        </Section>
+          </template>
+          <img
+            v-if="settings.hasLogo"
+            :src="logoUrl"
+            :alt="t('ui.company.currentLogo')"
+            class="max-h-20 max-w-60 self-start object-contain"
+          />
+          <FormField
+            id="logo"
+            v-slot="control"
+            :label="settings.hasLogo ? t('ui.company.replaceLogo') : t('ui.company.uploadLogo')"
+            :error="errors.logo"
+          >
+            <input
+              :id="control.id"
+              name="logo"
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp"
+              :aria-invalid="errors.logo ? true : undefined"
+              :aria-describedby="control.describedBy"
+              class="text-sm file:mr-3 file:h-9 file:rounded-sm file:border file:border-solid file:border-border file:bg-card file:px-3 file:text-sm file:font-semibold file:text-foreground"
+            />
+          </FormField>
+          <label
+            v-if="settings.hasLogo"
+            class="flex min-h-11 items-center gap-2.5 text-sm md:min-h-0"
+          >
+            <input type="checkbox" name="removeLogo" value="true" class="size-4" />
+            {{ t('ui.company.removeLogo') }}
+          </label>
+        </ScreenSection>
       </Form>
-    </SettingsLayout>
+    </SettingsScreen>
   </AppLayout>
 </template>
