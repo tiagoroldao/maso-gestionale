@@ -19,7 +19,7 @@ Judgement calls the reviewer applies to every diff. Mechanical rules are enforce
 
 ## UI scope
 
-The UI is functional scaffolding until the UX pass (ADR 0009). A screen on the new UI (its content built from the new components, with no `Page`, `Section` or `app.css` markup: it moves in its own issue, and new screens start there) follows `docs/ui.md` (ADR 0020) in place of "Reachable, not designed". The other rules apply to every screen, "Lists" only until the lists round of the UX pass. In each diff:
+The UI is functional scaffolding until the UX pass (ADR 0009). A screen on the new UI (its content built from the new components in `inertia/components/ui/` and the shell's, with no `Page`, `Section` or `app.css` markup; a screen moves in its own issue, and new screens start there) follows `docs/ui.md` (ADR 0020) in place of "Reachable, not designed". The other rules apply to every screen, "Lists" only until the lists round of the UX pass. In each diff:
 
 - **Reachable, not designed.** A feature gets a plain page from the existing pieces (`Page`, `Section`, `.table`, `.field` classes). New visual components, styles, layout work and interaction niceties (live previews, drag and drop, inline editing) are out unless the feature can't work without them. Destructive actions (delete, cancel, finalise) get a confirmation; nothing else does.
 - **Lists** are a plain table in an explicit order (by name, or newest first for dated records). Search only where a record must be found or picked; filters, sorting and pagination only when an acceptance criterion or the data volume needs them.
