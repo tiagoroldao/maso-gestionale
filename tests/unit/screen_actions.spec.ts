@@ -25,6 +25,7 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
         rank: 'secondary',
         kind: 'link',
         href: '/edit',
+        method: 'post',
         form: null,
         destructive: false,
         confirm: null,
@@ -61,6 +62,11 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
     )
     assert.lengthOf(declareActions([action('draft', 'primary', { kind: 'dialog', href: null })]), 1)
     assert.lengthOf(declareActions([action('save', 'primary', { kind: 'submit', href: null })]), 1)
+    assert.throws(
+      () => declareActions([action('remove', 'overflow', { method: 'delete' })]),
+      ScreenActionsError,
+      'it has no method'
+    )
   })
 
   test('two secondary actions show as buttons, the rest go in "⋯"', ({ assert }) => {
@@ -90,5 +96,22 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
     assert.include(inForm, { name: 'save', rank: 'primary', kind: 'submit', form: null })
     const [named] = saveActions('Salva', 'company-settings')
     assert.equal(named.form, 'company-settings')
+  })
+
+  test('a delete is a post sent as DELETE, destructive and confirmed', ({ assert }) => {
+    const [remove] = declareActions([
+      action('delete', 'overflow', {
+        kind: 'post',
+        method: 'delete',
+        destructive: true,
+        confirm: 'Eliminare?',
+      }),
+    ])
+    assert.include(remove, {
+      kind: 'post',
+      method: 'delete',
+      href: '/delete',
+      confirm: 'Eliminare?',
+    })
   })
 })

@@ -114,23 +114,15 @@ const keyFacts = computed<KeyFact[]>(() => [
   },
 ])
 
-// The header's dialogs, by action name: a receipt, an adjustment, deleting
+// The header's dialogs, by action name: a receipt, an adjustment
 const receiptOpen = ref(false)
 const adjustmentOpen = ref(false)
-const deleteOpen = ref(false)
-const deleteQuestion = computed(
-  () => props.actions.find((action) => action.name === 'delete')?.confirm ?? ''
-)
 function openDialog(name: string) {
   if (name === 'receive') receiptOpen.value = true
   if (name === 'adjust') adjustmentOpen.value = true
-  if (name === 'delete') deleteOpen.value = true
-}
-function deleteItem() {
-  router.delete(urlFor('items.destroy', { id: props.item.id }))
 }
 
-// The documents' section: uploading is a dialog, deleting asks first
+// The documents' section: uploading is a dialog, deleting a row asks first
 const uploadOpen = ref(false)
 const deletingDocument = ref<number | null>(null)
 const deleteDocumentOpen = ref(false)
@@ -536,13 +528,6 @@ const DT = cn(LABEL, 'text-[10px]')
       </DialogContent>
     </Dialog>
 
-    <ConfirmDialog
-      v-model:open="deleteOpen"
-      :title="t('ui.items.delete')"
-      :description="deleteQuestion"
-      :confirm-label="t('ui.items.delete')"
-      @confirm="deleteItem"
-    />
     <ConfirmDialog
       v-model:open="deleteDocumentOpen"
       :title="t('ui.items.deleteDocument')"

@@ -10,7 +10,8 @@ export const ACTION_RANKS = ['primary', 'secondary', 'overflow'] as const
 export type ActionRank = (typeof ACTION_RANKS)[number]
 
 /**
- * What an action does: open a page (`link`), post to the server (`post`),
+ * What an action does: open a page (`link`), send a request to the server
+ * (`post`: a POST, or the DELETE its `method` names),
  * open the screen's own dialog (`dialog`: a short form, such as the
  * options of a draft Invoice), which the page renders by the action's name,
  * or submit the form the screen sits in (`submit`: Save, on a screen in
@@ -29,6 +30,8 @@ export type ScreenAction = {
   kind: ActionKind
   /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` or `submit` */
   href: string | null
+  /** How a `post` sends its request: 'delete' for a route that deletes; 'post' otherwise */
+  method: ActionMethod
   /**
    * The id of the page's form a `submit` submits, when the form doesn't wrap
    * the header; null for a screen sitting in its form, and the other kinds
@@ -42,16 +45,21 @@ export type ScreenAction = {
   disabledReason: string | null
 }
 
+export const ACTION_METHODS = ['post', 'delete'] as const
+export type ActionMethod = (typeof ACTION_METHODS)[number]
+
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
-  Partial<Pick<ScreenAction, 'href' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>>
+  Partial<
+    Pick<ScreenAction, 'href' | 'method' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>
+  >
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
 export class ScreenActionsError extends Error {}
 
 /**
  * The actions of a screen, checked against docs/ui.md "Actions": one
- * primary at most, unique names, a destination for links and posts, and
- * destructive ones in the overflow and confirmed.
+ * primary at most, unique names, a destination for links and posts, a
+ * method only on posts, and destructive ones in the overflow and confirmed.
  */
 export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
   const names = new Set<string>()
@@ -60,6 +68,7 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     names.add(action.name)
     const full: ScreenAction = {
       href: null,
+      method: 'post',
       form: null,
       destructive: false,
       confirm: null,
@@ -68,6 +77,9 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     }
     if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
       throw new ScreenActionsError(`Action ${full.name} needs an href`)
+    }
+    if (full.method !== 'post' && full.kind !== 'post') {
+      throw new ScreenActionsError(`Action ${full.name} sends no request: it has no method`)
     }
     if (full.destructive && (full.rank !== 'overflow' || !full.confirm)) {
       throw new ScreenActionsError(`Destructive action ${full.name} must be overflow and confirmed`)

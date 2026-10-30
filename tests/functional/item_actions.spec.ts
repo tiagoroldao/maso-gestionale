@@ -40,7 +40,9 @@ test.group('Item page actions (#242)', () => {
       assert.equal(archive.confirm, it('ui.items.archiveConfirm', { code: 'RAC-12' }))
       const remove = actions.find((action) => action.name === 'delete')!
       assert.isTrue(remove.destructive)
-      assert.equal(remove.kind, 'dialog')
+      assert.equal(remove.kind, 'post')
+      assert.equal(remove.method, 'delete')
+      assert.equal(remove.href, `/items/${item.id}`)
       assert.equal(remove.confirm, it('ui.items.deleteConfirm'))
     }
   })
@@ -118,5 +120,24 @@ test.group('Item page actions (#242)', () => {
         url
       )
     }
+  })
+
+  test('the Item names the Supplier linked by its invoices, with the id for its link', async ({
+    client,
+  }) => {
+    const supplier = await Supplier.create({
+      name: 'Idrotermica Srl',
+      vatCountry: 'IT',
+      vatNumber: '01234567890',
+    })
+    const item = await createItem({ supplierId: supplier.id, supplierName: 'Typed by hand' })
+
+    const page = await client
+      .get(`/items/${item.id}`)
+      .withInertia()
+      .loginAs(await createUser('office'))
+    page.assertInertiaPropsContains({
+      item: { supplierName: 'Idrotermica Srl', supplierId: supplier.id },
+    })
   })
 })

@@ -13,8 +13,7 @@ export type ItemActionState = {
  * The Item page's actions (docs/ui.md "Actions"): recording goods received
  * is the primary, an adjustment and editing the secondary, archiving and
  * deleting in "⋯". Receipts and adjustments are the page's own short forms
- * (`dialog`). Deleting is offered only for an Item never used: it is a
- * DELETE, so the page asks with this question and sends it itself.
+ * (`dialog`). Deleting, a DELETE, is offered only for an Item never used.
  */
 export function itemActions({ item, referenced }: ItemActionState, i18n: I18n) {
   const params = { id: item.id }
@@ -53,7 +52,9 @@ export function itemActions({ item, referenced }: ItemActionState, i18n: I18n) {
       name: 'delete',
       label: i18n.t('ui.items.delete'),
       rank: 'overflow',
-      kind: 'dialog',
+      kind: 'post',
+      method: 'delete',
+      href: urlFor('items.destroy', params),
       destructive: true,
       confirm: i18n.t('ui.items.deleteConfirm'),
     })
