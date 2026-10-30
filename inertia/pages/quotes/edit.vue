@@ -21,10 +21,13 @@ import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import FormField from '~/components/screen/form_field.vue'
 import RowErrors from '~/components/screen/row_errors.vue'
+import RowField from '~/components/screen/row_field.vue'
+import RowHeads from '~/components/screen/row_heads.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
-import { LABEL, LINK, QUOTE_TONES } from '~/components/screen/screen'
+import { LINK, QUOTE_TONES } from '~/components/screen/screen'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
+import { Textarea } from '~/components/ui/textarea'
 import { NativeSelect } from '~/components/ui/native-select'
 import { urlFor } from '~/client'
 import { cn } from '~/lib/utils'
@@ -398,22 +401,32 @@ const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration
 
 /**
  * A line: on the phone a card (description, then quantity and price side
- * by side, VAT, amount and the line's buttons); from 768px one row of a
- * grid whose columns the header row names.
+ * by side, VAT, amount and the line's buttons, each field named above
+ * it); from 768px one row, its fields under the column heads (`RowField`,
+ * `RowHeads`, #226), each head taking its field's width.
  */
-const GRID = computed(() =>
-  props.editable
-    ? 'md:grid-cols-[minmax(0,1fr)_6.5rem_8rem_10rem_7rem_auto]'
-    : 'md:grid-cols-[minmax(0,1fr)_6.5rem_8rem_10rem_7rem]'
-)
-const ROW = 'grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-3.5 py-3 md:gap-x-3 md:px-4'
-const CELL_LABEL = 'text-xs font-medium text-muted-foreground md:hidden'
+const ROW =
+  'grid grid-cols-2 gap-x-3 gap-y-2 border-t border-border px-3.5 py-3 md:flex md:flex-wrap md:items-start md:gap-x-2 md:px-4'
+const DESCRIPTION = 'md:min-w-0 md:flex-1'
+const QUANTITY = 'md:w-28'
+const PRICE = 'md:w-32'
+const VAT = 'md:w-40'
+const AMOUNT = 'md:w-28 md:text-right'
+const LINE_BUTTONS = 'md:w-[7.5rem]'
+// Fields sit level with the description's input, under the line's kind
+const UNDER_KIND = 'md:pt-[30px]'
+const heads = computed(() => [
+  { label: t('ui.quotes.description'), class: DESCRIPTION },
+  { label: t('ui.quotes.quantity'), class: QUANTITY },
+  { label: t('ui.quotes.unitPrice'), class: PRICE },
+  { label: t('ui.quotes.vatCode'), class: VAT },
+  { label: t('ui.quotes.amount'), class: AMOUNT },
+  ...(props.editable ? [{ label: '', class: LINE_BUTTONS }] : []),
+])
 const FIELD = 'h-11 md:h-9'
 const BUTTON = 'h-11 md:h-9'
 const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
 const HINT = 'm-0 text-[13px] text-muted-foreground'
-const TEXTAREA =
-  'min-h-20 w-full rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none placeholder:text-muted-foreground focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50 aria-invalid:border-destructive md:text-sm'
 </script>
 
 <template>
@@ -449,26 +462,17 @@ const TEXTAREA =
             {{ t('ui.quotes.notEditable') }}
           </p>
 
-          <div
-            aria-hidden="true"
-            :class="cn('hidden border-t border-border px-4 py-2 md:grid md:gap-x-3', GRID)"
-          >
-            <span :class="LABEL">{{ t('ui.quotes.description') }}</span>
-            <span :class="LABEL">{{ t('ui.quotes.quantity') }}</span>
-            <span :class="LABEL">{{ t('ui.quotes.unitPrice') }}</span>
-            <span :class="LABEL">{{ t('ui.quotes.vatCode') }}</span>
-            <span :class="cn(LABEL, 'text-right')">{{ t('ui.quotes.amount') }}</span>
-          </div>
+          <RowHeads :heads="heads" />
 
           <ol v-if="lines.length" class="m-0 list-none p-0" data-testid="quote-lines">
             <li
               v-for="(line, index) in lines"
               :key="line.key"
-              :class="cn(ROW, GRID)"
+              :class="ROW"
               :aria-label="t('ui.quotes.lineOf', { position: index + 1 })"
             >
               <!-- What the line is, then its description -->
-              <div class="col-span-2 flex min-w-0 flex-col gap-1.5 md:col-span-1">
+              <div :class="cn('col-span-2 flex min-w-0 flex-col gap-1.5', DESCRIPTION)">
                 <div class="flex min-h-6 flex-wrap items-center gap-2 text-[13px]">
                   <label
                     v-if="importable && line.kind !== 'text'"
@@ -514,8 +518,7 @@ const TEXTAREA =
               </div>
 
               <template v-if="line.kind !== 'text'">
-                <div class="flex min-w-0 flex-col gap-1 md:pt-[30px]">
-                  <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.quantity') }}</span>
+                <RowField :label="t('ui.quotes.quantity')" :class="cn(QUANTITY, UNDER_KIND)">
                   <div class="flex items-center gap-1.5">
                     <Input
                       v-model="line.quantity"
@@ -530,9 +533,8 @@ const TEXTAREA =
                       {{ line.unit }}
                     </span>
                   </div>
-                </div>
-                <div class="flex min-w-0 flex-col gap-1 md:pt-[30px]">
-                  <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.unitPrice') }}</span>
+                </RowField>
+                <RowField :label="t('ui.quotes.unitPrice')" :class="cn(PRICE, UNDER_KIND)">
                   <Input
                     v-model="line.unitPrice"
                     form="quote-form"
@@ -542,9 +544,11 @@ const TEXTAREA =
                     :aria-label="t('ui.quotes.unitPriceOf', { position: index + 1 })"
                     :aria-invalid="invalid(index, 'unitPrice')"
                   />
-                </div>
-                <div class="col-span-2 flex min-w-0 flex-col gap-1 md:col-span-1 md:pt-[30px]">
-                  <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.vatCode') }}</span>
+                </RowField>
+                <RowField
+                  :label="t('ui.quotes.vatCode')"
+                  :class="cn('col-span-2', VAT, UNDER_KIND)"
+                >
                   <NativeSelect
                     :model-value="line.vatCodeId === null ? '' : String(line.vatCodeId)"
                     :disabled="!editable"
@@ -559,30 +563,36 @@ const TEXTAREA =
                   <p v-if="splitWarning(line)" :class="HINT" data-testid="split-warning">
                     {{ t('ui.invoices.significantGoodSplit') }}
                   </p>
-                </div>
-              </template>
-              <template v-else>
-                <span class="hidden md:block" />
-                <span class="hidden md:block" />
-                <span class="hidden md:block" />
-              </template>
-
-              <div
-                class="flex items-center gap-1.5 md:block md:pt-[30px] md:text-right"
-                :class="line.kind === 'text' && 'max-md:hidden'"
-              >
-                <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.amount') }}</span>
-                <span
-                  class="text-[15px] font-semibold whitespace-nowrap md:inline-flex md:h-9 md:items-center md:text-sm"
+                </RowField>
+                <RowField
+                  :label="t('ui.quotes.amount')"
+                  :class="cn(AMOUNT, UNDER_KIND, 'md:items-end')"
                 >
-                  {{ totalOf(line) ? formatMoney(totalOf(line)!) : '' }}
-                </span>
-              </div>
+                  <span
+                    class="text-[15px] font-semibold whitespace-nowrap md:inline-flex md:h-9 md:items-center md:text-sm"
+                  >
+                    {{ totalOf(line) ? formatMoney(totalOf(line)!) : '' }}
+                  </span>
+                </RowField>
+              </template>
+              <!-- A text line has no figures: its row keeps the columns' widths -->
+              <template v-else>
+                <span :class="cn('hidden md:block', QUANTITY)" />
+                <span :class="cn('hidden md:block', PRICE)" />
+                <span :class="cn('hidden md:block', VAT)" />
+                <span :class="cn('hidden md:block', AMOUNT)" />
+              </template>
 
               <div
                 v-if="editable"
-                class="flex items-center justify-end gap-1 md:pt-[30px]"
-                :class="line.kind === 'text' && 'col-span-2 md:col-span-1'"
+                :class="
+                  cn(
+                    'flex items-center justify-end gap-1',
+                    LINE_BUTTONS,
+                    UNDER_KIND,
+                    line.kind === 'text' && 'col-span-2'
+                  )
+                "
               >
                 <Button
                   type="button"
@@ -620,7 +630,7 @@ const TEXTAREA =
 
               <div
                 v-if="Object.keys(lineErrors(index)).length"
-                class="col-span-full flex flex-col gap-1"
+                class="col-span-full flex flex-col gap-1 md:basis-full"
               >
                 <RowErrors :errors="lineErrors(index)" :fields="LINE_FIELDS" />
               </div>
@@ -780,12 +790,11 @@ const TEXTAREA =
             :label="t('ui.quotes.notes')"
             :error="errors.notes"
           >
-            <textarea
+            <Textarea
               :id="field.id"
               v-model="notes"
               rows="3"
-              :class="TEXTAREA"
-              :aria-invalid="field.invalid === 'true'"
+              :aria-invalid="field.invalid"
               :aria-describedby="field.describedBy"
             />
           </FormField>
