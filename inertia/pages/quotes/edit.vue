@@ -20,6 +20,7 @@ import EntityScreen from '~/components/screen/entity_screen.vue'
 import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import FormField from '~/components/screen/form_field.vue'
+import RowErrors from '~/components/screen/row_errors.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
 import { LABEL, LINK, QUOTE_TONES } from '~/components/screen/screen'
 import { Button } from '~/components/ui/button'
@@ -336,10 +337,22 @@ const keyFacts = computed<KeyFact[]>(() => [
   },
 ])
 
+// A line's errors show after its inputs, each naming its field (#226)
+const LINE_FIELDS = computed(() => ({
+  description: t('ui.quotes.description'),
+  itemId: t('ui.quotes.kinds.item'),
+  labourRateId: t('ui.quotes.kinds.labour'),
+  quantity: t('ui.quotes.quantity'),
+  unitPrice: t('ui.quotes.unitPrice'),
+  vatCodeId: t('ui.quotes.vatCode'),
+}))
 const lineErrors = (index: number) =>
-  ['description', 'itemId', 'labourRateId', 'quantity', 'unitPrice', 'vatCodeId'].flatMap(
-    (field) => errors.value[`lines.${index}.${field}`] ?? []
-  )
+  Object.fromEntries(
+    Object.keys(LINE_FIELDS.value).flatMap((field) => {
+      const message = errors.value[`lines.${index}.${field}`]
+      return message ? [[field, message]] : []
+    })
+  ) as Record<string, string>
 const invalid = (index: number, field: string) =>
   errors.value[`lines.${index}.${field}`] ? 'true' : undefined
 
@@ -459,7 +472,7 @@ const TEXTAREA =
                 <div class="flex min-h-6 flex-wrap items-center gap-2 text-[13px]">
                   <label
                     v-if="importable && line.kind !== 'text'"
-                    class="flex min-h-11 items-center md:min-h-0"
+                    class="flex min-h-11 min-w-11 items-center md:min-h-0 md:min-w-0"
                   >
                     <input
                       v-model="chosen"
@@ -492,6 +505,7 @@ const TEXTAREA =
                 </div>
                 <Input
                   v-model="line.description"
+                  form="quote-form"
                   :class="FIELD"
                   :disabled="!editable"
                   :aria-label="t('ui.quotes.descriptionOf', { position: index + 1 })"
@@ -505,6 +519,7 @@ const TEXTAREA =
                   <div class="flex items-center gap-1.5">
                     <Input
                       v-model="line.quantity"
+                      form="quote-form"
                       inputmode="decimal"
                       :class="FIELD"
                       :disabled="!editable"
@@ -520,6 +535,7 @@ const TEXTAREA =
                   <span aria-hidden="true" :class="CELL_LABEL">{{ t('ui.quotes.unitPrice') }}</span>
                   <Input
                     v-model="line.unitPrice"
+                    form="quote-form"
                     inputmode="decimal"
                     :class="FIELD"
                     :disabled="!editable"
@@ -602,11 +618,11 @@ const TEXTAREA =
                 </Button>
               </div>
 
-              <div v-if="lineErrors(index).length" class="col-span-full flex flex-col gap-1">
-                <p v-for="message in lineErrors(index)" :key="message" :class="ERROR">
-                  <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
-                  {{ message }}
-                </p>
+              <div
+                v-if="Object.keys(lineErrors(index)).length"
+                class="col-span-full flex flex-col gap-1"
+              >
+                <RowErrors :errors="lineErrors(index)" :fields="LINE_FIELDS" />
               </div>
             </li>
           </ol>
@@ -787,6 +803,7 @@ const TEXTAREA =
             <Input
               :id="field.id"
               v-model="validityDays"
+              form="quote-form"
               type="number"
               :min="QUOTE_VALIDITY_DAYS.min"
               :max="QUOTE_VALIDITY_DAYS.max"
@@ -815,9 +832,10 @@ const TEXTAREA =
       </div>
     </EntityScreen>
 
-    <!-- What Save submits (the header's button names it): the lines and terms
-         are sent from the editor's state, so no field sits inside, and Enter
-         in the Item search never saves -->
+    <!-- What Save submits (the header's button names it). The lines' and the
+         validity's inputs belong to it (`form`), so Enter in them saves; the
+         body is sent from the editor's state. The Item search, the labour
+         rate and the import fields stay out, so Enter there never saves -->
     <form id="quote-form" class="hidden" @submit.prevent="save" />
 
     <ItemPreview v-model:item-id="previewedItem" />

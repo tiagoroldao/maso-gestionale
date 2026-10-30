@@ -108,6 +108,7 @@ test.group('Item preview in the browser', () => {
   test('when the Item fails to load, "Riprova" loads it again', async ({
     browserContext,
     visit,
+    assert,
   }) => {
     await browserContext.loginAs(await createUser('office'))
     const { job } = await jobWithAValve()
@@ -121,5 +122,7 @@ test.group('Item preview in the browser', () => {
     await preview.getByText(it('ui.screen.preview.failed')).waitFor()
     await preview.getByRole('button', { name: it('ui.screen.preview.retry') }).click()
     await page.getByRole('dialog', { name: 'Valvola a sfera' }).getByText('VAL-01').waitFor()
+    // Focus stayed in the panel, on its title, while "Riprova" went away
+    assert.equal(await page.getByRole('dialog').locator(':focus').count(), 1)
   })
 })

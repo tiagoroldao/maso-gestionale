@@ -13,7 +13,7 @@
  * two-column grid, and anything else short in the default slot. When
  * loading failed, "Riprova" asks the caller to load it again (`retry`).
  */
-import { watch } from 'vue'
+import { ref, watch } from 'vue'
 import { Link } from '@adonisjs/inertia/vue'
 import { CircleAlert } from 'lucide-vue-next'
 import {
@@ -52,6 +52,13 @@ withDefaults(
 )
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ retry: [] }>()
+
+// "Riprova" disappears while it loads again: focus moves to the panel's title
+const panelTitle = ref<{ $el: HTMLElement } | null>(null)
+function retry() {
+  panelTitle.value?.$el.focus()
+  emit('retry')
+}
 
 // Opened from a row rather than a trigger: focus goes back to what opened it
 let opener: HTMLElement | null = null
@@ -93,7 +100,11 @@ const button = (variant: 'default' | 'outline') =>
         />
         <div class="flex min-w-0 flex-col gap-1">
           <span v-if="title" :class="LABEL">{{ kind }}</span>
-          <DialogTitle class="m-0 text-lg font-bold break-words">
+          <DialogTitle
+            ref="panelTitle"
+            tabindex="-1"
+            class="m-0 text-lg font-bold break-words outline-none"
+          >
             {{ title ?? kind }}
           </DialogTitle>
           <span v-if="subtitle" class="text-[13px] text-muted-foreground">{{ subtitle }}</span>
@@ -107,7 +118,7 @@ const button = (variant: 'default' | 'outline') =>
             <CircleAlert :size="18" aria-hidden="true" class="shrink-0 text-destructive" />
             {{ t('ui.screen.preview.failed') }}
           </p>
-          <button type="button" :class="cn(button('outline'), 'flex-none')" @click="emit('retry')">
+          <button type="button" :class="cn(button('outline'), 'flex-none')" @click="retry">
             {{ t('ui.screen.preview.retry') }}
           </button>
         </div>

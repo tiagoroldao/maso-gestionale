@@ -157,4 +157,19 @@ test.group('Quote screen in the browser', () => {
     await page.getByRole('alertdialog').waitFor()
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'confirmation')
   })
+
+  test('Enter in a line saves the Quote', async ({ browserContext, visit, assert }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { quote } = await draftWithAValve()
+
+    const page = await visit(`/quotes/${quote.id}`)
+    const quantity = page.getByLabel(it('ui.quotes.quantityOf', { position: 1 }))
+    await quantity.fill('5')
+    await page.getByText(it('ui.quotes.unsaved')).waitFor()
+    await quantity.press('Enter')
+    await page.getByText(it('ui.quotes.unsaved')).waitFor({ state: 'detached' })
+
+    await quote.load('lines')
+    assert.equal(Number(quote.lines[0].quantity), 5)
+  })
 })
