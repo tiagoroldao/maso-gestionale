@@ -6,6 +6,7 @@ import {
   invoiceDiscount,
   lineReceiptRefusal,
   newerCostExists,
+  nextPayment,
   receiptUnitCost,
   unitsDiffer,
 } from '#shared/supplier_invoices'
@@ -156,5 +157,16 @@ test.group('Supplier Invoice lines', () => {
     assert.isFalse(newerCostExists('2026-10-15', '2026-10-15'))
     assert.isFalse(newerCostExists('2026-10-14', '2026-10-15'))
     assert.isTrue(newerCostExists('2026-10-16', '2026-10-15'))
+  })
+
+  test('the payment due next: the earliest from today, else the earliest past one', ({
+    assert,
+  }) => {
+    const due = (...dates: (string | null)[]) => dates.map((dueOn, index) => ({ dueOn, index }))
+    assert.equal(nextPayment(due('2026-12-31', '2026-10-01', '2026-11-30'), '2026-10-30')?.index, 2)
+    assert.equal(nextPayment(due('2026-10-30', '2026-11-30'), '2026-10-30')?.index, 0)
+    assert.equal(nextPayment(due('2026-09-30', '2026-08-31'), '2026-10-30')?.index, 1)
+    assert.equal(nextPayment(due(null), '2026-10-30')?.index, 0)
+    assert.isNull(nextPayment(due(), '2026-10-30'))
   })
 })
