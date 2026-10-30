@@ -2,6 +2,7 @@ import { test } from '@japa/runner'
 import {
   arrangeActions,
   declareActions,
+  saveActions,
   ScreenActionsError,
   type ScreenActionInput,
 } from '#shared/screen_actions'
@@ -58,6 +59,22 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
       'needs an href'
     )
     assert.lengthOf(declareActions([action('draft', 'primary', { kind: 'dialog', href: null })]), 1)
+    assert.lengthOf(declareActions([action('save', 'primary', { kind: 'submit', href: null })]), 1)
+  })
+
+  test('a screen in edit mode has Save as its primary, submitting its form', ({ assert }) => {
+    assert.deepEqual(saveActions('Salva'), [
+      {
+        name: 'save',
+        label: 'Salva',
+        rank: 'primary',
+        kind: 'submit',
+        href: null,
+        destructive: false,
+        confirm: null,
+        disabledReason: null,
+      },
+    ])
   })
 
   test('two secondary actions show as buttons, the rest go in "⋯"', ({ assert }) => {

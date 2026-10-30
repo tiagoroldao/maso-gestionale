@@ -111,7 +111,12 @@
       "orange": "In corso",
       "green": "Completato",
       "grey": "Bozza"
-    }
+    },
+    "rows": "Righe di una sezione",
+    "rowsIntro": "Le commesse e i documenti emessi di un cliente o di un immobile: tabella su desktop, righe sul telefono.",
+    "sampleJobTitle": "Manutenzione annuale",
+    "sampleDocument": "Dichiarazione di conformità",
+    "pickers": "Ricerca di immobili e articoli"
   },
   "roles": {
     "superuser": "Superuser",
@@ -361,9 +366,8 @@
       "condominium": "Condominio",
       "organisation": "Ente / associazione"
     },
-    "typeSection": "Tipo",
+    "identitySection": "Tipo e nome",
     "typeLabel": "Tipo di cliente",
-    "nameSection": "Nome",
     "firstName": "Nome",
     "lastName": "Cognome",
     "companyName": "Ragione sociale",
@@ -403,7 +407,9 @@
     "overpaid": "Fatture pagate in eccesso, da rimborsare o correggere",
     "overpaidInvoice": "n. {number} (in eccesso di {amount})",
     "invoicesTitle": "Fatture",
-    "noInvoices": "Nessuna fattura emessa."
+    "noInvoices": "Nessuna fattura emessa.",
+    "contact": "Contatto",
+    "overpaidCount": "{count, plural, one {# fattura pagata in eccesso} other {# fatture pagate in eccesso}}"
   },
   "sites": {
     "title": "Immobili",
@@ -419,7 +425,6 @@
     "empty": "Nessun immobile.",
     "site": "Immobile",
     "customers": "Clienti",
-    "addressSection": "Indirizzo",
     "label": "Etichetta",
     "labelHint": "Facoltativa, es. “Casa al mare” o “Negozio”.",
     "unit": "Scala, piano, interno",
@@ -437,7 +442,11 @@
       "linked": "collegato",
       "noMatches": "Nessun immobile corrisponde.",
       "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
-    }
+    },
+    "residentialFact": "Residenziale",
+    "notResidentialFact": "Non residenziale",
+    "noCustomer": "Nessuno",
+    "moreCustomers": "{count, plural, one {e un altro} other {e altri #}}"
   },
   "equipment": {
     "sectionTitle": "Apparecchi installati",
@@ -445,7 +454,7 @@
     "serialNumber": "Numero di serie",
     "installed": "Installato",
     "nextDue": "Prossimo controllo",
-    "overdue": "scaduto",
+    "overdue": "Scaduto",
     "noDate": "{months, plural, one {Ogni mese} other {Ogni # mesi}}, nessuna data da cui contare",
     "empty": "Nessun apparecchio registrato.",
     "add": "Aggiungi apparecchio",
@@ -478,12 +487,13 @@
     "documents": "{count, plural, one {# documento} other {# documenti}}",
     "remove": "Segna come rimosso",
     "removeConfirm": "Segnare l'apparecchio come rimosso?",
-    "removedOnOf": "Data di rimozione di {name}",
-    "replacedByOf": "Sostituito da (per {name})",
     "noReplacement": "Nessuna sostituzione",
     "removedTitle": "Apparecchi rimossi",
     "removedOn": "rimosso il {date}",
-    "replacedBy": "sostituito da {name}"
+    "replacedBy": "sostituito da {name}",
+    "installedCount": "Apparecchi",
+    "removedOnLabel": "Data di rimozione",
+    "replacedByLabel": "Sostituito da"
   },
   "categories": {
     "title": "Categorie",
@@ -695,7 +705,8 @@
     "toBillInDraft": "in bozza di fattura: {amount}",
     "invoiced": "Fatturato",
     "invoicedOf": "su {amount} registrati, IVA esclusa",
-    "documents": "Documenti"
+    "documents": "Documenti",
+    "openJobs": "Commesse aperte"
   },
   "rates": {
     "labourTitle": "Tariffe orarie",
@@ -1668,6 +1679,8 @@
     "moreActions": "Altre azioni",
     "keyFacts": "Riepilogo",
     "goBack": "Torna indietro",
-    "closeDialog": "Chiudi"
+    "closeDialog": "Chiudi",
+    "call": "Chiama",
+    "map": "Mappa"
   }
 }

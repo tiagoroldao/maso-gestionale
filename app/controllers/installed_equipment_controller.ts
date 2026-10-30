@@ -8,6 +8,7 @@ import {
   removeEquipmentValidator,
   updateInstalledEquipmentValidator,
 } from '#validators/installed_equipment'
+import { saveActions } from '#shared/screen_actions'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 
@@ -30,9 +31,10 @@ function siteProps(site: Site) {
 }
 
 export default class InstalledEquipmentController {
-  async create({ params, inertia }: HttpContext) {
+  async create({ params, inertia, i18n }: HttpContext) {
     const site = await Site.findOrFail(params.siteId)
     return inertia.render('installed_equipment/form', {
+      actions: saveActions(i18n.t('ui.equipment.save')),
       site: siteProps(site),
       equipment: null,
       issuedDocuments: [],
@@ -49,7 +51,7 @@ export default class InstalledEquipmentController {
     response.redirect().toRoute('sites.show', { id: site.id })
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const equipment = await InstalledEquipment.query()
       .where('id', params.id)
       .preload('site')
@@ -57,9 +59,11 @@ export default class InstalledEquipmentController {
       .firstOrFail()
 
     return inertia.render('installed_equipment/form', {
+      actions: saveActions(i18n.t('ui.equipment.save')),
       site: siteProps(equipment.site),
       equipment: {
         id: equipment.id,
+        description: equipment.description,
         equipmentType: equipment.equipmentType,
         make: equipment.make,
         model: equipment.model,

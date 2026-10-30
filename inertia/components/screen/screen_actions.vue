@@ -8,7 +8,10 @@
  *
  * A `post` action asks first when it has a question (destructive or
  * irreversible ones); a `dialog` action is the page's own short form,
- * opened through the `dialog` event; a disabled one shows its reason.
+ * opened through the `dialog` event; a `submit` action submits the form
+ * the screen sits in (disabled while it is `busy`); a disabled one shows
+ * its reason. A `link` outside the app (a contact's `tel:`, a map) is a
+ * plain link, a web one opening in a new tab.
  */
 import { computed, ref, useId } from 'vue'
 import { router } from '@inertiajs/vue3'
@@ -25,7 +28,9 @@ import {
 } from '~/components/ui/dropdown-menu'
 import ConfirmDialog from './confirm_dialog.vue'
 
-const props = defineProps<{ actions: ScreenAction[] }>()
+const props = withDefaults(defineProps<{ actions: ScreenAction[]; busy?: boolean }>(), {
+  busy: false,
+})
 const emit = defineEmits<{ dialog: [name: string] }>()
 
 const arranged = computed(() => arrangeActions(props.actions))
@@ -36,8 +41,13 @@ const reasonId = (action: ScreenAction) => `${id}-${action.name}-reason`
 const confirming = ref<ScreenAction | null>(null)
 const confirmOpen = ref(false)
 
+/** A page of the app, opened by Inertia; anything else is a plain link */
+const inApp = (href: string) => href.startsWith('/')
+const outside = (href: string) =>
+  /^https?:/.test(href) ? { target: '_blank', rel: 'noopener' } : {}
+
 function run(action: ScreenAction) {
-  if (action.disabledReason) return
+  if (action.disabledReason || action.kind === 'submit') return
   if (action.kind === 'dialog') {
     emit('dialog', action.name)
   } else if (action.kind === 'post' && action.confirm) {
@@ -59,7 +69,8 @@ function confirmed() {
 }
 
 const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand'
-const DISABLED = 'aria-disabled:cursor-not-allowed aria-disabled:opacity-60'
+const DISABLED =
+  'disabled:cursor-not-allowed disabled:opacity-60 aria-disabled:cursor-not-allowed aria-disabled:opacity-60'
 /** On the black band on the phone, bordered on white from 768px */
 const SECONDARY = cn(
   'inline-flex h-11 items-center justify-center gap-2 rounded-sm border border-sidebar-border bg-sidebar-accent px-4 text-sm font-semibold whitespace-nowrap text-white md:h-9 md:border-border md:bg-card md:text-foreground md:hover:bg-background md:focus-visible:ring-ring',
@@ -89,15 +100,24 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       class="flex min-w-0 flex-1 flex-col gap-1 md:flex-none"
     >
       <Link
-        v-if="action.kind === 'link' && !action.disabledReason"
+        v-if="action.kind === 'link' && !action.disabledReason && inApp(action.href!)"
         :href="action.href!"
         :class="SECONDARY"
       >
         {{ action.label }}
       </Link>
+      <a
+        v-else-if="action.kind === 'link' && !action.disabledReason"
+        :href="action.href!"
+        v-bind="outside(action.href!)"
+        :class="SECONDARY"
+      >
+        {{ action.label }}
+      </a>
       <button
         v-else
-        type="button"
+        :type="action.kind === 'submit' ? 'submit' : 'button'"
+        :disabled="action.kind === 'submit' && busy"
         :class="SECONDARY"
         :aria-disabled="action.disabledReason ? 'true' : undefined"
         :aria-describedby="action.disabledReason ? reasonId(action) : undefined"
@@ -124,15 +144,28 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         {{ arranged.primary.disabledReason }}
       </span>
       <Link
-        v-if="arranged.primary.kind === 'link' && !arranged.primary.disabledReason"
+        v-if="
+          arranged.primary.kind === 'link' &&
+          !arranged.primary.disabledReason &&
+          inApp(arranged.primary.href!)
+        "
         :href="arranged.primary.href!"
         :class="PRIMARY"
       >
         {{ arranged.primary.label }}
       </Link>
+      <a
+        v-else-if="arranged.primary.kind === 'link' && !arranged.primary.disabledReason"
+        :href="arranged.primary.href!"
+        v-bind="outside(arranged.primary.href!)"
+        :class="PRIMARY"
+      >
+        {{ arranged.primary.label }}
+      </a>
       <button
         v-else
-        type="button"
+        :type="arranged.primary.kind === 'submit' ? 'submit' : 'button'"
+        :disabled="arranged.primary.kind === 'submit' && busy"
         :class="PRIMARY"
         :aria-disabled="arranged.primary.disabledReason ? 'true' : undefined"
         :aria-describedby="arranged.primary.disabledReason ? reasonId(arranged.primary) : undefined"
@@ -152,7 +185,8 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       <DropdownMenuContent>
         <template v-for="action in arranged.overflow" :key="action.name">
           <DropdownMenuItem v-if="action.kind === 'link' && !action.disabledReason" as-child>
-            <Link :href="action.href!">{{ action.label }}</Link>
+            <Link v-if="inApp(action.href!)" :href="action.href!">{{ action.label }}</Link>
+            <a v-else :href="action.href!" v-bind="outside(action.href!)">{{ action.label }}</a>
           </DropdownMenuItem>
           <DropdownMenuItem
             v-else
