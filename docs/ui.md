@@ -41,6 +41,7 @@ On desktop the header's buttons read: secondary, primary, "⋯". Destructive act
 - **Hidden or disabled.** An action the state makes meaningless is hidden (no new Visit on a closed Job). The primary is the exception: it stays, disabled with its reason shown beside it, since the user looks for it there (the Job's draft Invoice when nothing is to bill, or a draft already waits). Use `disabledReason` elsewhere only where a user would otherwise search for a missing action.
 - **Header or section.** The header holds the record's own actions. Adding to a section ("Aggiungi addebito") sits in that section's header, and acting on one row in its row; the server still decides whether they show (through the page's props).
 - **Confirmations** use the confirmation dialog (`confirm_dialog.vue`), never `window.confirm`: titled with the action, the question as its text, the action's own label on its button.
+- **Deleting through a `DELETE` route** is declared as a `dialog` action, still destructive with its `confirm` question: the page asks it in the confirmation dialog, then sends the `DELETE` itself (the Item's Elimina, `app/services/item_actions.ts`).
 
 ## Entity screen body
 

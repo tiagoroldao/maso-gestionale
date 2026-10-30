@@ -110,7 +110,6 @@ export default class ItemsController {
   async create({ inertia }: HttpContext) {
     return inertia.render('items/form', {
       item: null,
-      documents: [],
       categories: await categoryOptions(),
       vatCodes: await vatCodeOptions(),
     })
@@ -207,10 +206,7 @@ export default class ItemsController {
   }
 
   async edit({ params, inertia }: HttpContext) {
-    const item = await Item.query()
-      .where('id', params.id)
-      .preload('documents', (documents) => documents.orderBy('title'))
-      .firstOrFail()
+    const item = await Item.findOrFail(params.id)
 
     return inertia.render('items/form', {
       item: {
@@ -231,12 +227,6 @@ export default class ItemsController {
         reorderLevel: item.reorderLevel,
         maintenanceIntervalMonths: item.maintenanceIntervalMonths,
       },
-      documents: item.documents.map((document) => ({
-        id: document.id,
-        title: document.title,
-        originalName: document.originalName,
-        sizeBytes: document.sizeBytes,
-      })),
       categories: await categoryOptions(),
       vatCodes: await vatCodeOptions(item.vatCodeId),
     })
