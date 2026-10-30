@@ -12,6 +12,7 @@ import DocumentRenderer from '#documents/document_renderer'
 import { quoteDocument } from '#documents/quote_document'
 import { PdfConversionError } from '#documents/pdf_converter'
 import { quoteImportValidator, quoteValidator } from '#validators/quote'
+import { quoteActions } from '#services/quote_actions'
 import { localDateTime } from '#services/dates'
 import { flashWithStockWarning } from '#stock/stock_warning'
 import { OPEN_VISIT_STATUSES } from '#shared/visits'
@@ -25,14 +26,18 @@ export default class QuotesController {
   /**
    * The editor for a new Quote on the Job, saved as a draft (store).
    */
-  async create({ params, inertia, session, response, i18n }: HttpContext) {
+  async create({ params, inertia, session, response, i18n, bouncer }: HttpContext) {
     const job = await Job.query().where('id', params.id).preload('customer').firstOrFail()
     if (!Quotes.canWrite(job)) {
       session.flash('error', i18n.t('flash.quoteNotWritable'))
       return response.redirect().toRoute('jobs.show', { id: job.id })
     }
     return inertia.render('quotes/edit', {
-      ...(await pageProps(job, null)),
+      ...(await pageProps(job, null, bouncer)),
+      actions: quoteActions(
+        { quote: null, editable: true, sendable: false, decidable: false },
+        i18n
+      ),
       editable: true,
       sendable: false,
       decidable: false,
@@ -65,7 +70,7 @@ export default class QuotesController {
     response.redirect().toRoute('quotes.edit', { id: quote.id })
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n, bouncer }: HttpContext) {
     const quote = await loadQuote(params.id)
     const job = quote.job
     // Importing lines as Charges (ADR 0012): how often each line was
@@ -91,8 +96,21 @@ export default class QuotesController {
       ? await User.query().where('role', 'technician').where('isActive', true).orderBy('email')
       : []
 
+    const editable = Quotes.isEditable(job, quote)
+    const sendable = Quotes.isSendable(job, quote)
+    const decidable = Quotes.isDecidable(job, quote)
+
     return inertia.render('quotes/edit', {
-      ...(await pageProps(job, quote)),
+      ...(await pageProps(job, quote, bouncer)),
+      actions: quoteActions(
+        {
+          quote: { id: quote.id, number: quote.number, total: quote.totals.total },
+          editable,
+          sendable,
+          decidable,
+        },
+        i18n
+      ),
       quote: {
         id: quote.id,
         number: quote.number,
@@ -117,9 +135,9 @@ export default class QuotesController {
           significantGood: line.item?.significantGood ?? false,
         })),
       },
-      editable: Quotes.isEditable(job, quote),
-      sendable: Quotes.isSendable(job, quote),
-      decidable: Quotes.isDecidable(job, quote),
+      editable,
+      sendable,
+      decidable,
       importable,
       openVisits: visits.map((visit) => ({
         id: visit.id,
@@ -262,7 +280,7 @@ async function loadQuote(id: number) {
  * What the editor needs whether the Quote is new or not: the Job, and the
  * rates, call-out fee and VAT choices for its lines.
  */
-async function pageProps(job: Job, quote: Quote | null) {
+async function pageProps(job: Job, quote: Quote | null, bouncer: HttpContext['bouncer']) {
   const rates = await LabourRate.query().whereNull('archived_at').orderBy('name')
   const settings = await CompanySettings.current()
   return {
@@ -272,8 +290,11 @@ async function pageProps(job: Job, quote: Quote | null) {
       title: job.title,
       status: job.status,
       customer: job.customer.displayName,
+      customerId: job.customerId,
     },
     quote: null,
+    // An Item on a line opens its preview, for those who may open the Item
+    previewItems: await bouncer.allows('manageItems'),
     labourRates: rates.map((rate) => ({
       id: rate.id,
       name: rate.name,
