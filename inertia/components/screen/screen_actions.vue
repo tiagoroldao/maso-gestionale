@@ -118,7 +118,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         v-else
         :type="action.kind === 'submit' ? 'submit' : 'button'"
         :form="action.form ?? undefined"
-        :disabled="action.kind === 'submit' && busy"
+        :disabled="action.kind === 'submit' && (busy || !!action.disabledReason)"
         :class="SECONDARY"
         :aria-disabled="action.disabledReason ? 'true' : undefined"
         :aria-describedby="action.disabledReason ? reasonId(action) : undefined"
@@ -167,7 +167,9 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         v-else
         :type="arranged.primary.kind === 'submit' ? 'submit' : 'button'"
         :form="arranged.primary.form ?? undefined"
-        :disabled="arranged.primary.kind === 'submit' && busy"
+        :disabled="
+          arranged.primary.kind === 'submit' && (busy || !!arranged.primary.disabledReason)
+        "
         :class="PRIMARY"
         :aria-disabled="arranged.primary.disabledReason ? 'true' : undefined"
         :aria-describedby="arranged.primary.disabledReason ? reasonId(arranged.primary) : undefined"
