@@ -502,7 +502,9 @@ async function jobCharges(job: Job, office: User) {
 test.group("Work report: the Job's other costs (#192)", (group) => {
   group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
 
-  const days = [
+  // The long Job's days, dated when the test runs: dated when the file
+  // loads, they'd be a day off for a run that crosses midnight (#231)
+  const days = () => [
     [shown(10), 'Anna Neri, Bruno Blu, Carlo Ditta', 'Idraulico', '3 h'],
     ['', '', 'Valvola', '3 pz'],
     ['', '', 'Elettricista', '1 h'],
@@ -544,7 +546,7 @@ test.group("Work report: the Job's other costs (#192)", (group) => {
 
     const document = await IssuedDocument.findOrFail(response.body().id)
     assert.deepEqual(document.tables.rapportino.rows, [
-      ...days,
+      ...days(),
       ['', '', it('documents.workReport.jobCharges'), ''],
       ['', '', 'Uscita', '1'],
       ['', '', 'Valvola', '2 pz'],
@@ -565,7 +567,7 @@ test.group("Work report: the Job's other costs (#192)", (group) => {
     const rows = document.tables.rapportino.rows
     assert.deepEqual(
       rows.slice(0, -1).map((row: string[]) => row.slice(0, 4)),
-      days
+      days()
     )
     assert.deepEqual(rows.at(-1), [
       '',

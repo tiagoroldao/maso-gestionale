@@ -1,6 +1,6 @@
 # Backend first, minimal UI until a UX pass
 
-**Amended by 0020** (2026-10-30): the UX pass has started. Screens on the new UI follow `docs/ui.md`; the rest stay minimal as below until they move. Decided by the business on 2026-10-30: no screen limits its links to the next step of a workflow any more.
+**Amended by 0020** (2026-10-30): the UX pass has started. Screens on the new UI follow `docs/ui.md`; the rest stay minimal as below until they move. Decided by the business on 2026-10-30: no screen limits its links to the next step of a workflow any more, and browser tests check the rules of `docs/ui.md` at each screen size (never pixels) instead of never asserting layout.
 
 Until the app is feature-complete, the interface exists only to exercise and test the backend. Several UX features (styles, navigation, how screens link together, listing conventions, filters, reports) will be designed in a dedicated pass before anyone uses the app day to day, so UI work done now is provisional and is kept to the minimum that makes each feature reachable and testable. The rules that apply to each change are under "UI scope" in `CODING_STANDARDS.md`; UX work found along the way is labelled `ui-later` instead of being built.
 

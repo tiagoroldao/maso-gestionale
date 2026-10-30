@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Carbonio · Commessa</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=Montserrat:wght@500;600;700&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}a:hover{color:inherit}
+.r{--paper:#fafafa;--card:#ffffff;--ink:#0b0b0c;--ink2:#2b2d31;--muted:#5d6168;--line:#e2e2e5;--side:#0b0b0c;--sidefg:#c9cacd;--sideon:#1c1c1f;--brand:#d4000f;--sidebrand:#ff3030;--btn:#0b0b0c;--btnfg:#ffffff;--blue:#1d56c4;--bluebg:#e6eefc;--orange:#9a4a06;--orangebg:#fcefe0;--green:#17724a;--greenbg:#e3f2e9;--grey:#4f535a;--greybg:#ececef;font-family:Inter,system-ui,sans-serif;font-feature-settings:'tnum' 1;color:var(--ink);background:var(--paper)}
+.r.dark{--paper:#0e0e10;--card:#151518;--ink:#ececed;--ink2:#c3c5c9;--muted:#9a9ea6;--line:#2a2b30;--side:#000000;--sidefg:#a9abb0;--sideon:#1a1a1d;--brand:#ff4545;--btn:#ececed;--btnfg:#0b0b0c;--blue:#93b8ff;--bluebg:#172540;--orange:#ffb46b;--orangebg:#3a250f;--green:#62d39c;--greenbg:#11301f;--grey:#b9bcc2;--greybg:#25262b}
+.lbl{font-family:Montserrat,Inter,sans-serif;font-size:11px;font-weight:600;letter-spacing:0.16em;text-transform:uppercase;color:var(--muted)}
+.tag{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:3px;font-size:12px;font-weight:600;white-space:nowrap}
+.t-blue{color:var(--blue);background:var(--bluebg)}.t-orange{color:var(--orange);background:var(--orangebg)}.t-green{color:var(--green);background:var(--greenbg)}.t-grey{color:var(--grey);background:var(--greybg)}
+.nav{display:flex;align-items:center;gap:10px;height:34px;padding:0 12px;border-radius:3px;font-size:14px;color:var(--sidefg);text-decoration:none}
+.nav:hover{color:#ffffff;background:var(--sideon)}
+.nav.on{color:#ffffff;background:var(--sideon);font-weight:600}
+.nav.on::after{content:'';margin-left:auto;width:7px;height:12px;background:var(--sidebrand);transform:skewY(-40deg)}
+.btn{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 14px;border-radius:3px;font:600 13px Inter,system-ui,sans-serif;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+.btn.p{background:var(--btn);color:var(--btnfg);border-color:var(--btn)}
+.th{font-size:12px;font-weight:500;color:var(--muted);text-align:left;padding:8px 16px;border-bottom:1px solid var(--line);white-space:nowrap}
+.td{font-size:14px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.num{text-align:right}
+.fact{display:flex;flex-direction:column;gap:6px;padding:14px 18px;flex:1 1 180px;min-width:0}
+</style>
+</helmet>
+<div class="{{rootClass}}" style="min-height: 1000px; display: flex; flex-wrap: wrap; align-items: stretch;">
+
+  <nav aria-label="Navigazione principale" style="flex: 1 1 236px; max-width: 100%; box-sizing: border-box; padding: 20px 14px; background: var(--side); display: flex; flex-direction: column; gap: 22px;">
+    <div style="display: flex; flex-direction: column; gap: 8px; padding: 4px 12px 10px;">
+      <svg viewBox="0 0 437 258" width="44" height="26" role="img" aria-label="Maso Hightechnology"><polygon points="0,2 130,132 197,66 197,127 130,193 44,108 44,258 0,258" style="fill: #ffffff"></polygon><polygon points="220,100 220,48 260,2 260,54" style="fill: var(--sidebrand)"></polygon><rect x="392" y="0" width="45" height="258" style="fill: #ffffff"></rect><rect x="262" y="96" width="130" height="44" style="fill: #ffffff"></rect><polygon points="220,258 220,180 262,140 262,258" style="fill: #ffffff"></polygon></svg>
+      <span style="font-family: Montserrat, Inter, sans-serif; font-weight: 600; font-size: 10px; letter-spacing: 0.32em; color: #ffffff;">MASO HIGHTECHNOLOGY</span>
+    </div>
+    <sc-for list="{{nav}}" as="g" hint-placeholder-count="4">
+      <div style="display: flex; flex-direction: column; gap: 2px;">
+        <div style="font-family: Montserrat, Inter, sans-serif; font-size: 10px; font-weight: 600; letter-spacing: 0.2em; color: #8d9096; padding: 0 12px 6px;">{{g.label}}</div>
+        <sc-for list="{{g.items}}" as="i" hint-placeholder-count="3">
+          <a href="#" class="nav {{i.cls}}">{{i.name}}</a>
+        </sc-for>
+      </div>
+    </sc-for>
+    <div style="margin-top: auto; display: flex; align-items: center; gap: 10px; padding: 12px; border-top: 1px solid #222326; color: #ffffff;">
+      <div aria-hidden="true" style="width: 28px; height: 28px; border-radius: 3px; background: #26272b; display: grid; place-items: center; font-size: 12px; font-weight: 600;">GM</div>
+      <div style="display: flex; flex-direction: column;"><span style="font-size: 13px; font-weight: 500;">Giulia M.</span><span style="font-size: 12px; color: #a9abb0;">Ufficio</span></div>
+    </div>
+  </nav>
+
+  <main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column;">
+    <header style="background: var(--card); border-bottom: 1px solid var(--line);">
+    <div style="padding: 22px 32px; display: flex; flex-direction: column; gap: 12px; max-width: 1220px; box-sizing: border-box; width: 100%;">
+      <nav aria-label="Percorso" class="lbl"><a href="#" style="text-decoration: none;">Commesse</a> / C-2026-0142</nav>
+      <div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 16px;">
+        <div style="flex: 1 1 320px; display: flex; flex-direction: column; gap: 8px;">
+          <h1 style="margin: 0; font-family: Montserrat, Inter, sans-serif; font-size: 26px; font-weight: 700; letter-spacing: 0.01em;">Sostituzione caldaia</h1>
+          <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;"><span class="tag t-orange">{{tags.inCorso}}</span><span style="font-size: 14px; color: var(--muted);">A consuntivo · aperta il 20 ott 2026</span></div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button class="btn" type="button">Nuovo intervento</button>
+          <button class="btn p" type="button">Crea bozza fattura</button>
+          <button class="btn" type="button" aria-label="Altre azioni" style="padding: 0 9px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="1.8"></circle><circle cx="12" cy="12" r="1.8"></circle><circle cx="19" cy="12" r="1.8"></circle></svg></button>
+        </div>
+      </div>
+    </div>
+    </header>
+
+    <div style="padding: 20px 32px 0; max-width: 1220px; box-sizing: border-box; width: 100%;">
+      <div style="display: flex; flex-wrap: wrap; background: var(--card); border: 1px solid var(--line); border-radius: 3px;">
+        <div class="fact"><span class="lbl">Cliente</span><a href="#" style="font-size: 15px; font-weight: 600; text-decoration: none;">Rossi Mario</a><span style="font-size: 13px; color: var(--muted);">Privato · [TELEFONO]</span></div>
+        <div class="fact" style="border-left: 1px solid var(--line);"><span class="lbl">Immobile</span><span style="font-size: 15px; font-weight: 600;">[INDIRIZZO]</span><span style="font-size: 13px; color: var(--muted);">Abitazione · Manutenzione</span></div>
+        <div class="fact" style="border-left: 1px solid var(--line);"><span class="lbl">Da fatturare</span><span style="font-size: 20px; font-weight: 700;">€ 353,00</span><span style="font-size: 13px; color: var(--muted);">su € 2.388,00 imponibile</span></div>
+      </div>
+    </div>
+
+    <div style="padding: 20px 32px 40px; display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; max-width: 1220px; box-sizing: border-box; width: 100%;">
+      <section aria-labelledby="b-int" style="flex: 999 1 460px; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 3px;">
+        <div style="padding: 14px 16px 8px;"><h2 id="b-int" class="lbl" style="margin: 0; color: var(--ink);">Interventi</h2></div>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr><th class="th">Data</th><th class="th">Orario</th><th class="th">Tecnici</th><th class="th">Stato</th></tr></thead>
+            <tbody>
+              <sc-for list="{{visits}}" as="v" hint-placeholder-count="3">
+                <tr><td class="td" style="font-weight: 600;">{{v.date}}</td><td class="td">{{v.time}}</td><td class="td">{{v.tech}}</td><td class="td"><span class="tag t-{{v.tone}}">{{v.status}}</span></td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+      <section aria-labelledby="b-doc" style="flex: 1 1 280px; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 3px; padding: 14px 16px; display: flex; flex-direction: column; gap: 12px;">
+        <h2 id="b-doc" class="lbl" style="margin: 0; color: var(--ink);">Documenti</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px;"><a href="#">Preventivo P-2026-031</a><span class="tag t-green">{{tags.accettato}}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px;"><a href="#">Fattura 118/2026</a><span class="tag t-green">{{tags.consegnata}}</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 14px;"><a href="#">Fattura in bozza</a><span class="tag t-grey">{{tags.bozza}}</span></div>
+      </section>
+
+      <section aria-labelledby="b-add" style="flex: 1 1 100%; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 3px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px 8px; flex-wrap: wrap;">
+          <h2 id="b-add" class="lbl" style="margin: 0; color: var(--ink);">Addebiti</h2>
+          <button class="btn" type="button" style="height: 30px;">Aggiungi addebito</button>
+        </div>
+        <div style="overflow-x: auto;">
+          <table style="width: 100%; border-collapse: collapse;">
+            <thead><tr><th class="th">Descrizione</th><th class="th">Tipo</th><th class="th num">Q.tà</th><th class="th num">Prezzo</th><th class="th num">Totale</th><th class="th">Fatturazione</th></tr></thead>
+            <tbody>
+              <sc-for list="{{charges}}" as="c" hint-placeholder-count="4">
+                <tr><td class="td">{{c.desc}}</td><td class="td" style="color: var(--muted);">{{c.kind}}</td><td class="td num">{{c.qty}}</td><td class="td num">{{c.price}}</td><td class="td num" style="font-weight: 600;">{{c.total}}</td><td class="td"><span class="tag t-{{c.tone}}">{{c.state}}</span></td></tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"dark":{"editor":"boolean","default":false},"capsTags":{"editor":"boolean","default":false},"$preview":{"width":1440,"height":1000}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const on = (n) => n === 'Commesse' ? 'on' : '';
+    const group = (label, names) => ({ label, items: names.map((name) => ({ name, cls: on(name) })) });
+    const caps = this.props.capsTags ?? false;
+    const t = (s) => caps ? s.toUpperCase() : s.charAt(0) + s.slice(1).toLowerCase();
+    const data = this.data();
+    return {
+      rootClass: this.props.dark ? 'r dark' : 'r',
+      tags: { inCorso: t('IN CORSO'), accettato: t('ACCETTATO'), consegnata: t('CONSEGNATA'), bozza: t('BOZZA') },
+      nav: data.nav.map((g) => group(g[0], g[1])),
+      visits: data.visits.map((v) => ({ ...v, status: t(v.status) })),
+      charges: data.charges.map((c) => ({ ...c, state: t(c.state) }))
+    };
+  }
+  data() {
+    const group = (label, names) => [label, names];
+    return {
+      nav: [
+        group('LAVORO', ['Agenda', 'Commesse', 'Interventi']),
+        group('FATTURAZIONE', ['Preventivi', 'Fatture', 'Fatture passive']),
+        group('MAGAZZINO', ['Articoli', 'Giacenze', 'Fornitori']),
+        group('ANAGRAFICHE', ['Clienti', 'Impostazioni'])
+      ],
+      visits: [
+        { date: 'Lun 26 ott', time: '09:00–13:00', tech: 'Luca B.', status: 'CHIUSO', tone: 'green' },
+        { date: 'Gio 29 ott', time: '14:00–17:00', tech: 'Luca B., Marco T.', status: 'IN CORSO', tone: 'orange' },
+        { date: 'Mar 3 nov', time: '08:30–12:00', tech: 'Marco T.', status: 'PIANIFICATO', tone: 'blue' }
+      ],
+      charges: [
+        { desc: 'Caldaia a condensazione 25 kW', kind: 'Articolo', qty: '1', price: '1.890,00', total: '1.890,00', state: 'FATTURATO', tone: 'green' },
+        { desc: 'Kit scarico fumi coassiale', kind: 'Articolo', qty: '1', price: '145,00', total: '145,00', state: 'IN BOZZA', tone: 'grey' },
+        { desc: 'Manodopera idraulico', kind: 'Ore', qty: '6,5', price: '42,00', total: '273,00', state: 'DA FATTURARE', tone: 'orange' },
+        { desc: 'Smaltimento vecchia caldaia', kind: 'Altro', qty: '1', price: '80,00', total: '80,00', state: 'DA FATTURARE', tone: 'orange' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>
