@@ -13,6 +13,11 @@ const BLOCKING = new Set(['serious', 'critical'])
  * assertion says what to fix.
  */
 export async function seriousA11yViolations(page: Page, options: { content?: boolean } = {}) {
+  // Colours caught mid-transition (after a theme or viewport change) fail
+  // the contrast check: wait for finite transitions and animations to end
+  await page.waitForFunction(
+    `document.getAnimations().every((a) => a.playState !== 'running' || a.effect?.getTiming().iterations === Infinity)`
+  )
   const axe = new AxeBuilder({ page })
   const { violations } = await (options.content ? axe : axe.exclude('.app-main')).analyze()
   return violations
