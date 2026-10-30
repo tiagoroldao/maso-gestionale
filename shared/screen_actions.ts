@@ -34,10 +34,16 @@ export type ScreenAction = {
   confirm: string | null
   /** Blocked by the record's state but expected here: shown disabled, with this reason */
   disabledReason: string | null
+  /**
+   * The id of the form a `submit` submits (its HTML `form` attribute), for a
+   * form that isn't around the header (a settings page's, below it); null
+   * for the form the screen sits in
+   */
+  form: string | null
 }
 
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
-  Partial<Pick<ScreenAction, 'href' | 'destructive' | 'confirm' | 'disabledReason'>>
+  Partial<Pick<ScreenAction, 'href' | 'destructive' | 'confirm' | 'disabledReason' | 'form'>>
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
 export class ScreenActionsError extends Error {}
@@ -57,6 +63,7 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
       destructive: false,
       confirm: null,
       disabledReason: null,
+      form: null,
       ...action,
     }
     if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
@@ -75,10 +82,11 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
 
 /**
  * A screen in edit mode (a form to create or edit a record): Save, its
- * primary, submits the form the screen sits in.
+ * primary, submits the form the screen sits in, or the form with the id
+ * `form` when that form isn't around the header.
  */
-export function saveActions(label: string) {
-  return declareActions([{ name: 'save', label, rank: 'primary', kind: 'submit' }])
+export function saveActions(label: string, form: string | null = null) {
+  return declareActions([{ name: 'save', label, rank: 'primary', kind: 'submit', form }])
 }
 
 /** Secondary actions shown as buttons; the rest go in "⋯" */

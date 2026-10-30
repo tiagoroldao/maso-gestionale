@@ -67,6 +67,8 @@ const props = defineProps<{
 }>()
 
 const jobsHref = computed(() => `${urlFor('jobs.index')}?customerId=${props.customer.id}`)
+// Every one of its Jobs, closed and cancelled included: what "Tutte le N commesse" counts
+const allJobsHref = computed(() => `${jobsHref.value}&status=all`)
 
 // The header: its line of identifying facts, and the key facts under it
 const facts = computed(() =>
@@ -150,7 +152,7 @@ const EMPTY = 'm-0 border-t border-border px-3.5 py-3 text-sm text-muted-foregro
 
       <template #main>
         <ScreenSection :title="t('ui.jobs.title')" flush>
-          <JobRows :jobs="jobs.rows" :total="jobs.total" :all-href="jobsHref" show-site />
+          <JobRows :jobs="jobs.rows" :total="jobs.total" :all-href="allJobsHref" show-site />
         </ScreenSection>
 
         <ScreenSection :title="t('ui.customers.invoicesTitle')" flush>

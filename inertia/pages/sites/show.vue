@@ -74,6 +74,8 @@ const props = defineProps<{
 const today = todayIso()
 const overdue = (date: string | null) => date !== null && date < today
 const jobsHref = computed(() => `${urlFor('jobs.index')}?siteId=${props.site.id}`)
+// Every one of its Jobs, closed and cancelled included: what "Tutte le N commesse" counts
+const allJobsHref = computed(() => `${jobsHref.value}&status=all`)
 
 // The header's line, and the key facts under it
 const facts = computed(() =>
@@ -289,7 +291,7 @@ const SUB = 'text-[13px] text-muted-foreground'
         </ScreenSection>
 
         <ScreenSection :title="t('ui.jobs.title')" flush>
-          <JobRows :jobs="jobs.rows" :total="jobs.total" :all-href="jobsHref" show-customer />
+          <JobRows :jobs="jobs.rows" :total="jobs.total" :all-href="allJobsHref" show-customer />
         </ScreenSection>
       </template>
 
@@ -345,6 +347,7 @@ const SUB = 'text-[13px] text-muted-foreground'
               name="removedOn"
               type="date"
               :default-value="today"
+              :max="today"
               class="h-11 md:h-9"
               :aria-invalid="field.invalid"
               :aria-describedby="field.describedBy"

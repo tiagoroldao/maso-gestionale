@@ -418,7 +418,6 @@
     "newTitle": "Nuovo immobile",
     "newForCustomer": "Nuovo immobile per {name}",
     "editTitle": "Modifica immobile",
-    "editSite": "Modifica immobile",
     "searchLabel": "Cerca immobili",
     "searchPlaceholder": "Via, comune o etichetta",
     "noMatches": "Nessun immobile corrisponde a «{q}».",

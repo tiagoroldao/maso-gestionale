@@ -9,7 +9,7 @@
  * A `post` action asks first when it has a question (destructive or
  * irreversible ones); a `dialog` action is the page's own short form,
  * opened through the `dialog` event; a `submit` action submits the form
- * the screen sits in (disabled while it is `busy`); a disabled one shows
+ * the screen sits in, or the one its `form` names (disabled while `busy`); a disabled one shows
  * its reason. A `link` outside the app (a contact's `tel:`, a map) is a
  * plain link, a web one opening in a new tab.
  */
@@ -117,6 +117,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       <button
         v-else
         :type="action.kind === 'submit' ? 'submit' : 'button'"
+        :form="action.form ?? undefined"
         :disabled="action.kind === 'submit' && busy"
         :class="SECONDARY"
         :aria-disabled="action.disabledReason ? 'true' : undefined"
@@ -165,6 +166,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       <button
         v-else
         :type="arranged.primary.kind === 'submit' ? 'submit' : 'button'"
+        :form="arranged.primary.form ?? undefined"
         :disabled="arranged.primary.kind === 'submit' && busy"
         :class="PRIMARY"
         :aria-disabled="arranged.primary.disabledReason ? 'true' : undefined"

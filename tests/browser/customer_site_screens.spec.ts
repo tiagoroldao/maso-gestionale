@@ -67,6 +67,8 @@ test.group('Customer and Site screens in the browser', () => {
   }) => {
     await browserContext.loginAs(await createUser('office'))
     const customer = await createCustomer({ phone: '0461 123456' })
+    // More Jobs than the page lists, all closed (an open one would refuse archiving): the link to all of them includes them
+    for (let index = 0; index < 26; index++) await createJob(customer, { status: 'closed' })
 
     const page = await visit(`/customers/${customer.id}`)
     await page.setViewportSize(SCREEN_SIZES.desktop)
@@ -83,6 +85,12 @@ test.group('Customer and Site screens in the browser', () => {
       .boundingBox()
     assert.isBelow(call!.x, primary!.x)
     assert.isBelow(primary!.x, more!.x)
+    assert.equal(
+      await page
+        .getByRole('link', { name: it('ui.jobs.allOf', { total: 26 }) })
+        .getAttribute('href'),
+      `/jobs?customerId=${customer.id}&status=all`
+    )
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
 
     // Archiving is confirmed in the dialog, not by the browser

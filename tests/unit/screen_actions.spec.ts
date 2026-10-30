@@ -28,6 +28,7 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
         destructive: false,
         confirm: null,
         disabledReason: null,
+        form: null,
       },
     ])
   })
@@ -73,8 +74,11 @@ test.group('Screen actions (docs/ui.md "Actions")', () => {
         destructive: false,
         confirm: null,
         disabledReason: null,
+        form: null,
       },
     ])
+    // A form below the header, not around it, is named by its id
+    assert.equal(saveActions('Salva', 'settings-form')[0].form, 'settings-form')
   })
 
   test('two secondary actions show as buttons, the rest go in "⋯"', ({ assert }) => {
