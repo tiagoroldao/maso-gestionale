@@ -249,10 +249,6 @@ const DT = cn(LABEL, 'text-[10px]')
               <dt :class="DT">{{ t('ui.items.unit') }}</dt>
               <dd class="m-0">{{ item.unit }}</dd>
             </div>
-            <div class="flex flex-col gap-0.5">
-              <dt :class="DT">{{ t('ui.items.committed') }}</dt>
-              <dd class="m-0">{{ withUnit(stock.committed) }}</dd>
-            </div>
             <div v-if="item.reorderLevel" class="flex flex-col gap-0.5">
               <dt :class="DT">{{ t('ui.items.reorderLevel') }}</dt>
               <dd class="m-0">{{ withUnit(item.reorderLevel) }}</dd>
