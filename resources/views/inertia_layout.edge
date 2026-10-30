@@ -1,11 +1,25 @@
 <!DOCTYPE html>
-<html lang="it" data-theme="{{ request.plainCookie('app_theme', { defaultValue: 'light', encoded: false }) }}">
+<html lang="it">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title data-inertia>
       Maso Gestionale
     </title>
+
+    {{-- Light or dark before the first paint: the user's choice (the app_theme cookie, set by the theme toggle), else the system setting, followed as it changes --}}
+    <script>
+      (function () {
+        var root = document.documentElement
+        var system = window.matchMedia('(prefers-color-scheme: dark)')
+        function apply() {
+          var chosen = document.cookie.match(/(?:^|; )app_theme=(light|dark)(?:;|$)/)
+          root.setAttribute('data-theme', chosen ? chosen[1] : system.matches ? 'dark' : 'light')
+        }
+        apply()
+        system.addEventListener('change', apply)
+      })()
+    </script>
 
     @vite(['inertia/app.ts'])
     @inertiaHead()

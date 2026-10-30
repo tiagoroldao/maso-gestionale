@@ -8,7 +8,7 @@ Management app for a small plumbing business: Customers, Sites and Installed Equ
 
 ## Stack
 
-AdonisJS 7 + Inertia + Vue, Postgres, Gotenberg for PDFs, all run with Docker Compose on one machine (ADRs 0002, 0003, 0005).
+AdonisJS 7 + Inertia + Vue, Postgres, Gotenberg for PDFs, all run with Docker Compose on one machine (ADRs 0002, 0003, 0005). The interface is moving to Tailwind v4 and shadcn-vue on Reka UI (ADR 0020, `docs/ui.md`).
 
 ## Development
 
@@ -39,6 +39,15 @@ The dev database is published on host port 5433, Gotenberg on 3010, both on loca
 ### Route registry
 
 The typed client route registry in `.adonisjs/` and the model schema in `database/schema.ts` are generated. After changing routes, controllers or migrations, run `npm run codegen` (with migrations applied) and commit the result; CI fails when they are stale.
+
+## UI
+
+Screens render inside the app shell (`inertia/layouts/app.vue`) and follow `docs/ui.md`; `CODING_STANDARDS.md` "UI scope" says which rules apply to a screen not yet moved.
+
+- **Styles:** `inertia/css/main.css` is the entry: Tailwind, the colour, type and corner tokens (light, then dark under `[data-theme='dark']`), and the self-hosted fonts (Inter, Montserrat, from `@fontsource`). Tailwind's preflight is off, so the older pages keep `inertia/css/app.css` as they were; use the tokens (`bg-card`, `text-muted-foreground`, `border-border`), not raw colours, which aren't defined.
+- **Light and dark:** a script in `resources/views/inertia_layout.edge` sets `data-theme` on `<html>` before paint: the `app_theme` cookie if the user picked one with the theme toggle, otherwise the system setting.
+- **Components:** shadcn-vue components are copied into `inertia/components/ui/` with `npx shadcn-vue@latest add <name>` (settings in `components.json`), and are then ours to edit. The CLI resolves `~/lib/utils` to an npm package called `cn` and imports icons from `@lucide/vue`: after adding a component, point its imports at `~/lib/utils` and `lucide-vue-next`, remove those two packages from `package.json`, and move any visible text to the catalogue.
+- **Menu:** `shared/menu.ts` lists the sidebar's groups and items with the roles that see each; `tests/functional/menu.spec.ts` checks every item opens for its roles.
 
 ## Translations
 

@@ -1,4 +1,4 @@
-import './css/app.css'
+import './css/main.css'
 import 'vue-sonner/style.css'
 import { client } from '~/client'
 import { createInertiaApp } from '@inertiajs/vue3'
