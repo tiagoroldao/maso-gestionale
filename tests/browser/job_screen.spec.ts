@@ -91,7 +91,7 @@ test.group('Job screen in the browser', () => {
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
   })
 
-  test('the Job screen has no serious accessibility violations in dark, nor with its menu open', async ({
+  test('the Job screen has no serious accessibility violations in dark, nor with its menu or a dialog open', async ({
     browserContext,
     visit,
     assert,
@@ -109,5 +109,10 @@ test.group('Job screen in the browser', () => {
     await page.getByRole('button', { name: it('ui.screen.moreActions') }).click()
     await page.getByRole('menu').waitFor()
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'menu')
+
+    // The confirmation dialog, over the screen
+    await page.getByRole('menuitem', { name: it('ui.jobs.cancel') }).click()
+    await page.getByRole('alertdialog').waitFor()
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'confirmation')
   })
 })

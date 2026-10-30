@@ -1,9 +1,13 @@
 import { test } from '@japa/runner'
 import type { ApiClient } from '@japa/api-client'
+import { DateTime } from 'luxon'
+import Charge from '#models/charge'
+import Visit from '#models/visit'
 import type { ScreenAction } from '#shared/screen_actions'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
+import { createItem } from '#tests/helpers/items'
 import { it } from '#tests/helpers/i18n'
 
 /** The Job page's header actions (docs/ui.md "Actions"), as `name:rank` */
@@ -78,6 +82,65 @@ test.group('Job page actions (#235)', () => {
       .loginAs(office)
     const waiting = await draft()
     assert.equal(waiting.disabledReason, it('ui.jobs.draftWaiting'))
+  })
+
+  test('"Da fatturare" counts the work a draft would bill, not what is still planned', async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const startsAt = DateTime.fromISO('2026-11-06T09:00')
+    const planned = await Visit.create({
+      jobId: job.id,
+      startsAt,
+      endsAt: startsAt.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    const valve = await createItem({ description: 'Valvola', unit: 'pz' })
+    await Charge.create({
+      jobId: job.id,
+      visitId: planned.id,
+      kind: 'item',
+      itemId: valve.id,
+      quantity: '1',
+      billQuantity: '1',
+      unitPrice: '80',
+      description: 'Valvola',
+    })
+    const toBill = async () => {
+      const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+      return (page.inertiaProps.timeAndMaterials as { toBill: string }).toBill
+    }
+    assert.equal(await toBill(), '0.00')
+
+    await client
+      .post(`/jobs/${job.id}/charges`)
+      .form({
+        description: 'Diritto di chiamata',
+        quantity: '1',
+        unit: '',
+        unitPrice: '30',
+        vatKind: 'labour',
+      })
+      .withCsrfToken()
+      .loginAs(office)
+    assert.equal(await toBill(), '30.00')
+  })
+
+  test('Office adds costs to a Job that takes new work only', async ({ client, assert }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    for (const [status, allowed] of [
+      ['open', true],
+      ['in_progress', true],
+      ['closed', false],
+      ['cancelled', false],
+    ] as const) {
+      const job = await createJob(customer, { status })
+      const page = await client.get(`/jobs/${job.id}`).withInertia().loginAs(office)
+      assert.equal(page.inertiaProps.canAddCharge, allowed, status)
+    }
   })
 
   test('a closed Job is reopened from its header; a cancelled one has nothing to change', async ({

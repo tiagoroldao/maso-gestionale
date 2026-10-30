@@ -12,6 +12,8 @@ export type JobActionState = {
   canInvoice: boolean
   /** A draft Invoice from the Charges already waits */
   draftWaiting: boolean
+  /** A new Quote may be written (Quotes.canWrite) */
+  canWriteQuote: boolean
   visits: { startsAt: string; endsAt: string; status: string }[]
   /** What the user's role allows beyond the Job itself */
   can: { invoices: boolean }
@@ -68,8 +70,8 @@ export function jobActions(state: JobActionState, i18n: I18n) {
       href: urlFor('jobs.edit', params),
     })
   }
-  // A Job may have several Quotes, written while it takes new work (ADR 0013)
-  if (active) {
+  // A Job may have several Quotes (ADR 0013), written when Quotes.canWrite says
+  if (state.canWriteQuote) {
     actions.push({
       name: 'newQuote',
       label: i18n.t('ui.quotes.new'),

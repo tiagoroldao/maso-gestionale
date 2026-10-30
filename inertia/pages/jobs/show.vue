@@ -17,7 +17,7 @@ import type { ChargeState, WorkState } from '@shared/charges'
 import type { AdvanceState } from '@shared/advances'
 import type { InvoiceStatus } from '@shared/invoice_lifecycle'
 import { LINE_KINDS } from '@shared/vat'
-import { takesNewWork, type JobIndicators, type JobStatus } from '@shared/jobs'
+import type { JobIndicators, JobStatus } from '@shared/jobs'
 import type { ScreenAction } from '@shared/screen_actions'
 import { DEFAULT_ORGANISE_BY, ORGANISE_BY } from '@shared/invoice_sections'
 import { computed, ref } from 'vue'
@@ -55,6 +55,8 @@ const props = defineProps<{
   actions: ScreenAction[]
   quotes: { id: number; number: string; status: QuoteStatus; total: string }[]
   canWriteQuote: boolean
+  // The server decides whether Office may add a cost here (docs/ui.md "Actions")
+  canAddCharge: boolean
   invoices: {
     id: number
     number: string | null
@@ -147,8 +149,6 @@ const props = defineProps<{
   }[]
 }>()
 
-// A closed or cancelled Job takes no new Visits, Charges or Quotes
-const active = computed(() => takesNewWork(props.job.status))
 const left = computed(() =>
   Object.entries(props.leftToClose ?? {}).filter(([, count]) => count > 0)
 )
@@ -641,7 +641,7 @@ const SUMMARY_TOGGLE =
       </template>
 
       <ScreenSection :title="t('ui.charges.title')" flush>
-        <template v-if="active" #actions>
+        <template v-if="canAddCharge" #actions>
           <Button variant="outline" :class="BUTTON" @click="chargeOpen = true">
             {{ t('ui.charges.add') }}
           </Button>

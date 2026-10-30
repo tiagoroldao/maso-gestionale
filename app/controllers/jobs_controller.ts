@@ -242,6 +242,7 @@ export default class JobsController {
           job,
           canInvoice,
           draftWaiting,
+          canWriteQuote: Quotes.canWrite(job),
           visits,
           can: { invoices: await bouncer.allows('manageInvoices') },
         },
@@ -256,6 +257,8 @@ export default class JobsController {
         total: quote.totals.total,
       })),
       canWriteQuote: Quotes.canWrite(job),
+      // Office adds costs while the Job takes new work (ADR 0015)
+      canAddCharge: job.isActive,
       invoices: invoices.map((invoice) => {
         const advance = advances.get(invoice.id)
         return {
@@ -313,7 +316,9 @@ export default class JobsController {
       },
       timeAndMaterials: {
         total: sumAmounts(amounts),
-        toBill: sumOf('to_bill'),
+        // What a draft would bill now: done work not yet in an Invoice, not
+        // what is still planned (ADR 0016)
+        toBill: sumAmounts(work.filter((line) => line.draftable).map((line) => line.amount)),
         billed: sumOf('billed'),
         inDraft: sumOf('in_draft'),
         lines: amounts.length,

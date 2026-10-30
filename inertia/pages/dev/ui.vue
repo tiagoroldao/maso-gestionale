@@ -87,7 +87,12 @@ const sampleFacts: KeyFact[] = [
     hint: t('ui.devUi.sampleHint'),
   },
 ]
-const TONES: Tone[] = ['blue', 'orange', 'green', 'grey']
+const TONES: [Tone, string][] = [
+  ['blue', 'ui.devUi.tones.blue'],
+  ['orange', 'ui.devUi.tones.orange'],
+  ['green', 'ui.devUi.tones.green'],
+  ['grey', 'ui.devUi.tones.grey'],
+]
 const dialogOpen = ref(false)
 const confirmOpen = ref(false)
 const sampleSelect = ref('kind')
@@ -286,8 +291,8 @@ function sampleDialog(name: string) {
       <section :class="section">
         <h2 :class="heading">{{ t('ui.devUi.statusTags') }}</h2>
         <div class="flex flex-wrap gap-2 rounded-sm border border-border bg-card p-4">
-          <StatusTag v-for="tone in TONES" :key="tone" :tone="tone">
-            {{ t(`ui.devUi.tones.${tone}`) }}
+          <StatusTag v-for="[tone, label] in TONES" :key="tone" :tone="tone">
+            {{ t(label) }}
           </StatusTag>
         </div>
       </section>
