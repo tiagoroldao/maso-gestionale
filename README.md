@@ -42,7 +42,7 @@ The typed client route registry in `.adonisjs/` and the model schema in `databas
 
 ## UI
 
-Every screen renders inside the app shell (`inertia/layouts/app.vue`); a screen built from the new components follows `docs/ui.md`, and `CODING_STANDARDS.md` "UI scope" says which rules apply to one not yet moved.
+Every screen renders inside the app shell (`inertia/layouts/app.vue`), except sign-in and first-run setup (`inertia/layouts/auth.vue`) and the error pages (`inertia/layouts/plain.vue`), which use the same tokens, logo and components without the menu; a screen built from the new components follows `docs/ui.md`, and `CODING_STANDARDS.md` "UI scope" says which rules apply to one not yet moved.
 
 - **Styles:** `inertia/css/main.css` is the entry: Tailwind, the colour, type and corner tokens (light, then dark under `[data-theme='dark']`), and the self-hosted fonts (Inter, Montserrat, from `@fontsource`). Tailwind's preflight is off, so the older pages keep `inertia/css/app.css` as they were; use the tokens (`bg-card`, `text-muted-foreground`, `border-border`), not raw colours, which aren't defined.
 - **Light and dark:** a script in `resources/views/inertia_layout.edge` sets `data-theme` on `<html>` before paint: the `app_theme` cookie if the user picked one with the theme toggle, otherwise the system setting.

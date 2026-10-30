@@ -1,23 +1,18 @@
 <script setup lang="ts">
-import PlainLayout from '~/layouts/plain.vue'
+import { FileQuestion } from 'lucide-vue-next'
 import { t } from '~/i18n'
+import PlainLayout from '~/layouts/plain.vue'
+import ErrorCard from '~/components/error_card.vue'
 </script>
 
 <template>
   <PlainLayout>
-    <div class="home">
-      <article class="prose-card">
-        <div class="pc-top">
-          <span class="pc-status mono tag" :style="{ color: 'var(--subtle)' }">
-            <span class="dot" /> 404
-          </span>
-        </div>
-        <div class="pc-lead">
-          <span>{{ t('ui.errors.notFoundTitle') }}</span>
-          <em>{{ t('ui.errors.notFoundLead') }}</em>
-        </div>
-        <p class="pc-para">{{ t('ui.errors.notFoundText') }}</p>
-      </article>
-    </div>
+    <ErrorCard
+      :code="404"
+      :icon="FileQuestion"
+      :title="t('ui.errors.notFoundTitle')"
+      :lead="t('ui.errors.notFoundLead')"
+      :text="t('ui.errors.notFoundText')"
+    />
   </PlainLayout>
 </template>

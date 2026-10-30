@@ -65,12 +65,6 @@ export default configApp(
     rules: { 'local/no-hard-coded-colours': 'error' },
   },
   {
-    // The error pages move to the new look with their own issue
-    name: 'colour tokens: error pages not yet moved',
-    files: ['inertia/pages/errors/server_error.vue'],
-    rules: { 'local/no-hard-coded-colours': 'off' },
-  },
-  {
     // Components copied in by the shadcn-vue CLI (ADR 0020) keep its file
     // names and prop style, so `npx shadcn-vue add` can update them
     name: 'shadcn-vue components',

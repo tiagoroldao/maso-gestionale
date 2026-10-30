@@ -1,23 +1,18 @@
 <script setup lang="ts">
-import PlainLayout from '~/layouts/plain.vue'
+import { Lock } from 'lucide-vue-next'
 import { t } from '~/i18n'
+import PlainLayout from '~/layouts/plain.vue'
+import ErrorCard from '~/components/error_card.vue'
 </script>
 
 <template>
   <PlainLayout>
-    <div class="home">
-      <article class="prose-card">
-        <div class="pc-top">
-          <span class="pc-status mono tag" :style="{ color: 'var(--subtle)' }">
-            <span class="dot" /> 403
-          </span>
-        </div>
-        <div class="pc-lead">
-          <span>{{ t('ui.errors.forbiddenTitle') }}</span>
-          <em>{{ t('ui.errors.forbiddenLead') }}</em>
-        </div>
-        <p class="pc-para">{{ t('ui.errors.forbiddenText') }}</p>
-      </article>
-    </div>
+    <ErrorCard
+      :code="403"
+      :icon="Lock"
+      :title="t('ui.errors.forbiddenTitle')"
+      :lead="t('ui.errors.forbiddenLead')"
+      :text="t('ui.errors.forbiddenText')"
+    />
   </PlainLayout>
 </template>
