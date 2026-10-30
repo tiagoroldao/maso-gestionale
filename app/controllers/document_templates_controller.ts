@@ -20,12 +20,63 @@ import {
   documentTemplatePreviewValidator,
   documentTemplateValidator,
 } from '#validators/document_template'
+import { declareActions, saveActions, type ScreenActionInput } from '#shared/screen_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import type { HttpContext } from '@adonisjs/core/http'
+import type { I18n } from '@adonisjs/i18n'
 import type { Infer } from '@vinejs/vine/types'
 
 // The body rule has checked it is a template document
 function toInput(data: Infer<typeof documentTemplateValidator>) {
   return { name: data.name, fields: data.fields, body: data.body as TemplateNode }
+}
+
+/** The id of the editor's form, which the header's Save submits */
+const TEMPLATE_FORM = 'document-template'
+
+/**
+ * A saved template's actions (docs/ui.md "Actions"): Save, trying it with
+ * real data, and archiving it, after confirming; an archived one can't be
+ * edited, so Restore takes Save's place.
+ */
+function templateActions(template: DocumentTemplate, i18n: I18n) {
+  const params = { id: template.id }
+  const archived = template.archivedAt !== null
+  const actions: ScreenActionInput[] = [
+    archived
+      ? {
+          name: 'restore',
+          label: i18n.t('ui.archive.restore'),
+          rank: 'primary',
+          kind: 'post',
+          href: urlFor('document_templates.restore', params),
+        }
+      : {
+          name: 'save',
+          label: i18n.t('ui.documentTemplates.save'),
+          rank: 'primary',
+          kind: 'submit',
+          form: TEMPLATE_FORM,
+        },
+    {
+      name: 'tryWithData',
+      label: i18n.t('ui.documentTemplates.tryWithData'),
+      rank: 'secondary',
+      kind: 'link',
+      href: urlFor('document_templates.fill', params),
+    },
+  ]
+  if (!archived) {
+    actions.push({
+      name: 'archive',
+      label: i18n.t('ui.archive.archive'),
+      rank: 'overflow',
+      kind: 'post',
+      href: urlFor('document_templates.archive', params),
+      confirm: i18n.t('ui.documentTemplates.archiveConfirm'),
+    })
+  }
+  return declareActions(actions)
 }
 
 /**
@@ -54,8 +105,11 @@ export default class DocumentTemplatesController {
     })
   }
 
-  async create({ inertia }: HttpContext) {
-    return inertia.render('settings/document_templates/edit', { template: null })
+  async create({ inertia, i18n }: HttpContext) {
+    return inertia.render('settings/document_templates/edit', {
+      actions: saveActions(i18n.t('ui.documentTemplates.save'), TEMPLATE_FORM),
+      template: null,
+    })
   }
 
   async store({ request, response, session, i18n, auth }: HttpContext) {
@@ -71,11 +125,12 @@ export default class DocumentTemplatesController {
     }
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const template = await DocumentTemplate.findOrFail(params.id)
     const current = await DocumentTemplates.current(template)
 
     return inertia.render('settings/document_templates/edit', {
+      actions: templateActions(template, i18n),
       template: {
         id: template.id,
         name: template.name,

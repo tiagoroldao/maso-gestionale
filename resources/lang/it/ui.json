@@ -285,11 +285,12 @@
     "keepPasswordHint": "Lascia vuoto per mantenere la password attuale.",
     "confirmPassword": "Conferma password",
     "create": "Crea utente",
-    "saveChanges": "Salva modifiche"
+    "saveChanges": "Salva modifiche",
+    "detailsSection": "Utente",
+    "passwordSection": "Accesso"
   },
   "settings": {
     "title": "Impostazioni",
-    "description": "Dati aziendali e opzioni usate in tutta l'app.",
     "company": "Azienda",
     "paymentTerms": "Condizioni di pagamento",
     "categories": "Categorie",
@@ -732,6 +733,7 @@
     "empty": "Nessun modello.",
     "version": "Versione {version}",
     "name": "Nome del modello",
+    "templateSection": "Modello",
     "fields": "Campi da compilare",
     "fieldsHint": "I dati richiesti quando si emette il documento. Il codice si usa nei segnaposto.",
     "fieldKey": "codice",
@@ -832,7 +834,6 @@
       "loadedFromJob": "{count, plural, =0 {Nessun articolo usato nella commessa.} one {Caricato # articolo dalla commessa.} other {Caricati # articoli dalla commessa.}}",
       "render": "Mostra il documento",
       "failed": "Documento non disponibile: controlla i campi.",
-      "back": "Torna al modello",
       "workReportFrom": "Dal",
       "workReportTo": "Al",
       "workReportPeriodHint": "Lascia vuote le date per tutta la commessa.",

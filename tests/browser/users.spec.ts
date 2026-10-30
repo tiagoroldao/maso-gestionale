@@ -24,7 +24,7 @@ test.group('Managing users in the browser', () => {
     await page.getByRole('button', { name: it('ui.users.create') }).click()
 
     await page.waitForURL('**/users')
-    const row = page.getByRole('row', { name: /Tommaso Tecnico/ })
+    const row = page.getByRole('listitem', { name: 'Tommaso Tecnico' })
     await row.getByRole('button', { name: it('ui.users.deactivate') }).click()
     await row.getByRole('button', { name: it('ui.users.reactivate') }).waitFor()
 

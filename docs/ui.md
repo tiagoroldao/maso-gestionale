@@ -54,7 +54,9 @@ The settings area (Impostazioni) is one menu item; its pages are tabs under each
 
 - **A form page** (the company, the VAT rules) is in edit mode: Save is its primary action.
 - **A list edited in place** (rates, VAT Codes, Payment Terms, Categories): each row is a short form with its own Save, its errors after its fields, each naming its field (#226); the row's other action (archive, delete) beside it, always confirmed: neither can be undone. On the phone a row's fields stack, each with its name; on desktop column heads name them once. Adding one is the section's action, opening a dialog.
-- **Several short forms** (Numerazione fatture: each year's next number, the Credit Notes' numbering, the SDI files' letter): each in its section, with its own Save beside its field; the header has no actions.
+- **Several short forms** (Numerazione fatture: each year's next number, the Credit Notes' numbering, the SDI files' letter; Istanza): each in its section, with its own Save beside its field or under its fields; the header has no actions.
+- **A page under a tab** (a Document Template's editor, and its "Prova con dati reali"): an Entity screen without the tabs, under its tab in the breadcrumb (Impostazioni › Modelli di documento › the template).
+- **Utenti and Istanza** are their own menu items in the Impostazioni group, not tabs: Utenti for the Admin, Istanza for the Superuser, each a screen with no parent.
 
 ## Menu
 
