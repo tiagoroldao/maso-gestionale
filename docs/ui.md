@@ -37,7 +37,7 @@ A screen declares its actions once, each ranked **primary** (at most one), **sec
 
 On desktop the header's buttons read: secondary, primary, "⋯". Destructive actions (delete, cancel, set back to bill) are always overflow and always confirmed; irreversible ones (finalise) are confirmed too; nothing else is. Contact actions (Mappa, Chiama) are secondary.
 
-- **Declared as data.** The controller sends the screen's `actions` prop, built with `declareActions()` (`shared/screen_actions.ts`, which refuses a second primary or an unconfirmed destructive action): each with a name, a label the server already translated, its rank, and what it does: open a page (`link`), post to a route (`post`, with the `confirm` question when it needs one), or open the page's own short form (`dialog`, opened by name). The role and the record's state decide what is sent; the page never filters them again. The Job's are in `app/services/job_actions.ts`.
+- **Declared as data.** The controller sends the screen's `actions` prop, built with `declareActions()` (`shared/screen_actions.ts`, which refuses a second primary or an unconfirmed destructive action): each with a name, a label the server already translated, its rank, and what it does: open a page (`link`), post to a route (`post`, with the `confirm` question when it needs one), open the page's own short form (`dialog`, opened by name), or submit the screen's form (`submit`: Save in edit mode, from `saveActions()`; a real submit button, so Enter in a field saves too, held while the form is sent by the screen's `busy`). The form wraps the screen, or, when it doesn't wrap the header, the action names its id (`form`). The role and the record's state decide what is sent; the page never filters them again. The Job's are in `app/services/job_actions.ts`.
 - **Hidden or disabled.** An action the state makes meaningless is hidden (no new Visit on a closed Job). The primary is the exception: it stays, disabled with its reason shown beside it, since the user looks for it there (the Job's draft Invoice when nothing is to bill, or a draft already waits). Use `disabledReason` elsewhere only where a user would otherwise search for a missing action.
 - **Header or section.** The header holds the record's own actions. Adding to a section ("Aggiungi addebito") sits in that section's header, and acting on one row in its row; the server still decides whether they show (through the page's props).
 - **Confirmations** use the confirmation dialog (`confirm_dialog.vue`), never `window.confirm`: titled with the action, the question as its text, the action's own label on its button.
@@ -48,6 +48,14 @@ On desktop the header's buttons read: secondary, primary, "⋯". Destructive act
 - **The same on every Entity:** a key-facts band of 3–4 facts under the header (desktop: one row; phone: a two-column grid), then sections.
 - **Facts line or key facts.** The header's line names the record: its number, its kind, the dates of its state ("2026/0005 · Riparazione · aperta il 20/10/2026"), as plain text. The key-facts band holds what the user acts on: who and where (linked to their pages) and the money, each value with an optional hint ("su 2.388,00 € registrati").
 - **Bespoke per Entity:** which facts and sections. The section holding the screen's main work takes the main column on desktop; supporting sections take the side column. On the phone everything stacks, and a section's table becomes a list of rows.
+
+## Settings
+
+The settings area (Impostazioni) is one menu item; its pages are tabs under each page's header (`SettingsScreen`), the current one marked by a red line. The company's details are its home, which the menu opens: the other pages sit under it in the breadcrumb.
+
+- **A form page** (the company, the VAT rules) is in edit mode: Save is its primary action.
+- **A list edited in place** (rates, VAT Codes, Payment Terms, Categories): each row is a short form with its own Save, its errors after its fields, each naming its field (#226); the row's other action (archive, delete) beside it, always confirmed: neither can be undone. On the phone a row's fields stack, each with its name; on desktop column heads name them once. Adding one is the section's action, opening a dialog.
+- **Several short forms** (Numerazione fatture: each year's next number, the Credit Notes' numbering, the SDI files' letter): each in its section, with its own Save beside its field; the header has no actions.
 
 ## Menu
 
