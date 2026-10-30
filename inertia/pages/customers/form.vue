@@ -1,11 +1,24 @@
 <script setup lang="ts">
+/**
+ * A Customer in edit mode (docs/ui.md "Kinds of screen"): the Customer
+ * screen wrapped in its form, Save its primary action. The fields follow
+ * the type: a private individual's name, or a company's, a condominium's
+ * or an organisation's.
+ */
 import { computed, reactive, ref } from 'vue'
 import { Form } from '@adonisjs/inertia/vue'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { CUSTOMER_TYPES, customerTypeLabel } from '~/components/customer_types'
+import { urlFor } from '~/client'
 import { t } from '~/i18n'
+import type { ScreenAction } from '@shared/screen_actions'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import { Textarea } from '~/components/ui/textarea'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import FormField from '~/components/screen/form_field.vue'
+import type { Crumb } from '~/components/screen/screen'
 
 type CustomerField =
   | 'firstName'
@@ -24,9 +37,12 @@ type CustomerField =
   | 'phone'
 
 const props = defineProps<{
+  // Save, the screen's primary
+  actions: ScreenAction[]
   customer:
     | (Record<CustomerField | 'notes', string | null> & {
         id: number
+        displayName: string
         type: string
         paymentTermsId: number
       })
@@ -57,7 +73,7 @@ const values = reactive<Record<CustomerField | 'notes', string>>({
   phone: props.customer?.phone ?? '',
   notes: props.customer?.notes ?? '',
 })
-const paymentTermsId = ref(props.customer?.paymentTermsId ?? props.paymentTerms[0]?.id)
+const paymentTermsId = ref(String(props.customer?.paymentTermsId ?? props.paymentTerms[0]?.id))
 const isPrivate = computed(() => type.value === 'private')
 
 type Field = { name: CustomerField; label: string; hint?: string; type?: string }
@@ -118,89 +134,161 @@ const contactFields: Field[] = [
   { name: 'phone', label: t('ui.customers.phone'), type: 'tel' },
 ]
 
-const sections = computed(() => [
-  { key: 'name', title: t('ui.customers.nameSection'), fields: nameFields.value },
+const main = computed(() => [
   { key: 'tax', title: t('ui.customers.taxSection'), fields: taxFields.value },
   { key: 'billing', title: t('ui.customers.billingSection'), fields: addressFields },
-  { key: 'contacts', title: t('ui.customers.contactsSection'), fields: contactFields },
 ])
 
-const title = props.customer ? t('ui.customers.editTitle') : t('ui.customers.newTitle')
+// Where the screen sits: under the Customer when editing it, under Clienti when new
+const list: Crumb = { label: t('ui.customers.title'), href: urlFor('customers.index') }
+const crumbs = props.customer
+  ? [
+      list,
+      {
+        label: props.customer.displayName,
+        href: urlFor('customers.show', { id: props.customer.id }),
+      },
+    ]
+  : [list]
+const title = props.customer?.displayName ?? t('ui.customers.newTitle')
+const current = props.customer ? t('ui.common.edit') : t('ui.customers.newTitle')
+const documentTitle = props.customer ? t('ui.customers.editTitle') : t('ui.customers.newTitle')
+
+const GRID = 'grid gap-4 md:grid-cols-2'
+const INPUT = 'h-11 md:h-9'
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="title">
-      <Form
-        v-slot="{ processing, errors }"
-        :route="customer ? 'customers.update' : 'customers.store'"
-        :params="customer ? { id: customer.id } : undefined"
+    <Form
+      v-slot="{ processing, errors }"
+      :route="customer ? 'customers.update' : 'customers.store'"
+      :params="customer ? { id: customer.id } : undefined"
+      class="w-full min-w-0"
+    >
+      <EntityScreen
+        :document-title="documentTitle"
+        :crumbs="crumbs"
+        :current="current"
+        :title="title"
+        :actions="actions"
+        :busy="processing"
       >
-        <Section :title="t('ui.customers.typeSection')">
-          <div class="field">
-            <label class="field__label" for="type">{{ t('ui.customers.typeLabel') }}</label>
-            <select id="type" v-model="type" name="type" class="field__input">
-              <option v-for="value in CUSTOMER_TYPES" :key="value" :value="value">
-                {{ customerTypeLabel(value) }}
-              </option>
-            </select>
-          </div>
-        </Section>
+        <template #main>
+          <ScreenSection :title="t('ui.customers.identitySection')">
+            <div :class="GRID">
+              <FormField id="type" v-slot="field" :label="t('ui.customers.typeLabel')">
+                <NativeSelect :id="field.id" v-model="type" name="type">
+                  <option v-for="value in CUSTOMER_TYPES" :key="value" :value="value">
+                    {{ customerTypeLabel(value) }}
+                  </option>
+                </NativeSelect>
+              </FormField>
+              <FormField
+                v-for="input in nameFields"
+                :id="input.name"
+                :key="input.name"
+                v-slot="field"
+                :label="input.label"
+                :hint="input.hint"
+                :error="errors[input.name]"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values[input.name]"
+                  :name="input.name"
+                  :class="INPUT"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+            </div>
+          </ScreenSection>
 
-        <Section v-for="section in sections" :key="section.key" :title="section.title">
-          <div v-for="field in section.fields" :key="field.name" class="field">
-            <label class="field__label" :for="field.name">{{ field.label }}</label>
-            <input
-              :id="field.name"
-              v-model="values[field.name]"
-              :name="field.name"
-              :type="field.type ?? 'text'"
-              class="field__input"
-              :aria-invalid="errors[field.name] ? 'true' : 'false'"
-            />
-            <span v-if="field.hint" class="field__hint">{{ field.hint }}</span>
-            <span v-if="errors[field.name]" class="field__error">{{ errors[field.name] }}</span>
-          </div>
-        </Section>
+          <ScreenSection v-for="section in main" :key="section.key" :title="section.title">
+            <div :class="GRID">
+              <FormField
+                v-for="input in section.fields"
+                :id="input.name"
+                :key="input.name"
+                v-slot="field"
+                :label="input.label"
+                :hint="input.hint"
+                :error="errors[input.name]"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values[input.name]"
+                  :name="input.name"
+                  :type="input.type ?? 'text'"
+                  :class="INPUT"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+            </div>
+          </ScreenSection>
+        </template>
 
-        <Section :title="t('ui.customers.paymentSection')">
-          <div class="field">
-            <label class="field__label" for="paymentTermsId">
-              {{ t('ui.customers.paymentTerms') }}
-            </label>
-            <select
-              id="paymentTermsId"
-              v-model="paymentTermsId"
-              name="paymentTermsId"
-              class="field__input"
+        <template #side>
+          <ScreenSection :title="t('ui.customers.contactsSection')">
+            <FormField
+              v-for="input in contactFields"
+              :id="input.name"
+              :key="input.name"
+              v-slot="field"
+              :label="input.label"
+              :error="errors[input.name]"
             >
-              <option v-for="terms in paymentTerms" :key="terms.id" :value="terms.id">
-                {{ terms.name }}
-              </option>
-            </select>
-            <span v-if="errors.paymentTermsId" class="field__error">
-              {{ errors.paymentTermsId }}
-            </span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="notes">{{ t('ui.customers.notes') }}</label>
-            <textarea
-              id="notes"
-              v-model="values.notes"
-              name="notes"
-              class="field__input"
-              rows="3"
-            />
-            <span v-if="errors.notes" class="field__error">{{ errors.notes }}</span>
-          </div>
-        </Section>
+              <Input
+                :id="field.id"
+                v-model="values[input.name]"
+                :name="input.name"
+                :type="input.type"
+                :class="INPUT"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+          </ScreenSection>
 
-        <Section>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
-            {{ t('ui.customers.save') }}
-          </button>
-        </Section>
-      </Form>
-    </Page>
+          <ScreenSection :title="t('ui.customers.paymentSection')">
+            <FormField
+              id="paymentTermsId"
+              v-slot="field"
+              :label="t('ui.customers.paymentTerms')"
+              :error="errors.paymentTermsId"
+            >
+              <NativeSelect
+                :id="field.id"
+                v-model="paymentTermsId"
+                name="paymentTermsId"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              >
+                <option v-for="terms in paymentTerms" :key="terms.id" :value="String(terms.id)">
+                  {{ terms.name }}
+                </option>
+              </NativeSelect>
+            </FormField>
+            <FormField
+              id="notes"
+              v-slot="field"
+              :label="t('ui.customers.notes')"
+              :error="errors.notes"
+            >
+              <Textarea
+                :id="field.id"
+                v-model="values.notes"
+                name="notes"
+                rows="3"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+          </ScreenSection>
+        </template>
+      </EntityScreen>
+    </Form>
   </AppLayout>
 </template>

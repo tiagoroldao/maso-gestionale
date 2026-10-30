@@ -16,6 +16,7 @@ import type { ScreenAction } from '@shared/screen_actions'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { NativeSelect } from '~/components/ui/native-select'
+import { Textarea } from '~/components/ui/textarea'
 import EntityScreen from '~/components/screen/entity_screen.vue'
 import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
@@ -208,13 +209,12 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
               :label="t('ui.items.description')"
               :error="errors.description"
             >
-              <textarea
+              <Textarea
                 :id="field.id"
                 v-model="values.description"
                 name="description"
                 rows="2"
-                class="w-full min-w-0 rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none focus-visible:border-foreground focus-visible:ring-2 focus-visible:ring-ring/40 aria-invalid:border-destructive md:text-sm"
-                :aria-invalid="field.invalid === 'true'"
+                :aria-invalid="field.invalid"
                 :aria-describedby="field.describedBy"
               />
             </FormField>

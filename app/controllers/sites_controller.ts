@@ -3,7 +3,9 @@ import Site from '#models/site'
 import Archiving, { HasOpenJobsError } from '#services/archiving'
 import Customer from '#models/customer'
 import { siteSearchValidator, siteValidator } from '#validators/site'
-import { recentJobs } from '#services/job_rows'
+import { openJobCount, recentJobs } from '#services/job_rows'
+import { siteActions } from '#services/site_actions'
+import { saveActions } from '#shared/screen_actions'
 import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
@@ -74,11 +76,12 @@ export default class SitesController {
     })
   }
 
-  async create({ request, inertia }: HttpContext) {
+  async create({ request, inertia, i18n }: HttpContext) {
     const customerId = Number(request.qs().customerId) || null
     const customer = customerId ? await Customer.find(customerId) : null
 
     return inertia.render('sites/form', {
+      actions: saveActions(i18n.t('ui.sites.save')),
       site: null,
       customers: [],
       forCustomer: customer ? { id: customer.id, displayName: customer.displayName } : null,
@@ -104,7 +107,7 @@ export default class SitesController {
    * The Site's history: its Customers and Installed Equipment (Jobs and
    * documents are added by later features).
    */
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, i18n }: HttpContext) {
     const site = await Site.query()
       .where('id', params.id)
       .preload('customers')
@@ -130,21 +133,31 @@ export default class SitesController {
       documentCount: equipment.item ? Number(equipment.item.$extras.documents_count) : 0,
     })
 
+    const installed = site.installedEquipment.filter((equipment) => !equipment.removedOn)
+    const archived = site.archivedAt !== null
+
     return inertia.render('sites/show', {
+      actions: siteActions({ site: { id: site.id, address: site.address, archived } }, i18n),
       site: {
         id: site.id,
         summary: site.summary,
         accessNotes: site.accessNotes,
-        archived: site.archivedAt !== null,
+        residential: site.residential,
+        archived,
       },
+      openJobs: await openJobCount({ siteId: site.id }),
+      // The soonest check due among the equipment still installed
+      nextDueOn:
+        installed
+          .map((equipment) => equipment.nextDueOn?.toISODate())
+          .filter((date): date is string => Boolean(date))
+          .sort()[0] ?? null,
       customers: site.customers.map((customer) => ({
         id: customer.id,
         displayName: customer.displayName,
       })),
       jobs: await recentJobs({ siteId: site.id }),
-      installedEquipment: site.installedEquipment
-        .filter((equipment) => !equipment.removedOn)
-        .map((equipment) => equipmentRow(equipment)),
+      installedEquipment: installed.map((equipment) => equipmentRow(equipment)),
       removedEquipment: site.installedEquipment
         .filter((equipment) => equipment.removedOn)
         .map((equipment) => equipmentRow(equipment)),
@@ -152,12 +165,14 @@ export default class SitesController {
     })
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const site = await Site.query().where('id', params.id).preload('customers').firstOrFail()
 
     return inertia.render('sites/form', {
+      actions: saveActions(i18n.t('ui.sites.save')),
       site: {
         id: site.id,
+        summary: site.summary,
         label: site.label,
         street: site.street,
         streetNumber: site.streetNumber,
