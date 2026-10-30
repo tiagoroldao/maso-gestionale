@@ -24,7 +24,7 @@ import RowErrors from '~/components/screen/row_errors.vue'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
-import { LINK, QUOTE_TONES } from '~/components/screen/screen'
+import { LINK, PREVIEW_LINK, QUOTE_TONES } from '~/components/screen/screen'
 import { Button } from '~/components/ui/button'
 import { Input } from '~/components/ui/input'
 import { Textarea } from '~/components/ui/textarea'
@@ -299,12 +299,6 @@ const screenActions = computed(() =>
       : action
   )
 )
-function runAction(name: string) {
-  // A file, not a page: opened beside the screen
-  if (name === 'pdf' && props.quote) {
-    window.open(urlFor('quotes.pdf', { id: props.quote.id }), '_blank', 'noopener')
-  }
-}
 
 const facts = computed(() =>
   [
@@ -397,7 +391,6 @@ function importLines() {
 
 // The Item a line names, previewed over the Quote (docs/ui.md "Hierarchy and references")
 const previewedItem = ref<number | null>(null)
-const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
 
 /**
  * A line: on the phone a card (its kind and buttons, the description,
@@ -441,7 +434,6 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
       :actions="screenActions"
       :key-facts="keyFacts"
       :busy="processing"
-      @dialog="runAction"
     >
       <template #tags>
         <StatusTag v-if="quote" :tone="QUOTE_TONES[quote.status]" data-testid="quote-status">

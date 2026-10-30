@@ -13,7 +13,9 @@
  * the screen sits in, or the one its `form` names (disabled while it is
  * `busy`, or blocked); a disabled one shows its reason. A `link` outside
  * the app (a contact's `tel:`, a map) is a plain link, a web one opening in
- * a new tab, as a `file` of the app does.
+ * a new tab; a `file` of the app is a plain link too, downloaded in place
+ * or viewed in a new tab. A `post` holds the buttons of posts while it is
+ * on its way, so it can't be sent twice.
  */
 import { computed, ref, useId } from 'vue'
 import { router } from '@inertiajs/vue3'
@@ -45,11 +47,27 @@ const confirmOpen = ref(false)
 
 /** A page of the app, opened by Inertia; anything else (a file, a contact) is a plain link */
 const inApp = (action: ScreenAction) => action.href!.startsWith('/') && !action.file
-const outside = (action: ScreenAction) =>
-  action.file || /^https?:/.test(action.href!) ? { target: '_blank', rel: 'noopener' } : {}
+/** A file to download stays in place; a file to view or a web page opens in a new tab */
+const outside = (action: ScreenAction) => {
+  if (action.file === 'download') return { download: '' }
+  return action.file === 'view' || /^https?:/.test(action.href!)
+    ? { target: '_blank', rel: 'noopener' }
+    : {}
+}
+
+// A post or delete on its way: the header's buttons wait, so it isn't sent twice
+const sending = ref(false)
+/**
+ * A button that can't be pressed now: a Save while its form is sent or
+ * blocked, a post while one is on its way (a blocked post stays focusable,
+ * marked aria-disabled, so its reason is read)
+ */
+const held = (action: ScreenAction) =>
+  (action.kind === 'submit' && (props.busy || !!action.disabledReason)) ||
+  (action.kind === 'post' && sending.value)
 
 function run(action: ScreenAction) {
-  if (action.disabledReason || action.kind === 'submit') return
+  if (action.disabledReason || action.kind === 'submit' || held(action)) return
   if (action.kind === 'dialog') {
     emit('dialog', action.name)
   } else if (action.kind === 'post' && action.confirm) {
@@ -62,8 +80,11 @@ function run(action: ScreenAction) {
 
 /** A `post` action's request: a POST, or a DELETE when its method says so */
 function send(action: ScreenAction) {
-  if (action.method === 'delete') router.delete(action.href!)
-  else router.post(action.href!)
+  if (sending.value) return
+  sending.value = true
+  const options = { onFinish: () => (sending.value = false) }
+  if (action.method === 'delete') router.delete(action.href!, options)
+  else router.post(action.href!, {}, options)
 }
 
 /** From "⋯": once the menu has closed, so the dialog opened next keeps the focus */
@@ -126,7 +147,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         v-else
         :type="action.kind === 'submit' ? 'submit' : 'button'"
         :form="action.kind === 'submit' ? (action.form ?? undefined) : undefined"
-        :disabled="action.kind === 'submit' && (busy || !!action.disabledReason)"
+        :disabled="held(action)"
         :class="SECONDARY"
         :aria-disabled="action.disabledReason ? 'true' : undefined"
         :aria-describedby="action.disabledReason ? reasonId(action) : undefined"
@@ -177,9 +198,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         :form="
           arranged.primary.kind === 'submit' ? (arranged.primary.form ?? undefined) : undefined
         "
-        :disabled="
-          arranged.primary.kind === 'submit' && (busy || !!arranged.primary.disabledReason)
-        "
+        :disabled="held(arranged.primary)"
         :class="PRIMARY"
         :aria-disabled="arranged.primary.disabledReason ? 'true' : undefined"
         :aria-describedby="arranged.primary.disabledReason ? reasonId(arranged.primary) : undefined"
@@ -204,7 +223,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
           </DropdownMenuItem>
           <DropdownMenuItem
             v-else
-            :disabled="!!action.disabledReason"
+            :disabled="!!action.disabledReason || held(action)"
             @select="runFromMenu(action)"
           >
             <span>{{ action.label }}</span>

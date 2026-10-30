@@ -56,7 +56,7 @@ test.group('Supplier Invoice screen actions (#243)', (group) => {
       assert.deepEqual(ranked(actions), ['file:secondary:link'])
       assert.equal(actions[0].label, it('ui.supplierInvoices.downloadFile'))
       assert.equal(actions[0].href, `/supplier-invoices/${invoice.id}/file`)
-      assert.isTrue(actions[0].file)
+      assert.equal(actions[0].file, 'download')
     }
   })
 

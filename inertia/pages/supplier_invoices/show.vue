@@ -28,6 +28,7 @@ import { isSdiFailureCode } from '@shared/sdi_failures'
 import type { ScreenAction } from '@shared/screen_actions'
 import {
   newerCostExists,
+  nextPayment,
   receiptUnitCost,
   unitsDiffer,
   type LineOutcome,
@@ -148,8 +149,10 @@ const facts = computed(() =>
   ].join(' · ')
 )
 const seller = computed(() => props.invoice.details.seller)
-// The first payment due, as the invoice lists them
-const firstPayment = computed(() => props.invoice.details.payments[0] ?? null)
+// The payment due next, and how many others the invoice lists
+const today = todayIso()
+const dueNext = computed(() => nextPayment(props.invoice.details.payments, today))
+const otherPayments = computed(() => props.invoice.details.payments.length - 1)
 const keyFacts = computed<KeyFact[]>(() => [
   {
     label: t('ui.supplierInvoices.supplier'),
@@ -168,9 +171,16 @@ const keyFacts = computed<KeyFact[]>(() => [
   },
   {
     label: t('ui.supplierInvoices.dueOn'),
-    value: firstPayment.value?.dueOn ? formatDate(firstPayment.value.dueOn) : '—',
-    hint: firstPayment.value
-      ? `${paymentMethodLabel(firstPayment.value.method)} · ${money(firstPayment.value.amount)}`
+    value: dueNext.value?.dueOn ? formatDate(dueNext.value.dueOn) : '—',
+    hint: dueNext.value
+      ? [
+          paymentMethodLabel(dueNext.value.method),
+          money(dueNext.value.amount),
+          otherPayments.value > 0 &&
+            t('ui.supplierInvoices.otherInstalments', { count: otherPayments.value }),
+        ]
+          .filter(Boolean)
+          .join(' · ')
       : undefined,
   },
 ])
@@ -187,6 +197,7 @@ const documentDetails = computed(() => {
     },
     { label: t('ui.supplierInvoices.number'), value: invoice.number, mono: true },
     { label: t('ui.supplierInvoices.issuedOn'), value: formatDate(invoice.issuedOn) },
+    { label: t('ui.supplierInvoices.fileName'), value: invoice.fileName, mono: true },
     invoice.currency !== 'EUR' && {
       label: t('ui.supplierInvoices.currency'),
       value: invoice.currency,
@@ -307,8 +318,6 @@ const updateOf = (line: Line) => forms[line.id]?.updatePurchasePrice ?? !newerRe
 /** A code the app names in Italian, or the intermediary's own message as it is */
 const archivingFailure = (detail: string | null) =>
   detail && isSdiFailureCode(detail) ? t(`ui.sdiFailures.${detail}`) : (detail ?? '')
-
-const today = todayIso()
 
 // Undoing a receipt takes the quantity back out of stock, so it asks first
 const undoOpen = ref(false)

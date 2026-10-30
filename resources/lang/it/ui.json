@@ -1548,6 +1548,8 @@
     "received": "{source} il {date}",
     "sdiIdentifier": "Identificativo SDI",
     "downloadFile": "Scarica il file",
+    "fileName": "File originale",
+    "otherInstalments": "{count, plural, one {+# rata} other {+# rate}}",
     "document": "Documento",
     "currency": "Valuta",
     "seller": "Cedente / prestatore",

@@ -26,7 +26,7 @@ export function supplierInvoiceActions(state: SupplierInvoiceActionState, i18n: 
       rank: 'secondary',
       kind: 'link',
       href: urlFor('supplier_invoices.file', params),
-      file: true,
+      file: 'download',
     },
   ]
   if (state.archivingRetryable) {

@@ -62,7 +62,8 @@ test.group('Supplier Invoice screen in the browser', (group) => {
       .locator('main header')
       .getByRole('link', { name: it('ui.supplierInvoices.downloadFile') })
     assert.equal(await file.getAttribute('href'), `/supplier-invoices/${invoice.id}/file`)
-    assert.equal(await file.getAttribute('target'), '_blank')
+    assert.isNull(await file.getAttribute('target'))
+    assert.equal(await file.getAttribute('download'), '')
     await page
       .getByLabel(it('ui.screen.keyFacts'), { exact: true })
       .getByText('183,00 €', { exact: true })
@@ -163,5 +164,34 @@ test.group('Supplier Invoice screen in the browser', (group) => {
     assert.lengthOf(gateway.archived, 1)
     await invoice.refresh()
     assert.equal(invoice.legalArchiving, 'requested')
+  })
+
+  test('a header post is sent once: its button waits while the request is on its way', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    gateway.legalStorage = true
+    await LegalStorage.refresh(gateway)
+    await browserContext.loginAs(await createUser('office'))
+    const invoice = await uploaded()
+    await invoice.merge({ sdiIdentifier: '1084646898320' }).save()
+
+    const page = await visit(`/supplier-invoices/${invoice.id}`)
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    let release = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    await page.route(`**/supplier-invoices/${invoice.id}/legal-archiving`, async (route) => {
+      await held
+      await route.continue()
+    })
+    const send = page
+      .locator('main header')
+      .getByRole('button', { name: it('ui.supplierInvoices.legalArchivingSend') })
+    await send.click()
+    assert.isTrue(await send.isDisabled())
+    release()
+    await page.getByText(it('flash.supplierInvoiceArchived')).waitFor()
+    assert.lengthOf(gateway.archived, 1)
   })
 })

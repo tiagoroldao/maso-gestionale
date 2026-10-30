@@ -59,7 +59,9 @@ test.group('Quote screen in the browser', () => {
 
     const header = page.locator('main header')
     await header.getByRole('button', { name: it('ui.quotes.send') }).waitFor()
-    await header.getByRole('button', { name: it('ui.quotes.pdf') }).waitFor()
+    const pdf = header.getByRole('link', { name: it('ui.quotes.pdf') })
+    assert.match((await pdf.getAttribute('href'))!, /^\/quotes\/\d+\/pdf$/)
+    assert.equal(await pdf.getAttribute('target'), '_blank')
     await header.getByRole('button', { name: it('ui.screen.moreActions') }).click()
     const items = await page.getByRole('menuitem').allTextContents()
     assert.deepEqual(
