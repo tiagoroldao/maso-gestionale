@@ -119,6 +119,18 @@ export type SupplierInvoiceDetails = {
 }
 
 /**
+ * The payment due next (#243): the earliest falling due today or later,
+ * or, when every one is past, the earliest; payments without a date come
+ * last. Supplier Invoices don't record what was paid. Null with none.
+ */
+export function nextPayment<T extends { dueOn: string | null }>(payments: T[], today: string) {
+  const dated = payments
+    .filter((payment) => payment.dueOn !== null)
+    .sort((a, b) => a.dueOn!.localeCompare(b.dueOn!))
+  return dated.find((payment) => payment.dueOn! >= today) ?? dated[0] ?? payments[0] ?? null
+}
+
+/**
  * What became of a Supplier Invoice line: received into stock onto an
  * Item (#199); already received by hand onto an Item, so stock doesn't
  * move, optionally linked to that earlier receipt (#210); or marked not

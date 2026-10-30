@@ -12,7 +12,12 @@ import { createUser } from '#tests/helpers/users'
 import { completeCompany } from '#tests/helpers/company'
 import { createItem } from '#tests/helpers/items'
 import { it } from '#tests/helpers/i18n'
-import { FIXTURE, SUPPLIER_INVOICE_P7M, supplierInvoiceXml } from '#tests/helpers/supplier_invoices'
+import {
+  FIXTURE,
+  SUPPLIER_INVOICE_P7M,
+  supplierInvoiceLine,
+  supplierInvoiceXml,
+} from '#tests/helpers/supplier_invoices'
 
 test.group('Supplier Invoices in the browser', (group) => {
   group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
@@ -31,14 +36,14 @@ test.group('Supplier Invoices in the browser', (group) => {
     await inbox.getByRole('button', { name: it('ui.supplierInvoices.uploadSubmit') }).click()
 
     // Its page: the lines as the supplier wrote them, the valve's Item suggested
-    await inbox.getByRole('cell', { name: 'VLV-034' }).waitFor()
+    await inbox.getByText('VLV-034', { exact: true }).waitFor()
     const invoice = await SupplierInvoice.firstOrFail()
     assert.include(inbox.url(), `/supplier-invoices/${invoice.id}`)
-    const valveRow = inbox.getByRole('row', { name: /VLV-034/ })
+    const valveRow = supplierInvoiceLine(inbox, 'VLV-034')
     await valveRow.getByText('VALV34').waitFor()
     await valveRow.getByRole('button', { name: it('ui.supplierInvoices.receive') }).click()
     await valveRow
-      .getByRole('link', {
+      .getByRole('button', {
         name: it('ui.supplierInvoices.receivedAs', { quantity: '10', unit: 'pz', code: 'VALV34' }),
       })
       .waitFor()
@@ -46,14 +51,17 @@ test.group('Supplier Invoices in the browser', (group) => {
     assert.equal(movement.quantity, '10.000')
 
     // The fittings are marked not stock: the invoice is handled
-    const fittingsRow = inbox.getByRole('row', { name: /Raccordi e guarnizioni/ })
+    const fittingsRow = supplierInvoiceLine(inbox, 'Raccordi e guarnizioni')
     await fittingsRow.getByRole('button', { name: it('ui.supplierInvoices.markNotStock') }).click()
     await inbox.getByText(it('ui.supplierInvoices.statuses.handled'), { exact: true }).waitFor()
     await invoice.refresh()
     assert.equal(invoice.status, 'handled')
 
     // Back in the inbox, handled
-    await inbox.getByRole('link', { name: it('ui.nav.supplierInvoices') }).click()
+    await inbox
+      .getByRole('navigation', { name: it('ui.screen.breadcrumb') })
+      .getByRole('link', { name: it('ui.supplierInvoices.title') })
+      .click()
     const row = inbox.getByRole('row', { name: new RegExp(FIXTURE.number) })
     await row.getByText(it('ui.supplierInvoices.statuses.handled')).waitFor()
   })
@@ -82,7 +90,7 @@ test.group('Supplier Invoices in the browser', (group) => {
     )
 
     const page = await visit(`/supplier-invoices/${invoice.id}`)
-    const valveRow = page.getByRole('row', { name: /VLV-034/ })
+    const valveRow = supplierInvoiceLine(page, 'VLV-034')
     const cost = valveRow.getByLabel(it('ui.supplierInvoices.unitCost', { unit: 'pz' }))
     assert.equal(await cost.inputValue(), '5,25')
     await page.getByLabel(it('ui.supplierInvoices.spreadDiscounts')).check()
@@ -113,7 +121,9 @@ test.group('Supplier Invoices in the browser', (group) => {
       .getByRole('button', { name: it('ui.supplierInvoices.markAlreadyReceived') })
       .click()
     await valveRow
-      .getByRole('link', { name: it('ui.supplierInvoices.alreadyReceivedAs', { code: 'VALV34' }) })
+      .getByRole('button', {
+        name: it('ui.supplierInvoices.alreadyReceivedAs', { code: 'VALV34' }),
+      })
       .waitFor()
 
     // No stock moved; the receipt by hand took the cost

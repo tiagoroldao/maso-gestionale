@@ -1551,9 +1551,13 @@
       "sdi": "Ricevuta tramite l'intermediario SDI"
     },
     "showTitle": "Fattura {number} di {supplier}",
+    "issuedOnFact": "emessa il {date}",
+    "totalHint": "Imponibile {taxable} · IVA {vat}",
     "received": "{source} il {date}",
     "sdiIdentifier": "Identificativo SDI",
-    "download": "Scarica il file originale ({name})",
+    "downloadFile": "Scarica il file",
+    "fileName": "File originale",
+    "otherInstalments": "{count, plural, one {+# rata} other {+# rate}}",
     "document": "Documento",
     "currency": "Valuta",
     "seller": "Cedente / prestatore",
@@ -1567,7 +1571,6 @@
     "surchargeHint": "Maggiorazioni sul totale della fattura, al netto degli sconti: {discount}. Ripartite sulle righe da caricare in proporzione ai loro importi, alzano i costi proposti.",
     "notSpreadable": "Lo sconto supera le righe da caricare: non si può ripartire.",
     "spreadSave": "Applica",
-    "handling": "Gestione",
     "suggested": "Articolo proposto",
     "chosen": "Articolo scelto",
     "chooseItem": "Scegli un altro articolo",
@@ -1595,6 +1598,7 @@
     "alreadyReceivedAs": "Già ricevuto su {code}",
     "alreadyReceivedWith": "(carico a mano del {date}, {quantity} {unit})",
     "undo": "Annulla",
+    "undoReceipt": "Annulla il carico",
     "undoConfirm": "Annullare il carico? La quantità viene tolta dal magazzino con una rettifica.",
     "unitsDiffer": "La riga è in {lineUnit}, l'articolo in {unit}: indica la quantità in {unit}. Il costo unitario è l'importo della riga diviso per questa quantità.",
     "refusals": {
@@ -1605,6 +1609,7 @@
     "receiptReference": "Fattura {number} di {supplier}",
     "undoReason": "Annullato il carico della riga {line} della fattura passiva",
     "lineNumber": "N.",
+    "lineHeading": "Riga {number}",
     "code": "Codice",
     "lineDescription": "Descrizione",
     "quantity": "Quantità",
@@ -1683,9 +1688,9 @@
     },
     "legalArchivingIds": "Identificativi presso l'intermediario",
     "legalArchivingNone": "Non inviata alla conservazione a norma tramite l'intermediario.",
-    "legalArchivingRetryHint": "Viene ritentato al prossimo controllo, o subito con il pulsante.",
+    "legalArchivingRetryHint": "Viene ritentato al prossimo controllo, o subito con «Invia in conservazione».",
     "legalArchivingSdiIdHint": "L'intermediario richiede l'identificativo SDI del file, che si trova sul portale dell'Agenzia delle Entrate o nel file dei metadati.",
-    "legalArchivingRetry": "Invia alla conservazione a norma"
+    "legalArchivingSend": "Invia in conservazione"
   },
   "suppliers": {
     "title": "Fornitori",

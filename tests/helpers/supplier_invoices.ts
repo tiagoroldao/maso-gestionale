@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs'
 import app from '@adonisjs/core/services/app'
+import type { Page } from 'playwright'
 
 /** A Supplier Invoice of 183.00 (150 + 22% VAT) from Termoidraulica Forniture */
 export const SUPPLIER_INVOICE_XML = app.makePath('tests/fixtures/supplier_invoice.xml')
@@ -118,4 +119,9 @@ export function supplierInvoiceXmlWithLines(
       `<TipoDocumento>${changes.documentType ?? 'TD01'}</TipoDocumento>`
     )
     .replace('<Divisa>EUR</Divisa>', `<Divisa>${changes.currency ?? 'EUR'}</Divisa>`)
+}
+
+/** A line on a Supplier Invoice's page, found by its code or description */
+export function supplierInvoiceLine(page: Page, text: string) {
+  return page.getByTestId('supplier-invoice-line').filter({ hasText: text })
 }

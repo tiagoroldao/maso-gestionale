@@ -40,6 +40,7 @@ import {
   JOB_INDICATOR_TONES,
   JOB_TONES,
   LINK,
+  PREVIEW_LINK,
   QUOTE_TONES,
   ROW,
   TD,
@@ -278,8 +279,6 @@ function askMarkDone(submit: () => void) {
 
 // The Item a Charge names, previewed over the Job (docs/ui.md "Hierarchy and references")
 const previewedItem = ref<number | null>(null)
-// Underlined throughout, so the phone (no hover) shows it opens something
-const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
 
 const BUTTON = 'h-11 md:h-9'
 const SUB = 'm-0 text-xs font-semibold text-muted-foreground'

@@ -33,6 +33,13 @@ export type ScreenAction = {
   /** How a `post` sends its request: 'delete' for a route that deletes; 'post' otherwise */
   method: ActionMethod
   /**
+   * A `link` to a file of the app, not a page: a plain link, never an
+   * Inertia visit. 'download' for a file the server sends as an attachment
+   * (an original file): the link downloads it, in place; 'view' for one the
+   * browser shows (a PDF): in a new tab. Null for a page or a contact.
+   */
+  file: ActionFile | null
+  /**
    * The id of the page's form a `submit` submits, when the form doesn't wrap
    * the header; null for a screen sitting in its form, and the other kinds
    */
@@ -45,12 +52,18 @@ export type ScreenAction = {
   disabledReason: string | null
 }
 
+export const ACTION_FILES = ['download', 'view'] as const
+export type ActionFile = (typeof ACTION_FILES)[number]
+
 export const ACTION_METHODS = ['post', 'delete'] as const
 export type ActionMethod = (typeof ACTION_METHODS)[number]
 
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
   Partial<
-    Pick<ScreenAction, 'href' | 'method' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>
+    Pick<
+      ScreenAction,
+      'href' | 'method' | 'file' | 'form' | 'destructive' | 'confirm' | 'disabledReason'
+    >
   >
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
@@ -59,7 +72,7 @@ export class ScreenActionsError extends Error {}
 /**
  * The actions of a screen, checked against docs/ui.md "Actions": one
  * primary at most, unique names, a destination for links and posts, a
- * method only on posts, and destructive ones in the overflow and confirmed.
+ * method only on posts, a file only on links, and destructive ones in the overflow and confirmed.
  */
 export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
   const names = new Set<string>()
@@ -69,6 +82,7 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     const full: ScreenAction = {
       href: null,
       method: 'post',
+      file: null,
       form: null,
       destructive: false,
       confirm: null,
@@ -80,6 +94,9 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     }
     if (full.method !== 'post' && full.kind !== 'post') {
       throw new ScreenActionsError(`Action ${full.name} sends no request: it has no method`)
+    }
+    if (full.file !== null && full.kind !== 'link') {
+      throw new ScreenActionsError(`Action ${full.name} opens a file: it must be a link`)
     }
     if (full.destructive && (full.rank !== 'overflow' || !full.confirm)) {
       throw new ScreenActionsError(`Destructive action ${full.name} must be overflow and confirmed`)

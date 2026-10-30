@@ -19,6 +19,13 @@ export const LABEL =
 export const LINK =
   'rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring'
 
+/**
+ * A row's reference to a record opening its preview (docs/ui.md "Hierarchy
+ * and references"), with `LINK`: underlined throughout, so the phone (no
+ * hover) shows it opens something
+ */
+export const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
+
 /** A section's table on desktop (docs/ui.md: on the phone it becomes a list of `ROW`s) */
 export const TH =
   'border-b border-border px-4 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground'
@@ -51,10 +58,11 @@ export const EDIT_ROW_FORM =
 
 /**
  * A list's records (docs/ui.md "Lists"): a bordered box, whose own border
- * closes the table's last row and opens the first of the phone's rows
+ * closes the table's last row and opens the first of the phone's rows; `relative`
+ * keeps a row's stretched link inside it wherever a table row can't hold it
  */
 export const LIST_BOX =
-  'min-w-0 rounded-sm border border-border bg-card tabular-nums [&>div>table>tbody>tr:last-child>td]:border-b-0 [&>ul>li:first-child]:border-t-0'
+  'relative min-w-0 rounded-sm border border-border bg-card tabular-nums [&>div>table>tbody>tr:last-child>td]:border-b-0 [&>ul>li:first-child]:border-t-0'
 
 /** A section's line when it has nothing to list */
 export const EMPTY = 'm-0 border-t border-border px-3.5 py-3 text-sm text-muted-foreground md:px-4'
@@ -125,12 +133,6 @@ export const INVOICE_TONES: Record<InvoiceStatus, Tone> = {
   rejected: 'orange',
 }
 
-/** A Supplier Invoice: orange while it waits to be handled, green once handled */
-export const SUPPLIER_INVOICE_TONES: Record<SupplierInvoiceStatus, Tone> = {
-  to_handle: 'orange',
-  handled: 'green',
-}
-
 /** An issued Invoice's payment: green once paid, orange while something is owed or to refund */
 export const PAYMENT_TONES: Record<PaymentStatus, Tone> = {
   unpaid: 'orange',
@@ -138,4 +140,10 @@ export const PAYMENT_TONES: Record<PaymentStatus, Tone> = {
   paid: 'green',
   overpaid: 'orange',
   overdue: 'orange',
+}
+
+/** A Supplier Invoice in the inbox: orange while its lines wait, green once handled */
+export const SUPPLIER_INVOICE_TONES: Record<SupplierInvoiceStatus, Tone> = {
+  to_handle: 'orange',
+  handled: 'green',
 }

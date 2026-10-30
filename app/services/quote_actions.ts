@@ -52,8 +52,15 @@ export function quoteActions(state: QuoteActionState, i18n: I18n) {
       confirm: i18n.t('ui.quotes.sendConfirm'),
     })
   }
-  // A file, not a page: the screen opens it in a new tab
-  actions.push({ name: 'pdf', label: i18n.t('ui.quotes.pdf'), rank: 'secondary', kind: 'dialog' })
+  // A file, not a page: shown in a new tab
+  actions.push({
+    name: 'pdf',
+    label: i18n.t('ui.quotes.pdf'),
+    rank: 'secondary',
+    kind: 'link',
+    href: urlFor('quotes.pdf', params),
+    file: 'view',
+  })
   if (state.decidable) {
     actions.push({
       name: 'accept',
