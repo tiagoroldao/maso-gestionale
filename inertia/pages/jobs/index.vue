@@ -1,17 +1,26 @@
 <script setup lang="ts">
+/**
+ * Commesse, a List screen (docs/ui.md "Lists"): searched by number, title
+ * or Customer, filtered by status, or narrowed to a Customer's or a Site's
+ * Jobs from their pages.
+ */
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
-import { Plus } from 'lucide-vue-next'
-import Page from '~/components/page.vue'
+import type { ScreenAction } from '@shared/screen_actions'
 import AppLayout from '~/layouts/app.vue'
-import Pagination from '~/components/pagination.vue'
-import JobList, { type JobRow } from '~/components/job_list.vue'
+import ListScreen from '~/components/screen/list_screen.vue'
+import ListSearch from '~/components/screen/list_search.vue'
+import JobRows, { type JobRow } from '~/components/screen/job_rows.vue'
+import { NativeSelect } from '~/components/ui/native-select'
+import { LINK } from '~/components/screen/screen'
 import { urlFor } from '~/client'
 import { t } from '~/i18n'
 import { JOB_FILTERS } from '@shared/jobs'
 
 const props = defineProps<{
+  // New Job
+  actions: ScreenAction[]
   q: string
   status: string
   customer: { id: number; displayName: string } | null
@@ -39,59 +48,49 @@ function submitSearch() {
 
 <template>
   <AppLayout>
-    <Page :title="t('ui.jobs.title')">
-      <template #actions>
-        <Link route="jobs.create" class="btn btn--primary btn--sm">
-          <Plus :size="15" /> {{ t('ui.jobs.new') }}
-        </Link>
+    <ListScreen
+      :title="t('ui.jobs.title')"
+      :actions="actions"
+      :empty="jobs.length ? null : t('ui.jobs.empty')"
+      :pagination="pagination"
+    >
+      <template #toolbar>
+        <ListSearch
+          v-model="search"
+          :label="t('ui.jobs.searchLabel')"
+          :placeholder="t('ui.jobs.searchPlaceholder')"
+          @search="submitSearch"
+        >
+          <NativeSelect
+            v-model="status"
+            :aria-label="t('ui.jobs.statusFilter')"
+            class="flex-[1_1_180px] md:w-52 md:flex-none"
+            @change="submitSearch"
+          >
+            <option v-for="value in JOB_FILTERS" :key="value" :value="value">
+              {{ t(`ui.jobs.filters.${value}`) }}
+            </option>
+          </NativeSelect>
+        </ListSearch>
+        <p v-if="customer || site" class="m-0 text-sm" data-testid="jobs-owner-filter">
+          <template v-if="customer">
+            {{ t('ui.jobs.ofCustomer') }}
+            <Link route="customers.show" :params="{ id: customer.id }" :class="LINK">
+              {{ customer.displayName }}
+            </Link>
+          </template>
+          <template v-if="site">
+            {{ t('ui.jobs.ofSite') }}
+            <Link route="sites.show" :params="{ id: site.id }" :class="LINK">
+              {{ site.summary }}
+            </Link>
+          </template>
+          ·
+          <Link route="jobs.index" :class="LINK">{{ t('ui.jobs.clearOwnerFilter') }}</Link>
+        </p>
       </template>
 
-      <form
-        role="search"
-        :style="{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }"
-        @submit.prevent="submitSearch"
-      >
-        <input
-          v-model="search"
-          type="search"
-          class="field__input"
-          :aria-label="t('ui.jobs.searchLabel')"
-          :placeholder="t('ui.jobs.searchPlaceholder')"
-          :style="{ maxWidth: '320px' }"
-        />
-        <select
-          v-model="status"
-          class="field__input"
-          :aria-label="t('ui.jobs.statusFilter')"
-          :style="{ maxWidth: '200px' }"
-          @change="submitSearch"
-        >
-          <option v-for="value in JOB_FILTERS" :key="value" :value="value">
-            {{ t(`ui.jobs.filters.${value}`) }}
-          </option>
-        </select>
-        <button type="submit" class="btn btn--secondary">{{ t('ui.common.search') }}</button>
-      </form>
-
-      <p v-if="customer || site" data-testid="jobs-owner-filter">
-        <template v-if="customer">
-          {{ t('ui.jobs.ofCustomer') }}
-          <Link route="customers.show" :params="{ id: customer.id }">{{
-            customer.displayName
-          }}</Link>
-        </template>
-        <template v-if="site">
-          {{ t('ui.jobs.ofSite') }}
-          <Link route="sites.show" :params="{ id: site.id }">{{ site.summary }}</Link>
-        </template>
-        ·
-        <Link route="jobs.index">{{ t('ui.jobs.clearOwnerFilter') }}</Link>
-      </p>
-
-      <p v-if="jobs.length === 0" :style="{ color: 'var(--subtle)' }">{{ t('ui.jobs.empty') }}</p>
-      <JobList v-else :jobs="jobs" />
-
-      <Pagination v-bind="pagination" />
-    </Page>
+      <JobRows :jobs="jobs" show-customer show-site />
+    </ListScreen>
   </AppLayout>
 </template>
