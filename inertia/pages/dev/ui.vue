@@ -31,7 +31,11 @@ import {
 const section = 'flex flex-col gap-3 border-t border-border pt-5'
 const heading = 'm-0 font-display text-[11px] font-semibold tracking-[0.2em] uppercase'
 const caption = 'm-0 text-xs text-muted-foreground'
-const BUTTON_VARIANTS: NonNullable<ButtonVariants['variant']>[] = ['default', 'outline', 'ghost']
+const BUTTON_VARIANTS: [NonNullable<ButtonVariants['variant']>, string][] = [
+  ['default', 'ui.devUi.button.default'],
+  ['outline', 'ui.devUi.button.outline'],
+  ['ghost', 'ui.devUi.button.ghost'],
+]
 const BUTTON_SIZES: NonNullable<ButtonVariants['size']>[] = ['default', 'sm', 'touch']
 const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-sidebar-foreground'
 </script>
@@ -160,8 +164,13 @@ const frame = 'flex flex-col gap-1 rounded-sm bg-sidebar p-3.5 font-sans text-si
           :key="size"
           class="flex flex-wrap items-center gap-3 rounded-sm border border-border bg-card p-4"
         >
-          <Button v-for="variant in BUTTON_VARIANTS" :key="variant" :variant="variant" :size="size">
-            {{ t(`ui.devUi.button.${variant}`) }}
+          <Button
+            v-for="[variant, label] in BUTTON_VARIANTS"
+            :key="variant"
+            :variant="variant"
+            :size="size"
+          >
+            {{ t(label) }}
           </Button>
           <Button :size="size" disabled>{{ t('ui.devUi.button.disabled') }}</Button>
           <Button variant="outline" :size="size === 'touch' ? 'icon-touch' : 'icon'">
