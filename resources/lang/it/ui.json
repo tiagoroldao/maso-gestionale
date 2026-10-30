@@ -549,6 +549,8 @@
     "unarchive": "Ripristina",
     "delete": "Elimina",
     "deleteConfirm": "Eliminare l'articolo? Non si potrà recuperare.",
+    "archiveConfirm": "Archiviare l'articolo {code}? Non comparirà più negli elenchi e nella ricerca degli articoli; si potrà ripristinare.",
+    "deleteDocument": "Elimina documento",
     "deleteDocumentConfirm": "Eliminare il documento? Non si potrà recuperare.",
     "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli.",
     "stock": "Giacenza",
@@ -583,6 +585,9 @@
     "adjust": "Registra rettifica",
     "negativeStock": "Giacenza negativa",
     "negativeAvailable": "Disponibilità negativa",
+    "committedHint": "Impegnato: {quantity}",
+    "reorderLevelHintShort": "Scorta minima: {quantity}",
+    "purchaseHint": "Acquisto: {price}",
     "picker": {
       "label": "Cerca un articolo",
       "placeholder": "Codice, descrizione o codice fornitore",
@@ -606,8 +611,8 @@
     "belowMarkupTitle": "Prezzi da rivedere",
     "belowMarkupDescription": "Articoli il cui prezzo di vendita è sotto il ricarico della categoria dopo un acquisto più caro.",
     "nothing": "Niente da segnalare.",
-    "negative": "negativa",
-    "low": "sotto scorta",
+    "negative": "Disponibilità negativa",
+    "low": "Sotto scorta",
     "categoryMarkup": "Ricarico categoria"
   },
   "jobs": {

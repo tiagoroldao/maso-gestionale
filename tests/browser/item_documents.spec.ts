@@ -24,26 +24,28 @@ test.group('Item Documents in the browser', (group) => {
     })
     const site = await createSite()
 
-    const edit = await visit(`/items/${item.id}/edit`)
-    await edit.getByLabel(it('ui.items.documentTitle')).fill('Manuale di installazione')
-    await edit
+    const show = await visit(`/items/${item.id}`)
+    await show.getByRole('button', { name: it('ui.items.upload') }).click()
+    const upload = show.getByRole('dialog', { name: it('ui.items.upload') })
+    await upload.getByLabel(it('ui.items.documentTitle')).fill('Manuale di installazione')
+    await upload
       .getByLabel(it('ui.items.documentFile'))
       .setInputFiles(app.makePath('tests/fixtures/manual.pdf'))
-    await edit.getByRole('button', { name: it('ui.items.upload') }).click()
-    await edit.getByRole('link', { name: 'Manuale di installazione' }).waitFor()
+    await upload.getByRole('button', { name: it('ui.items.upload') }).click()
+    await show.getByRole('link', { name: 'Manuale di installazione' }).waitFor()
     assert.lengthOf(await ItemDocument.all(), 1)
 
     // Deleting asks first: dismissed, the document stays
-    const messages: string[] = []
-    edit.once('dialog', (dialog) => {
-      messages.push(dialog.message())
-      return dialog.dismiss()
-    })
-    await edit
-      .getByRole('row', { name: /Manuale di installazione/ })
+    await show
+      .getByTestId('item-documents')
+      .getByRole('listitem')
+      .filter({ hasText: 'Manuale di installazione' })
       .getByRole('button', { name: it('ui.common.delete') })
       .click()
-    assert.deepEqual(messages, [it('ui.items.deleteDocumentConfirm')])
+    const confirm = show.getByRole('alertdialog', { name: it('ui.items.deleteDocument') })
+    await confirm.getByText(it('ui.items.deleteDocumentConfirm')).waitFor()
+    await confirm.getByRole('button', { name: it('ui.screen.goBack') }).click()
+    await confirm.waitFor({ state: 'hidden' })
     assert.lengthOf(await ItemDocument.all(), 1)
 
     const form = await visit(`/sites/${site.id}/equipment/create`)
