@@ -14,6 +14,9 @@ export interface ApiDefinition {
   sdi: {
     webhook: typeof routes['sdi.webhook']
   }
+  devUi: {
+    show: typeof routes['dev_ui.show']
+  }
   dashboard: typeof routes['dashboard']
   companySettings: {
     logo: typeof routes['company_settings.logo']

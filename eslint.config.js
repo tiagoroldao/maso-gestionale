@@ -1,5 +1,6 @@
 import { configApp } from '@adonisjs/eslint-config'
 import { vue } from '@adonisjs/eslint-config/vue'
+import colours from './scripts/eslint/no_hard_coded_colours.js'
 
 export default configApp(
   ...vue,
@@ -54,6 +55,20 @@ export default configApp(
         },
       ],
     },
+  },
+  {
+    // Colours come from the tokens in inertia/css/main.css (docs/ui.md
+    // "Look"); the token file and docs/ui/mockups hold the raw values
+    name: 'colour tokens',
+    files: ['inertia/**/*.vue'],
+    plugins: { local: colours },
+    rules: { 'local/no-hard-coded-colours': 'error' },
+  },
+  {
+    // The error pages move to the new look with their own issue
+    name: 'colour tokens: error pages not yet moved',
+    files: ['inertia/pages/errors/server_error.vue'],
+    rules: { 'local/no-hard-coded-colours': 'off' },
   },
   {
     // Components copied in by the shadcn-vue CLI (ADR 0020) keep its file

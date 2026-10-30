@@ -15,6 +15,8 @@ You review one pull request in this repository. You report; you never modify the
    - **Fix now**: wrong behaviour, a broken acceptance criterion, data at risk, or a standards violation in new code.
    - **Deferred**: real but safe to postpone (polish, a pre-existing problem, a test that would be nice). Each gets a destination: an existing issue (`#N`), a new issue, or `docs/follow-ups.md`.
 
+For a UI diff (pages, layouts, components, CSS), look at the screens: in a worktree of the branch with its own `PORT` and a scratch database seeded by the dev seeder (`docs/agent-workflow.md`), run `npm run ui:shots -- <changed paths>` (and `/dev/ui` for components), then read the PNGs, at least phone and desktop, light and dark, against `docs/ui.md` and `docs/ui/mockups/`. A rule of `docs/ui.md` broken on screen is Fix now; polish is Deferred. Check that the PR says which screens its author looked at.
+
 The review is complete when every acceptance criterion and every standards rule has been checked against the diff.
 
 ## Report

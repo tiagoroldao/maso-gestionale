@@ -46,6 +46,23 @@
     "searchPlaceholder": "Cerca…",
     "searchSoon": "La ricerca arriverà presto"
   },
+  "devUi": {
+    "title": "Componenti",
+    "intro": "Le parti della nuova interfaccia nei loro stati, solo in sviluppo. Il tema è quello della pagina: ui:shots fotografa sia il chiaro sia lo scuro.",
+    "logo": "Logo",
+    "onSurface": "Su una superficie",
+    "onFrame": "Sulla cornice nera",
+    "menuItems": "Voci del menu",
+    "sidebar": "Barra laterale",
+    "folded": "Ripiegata a icone (tablet)",
+    "drawer": "Cassetto (telefono)",
+    "inactive": "Voce",
+    "active": "Voce attiva",
+    "buttons": "Pulsanti",
+    "sheet": "Cassetto (Sheet)",
+    "openSheet": "Apri il cassetto",
+    "sheetText": "Un pannello che scorre da destra, come il menu sul telefono."
+  },
   "roles": {
     "superuser": "Superuser",
     "admin": "Titolare",

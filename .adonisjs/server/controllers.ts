@@ -9,6 +9,7 @@ export const controllers = {
   CompanySettings: () => import('#controllers/company_settings_controller'),
   CustomerSites: () => import('#controllers/customer_sites_controller'),
   Customers: () => import('#controllers/customers_controller'),
+  DevUi: () => import('#controllers/dev_ui_controller'),
   DocumentTemplates: () => import('#controllers/document_templates_controller'),
   InstalledEquipment: () => import('#controllers/installed_equipment_controller'),
   InstanceBackups: () => import('#controllers/instance_backups_controller'),

@@ -5,6 +5,7 @@ Rules for every screen on the new UI: a screen is on it once it renders inside t
 ## Screen sizes
 
 - **Phone:** under 768px. **Tablet:** 768–1023px, the desktop rules with the sidebar folded to icons. **Desktop:** 1024px and up.
+- **Checked at** 390px (phone), 820px (tablet) and 1440px (desktop): `shared/screen_sizes.ts`, used by `npm run ui:shots` and by the browser tests that check a rule at a screen size.
 - Every screen works on a phone. No drag and drop: an explicit action, with a preview of the result where it changes a time or an order.
 
 ## Kinds of screen

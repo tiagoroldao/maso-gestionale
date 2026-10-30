@@ -30,6 +30,8 @@ router
   .group(() => {
     router.get('/', ({ auth, response }) => response.redirect(User.homePath(auth.getUserOrFail())))
     router.post('logout', [controllers.Session, 'destroy'])
+    // The component gallery: development only, 404 in production (#252)
+    router.get('dev/ui', [controllers.DevUi, 'show'])
 
     router
       .group(() => {

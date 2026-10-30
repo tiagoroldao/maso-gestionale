@@ -1,6 +1,8 @@
 import { test } from '@japa/runner'
 import { createUser } from '#tests/helpers/users'
 import { it } from '#tests/helpers/i18n'
+import { seriousA11yViolations } from '#tests/helpers/axe'
+import { SCREEN_SIZES } from '#shared/screen_sizes'
 
 test.group('App shell in the browser', () => {
   test('on a phone, Office opens the menu drawer and goes to another screen', async ({
@@ -12,7 +14,7 @@ test.group('App shell in the browser', () => {
     await browserContext.loginAs(office)
 
     const page = await visit('/jobs')
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(SCREEN_SIZES.phone)
     await page.getByRole('button', { name: it('ui.shell.openMenu') }).click()
 
     const drawer = page.getByRole('dialog')
@@ -22,6 +24,7 @@ test.group('App shell in the browser', () => {
       .and(page.locator('[aria-current="page"]'))
       .waitFor()
     await drawer.getByRole('button', { name: it('ui.common.logout') }).waitFor()
+    assert.deepEqual(await seriousA11yViolations(page), [])
 
     await menu.getByRole('link', { name: it('ui.nav.customers') }).click()
     await page.waitForURL('**/customers')
@@ -34,7 +37,7 @@ test.group('App shell in the browser', () => {
     await browserContext.loginAs(technician)
 
     const page = await visit('/my-visits')
-    await page.setViewportSize({ width: 390, height: 844 })
+    await page.setViewportSize(SCREEN_SIZES.phone)
     await page.getByRole('button', { name: it('ui.shell.openMenu') }).click()
 
     const menu = page.getByRole('dialog').getByRole('navigation', { name: it('ui.shell.mainNav') })
@@ -55,7 +58,7 @@ test.group('App shell in the browser', () => {
     await browserContext.loginAs(office)
 
     const page = await visit('/jobs')
-    await page.setViewportSize({ width: 900, height: 800 })
+    await page.setViewportSize(SCREEN_SIZES.tablet)
 
     assert.equal(await page.getByRole('button', { name: it('ui.shell.openMenu') }).count(), 0)
     const menu = page.getByRole('navigation', { name: it('ui.shell.mainNav') })
@@ -66,6 +69,7 @@ test.group('App shell in the browser', () => {
       const name = await link.getByText(it(label), { exact: true }).boundingBox()
       assert.isAtMost(name?.width ?? 0, 1, label)
     }
+    assert.deepEqual(await seriousA11yViolations(page), [])
   })
 
   test('on a desktop, the sidebar shows its items’ names and there is no "☰"', async ({
@@ -77,13 +81,31 @@ test.group('App shell in the browser', () => {
     await browserContext.loginAs(office)
 
     const page = await visit('/jobs')
-    await page.setViewportSize({ width: 1280, height: 800 })
+    await page.setViewportSize(SCREEN_SIZES.desktop)
 
     assert.equal(await page.getByRole('button', { name: it('ui.shell.openMenu') }).count(), 0)
     const menu = page.getByRole('navigation', { name: it('ui.shell.mainNav') })
     for (const label of ['ui.nav.jobs', 'ui.nav.customers', 'ui.nav.invoices']) {
       const name = await menu.getByText(it(label), { exact: true }).boundingBox()
       assert.isAbove(name?.width ?? 0, 1, label)
+    }
+    assert.deepEqual(await seriousA11yViolations(page), [])
+  })
+
+  test('the shell has no serious accessibility violations in dark', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await browserContext.loginAs(office)
+
+    const page = await visit('/jobs')
+    await page.emulateMedia({ colorScheme: 'dark' })
+    await page.locator('html[data-theme="dark"]').waitFor({ state: 'attached' })
+    for (const size of ['desktop', 'phone'] as const) {
+      await page.setViewportSize(SCREEN_SIZES[size])
+      assert.deepEqual(await seriousA11yViolations(page), [], size)
     }
   })
 })

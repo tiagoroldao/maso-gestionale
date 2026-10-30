@@ -29,7 +29,7 @@ The UI is functional scaffolding until the UX pass (ADR 0009). A screen on the n
 
 ## Tests
 
-- **Behaviour at the highest seam.** Functional tests through HTTP for rules and access; one Playwright smoke test per main flow; unit tests for pure modules (totals, due dates, derivations).
-- **Browser tests check `docs/ui.md` as behaviour at a screen size, never pixels.** On a screen on the new UI, assert its rules where they depend on the viewport (on a phone the primary action is in the bottom bar, "⋯" opens the other actions, "☰" opens the menu; on a tablet the sidebar is folded to icons). Positions, sizes and colours are checked with screenshots and accessibility checks, not asserted.
+- **Behaviour at the highest seam.** Functional tests through HTTP for rules and access; one Playwright smoke test per main flow; unit tests for pure modules (totals, due dates, derivations). Checks of a rule at a screen size (below) may be browser tests of their own, beside the flow's smoke test.
+- **Browser tests check `docs/ui.md` as behaviour at a screen size, never pixels.** On a screen on the new UI, assert its rules where they depend on the viewport (on a phone the primary action is in the bottom bar, "⋯" opens the other actions, "☰" opens the menu; on a tablet the sidebar is folded to icons). Use the widths in `shared/screen_sizes.ts` (docs/ui.md "Screen sizes"). Positions, sizes and colours are checked with screenshots (`npm run ui:shots`) and accessibility checks, not asserted: a browser test of a screen on the new UI runs axe on it (`tests/helpers/axe.ts`) and allows no serious or critical violation.
 - **Every role.** Access rules are tested for each role that must be refused, on every verb (GET, POST, PUT, DELETE), not only the page load.
 - **Assert the specific outcome**: the exact error field, the stored value, the unchanged record after a refusal; never only "something failed".

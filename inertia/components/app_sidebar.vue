@@ -32,6 +32,7 @@ import LogoMark from '~/components/logo_mark.vue'
 import ThemeToggle from '~/components/theme_toggle.vue'
 import NavLink, { type NavRoute } from '~/components/nav_link.vue'
 import { roleLabel } from '~/components/role_label'
+import { sidebarIconButtonClass, sidebarItemClass } from '~/components/shell_classes'
 
 const props = withDefaults(defineProps<{ drawer?: boolean }>(), { drawer: false })
 const emit = defineEmits<{ navigate: [] }>()
@@ -61,26 +62,8 @@ const groups = computed(() => menuFor(user.value?.role))
 /** Hidden while folded (tablet), kept for screen readers; never folded in the drawer */
 const folded = computed(() => (props.drawer ? '' : 'md:max-lg:sr-only'))
 
-// The red cut marks the active item (aria-current, set by NavLink)
-const ACTIVE =
-  "aria-[current=page]:bg-sidebar-accent aria-[current=page]:font-semibold aria-[current=page]:text-sidebar-accent-foreground aria-[current=page]:after:absolute aria-[current=page]:after:top-1/2 aria-[current=page]:after:-mt-1.5 aria-[current=page]:after:h-3 aria-[current=page]:after:w-[7px] aria-[current=page]:after:-skew-y-[40deg] aria-[current=page]:after:bg-sidebar-brand aria-[current=page]:after:content-['']"
-
-const itemClass = computed(() =>
-  cn(
-    'relative flex items-center gap-2.5 rounded-sm text-sidebar-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand',
-    ACTIVE,
-    props.drawer
-      ? 'min-h-11 px-3.5 text-base aria-[current=page]:after:right-3.5'
-      : 'h-[34px] px-3 text-sm aria-[current=page]:after:right-3 md:max-lg:justify-center md:max-lg:px-0 md:max-lg:aria-[current=page]:after:right-1'
-  )
-)
-
-const iconButton = computed(() =>
-  cn(
-    'grid place-items-center rounded-sm border border-sidebar-border text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand focus-visible:outline-none',
-    props.drawer ? 'size-11' : 'size-9'
-  )
-)
+const itemClass = computed(() => sidebarItemClass(props.drawer))
+const iconButton = computed(() => sidebarIconButtonClass(props.drawer))
 </script>
 
 <template>
