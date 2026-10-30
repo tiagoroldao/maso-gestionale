@@ -28,12 +28,14 @@ import { ACTIVE_JOB_STATUSES } from '#shared/jobs'
 import { lineTotal, sumAmounts } from '#shared/money'
 import { localDateTime } from '#services/dates'
 import { quoteNumber } from '#shared/quotes'
+import { listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const PER_PAGE = 25
 
 export default class JobsController {
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const {
       q,
       status,
@@ -95,6 +97,7 @@ export default class JobsController {
       .paginate(page, PER_PAGE)
 
     return inertia.render('jobs/index', {
+      actions: listActions({ label: i18n.t('ui.jobs.new'), href: urlFor('jobs.create') }),
       q: q ?? '',
       status: status ?? 'active',
       customer: ofCustomer ? { id: ofCustomer.id, displayName: ofCustomer.displayName } : null,

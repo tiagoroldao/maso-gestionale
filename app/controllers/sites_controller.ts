@@ -6,6 +6,8 @@ import { siteSearchValidator, siteValidator } from '#validators/site'
 import { openJobCount, recentJobs } from '#services/job_rows'
 import { siteActions } from '#services/site_actions'
 import { saveActions } from '#shared/screen_actions'
+import { archivedLink, listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
@@ -51,7 +53,7 @@ export default class SitesController {
     response.redirect().toRoute('sites.show', { id: params.id })
   }
 
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const { q, page = 1, archived = false } = await siteSearchValidator.validate(request.qs())
 
     const query = Site.query().withCount('customers')
@@ -61,6 +63,9 @@ export default class SitesController {
     const results = await query.orderBy(ADDRESS_ORDER).paginate(page, PER_PAGE)
 
     return inertia.render('sites/index', {
+      actions: listActions({ label: i18n.t('ui.sites.new'), href: urlFor('sites.create') }, [
+        archivedLink('sites.index', archived, i18n),
+      ]),
       q: q ?? '',
       archived,
       sites: results.all().map((site) => ({

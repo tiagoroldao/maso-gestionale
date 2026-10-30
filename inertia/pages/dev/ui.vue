@@ -15,13 +15,15 @@ import StatusTag from '~/components/screen/status_tag.vue'
 import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
 import FormField from '~/components/screen/form_field.vue'
 import JobRows from '~/components/screen/job_rows.vue'
+import ListSearch from '~/components/screen/list_search.vue'
+import ListPagination from '~/components/screen/list_pagination.vue'
 import IssuedDocumentRows from '~/components/screen/issued_document_rows.vue'
-import type { JobRow } from '~/components/job_list.vue'
+import type { JobRow } from '~/components/screen/job_rows.vue'
 import type { IssuedDocumentRow } from '~/components/issued_document_list.vue'
 import SitePicker from '~/components/site_picker.vue'
 import ItemPicker from '~/components/item_picker.vue'
 import { Textarea } from '~/components/ui/textarea'
-import { EDIT_ROW, EDIT_ROW_FORM, TOUCH, type Tone } from '~/components/screen/screen'
+import { EDIT_ROW, EDIT_ROW_FORM, LIST_BOX, TOUCH, type Tone } from '~/components/screen/screen'
 import SettingsNav from '~/components/screen/settings_nav.vue'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
@@ -165,6 +167,8 @@ const sampleRows: { name: string; value: string; errors: Partial<Record<string, 
     errors: { name: t('ui.devUi.field.error') },
   },
 ]
+// A list's search (#238)
+const sampleSearch = ref('')
 const dialogOpen = ref(false)
 const confirmOpen = ref(false)
 const sampleSelect = ref('kind')
@@ -432,6 +436,20 @@ function sampleDialog(name: string) {
             </ScreenSection>
           </div>
         </div>
+      </section>
+
+      <section :class="section">
+        <h2 :class="heading">{{ t('ui.devUi.list') }}</h2>
+        <p :class="caption">{{ t('ui.devUi.listIntro') }}</p>
+        <ListSearch
+          v-model="sampleSearch"
+          :label="t('ui.jobs.searchLabel')"
+          :placeholder="t('ui.jobs.searchPlaceholder')"
+        />
+        <div :class="LIST_BOX">
+          <JobRows :jobs="sampleJobs" show-site />
+        </div>
+        <ListPagination :current-page="2" :last-page="5" :total="112" />
       </section>
 
       <section :class="section">

@@ -9,6 +9,7 @@ import type { InvoiceStatus } from '@shared/invoice_lifecycle'
 import type { JobIndicators, JobStatus } from '@shared/jobs'
 import type { PaymentStatus } from '@shared/payment_status'
 import type { QuoteStatus } from '@shared/quotes'
+import type { SupplierInvoiceStatus } from '@shared/supplier_invoices'
 
 /** Section labels and the breadcrumb: Montserrat in spaced capitals */
 export const LABEL =
@@ -23,6 +24,13 @@ export const TH =
   'border-b border-border px-4 py-2 text-left text-xs font-medium whitespace-nowrap text-muted-foreground'
 export const TD = 'border-b border-border px-4 py-2.5 align-top text-sm'
 export const ROW = 'flex items-start gap-2.5 border-t border-border px-3.5 py-3'
+
+/**
+ * A row that opens its record (a list's, a section's): the row is `OPENS_ROW`
+ * and its link to the record `OPENS_LINK`, which stretches over the whole row
+ */
+export const OPENS_ROW = 'relative hover:bg-background'
+export const OPENS_LINK = "after:absolute after:inset-0 after:content-['']"
 
 /** A search-as-you-type picker (Sites, Items): its results under the field, each a button */
 export const PICKER_RESULTS =
@@ -40,6 +48,13 @@ export const EDIT_ROW =
   'flex flex-col gap-2 border-t border-border px-3.5 py-3 md:flex-row md:items-start md:px-4'
 export const EDIT_ROW_FORM =
   'flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:flex-wrap md:items-start'
+
+/**
+ * A list's records (docs/ui.md "Lists"): a bordered box, whose own border
+ * closes the table's last row and opens the first of the phone's rows
+ */
+export const LIST_BOX =
+  'min-w-0 rounded-sm border border-border bg-card tabular-nums [&>div>table>tbody>tr:last-child>td]:border-b-0 [&>ul>li:first-child]:border-t-0'
 
 /** A section's line when it has nothing to list */
 export const EMPTY = 'm-0 border-t border-border px-3.5 py-3 text-sm text-muted-foreground md:px-4'
@@ -108,6 +123,12 @@ export const INVOICE_TONES: Record<InvoiceStatus, Tone> = {
   delivered: 'green',
   not_deliverable: 'orange',
   rejected: 'orange',
+}
+
+/** A Supplier Invoice: orange while it waits to be handled, green once handled */
+export const SUPPLIER_INVOICE_TONES: Record<SupplierInvoiceStatus, Tone> = {
+  to_handle: 'orange',
+  handled: 'green',
 }
 
 /** An issued Invoice's payment: green once paid, orange while something is owed or to refund */

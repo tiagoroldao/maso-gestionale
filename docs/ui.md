@@ -10,7 +10,7 @@ Rules for every screen on the new UI: a screen is on it once its content is buil
 
 ## Kinds of screen
 
-- **List:** a collection of one kind of record (Commesse, Clienti, Fatture). Its layout and filters are still to be decided.
+- **List:** a collection of one kind of record (Commesse, Clienti, Fatture). Plain for now ("Lists"); its layout and filters are still to be decided (#237).
 - **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`; a record edited in place on its own screen, a draft Quote, or whose editor is its only page, a Document Template, keeps its own actions beside Save), and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for. A record with no page of its own (a Supplier) sits under its list, its name as title and breadcrumb's last step.
 - **Bespoke:** Agenda, dashboards. Only the header and menu rules apply.
 
@@ -48,6 +48,13 @@ On desktop the header's buttons read: secondary, primary, "⋯". Destructive act
 - **The same on every Entity:** a key-facts band of 3–4 facts under the header (desktop: one row; phone: a two-column grid), then sections.
 - **Facts line or key facts.** The header's line names the record: its number, its kind, the dates of its state ("2026/0005 · Riparazione · aperta il 20/10/2026"), as plain text. The key-facts band holds what the user acts on: who and where (linked to their pages) and the money, each value with an optional hint ("su 2.388,00 € registrati").
 - **Bespoke per Entity:** which facts and sections. The section holding the screen's main work takes the main column on desktop; supporting sections take the side column. On the phone everything stacks, and a section's table becomes a list of rows.
+
+## Lists
+
+Plain until the lists design session (#237), which decides filters, sorting and row actions; until then `CODING_STANDARDS.md` "Lists" holds (#238).
+
+- **A top-level screen:** no parent, so the desktop breadcrumb is the list alone and the phone's bar shows the logo, not "‹". Creating a record ("Nuovo …") is the primary action; the list's other pages (its archived records, a Legacy Invoice) are secondary links (`listActions()`, `app/services/list_actions.ts`).
+- **Body** (`list_screen.vue`): the list's search and filters, where it has them, then its records in a bordered box, then the pages. A table on tablet and desktop (a wide one scrolls inside its box, never the page) and a list of rows on the phone, each row opening its record: the record's link stretches over the whole row (`OPENS_ROW`, `OPENS_LINK`). Statuses in tags, with the record's tones (`screen.ts`).
 
 ## Settings
 

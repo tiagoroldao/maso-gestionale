@@ -9,6 +9,8 @@ import { isBelowMarkup } from '#shared/money'
 import { reorderReason } from '#shared/stock'
 import { itemActions } from '#services/item_actions'
 import { saveActions } from '#shared/screen_actions'
+import { archivedLink, listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import { itemSearchValidator, itemValidator } from '#validators/item'
 import { isForeignKeyViolation, isUniqueViolation } from '#services/database_errors'
 import { storagePath } from '#services/storage'
@@ -75,7 +77,7 @@ function itemIdentity(item: Item) {
 }
 
 export default class ItemsController {
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const { q, page = 1, archived = false } = await itemSearchValidator.validate(request.qs())
 
     const query = Item.query().preload('category')
@@ -86,6 +88,12 @@ export default class ItemsController {
     const quantities = await StockLedger.quantities(results.all().map((item) => item.id))
 
     return inertia.render('items/index', {
+      actions: listActions({ label: i18n.t('ui.items.new'), href: urlFor('items.create') }, [
+        archivedLink('items.index', archived, i18n, {
+          show: 'ui.items.showArchived',
+          hide: 'ui.items.hideArchived',
+        }),
+      ]),
       q: q ?? '',
       archived,
       items: results.all().map((item) => ({

@@ -23,6 +23,8 @@ import {
   supplierInvoicePageValidator,
   supplierInvoiceUploadValidator,
 } from '#validators/supplier'
+import { listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import type { HttpContext } from '@adonisjs/core/http'
 
 const PER_PAGE = 25
@@ -36,7 +38,7 @@ const PER_PAGE = 25
  * intermediary, sent again from its page after a failure (#214).
  */
 export default class SupplierInvoicesController {
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const { page = 1 } = await pageValidator.validate(request.qs())
     const results = await SupplierInvoice.query()
       .preload('supplier')
@@ -47,6 +49,14 @@ export default class SupplierInvoicesController {
       .paginate(page, PER_PAGE)
 
     return inertia.render('supplier_invoices/index', {
+      // Uploading is the page's own form; the Suppliers are a link away
+      actions: listActions(null, [
+        {
+          name: 'suppliers',
+          label: i18n.t('ui.supplierInvoices.suppliers'),
+          href: urlFor('suppliers.index'),
+        },
+      ]),
       invoices: results.all().map((invoice) => ({
         id: invoice.id,
         supplier: invoice.supplier.name,
