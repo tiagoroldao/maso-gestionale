@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { t } from '~/i18n'
 import AuthLayout from '~/layouts/auth.vue'
+import AuthField from '~/components/auth_field.vue'
 import { Form } from '@adonisjs/inertia/vue'
 
 type FieldName =
@@ -49,11 +50,13 @@ const adminFields: Field[] = [
 
 const sections = [
   {
+    id: 'superuser-section',
     title: t('ui.setup.superuserTitle'),
     help: t('ui.setup.superuserHelp'),
     fields: superuserFields,
   },
   {
+    id: 'admin-section',
     title: t('ui.setup.adminTitle'),
     help: t('ui.setup.adminHelp'),
     fields: adminFields,
@@ -63,38 +66,46 @@ const sections = [
 
 <template>
   <AuthLayout>
-    <h1 class="auth__title">{{ t('ui.setup.title') }}</h1>
-    <p class="auth__sub">{{ t('ui.setup.subtitle') }}</p>
+    <h1 class="font-display text-[26px] font-bold tracking-[0.01em] text-balance">
+      {{ t('ui.setup.title') }}
+    </h1>
+    <p class="mt-1 text-sm text-muted-foreground">{{ t('ui.setup.subtitle') }}</p>
 
-    <Form v-slot="{ processing, errors }" route="setup.store">
-      <div class="auth__form">
-        <template v-for="section in sections" :key="section.title">
-          <h2 :style="{ fontSize: '15px', margin: '12px 0 0' }">{{ section.title }}</h2>
-          <p class="auth__sub" :style="{ margin: 0 }">{{ section.help }}</p>
+    <Form v-slot="{ processing, errors }" route="setup.store" class="mt-7 flex flex-col gap-6">
+      <section
+        v-for="section in sections"
+        :key="section.id"
+        :aria-labelledby="section.id"
+        class="flex flex-col gap-4 rounded-sm border border-border bg-card p-4 md:p-5"
+      >
+        <div>
+          <h2
+            :id="section.id"
+            class="font-display text-[11px] font-semibold tracking-[0.16em] uppercase"
+          >
+            {{ section.title }}
+          </h2>
+          <p class="mt-1 text-sm text-muted-foreground">{{ section.help }}</p>
+        </div>
 
-          <div v-for="field in section.fields" :key="field.name" class="field">
-            <label class="field__label" :for="field.name">{{ field.label }}</label>
-            <input
-              :id="field.name"
-              :name="field.name"
-              :type="field.type"
-              class="field__input"
-              :autocomplete="field.autocomplete"
-              :aria-invalid="errors[field.name] ? 'true' : 'false'"
-            />
-            <span v-if="errors[field.name]" class="field__error">{{ errors[field.name] }}</span>
-          </div>
-        </template>
+        <AuthField
+          v-for="field in section.fields"
+          :key="field.name"
+          :name="field.name"
+          :type="field.type"
+          :autocomplete="field.autocomplete"
+          :label="field.label"
+          :error="errors[field.name]"
+        />
+      </section>
 
-        <button
-          type="submit"
-          class="btn btn--primary btn--block"
-          :disabled="processing"
-          :style="{ marginTop: '4px' }"
-        >
-          {{ processing ? t('ui.common.processing') : t('ui.setup.submit') }}
-        </button>
-      </div>
+      <button
+        type="submit"
+        class="h-11 w-full rounded-sm bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-60"
+        :disabled="processing"
+      >
+        {{ processing ? t('ui.common.processing') : t('ui.setup.submit') }}
+      </button>
     </Form>
   </AuthLayout>
 </template>

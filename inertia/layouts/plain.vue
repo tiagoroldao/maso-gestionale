@@ -1,29 +1,30 @@
 <script setup lang="ts">
-import { t } from '~/i18n'
-import { usePage } from '@inertiajs/vue3'
-import { Link } from '@adonisjs/inertia/vue'
+/**
+ * The error pages, outside the app shell (docs/ui.md "Look"): a black band
+ * across the top with the logo and the theme toggle, on every screen size,
+ * and the page centred on the work surface below.
+ */
 import Logo from '~/components/logo.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
 import ThemeToggle from '~/components/theme_toggle.vue'
-
-const page = usePage()
 </script>
 
 <template>
-  <header class="header header--floating">
-    <div class="header__inner">
-      <Logo :size="28" />
-      <div class="header__right">
-        <ThemeToggle />
-        <Link v-if="page.props.user" route="dashboard" class="btn btn--primary btn--sm">
-          {{ t('ui.errors.toDashboard') }}
-        </Link>
-        <Link v-else route="session.create" class="btn btn--primary btn--sm">{{
-          t('ui.errors.signIn')
-        }}</Link>
-      </div>
-    </div>
-  </header>
-  <slot />
+  <div class="flex min-h-screen flex-col bg-background font-sans text-foreground tabular-nums">
+    <header
+      class="sticky top-0 z-40 flex shrink-0 items-center justify-between gap-4 bg-sidebar py-1.5 pr-1 pl-4 md:pr-4 md:pl-8"
+    >
+      <Logo />
+      <ThemeToggle
+        class="size-11 rounded-sm border-sidebar-border text-sidebar-foreground hover:border-sidebar-border hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-brand focus-visible:outline-none"
+      />
+    </header>
+
+    <main
+      class="flex flex-1 items-start justify-center px-4 pt-8 pb-12 md:items-center md:px-8 md:py-16"
+    >
+      <slot />
+    </main>
+  </div>
   <FlashToasts />
 </template>

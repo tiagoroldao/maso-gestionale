@@ -1,51 +1,40 @@
 <script setup lang="ts">
 import { t } from '~/i18n'
 import AuthLayout from '~/layouts/auth.vue'
+import AuthField from '~/components/auth_field.vue'
 import { Form } from '@adonisjs/inertia/vue'
 </script>
 
 <template>
   <AuthLayout>
-    <h1 class="auth__title">{{ t('ui.auth.loginTitle') }}</h1>
-    <p class="auth__sub">{{ t('ui.auth.loginSubtitle') }}</p>
+    <h1 class="font-display text-[26px] font-bold tracking-[0.01em]">
+      {{ t('ui.auth.loginTitle') }}
+    </h1>
+    <p class="mt-1 text-sm text-muted-foreground">{{ t('ui.auth.loginSubtitle') }}</p>
 
-    <Form v-slot="{ processing, errors }" route="session.store">
-      <div class="auth__form">
-        <div class="field">
-          <label class="field__label" for="email">{{ t('ui.auth.email') }}</label>
-          <input
-            id="email"
-            name="email"
-            type="email"
-            class="field__input"
-            autocomplete="username"
-            :aria-invalid="errors.email ? 'true' : 'false'"
-          />
-          <span v-if="errors.email" class="field__error">{{ errors.email }}</span>
-        </div>
+    <Form v-slot="{ processing, errors }" route="session.store" class="mt-7 flex flex-col gap-4">
+      <AuthField
+        name="email"
+        type="email"
+        autocomplete="username"
+        :label="t('ui.auth.email')"
+        :error="errors.email"
+      />
+      <AuthField
+        name="password"
+        type="password"
+        autocomplete="current-password"
+        :label="t('ui.auth.password')"
+        :error="errors.password"
+      />
 
-        <div class="field">
-          <label class="field__label" for="password">{{ t('ui.auth.password') }}</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            class="field__input"
-            autocomplete="current-password"
-            :aria-invalid="errors.password ? 'true' : 'false'"
-          />
-          <span v-if="errors.password" class="field__error">{{ errors.password }}</span>
-        </div>
-
-        <button
-          type="submit"
-          class="btn btn--primary btn--block"
-          :disabled="processing"
-          :style="{ marginTop: '4px' }"
-        >
-          {{ processing ? t('ui.common.processing') : t('ui.auth.signIn') }}
-        </button>
-      </div>
+      <button
+        type="submit"
+        class="mt-2 h-11 w-full rounded-sm bg-primary px-5 text-sm font-semibold text-primary-foreground outline-none hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-default disabled:opacity-60"
+        :disabled="processing"
+      >
+        {{ processing ? t('ui.common.processing') : t('ui.auth.signIn') }}
+      </button>
     </Form>
   </AuthLayout>
 </template>
