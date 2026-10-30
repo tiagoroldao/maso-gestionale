@@ -562,6 +562,8 @@
     "unarchive": "Ripristina",
     "delete": "Elimina",
     "deleteConfirm": "Eliminare l'articolo? Non si potrà recuperare.",
+    "archiveConfirm": "Archiviare l'articolo {code}? Non comparirà più negli elenchi e nella ricerca degli articoli; si potrà ripristinare.",
+    "deleteDocument": "Elimina documento",
     "deleteDocumentConfirm": "Eliminare il documento? Non si potrà recuperare.",
     "archivedNotice": "Questo articolo è archiviato: non compare negli elenchi e nella ricerca degli articoli.",
     "stock": "Giacenza",
@@ -596,6 +598,9 @@
     "adjust": "Registra rettifica",
     "negativeStock": "Giacenza negativa",
     "negativeAvailable": "Disponibilità negativa",
+    "committedHint": "Impegnato: {quantity}",
+    "reorderLevelHintShort": "Scorta minima: {quantity}",
+    "purchaseHint": "Acquisto: {price}",
     "picker": {
       "label": "Cerca un articolo",
       "placeholder": "Codice, descrizione o codice fornitore",
@@ -603,6 +608,7 @@
       "failed": "Ricerca non riuscita. Ricarica la pagina e riprova."
     },
     "maintenanceSection": "Manutenzione",
+    "warehouseSection": "Magazzino",
     "maintenanceInterval": "Intervallo di manutenzione predefinito (mesi)",
     "maintenanceIntervalHint": "Facoltativo. Proposto quando l'articolo viene collegato a un apparecchio installato.",
     "documentsTitle": "Documenti",
@@ -619,8 +625,8 @@
     "belowMarkupTitle": "Prezzi da rivedere",
     "belowMarkupDescription": "Articoli il cui prezzo di vendita è sotto il ricarico della categoria dopo un acquisto più caro.",
     "nothing": "Niente da segnalare.",
-    "negative": "negativa",
-    "low": "sotto scorta",
+    "negative": "Disponibilità negativa",
+    "low": "Sotto scorta",
     "categoryMarkup": "Ricarico categoria"
   },
   "jobs": {
@@ -1675,6 +1681,9 @@
     "vatCountry": "Paese",
     "vatNumber": "Partita IVA",
     "vatNumberFixed": "La Partita IVA non si cambia: le fatture del fornitore la riportano.",
+    "companySection": "Azienda",
+    "addressSection": "Sede",
+    "contactsSection": "Contatti",
     "taxCode": "Codice Fiscale",
     "street": "Indirizzo",
     "postalCode": "CAP",
