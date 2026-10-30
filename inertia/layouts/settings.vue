@@ -1,38 +1,15 @@
 <script setup lang="ts">
 import { t } from '~/i18n'
 import Page from '~/components/page.vue'
-import {
-  Building2,
-  CalendarClock,
-  FileText,
-  Hash,
-  ListChecks,
-  Percent,
-  Tags,
-  Wrench,
-} from 'lucide-vue-next'
-import NavLink, { type NavItem } from '~/components/nav_link.vue'
+import NavLink from '~/components/nav_link.vue'
+import { SETTINGS_PAGES as items } from '~/components/settings_pages'
 
 /**
- * The pages of the settings area, listed in the sidebar. Each settings
- * page renders inside the app layout and this layout:
- *
- * `<AppLayout><SettingsLayout>…</SettingsLayout></AppLayout>`
+ * The settings area's old layout, kept for the pages not yet on the new UI
+ * (the Document Templates): each renders inside the app layout and this one,
+ * `<AppLayout><SettingsLayout>…</SettingsLayout></AppLayout>`. The pages on
+ * the new UI use `SettingsScreen` instead.
  */
-const items: NavItem[] = [
-  { label: t('ui.settings.company'), route: 'company_settings.edit', icon: Building2 },
-  { label: t('ui.settings.paymentTerms'), route: 'payment_terms.index', icon: CalendarClock },
-  { label: t('ui.settings.categories'), route: 'categories.index', icon: Tags },
-  { label: t('ui.settings.rates'), route: 'rates.index', icon: Wrench },
-  { label: t('ui.settings.vatCodes'), route: 'vat_codes.index', icon: Percent },
-  { label: t('ui.settings.vatRules'), route: 'vat_rules.index', icon: ListChecks },
-  {
-    label: t('ui.settings.documentTemplates'),
-    route: 'document_templates.index',
-    icon: FileText,
-  },
-  { label: t('ui.settings.invoiceNumbering'), route: 'invoice_numbering.index', icon: Hash },
-]
 </script>
 
 <template>

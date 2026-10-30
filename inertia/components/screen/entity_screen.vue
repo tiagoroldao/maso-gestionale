@@ -5,6 +5,10 @@
  * the screen's main work and the `side` slot the supporting sections, side
  * by side on a wide screen; the default slot's sections run full width
  * below. Everything stacks on the phone, above the primary action's bar.
+ *
+ * In edit mode (a form to create or edit the record, docs/ui.md "Kinds of
+ * screen") Save, the primary `submit` action, submits the screen's form;
+ * `busy` holds Save while it is sent.
  */
 import { computed } from 'vue'
 import { Head } from '@inertiajs/vue3'
@@ -23,8 +27,9 @@ const props = withDefaults(
     facts?: string
     actions?: ScreenAction[]
     keyFacts?: KeyFact[]
+    busy?: boolean
   }>(),
-  { facts: '', actions: () => [], keyFacts: () => [] }
+  { facts: '', actions: () => [], keyFacts: () => [], busy: false }
 )
 const emit = defineEmits<{ dialog: [name: string] }>()
 
@@ -41,6 +46,7 @@ const hasPrimary = computed(() => props.actions.some((action) => action.rank ===
       :title="title"
       :facts="facts"
       :actions="actions"
+      :busy="busy"
       @dialog="(name) => emit('dialog', name)"
     >
       <template #tags><slot name="tags" /></template>

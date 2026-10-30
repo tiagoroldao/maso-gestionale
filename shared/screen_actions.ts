@@ -11,10 +11,13 @@ export type ActionRank = (typeof ACTION_RANKS)[number]
 
 /**
  * What an action does: open a page (`link`), post to the server (`post`),
- * or open the screen's own dialog (`dialog`: a short form, such as the
- * options of a draft Invoice), which the page renders by the action's name.
+ * open the screen's own dialog (`dialog`: a short form, such as the
+ * options of a draft Invoice), which the page renders by the action's name,
+ * or submit the form the screen sits in (`submit`: Save, on a screen in
+ * edit mode), or the page's form its `form` names when that form doesn't
+ * wrap the header.
  */
-export const ACTION_KINDS = ['link', 'post', 'dialog'] as const
+export const ACTION_KINDS = ['link', 'post', 'dialog', 'submit'] as const
 export type ActionKind = (typeof ACTION_KINDS)[number]
 
 export type ScreenAction = {
@@ -24,8 +27,13 @@ export type ScreenAction = {
   label: string
   rank: ActionRank
   kind: ActionKind
-  /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` */
+  /** The page a `link` opens, or the route a `post` posts to; null for a `dialog` or `submit` */
   href: string | null
+  /**
+   * The id of the page's form a `submit` submits, when the form doesn't wrap
+   * the header; null for a screen sitting in its form, and the other kinds
+   */
+  form: string | null
   /** Delete, cancel, set back to bill: always overflow, always confirmed */
   destructive: boolean
   /** The question asked first, for a destructive or irreversible action */
@@ -35,7 +43,7 @@ export type ScreenAction = {
 }
 
 export type ScreenActionInput = Pick<ScreenAction, 'name' | 'label' | 'rank' | 'kind'> &
-  Partial<Pick<ScreenAction, 'href' | 'destructive' | 'confirm' | 'disabledReason'>>
+  Partial<Pick<ScreenAction, 'href' | 'form' | 'destructive' | 'confirm' | 'disabledReason'>>
 
 /** A mistake in a screen's declaration: a developer's, so it fails loudly */
 export class ScreenActionsError extends Error {}
@@ -52,12 +60,13 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     names.add(action.name)
     const full: ScreenAction = {
       href: null,
+      form: null,
       destructive: false,
       confirm: null,
       disabledReason: null,
       ...action,
     }
-    if (full.kind !== 'dialog' && !full.href) {
+    if ((full.kind === 'link' || full.kind === 'post') && !full.href) {
       throw new ScreenActionsError(`Action ${full.name} needs an href`)
     }
     if (full.destructive && (full.rank !== 'overflow' || !full.confirm)) {
@@ -69,6 +78,17 @@ export function declareActions(actions: ScreenActionInput[]): ScreenAction[] {
     throw new ScreenActionsError('A screen has one primary action at most')
   }
   return declared
+}
+
+/**
+ * A screen in edit mode (a form to create or edit a record): Save, its
+ * primary, submits the form the screen sits in, or the page's form with
+ * the id `form` when that form doesn't wrap the header.
+ */
+export function saveActions(label: string, form?: string) {
+  return declareActions([
+    { name: 'save', label, rank: 'primary', kind: 'submit', form: form ?? null },
+  ])
 }
 
 /** Secondary actions shown as buttons; the rest go in "⋯" */
