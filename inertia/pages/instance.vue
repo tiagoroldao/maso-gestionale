@@ -71,9 +71,19 @@ const sdiEnvironment = ref(props.settings.sdiEnvironment)
 
 // Each Supplier Invoice archived is paid for: asked first (#214)
 const archiveOpen = ref(false)
+// Held while it is sent, so a second click can't ask twice
+const archiving = ref(false)
 function archiveExisting() {
   archiveOpen.value = false
-  router.post(urlFor('instance.archive_supplier_invoices'))
+  if (archiving.value) return
+  router.post(
+    urlFor('instance.archive_supplier_invoices'),
+    {},
+    {
+      onStart: () => (archiving.value = true),
+      onFinish: () => (archiving.value = false),
+    }
+  )
 }
 
 const FORM = 'flex flex-col gap-4'
@@ -228,7 +238,12 @@ const SUBTITLE = 'm-0 text-sm font-semibold'
           v-if="settings.legalStorage === 'active' && settings.receivedNotArchived"
           #actions
         >
-          <Button variant="outline" :class="TOUCH" @click="archiveOpen = true">
+          <Button
+            variant="outline"
+            :class="TOUCH"
+            :disabled="archiving"
+            @click="archiveOpen = true"
+          >
             {{ t('ui.instance.archiveExisting') }}
           </Button>
         </template>

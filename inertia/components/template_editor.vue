@@ -13,11 +13,13 @@ import { Button } from '~/components/ui/button'
 import { TOUCH } from '~/components/screen/screen'
 import type { TemplateNode } from '@shared/document_templates'
 
-const props = defineProps<{ initial: TemplateNode | null }>()
+// `readonly` (an archived template) shows the body without letting it change
+const props = defineProps<{ initial: TemplateNode | null; readonly?: boolean }>()
 
 // No code, links, quotes or raw HTML: pasted content keeps only these
 const editor = useEditor({
   content: props.initial ?? { type: 'doc', content: [{ type: 'paragraph' }] },
+  editable: !props.readonly,
   extensions: [
     StarterKit.configure({
       document: false,

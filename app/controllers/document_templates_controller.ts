@@ -73,6 +73,7 @@ function templateActions(template: DocumentTemplate, i18n: I18n) {
       rank: 'overflow',
       kind: 'post',
       href: urlFor('document_templates.archive', params),
+      destructive: true,
       confirm: i18n.t('ui.documentTemplates.archiveConfirm'),
     })
   }

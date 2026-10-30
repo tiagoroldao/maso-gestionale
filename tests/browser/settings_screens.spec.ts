@@ -237,6 +237,12 @@ test.group('Settings screens in the browser', () => {
 
     // An archived template can't be edited: Restore takes Save's place
     await page.goto(`/settings/document-templates/${saved.id}/edit`)
+    await page.getByText(it('ui.documentTemplates.archivedNote')).waitFor()
+    assert.isTrue(await page.getByLabel(it('ui.documentTemplates.name')).isDisabled())
+    assert.equal(
+      await page.getByTestId('template-body').getByRole('textbox').getAttribute('contenteditable'),
+      'false'
+    )
     await header.getByRole('button', { name: it('ui.archive.restore') }).click()
     await header.getByRole('button', { name: it('ui.documentTemplates.save') }).waitFor()
     await saved.refresh()

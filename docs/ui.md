@@ -11,7 +11,7 @@ Rules for every screen on the new UI: a screen is on it once its content is buil
 ## Kinds of screen
 
 - **List:** a collection of one kind of record (Commesse, Clienti, Fatture). Its layout and filters are still to be decided.
-- **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`), and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for. A record with no page of its own (a Supplier) sits under its list, its name as title and breadcrumb's last step.
+- **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`), unless the edit screen is the record's only page (a Document Template's editor): then the record's own actions (archive, try it) sit beside Save, and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for. A record with no page of its own (a Supplier) sits under its list, its name as title and breadcrumb's last step.
 - **Bespoke:** Agenda, dashboards. Only the header and menu rules apply.
 
 ## Header
@@ -56,8 +56,8 @@ The settings area (Impostazioni) is one menu item; its pages are tabs under each
 - **A form page** (the company, the VAT rules) is in edit mode: Save is its primary action.
 - **A list edited in place** (rates, VAT Codes, Payment Terms, Categories): each row is a short form with its own Save, its errors after its fields, each naming its field (#226); the row's other action (archive, delete) beside it, always confirmed: neither can be undone. On the phone a row's fields stack, each with its name; on desktop column heads name them once. Adding one is the section's action, opening a dialog.
 - **Several short forms** (Numerazione fatture: each year's next number, the Credit Notes' numbering, the SDI files' letter; Istanza): each in its section, with its own Save beside its field or under its fields; the header has no actions.
-- **A page under a tab** (a Document Template's editor, and its "Prova con dati reali"): an Entity screen without the tabs, under its tab in the breadcrumb (Impostazioni › Modelli di documento › the template).
-- **Utenti and Istanza** are their own menu items in the Impostazioni group, not tabs: Utenti for the Admin, Istanza for the Superuser, each a screen with no parent.
+- **A page under a tab** (a Document Template's editor, and its "Prova con dati reali"): an Entity screen without the tabs, under its tab in the breadcrumb (Impostazioni › Modelli di documento › the template). A record's editor there is always in edit mode and is the record's only page, so its own actions sit beside Save ("Kinds of screen").
+- **Utenti and Istanza** are their own menu items in the Impostazioni group, not tabs: Utenti for the Admin, Istanza for the Superuser, each a screen with no parent, so on the phone the bar shows the logo instead of "‹", as Giacenze does. On Utenti, deactivating and reactivating an account (each row's action) are confirmed, the question naming the person: one locks them out, the other lets them back in.
 
 ## Menu
 

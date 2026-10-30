@@ -89,6 +89,7 @@ const KEY = 'md:w-40'
 const LABEL_WIDTH = 'md:w-56'
 const TYPE = 'md:w-64'
 const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
+const NOTE = 'm-0 rounded-sm border border-border bg-card px-3.5 py-3 text-sm md:px-4'
 // The preview is a sheet of paper: white in both themes
 const PREVIEW = 'h-[520px] w-full rounded-sm border border-border bg-white'
 
@@ -232,254 +233,269 @@ async function refreshPreview() {
 
       <!-- save() sends it as JSON: the form lets the header's Save, and Enter, submit it -->
       <form id="document-template" class="flex flex-col gap-3 md:gap-5" @submit.prevent="save">
-        <ScreenSection :title="t('ui.documentTemplates.templateSection')">
-          <FormField
-            id="template-name"
-            v-slot="control"
-            :label="t('ui.documentTemplates.name')"
-            :error="errors.name"
-            class="md:w-96"
-          >
-            <Input
-              :id="control.id"
-              v-model="name"
-              :aria-invalid="control.invalid"
-              :aria-describedby="control.describedBy"
-              :class="TOUCH"
-            />
-          </FormField>
-        </ScreenSection>
-
-        <ScreenSection
-          :title="t('ui.documentTemplates.fields')"
-          :description="t('ui.documentTemplates.fieldsHint')"
-          flush
+        <!-- An archived template can't be saved: its parts show, read-only -->
+        <p v-if="template?.archived" :class="NOTE">
+          {{ t('ui.documentTemplates.archivedNote') }}
+        </p>
+        <fieldset
+          :disabled="template?.archived"
+          class="m-0 flex min-w-0 flex-col gap-3 border-0 p-0 md:gap-5"
         >
-          <template #actions>
-            <Button type="button" variant="outline" :class="TOUCH" @click="addField">
-              {{ t('ui.documentTemplates.addField') }}
-            </Button>
-          </template>
-          <RowHeads
-            v-if="fields.length"
-            :heads="[
-              { label: t('ui.documentTemplates.columnKey'), class: KEY },
-              { label: t('ui.documentTemplates.columnLabel'), class: LABEL_WIDTH },
-              { label: t('ui.documentTemplates.columnType'), class: TYPE },
-            ]"
-          />
-          <p v-else :class="EMPTY">{{ t('ui.documentTemplates.fill.noFields') }}</p>
-          <ul class="m-0 list-none p-0">
-            <li v-for="(field, index) in fields" :key="index" :class="EDIT_ROW">
-              <div class="flex min-w-0 flex-1 flex-col gap-2">
-                <div class="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-start">
-                  <RowField :label="t('ui.documentTemplates.columnKey')" :class="KEY">
-                    <Input
-                      v-model="field.key"
-                      :aria-label="t('ui.documentTemplates.fieldKeyOf', { position: index + 1 })"
-                      :placeholder="t('ui.documentTemplates.fieldKey')"
-                      :aria-invalid="errors[`fields.${index}.key`] ? 'true' : undefined"
-                      :class="[TOUCH, 'font-mono']"
-                    />
-                  </RowField>
-                  <RowField :label="t('ui.documentTemplates.columnLabel')" :class="LABEL_WIDTH">
-                    <Input
-                      v-model="field.label"
-                      :aria-label="t('ui.documentTemplates.fieldLabelOf', { position: index + 1 })"
-                      :placeholder="t('ui.documentTemplates.fieldLabel')"
-                      :aria-invalid="errors[`fields.${index}.label`] ? 'true' : undefined"
-                      :class="TOUCH"
-                    />
-                  </RowField>
-                  <RowField :label="t('ui.documentTemplates.columnType')" :class="TYPE">
-                    <NativeSelect
-                      v-model="field.type"
-                      :aria-label="t('ui.documentTemplates.fieldTypeOf', { position: index + 1 })"
-                      :aria-invalid="errors[`fields.${index}.type`] ? 'true' : undefined"
-                    >
-                      <option v-for="type in FIELD_TYPES" :key="type" :value="type">
-                        {{ t(`ui.documentTemplates.fieldTypes.${type}`) }}
-                      </option>
-                    </NativeSelect>
-                  </RowField>
-                  <RowField
-                    v-if="field.type === 'choice'"
-                    :label="t('ui.documentTemplates.fieldOptions')"
-                    class="md:w-64"
-                  >
-                    <Input
-                      v-model="field.options"
-                      :aria-label="
-                        t('ui.documentTemplates.fieldOptionsOf', { position: index + 1 })
-                      "
-                      :placeholder="t('ui.documentTemplates.fieldOptions')"
-                      :aria-invalid="errors[`fields.${index}.options`] ? 'true' : undefined"
-                      :class="TOUCH"
-                    />
-                  </RowField>
-                  <label class="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
-                    <input v-model="field.required" type="checkbox" class="size-4" />
-                    {{ t('ui.documentTemplates.required') }}
-                  </label>
-                  <RowErrors
-                    :errors="errorsOf(`fields.${index}`, fieldLabels)"
-                    :fields="fieldLabels"
-                  />
-                </div>
+          <ScreenSection :title="t('ui.documentTemplates.templateSection')">
+            <FormField
+              id="template-name"
+              v-slot="control"
+              :label="t('ui.documentTemplates.name')"
+              :error="errors.name"
+              class="md:w-96"
+            >
+              <Input
+                :id="control.id"
+                v-model="name"
+                :aria-invalid="control.invalid"
+                :aria-describedby="control.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+          </ScreenSection>
 
-                <!-- A table's columns, a line each under the field -->
-                <div
-                  v-if="field.type === 'table'"
-                  class="flex flex-col gap-2 border-l-2 border-border pl-3"
-                >
-                  <p class="m-0 text-xs font-medium text-muted-foreground">
-                    {{ t('ui.documentTemplates.columns') }}
-                  </p>
-                  <div
-                    v-for="(column, c) in field.columns"
-                    :key="c"
-                    class="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-start"
-                  >
-                    <RowField :label="t('ui.documentTemplates.columnKey')" class="md:w-32">
+          <ScreenSection
+            :title="t('ui.documentTemplates.fields')"
+            :description="t('ui.documentTemplates.fieldsHint')"
+            flush
+          >
+            <template #actions>
+              <Button type="button" variant="outline" :class="TOUCH" @click="addField">
+                {{ t('ui.documentTemplates.addField') }}
+              </Button>
+            </template>
+            <RowHeads
+              v-if="fields.length"
+              :heads="[
+                { label: t('ui.documentTemplates.columnKey'), class: KEY },
+                { label: t('ui.documentTemplates.columnLabel'), class: LABEL_WIDTH },
+                { label: t('ui.documentTemplates.columnType'), class: TYPE },
+              ]"
+            />
+            <p v-else :class="EMPTY">{{ t('ui.documentTemplates.fill.noFields') }}</p>
+            <ul class="m-0 list-none p-0">
+              <li v-for="(field, index) in fields" :key="index" :class="EDIT_ROW">
+                <div class="flex min-w-0 flex-1 flex-col gap-2">
+                  <div class="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-start">
+                    <RowField :label="t('ui.documentTemplates.columnKey')" :class="KEY">
                       <Input
-                        v-model="column.key"
-                        :aria-label="
-                          t('ui.documentTemplates.columnKeyOf', {
-                            column: c + 1,
-                            position: index + 1,
-                          })
-                        "
+                        v-model="field.key"
+                        :aria-label="t('ui.documentTemplates.fieldKeyOf', { position: index + 1 })"
                         :placeholder="t('ui.documentTemplates.fieldKey')"
+                        :aria-invalid="errors[`fields.${index}.key`] ? 'true' : undefined"
                         :class="[TOUCH, 'font-mono']"
                       />
                     </RowField>
-                    <RowField :label="t('ui.documentTemplates.columnLabel')" class="md:w-44">
+                    <RowField :label="t('ui.documentTemplates.columnLabel')" :class="LABEL_WIDTH">
                       <Input
-                        v-model="column.label"
+                        v-model="field.label"
                         :aria-label="
-                          t('ui.documentTemplates.columnLabelOf', {
-                            column: c + 1,
-                            position: index + 1,
-                          })
+                          t('ui.documentTemplates.fieldLabelOf', { position: index + 1 })
                         "
                         :placeholder="t('ui.documentTemplates.fieldLabel')"
+                        :aria-invalid="errors[`fields.${index}.label`] ? 'true' : undefined"
                         :class="TOUCH"
                       />
                     </RowField>
-                    <RowField :label="t('ui.documentTemplates.columnType')" class="md:w-32">
+                    <RowField :label="t('ui.documentTemplates.columnType')" :class="TYPE">
                       <NativeSelect
-                        v-model="column.type"
-                        :aria-label="
-                          t('ui.documentTemplates.columnTypeOf', {
-                            column: c + 1,
-                            position: index + 1,
-                          })
-                        "
+                        v-model="field.type"
+                        :aria-label="t('ui.documentTemplates.fieldTypeOf', { position: index + 1 })"
+                        :aria-invalid="errors[`fields.${index}.type`] ? 'true' : undefined"
                       >
-                        <option v-for="type in TABLE_COLUMN_TYPES" :key="type" :value="type">
-                          {{ t(`ui.documentTemplates.columnTypes.${type}`) }}
+                        <option v-for="type in FIELD_TYPES" :key="type" :value="type">
+                          {{ t(`ui.documentTemplates.fieldTypes.${type}`) }}
                         </option>
                       </NativeSelect>
                     </RowField>
-                    <RowField :label="t('ui.documentTemplates.columnFrom')" class="md:w-56">
-                      <NativeSelect
-                        v-model="column.from"
-                        :aria-label="
-                          t('ui.documentTemplates.columnFromOf', {
-                            column: c + 1,
-                            position: index + 1,
-                          })
-                        "
-                      >
-                        <option value="">{{ t('ui.documentTemplates.columnNoSource') }}</option>
-                        <option
-                          v-for="source in TABLE_COLUMN_SOURCES"
-                          :key="source"
-                          :value="source"
-                        >
-                          {{ t(`ui.documentTemplates.columnSources.${source}`) }}
-                        </option>
-                      </NativeSelect>
-                    </RowField>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      :class="TOUCH"
-                      @click="field.columns.splice(c, 1)"
+                    <RowField
+                      v-if="field.type === 'choice'"
+                      :label="t('ui.documentTemplates.fieldOptions')"
+                      class="md:w-64"
                     >
-                      {{ t('ui.documentTemplates.removeColumn') }}
-                    </Button>
+                      <Input
+                        v-model="field.options"
+                        :aria-label="
+                          t('ui.documentTemplates.fieldOptionsOf', { position: index + 1 })
+                        "
+                        :placeholder="t('ui.documentTemplates.fieldOptions')"
+                        :aria-invalid="errors[`fields.${index}.options`] ? 'true' : undefined"
+                        :class="TOUCH"
+                      />
+                    </RowField>
+                    <label class="flex min-h-11 items-center gap-2 text-sm md:min-h-9">
+                      <input v-model="field.required" type="checkbox" class="size-4" />
+                      {{ t('ui.documentTemplates.required') }}
+                    </label>
                     <RowErrors
-                      :errors="errorsOf(`fields.${index}.columns.${c}`, columnLabels)"
-                      :fields="columnLabels"
+                      :errors="errorsOf(`fields.${index}`, fieldLabels)"
+                      :fields="fieldLabels"
                     />
                   </div>
-                  <Button
-                    v-if="field.columns.length < MAX_TABLE_COLUMNS"
-                    type="button"
-                    variant="outline"
-                    :class="[TOUCH, 'self-start']"
-                    @click="addColumn(field)"
-                  >
-                    {{ t('ui.documentTemplates.addColumn') }}
-                  </Button>
-                </div>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                :class="[TOUCH, 'self-start']"
-                @click="fields.splice(index, 1)"
-              >
-                {{ t('ui.documentTemplates.removeField') }}
-              </Button>
-            </li>
-          </ul>
-          <div v-if="errors.fields" class="px-3.5 pb-3 md:px-4">
-            <RowErrors
-              :errors="{ fields: errors.fields }"
-              :fields="{ fields: t('ui.documentTemplates.fields') }"
-            />
-          </div>
-        </ScreenSection>
 
-        <ScreenSection :title="t('ui.documentTemplates.body')">
-          <TemplateEditor ref="bodyEditor" :initial="template?.body ?? null">
-            <template #toolbar>
-              <NativeSelect
-                v-model="chosen"
-                :aria-label="t('ui.documentTemplates.insertPlaceholder')"
-                class="md:w-60"
-                @change="insertPlaceholder"
-              >
-                <option value="">{{ t('ui.documentTemplates.insertPlaceholder') }}</option>
-                <option
-                  v-for="placeholder in placeholders"
-                  :key="placeholder.key"
-                  :value="placeholder.key"
+                  <!-- A table's columns, a line each under the field -->
+                  <div
+                    v-if="field.type === 'table'"
+                    class="flex flex-col gap-2 border-l-2 border-border pl-3"
+                  >
+                    <p class="m-0 text-xs font-medium text-muted-foreground">
+                      {{ t('ui.documentTemplates.columns') }}
+                    </p>
+                    <div
+                      v-for="(column, c) in field.columns"
+                      :key="c"
+                      class="flex flex-col gap-2 md:flex-row md:flex-wrap md:items-start"
+                    >
+                      <RowField :label="t('ui.documentTemplates.columnKey')" class="md:w-32">
+                        <Input
+                          v-model="column.key"
+                          :aria-label="
+                            t('ui.documentTemplates.columnKeyOf', {
+                              column: c + 1,
+                              position: index + 1,
+                            })
+                          "
+                          :placeholder="t('ui.documentTemplates.fieldKey')"
+                          :class="[TOUCH, 'font-mono']"
+                        />
+                      </RowField>
+                      <RowField :label="t('ui.documentTemplates.columnLabel')" class="md:w-44">
+                        <Input
+                          v-model="column.label"
+                          :aria-label="
+                            t('ui.documentTemplates.columnLabelOf', {
+                              column: c + 1,
+                              position: index + 1,
+                            })
+                          "
+                          :placeholder="t('ui.documentTemplates.fieldLabel')"
+                          :class="TOUCH"
+                        />
+                      </RowField>
+                      <RowField :label="t('ui.documentTemplates.columnType')" class="md:w-32">
+                        <NativeSelect
+                          v-model="column.type"
+                          :aria-label="
+                            t('ui.documentTemplates.columnTypeOf', {
+                              column: c + 1,
+                              position: index + 1,
+                            })
+                          "
+                        >
+                          <option v-for="type in TABLE_COLUMN_TYPES" :key="type" :value="type">
+                            {{ t(`ui.documentTemplates.columnTypes.${type}`) }}
+                          </option>
+                        </NativeSelect>
+                      </RowField>
+                      <RowField :label="t('ui.documentTemplates.columnFrom')" class="md:w-56">
+                        <NativeSelect
+                          v-model="column.from"
+                          :aria-label="
+                            t('ui.documentTemplates.columnFromOf', {
+                              column: c + 1,
+                              position: index + 1,
+                            })
+                          "
+                        >
+                          <option value="">{{ t('ui.documentTemplates.columnNoSource') }}</option>
+                          <option
+                            v-for="source in TABLE_COLUMN_SOURCES"
+                            :key="source"
+                            :value="source"
+                          >
+                            {{ t(`ui.documentTemplates.columnSources.${source}`) }}
+                          </option>
+                        </NativeSelect>
+                      </RowField>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        :class="TOUCH"
+                        @click="field.columns.splice(c, 1)"
+                      >
+                        {{ t('ui.documentTemplates.removeColumn') }}
+                      </Button>
+                      <RowErrors
+                        :errors="errorsOf(`fields.${index}.columns.${c}`, columnLabels)"
+                        :fields="columnLabels"
+                      />
+                    </div>
+                    <Button
+                      v-if="field.columns.length < MAX_TABLE_COLUMNS"
+                      type="button"
+                      variant="outline"
+                      :class="[TOUCH, 'self-start']"
+                      @click="addColumn(field)"
+                    >
+                      {{ t('ui.documentTemplates.addColumn') }}
+                    </Button>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  :class="[TOUCH, 'self-start']"
+                  @click="fields.splice(index, 1)"
                 >
-                  {{ placeholder.label }}
-                </option>
-              </NativeSelect>
-              <NativeSelect
-                v-if="tables.length"
-                v-model="chosenTable"
-                :aria-label="t('ui.documentTemplates.insertTable')"
-                class="md:w-60"
-                @change="insertTable"
-              >
-                <option value="">{{ t('ui.documentTemplates.insertTable') }}</option>
-                <option v-for="table in tables" :key="table.key" :value="table.key">
-                  {{ table.label }}
-                </option>
-              </NativeSelect>
-            </template>
-          </TemplateEditor>
-          <p v-if="errors.body" :class="ERROR">
-            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
-            {{ errors.body }}
-          </p>
-        </ScreenSection>
+                  {{ t('ui.documentTemplates.removeField') }}
+                </Button>
+              </li>
+            </ul>
+            <div v-if="errors.fields" class="px-3.5 pb-3 md:px-4">
+              <RowErrors
+                :errors="{ fields: errors.fields }"
+                :fields="{ fields: t('ui.documentTemplates.fields') }"
+              />
+            </div>
+          </ScreenSection>
+
+          <ScreenSection :title="t('ui.documentTemplates.body')">
+            <TemplateEditor
+              ref="bodyEditor"
+              :initial="template?.body ?? null"
+              :readonly="template?.archived"
+            >
+              <template #toolbar>
+                <NativeSelect
+                  v-model="chosen"
+                  :aria-label="t('ui.documentTemplates.insertPlaceholder')"
+                  class="md:w-60"
+                  @change="insertPlaceholder"
+                >
+                  <option value="">{{ t('ui.documentTemplates.insertPlaceholder') }}</option>
+                  <option
+                    v-for="placeholder in placeholders"
+                    :key="placeholder.key"
+                    :value="placeholder.key"
+                  >
+                    {{ placeholder.label }}
+                  </option>
+                </NativeSelect>
+                <NativeSelect
+                  v-if="tables.length"
+                  v-model="chosenTable"
+                  :aria-label="t('ui.documentTemplates.insertTable')"
+                  class="md:w-60"
+                  @change="insertTable"
+                >
+                  <option value="">{{ t('ui.documentTemplates.insertTable') }}</option>
+                  <option v-for="table in tables" :key="table.key" :value="table.key">
+                    {{ table.label }}
+                  </option>
+                </NativeSelect>
+              </template>
+            </TemplateEditor>
+            <p v-if="errors.body" :class="ERROR">
+              <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+              {{ errors.body }}
+            </p>
+          </ScreenSection>
+        </fieldset>
 
         <ScreenSection :title="t('ui.documentTemplates.preview')">
           <template #actions>
