@@ -194,4 +194,63 @@ test.group('Office lists in the browser', (group) => {
       .getByRole('link', { name: it('ui.supplierInvoices.suppliers') })
       .waitFor()
   })
+
+  test('a list over one page: Successiva and Precedente keep the search and filter', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    // 26 archived Rossi, one past a page of 25, and one the search leaves out
+    for (let n = 1; n <= 26; n++) {
+      await createCustomer({
+        name: `Rossi ${String(n).padStart(2, '0')}`,
+        vatNumber: `1234567${String(n).padStart(4, '0')}`,
+        archivedAt: DateTime.now(),
+      })
+    }
+    await createCustomer({ name: 'Bianchi Rossana', archivedAt: DateTime.now() })
+
+    const page = await visit('/customers?archived=true')
+    await page.getByLabel(it('ui.customers.searchLabel')).fill('Rossi')
+    await page.getByRole('button', { name: it('ui.common.search') }).click()
+    await page.waitForURL(/q=Rossi/)
+    const pages = page.getByRole('navigation', { name: it('ui.common.paginationLabel') })
+    await pages.getByText(it('ui.common.pagination', { current: 1, last: 2, total: 26 })).waitFor()
+    assert.equal(await pages.getByRole('link', { name: it('ui.common.previous') }).count(), 0)
+
+    await pages.getByRole('link', { name: it('ui.common.next') }).click()
+    await page.waitForURL(/page=2/)
+    const second = new URL(page.url()).searchParams
+    assert.equal(second.get('q'), 'Rossi')
+    assert.equal(second.get('archived'), 'true')
+    await page.getByRole('table').getByRole('link', { name: 'Rossi 26' }).waitFor()
+    assert.equal(await page.getByRole('link', { name: 'Rossi 01' }).count(), 0)
+    assert.equal(await page.getByRole('link', { name: 'Bianchi Rossana' }).count(), 0)
+    assert.equal(await pages.getByRole('link', { name: it('ui.common.next') }).count(), 0)
+
+    await pages.getByRole('link', { name: it('ui.common.previous') }).click()
+    await page.waitForURL(/page=1/)
+    const first = new URL(page.url()).searchParams
+    assert.equal(first.get('q'), 'Rossi')
+    assert.equal(first.get('archived'), 'true')
+    await page.getByRole('table').getByRole('link', { name: 'Rossi 01' }).waitFor()
+  })
+
+  test('a page past the last offers the way back to the last page', async ({
+    browserContext,
+    visit,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    await createCustomer({ name: 'Condominio Verdi' })
+
+    const page = await visit('/customers?q=Verdi&page=4')
+    await page.getByText(it('ui.customers.noMatches', { q: 'Verdi' })).waitFor()
+    await page
+      .getByRole('navigation', { name: it('ui.common.paginationLabel') })
+      .getByRole('link', { name: it('ui.common.backToLastPage') })
+      .click()
+    await page.waitForURL(/page=1/)
+    await page.getByRole('table').getByRole('link', { name: 'Condominio Verdi' }).waitFor()
+  })
 })

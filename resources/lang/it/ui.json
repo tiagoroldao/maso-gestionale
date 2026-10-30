@@ -12,6 +12,7 @@
     "lightTheme": "Passa al tema chiaro",
     "darkTheme": "Passa al tema scuro",
     "paginationLabel": "Paginazione",
+    "backToLastPage": "Torna all'ultima pagina",
     "fieldError": "{field}: {message}"
   },
   "nav": {

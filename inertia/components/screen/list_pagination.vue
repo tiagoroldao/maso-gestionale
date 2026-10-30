@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
  * Previous / next links under a paginated list, keeping the other query
- * string parameters (such as a search term).
+ * string parameters (such as a search term). A page past the last (an old
+ * link, or rows gone since) offers the way back to the last page.
  */
 import { computed } from 'vue'
 import { usePage } from '@inertiajs/vue3'
@@ -26,7 +27,10 @@ function pageUrl(number: number) {
   return `${path}?${params.toString()}`
 }
 
-const previous = computed(() => (props.currentPage > 1 ? pageUrl(props.currentPage - 1) : null))
+const pastTheLast = computed(() => props.currentPage > props.lastPage)
+const previous = computed(() =>
+  props.currentPage > 1 && !pastTheLast.value ? pageUrl(props.currentPage - 1) : null
+)
 const next = computed(() =>
   props.currentPage < props.lastPage ? pageUrl(props.currentPage + 1) : null
 )
@@ -35,12 +39,15 @@ const BUTTON = cn(buttonVariants({ variant: 'outline' }), TOUCH)
 
 <template>
   <nav
-    v-if="lastPage > 1"
+    v-if="lastPage > 1 || pastTheLast"
     :aria-label="t('ui.common.paginationLabel')"
     class="flex flex-wrap items-center gap-2 font-sans text-foreground"
   >
+    <Link v-if="pastTheLast" :href="pageUrl(lastPage)" :class="BUTTON">
+      {{ t('ui.common.backToLastPage') }}
+    </Link>
     <Link v-if="previous" :href="previous" :class="BUTTON">{{ t('ui.common.previous') }}</Link>
-    <span class="text-[13px] text-muted-foreground">
+    <span v-if="!pastTheLast" class="text-[13px] text-muted-foreground">
       {{ t('ui.common.pagination', { current: currentPage, last: lastPage, total }) }}
     </span>
     <Link v-if="next" :href="next" :class="BUTTON">{{ t('ui.common.next') }}</Link>
