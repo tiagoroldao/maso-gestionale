@@ -9,6 +9,7 @@ import type { InvoiceStatus } from '@shared/invoice_lifecycle'
 import type { JobIndicators, JobStatus } from '@shared/jobs'
 import type { PaymentStatus } from '@shared/payment_status'
 import type { QuoteStatus } from '@shared/quotes'
+import type { SupplierInvoiceStatus } from '@shared/supplier_invoices'
 
 /** Section labels and the breadcrumb: Montserrat in spaced capitals */
 export const LABEL =
@@ -17,6 +18,13 @@ export const LABEL =
 /** A link in running text or a row: the text's colour, underlined on hover */
 export const LINK =
   'rounded-sm font-medium text-foreground underline-offset-2 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring'
+
+/**
+ * A row's reference to a record opening its preview (docs/ui.md "Hierarchy
+ * and references"), with `LINK`: underlined throughout, so the phone (no
+ * hover) shows it opens something
+ */
+export const PREVIEW_LINK = 'text-left underline decoration-muted-foreground decoration-dotted'
 
 /** A section's table on desktop (docs/ui.md: on the phone it becomes a list of `ROW`s) */
 export const TH =
@@ -117,4 +125,10 @@ export const PAYMENT_TONES: Record<PaymentStatus, Tone> = {
   paid: 'green',
   overpaid: 'orange',
   overdue: 'orange',
+}
+
+/** A Supplier Invoice in the inbox: orange while its lines wait, green once handled */
+export const SUPPLIER_INVOICE_TONES: Record<SupplierInvoiceStatus, Tone> = {
+  to_handle: 'orange',
+  handled: 'green',
 }
