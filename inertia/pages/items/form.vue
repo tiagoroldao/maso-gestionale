@@ -1,13 +1,27 @@
 <script setup lang="ts">
+/**
+ * An Item in edit mode (docs/ui.md "Kinds of screen"): the Item screen
+ * wrapped in its form, Save its primary action. The resale price follows
+ * the Category's markup on a new Item until typed; archiving, deleting and
+ * documents are on the Item's page.
+ */
 import { computed, reactive, ref, watch } from 'vue'
 import { Form } from '@adonisjs/inertia/vue'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
 import AppLayout from '~/layouts/app.vue'
 import { formatMoney, t } from '~/i18n'
 import { urlFor } from '~/client'
 import { amountForInput, markupPercent, parseAmount, suggestedResalePrice } from '@shared/money'
 import { itemFlagDefaults } from '@shared/items'
+import type { ScreenAction } from '@shared/screen_actions'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import { Textarea } from '~/components/ui/textarea'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import StatusTag from '~/components/screen/status_tag.vue'
+import FormField from '~/components/screen/form_field.vue'
+import type { Crumb } from '~/components/screen/screen'
 
 type ItemProps = {
   id: number
@@ -29,8 +43,9 @@ type ItemProps = {
 }
 
 const props = defineProps<{
+  // Save, the screen's primary
+  actions: ScreenAction[]
   item: ItemProps | null
-  documents: { id: number; title: string; originalName: string; sizeBytes: number }[]
   categories: { id: number; name: string; markupPercent: string }[]
   vatCodes: { id: number; name: string }[]
 }>()
@@ -45,7 +60,7 @@ const values = reactive({
   unit: props.item?.unit ?? 'pz',
   supplierName: props.item?.supplierName ?? '',
   supplierCode: props.item?.supplierCode ?? '',
-  vatCodeId: props.item?.vatCodeId ?? props.vatCodes[0]?.id,
+  vatCodeId: String(props.item?.vatCodeId ?? props.vatCodes[0]?.id ?? ''),
   significantGood: props.item?.significantGood ?? false,
   reorderLevel: props.item?.reorderLevel
     ? amountForInput(props.item.reorderLevel).replace(/,?0+$/, '').replace(/,$/, '')
@@ -54,7 +69,7 @@ const values = reactive({
   equipment: props.item?.equipment ?? false,
   groupable: props.item?.groupable ?? true,
 })
-const categoryId = ref<number | ''>(props.item?.categoryId ?? '')
+const categoryId = ref(String(props.item?.categoryId ?? ''))
 const purchasePrice = ref(props.item ? amountForInput(props.item.purchasePrice) : '')
 const resalePrice = ref(props.item ? amountForInput(props.item.resalePrice) : '')
 
@@ -64,7 +79,7 @@ const resalePrice = ref(props.item ? amountForInput(props.item.resalePrice) : ''
  */
 const followSuggestion = ref(props.item === null)
 
-const category = computed(() => props.categories.find((c) => c.id === categoryId.value))
+const category = computed(() => props.categories.find((c) => String(c.id) === categoryId.value))
 
 const suggestion = computed(() => {
   const purchase = parseAmount(purchasePrice.value)
@@ -116,328 +131,296 @@ function useSuggestion() {
 }
 
 const percent = (value: string) => amountForInput(value).replace(/,00$/, '')
-const title = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
-// Deleting can't be undone: confirmed first
-const confirmDelete = (key: string) => window.confirm(t(key))
+
+// Where the screen sits: under the Item when editing it, under Articoli when new
+const list: Crumb = { label: t('ui.items.title'), href: urlFor('items.index') }
+const crumbs = props.item
+  ? [list, { label: props.item.code, href: urlFor('items.show', { id: props.item.id }) }]
+  : [list]
+const title = props.item?.description ?? t('ui.items.newTitle')
+const current = props.item ? t('ui.common.edit') : t('ui.items.newTitle')
+const documentTitle = props.item ? t('ui.items.editTitle') : t('ui.items.newTitle')
+
+const UNITS = ['pz', 'm', 'm²', 'kg', 'l', 'conf', 'h']
+const GRID = 'grid gap-4 md:grid-cols-2'
+const INPUT = 'h-11 md:h-9'
+const CHECK = 'flex min-h-11 items-center gap-2.5 text-sm font-medium md:min-h-0'
+const HINT = 'm-0 text-[13px] text-muted-foreground'
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="title">
-      <Form
-        v-slot="{ processing, errors }"
-        :route="item ? 'items.update' : 'items.store'"
-        :params="item ? { id: item.id } : undefined"
+    <Form
+      v-slot="{ processing, errors }"
+      :route="item ? 'items.update' : 'items.store'"
+      :params="item ? { id: item.id } : undefined"
+      class="w-full min-w-0"
+    >
+      <EntityScreen
+        :document-title="documentTitle"
+        :crumbs="crumbs"
+        :current="current"
+        :title="title"
+        :facts="item?.code"
+        :actions="actions"
+        :busy="processing"
       >
-        <Section :title="t('ui.items.itemSection')">
-          <div class="field">
-            <label class="field__label" for="code">{{ t('ui.items.code') }}</label>
-            <input id="code" v-model="values.code" name="code" class="field__input mono" />
-            <span v-if="errors.code" class="field__error">{{ errors.code }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="description">{{ t('ui.items.description') }}</label>
-            <textarea
+        <template v-if="item?.archived" #tags>
+          <StatusTag tone="grey">{{ t('ui.items.archived') }}</StatusTag>
+        </template>
+
+        <template #main>
+          <ScreenSection :title="t('ui.items.itemSection')">
+            <div :class="GRID">
+              <FormField id="code" v-slot="field" :label="t('ui.items.code')" :error="errors.code">
+                <Input
+                  :id="field.id"
+                  v-model="values.code"
+                  name="code"
+                  :class="[INPUT, 'font-mono']"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <FormField
+                id="unit"
+                v-slot="field"
+                :label="t('ui.items.unit')"
+                :hint="t('ui.items.unitHint')"
+                :error="errors.unit"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.unit"
+                  name="unit"
+                  list="units"
+                  :class="INPUT"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+                <datalist id="units">
+                  <option v-for="unit in UNITS" :key="unit" :value="unit" />
+                </datalist>
+              </FormField>
+            </div>
+            <FormField
               id="description"
-              v-model="values.description"
-              name="description"
-              class="field__input"
-              rows="2"
-            />
-            <span v-if="errors.description" class="field__error">{{ errors.description }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="unit">{{ t('ui.items.unit') }}</label>
-            <input
-              id="unit"
-              v-model="values.unit"
-              name="unit"
-              list="units"
-              class="field__input"
-              :style="{ maxWidth: '120px' }"
-            />
-            <datalist id="units">
-              <option
-                v-for="unit in ['pz', 'm', 'm²', 'kg', 'l', 'conf', 'h']"
-                :key="unit"
-                :value="unit"
-              />
-            </datalist>
-            <span class="field__hint">{{ t('ui.items.unitHint') }}</span>
-            <span v-if="errors.unit" class="field__error">{{ errors.unit }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="categoryId">{{ t('ui.items.category') }}</label>
-            <select id="categoryId" v-model="categoryId" name="categoryId" class="field__input">
-              <option value="">{{ t('ui.items.noCategory') }}</option>
-              <option v-for="option in categories" :key="option.id" :value="option.id">
-                {{ option.name }} ({{ percent(option.markupPercent) }} %)
-              </option>
-            </select>
-          </div>
-        </Section>
-
-        <Section :title="t('ui.items.supplierSection')">
-          <div class="field">
-            <label class="field__label" for="supplierName">{{ t('ui.items.supplierName') }}</label>
-            <input
-              id="supplierName"
-              v-model="values.supplierName"
-              name="supplierName"
-              class="field__input"
-            />
-          </div>
-          <div class="field">
-            <label class="field__label" for="supplierCode">{{ t('ui.items.supplierCode') }}</label>
-            <input
-              id="supplierCode"
-              v-model="values.supplierCode"
-              name="supplierCode"
-              class="field__input mono"
-            />
-          </div>
-        </Section>
-
-        <Section :title="t('ui.items.pricesSection')" :description="t('ui.items.pricesHint')">
-          <div class="field">
-            <label class="field__label" for="vatCodeId">{{ t('ui.items.vatCode') }}</label>
-            <select
-              id="vatCodeId"
-              v-model="values.vatCodeId"
-              name="vatCodeId"
-              class="field__input"
-              :style="{ maxWidth: '360px' }"
+              v-slot="field"
+              :label="t('ui.items.description')"
+              :error="errors.description"
             >
-              <option v-for="code in vatCodes" :key="code.id" :value="code.id">
-                {{ code.name }}
-              </option>
-            </select>
-            <span class="field__hint">{{ t('ui.items.vatCodeHint') }}</span>
-            <span v-if="errors.vatCodeId" class="field__error">{{ errors.vatCodeId }}</span>
-          </div>
-          <div class="field">
-            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input
-                v-model="values.significantGood"
-                type="checkbox"
-                name="significantGood"
-                value="true"
+              <Textarea
+                :id="field.id"
+                v-model="values.description"
+                name="description"
+                rows="2"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
               />
-              {{ t('ui.items.significantGood') }}
-            </label>
-            <span class="field__hint">{{ t('ui.items.significantGoodHint') }}</span>
-          </div>
-          <div class="field">
-            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input
-                v-model="values.groupable"
-                type="checkbox"
-                name="groupable"
-                value="true"
-                @change="onFlagInput"
-              />
-              {{ t('ui.items.groupable') }}
-            </label>
-            <span class="field__hint">{{ t('ui.items.groupableHint') }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="purchasePrice">{{
-              t('ui.items.purchasePrice')
-            }}</label>
-            <input
-              id="purchasePrice"
-              v-model="purchasePrice"
-              name="purchasePrice"
-              inputmode="decimal"
-              class="field__input"
-              :style="{ maxWidth: '180px' }"
-            />
-            <span v-if="errors.purchasePrice" class="field__error">{{ errors.purchasePrice }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="resalePrice">{{ t('ui.items.resalePrice') }}</label>
-            <input
-              id="resalePrice"
-              v-model="resalePrice"
-              name="resalePrice"
-              inputmode="decimal"
-              class="field__input"
-              :style="{ maxWidth: '180px' }"
-              @input="onResaleInput"
-            />
-            <span v-if="suggestion && category" class="field__hint">
-              {{
-                t('ui.items.suggested', {
-                  markup: percent(category.markupPercent),
-                  price: formatMoney(suggestion),
-                })
-              }}
-              <button
+            </FormField>
+            <FormField id="categoryId" v-slot="field" :label="t('ui.items.category')">
+              <NativeSelect :id="field.id" v-model="categoryId" name="categoryId">
+                <option value="">{{ t('ui.items.noCategory') }}</option>
+                <option v-for="option in categories" :key="option.id" :value="String(option.id)">
+                  {{ option.name }} ({{ percent(option.markupPercent) }} %)
+                </option>
+              </NativeSelect>
+            </FormField>
+          </ScreenSection>
+
+          <ScreenSection :title="t('ui.items.pricesSection')">
+            <p :class="HINT">{{ t('ui.items.pricesHint') }}</p>
+            <div :class="GRID">
+              <FormField
+                id="purchasePrice"
+                v-slot="field"
+                :label="t('ui.items.purchasePrice')"
+                :error="errors.purchasePrice"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="purchasePrice"
+                  name="purchasePrice"
+                  inputmode="decimal"
+                  :class="INPUT"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <FormField
+                id="resalePrice"
+                v-slot="field"
+                :label="t('ui.items.resalePrice')"
+                :hint="
+                  currentMarkup
+                    ? t('ui.items.markup', { markup: percent(currentMarkup) })
+                    : undefined
+                "
+                :error="errors.resalePrice"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="resalePrice"
+                  name="resalePrice"
+                  inputmode="decimal"
+                  :class="INPUT"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                  @input="onResaleInput"
+                />
+              </FormField>
+            </div>
+            <div v-if="suggestion && category" class="flex flex-wrap items-center gap-2">
+              <p :class="HINT">
+                {{
+                  t('ui.items.suggested', {
+                    markup: percent(category.markupPercent),
+                    price: formatMoney(suggestion),
+                  })
+                }}
+              </p>
+              <Button
                 v-if="amountForInput(suggestion) !== resalePrice"
                 type="button"
-                class="btn btn--ghost btn--sm"
+                variant="outline"
+                size="sm"
+                :class="INPUT"
                 @click="useSuggestion"
               >
                 {{ t('ui.items.useSuggested') }}
-              </button>
-            </span>
-            <span v-if="currentMarkup" class="field__hint">
-              {{ t('ui.items.markup', { markup: percent(currentMarkup) }) }}
-            </span>
-            <span v-if="errors.resalePrice" class="field__error">{{ errors.resalePrice }}</span>
-          </div>
-        </Section>
+              </Button>
+            </div>
+            <FormField
+              id="vatCodeId"
+              v-slot="field"
+              :label="t('ui.items.vatCode')"
+              :hint="t('ui.items.vatCodeHint')"
+              :error="errors.vatCodeId"
+            >
+              <NativeSelect
+                :id="field.id"
+                v-model="values.vatCodeId"
+                name="vatCodeId"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              >
+                <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
+                  {{ code.name }}
+                </option>
+              </NativeSelect>
+            </FormField>
+            <div class="flex flex-col gap-1.5">
+              <label :class="CHECK">
+                <input
+                  v-model="values.significantGood"
+                  type="checkbox"
+                  name="significantGood"
+                  value="true"
+                  class="size-4"
+                  aria-describedby="significantGood-hint"
+                />
+                {{ t('ui.items.significantGood') }}
+              </label>
+              <p id="significantGood-hint" :class="HINT">
+                {{ t('ui.items.significantGoodHint') }}
+              </p>
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label :class="CHECK">
+                <input
+                  v-model="values.groupable"
+                  type="checkbox"
+                  name="groupable"
+                  value="true"
+                  class="size-4"
+                  aria-describedby="groupable-hint"
+                  @change="onFlagInput"
+                />
+                {{ t('ui.items.groupable') }}
+              </label>
+              <p id="groupable-hint" :class="HINT">{{ t('ui.items.groupableHint') }}</p>
+            </div>
+          </ScreenSection>
+        </template>
 
-        <Section :title="t('ui.items.stock')">
-          <div class="field">
-            <label class="field__label" for="reorderLevel">{{ t('ui.items.reorderLevel') }}</label>
-            <input
-              id="reorderLevel"
-              v-model="values.reorderLevel"
-              name="reorderLevel"
-              inputmode="decimal"
-              class="field__input"
-              :style="{ maxWidth: '180px' }"
-            />
-            <span class="field__hint">{{ t('ui.items.reorderLevelHint') }}</span>
-            <span v-if="errors.reorderLevel" class="field__error">{{ errors.reorderLevel }}</span>
-          </div>
-        </Section>
-
-        <Section :title="t('ui.items.maintenanceSection')">
-          <div class="field">
-            <label class="field__label" for="maintenanceIntervalMonths">
-              {{ t('ui.items.maintenanceInterval') }}
-            </label>
-            <input
-              id="maintenanceIntervalMonths"
-              v-model="values.maintenanceIntervalMonths"
-              name="maintenanceIntervalMonths"
-              type="number"
-              min="1"
-              max="120"
-              class="field__input"
-              :style="{ maxWidth: '120px' }"
-            />
-            <span class="field__hint">{{ t('ui.items.maintenanceIntervalHint') }}</span>
-            <span v-if="errors.maintenanceIntervalMonths" class="field__error">
-              {{ errors.maintenanceIntervalMonths }}
-            </span>
-          </div>
-          <div class="field">
-            <label :style="{ display: 'flex', gap: '8px', alignItems: 'center' }">
-              <input
-                v-model="values.equipment"
-                type="checkbox"
-                name="equipment"
-                value="true"
-                @change="onFlagInput"
+        <template #side>
+          <ScreenSection :title="t('ui.items.supplierSection')">
+            <FormField id="supplierName" v-slot="field" :label="t('ui.items.supplierName')">
+              <Input
+                :id="field.id"
+                v-model="values.supplierName"
+                name="supplierName"
+                :class="INPUT"
               />
-              {{ t('ui.items.equipment') }}
-            </label>
-            <span class="field__hint">{{ t('ui.items.equipmentHint') }}</span>
-          </div>
-        </Section>
+            </FormField>
+            <FormField id="supplierCode" v-slot="field" :label="t('ui.items.supplierCode')">
+              <Input
+                :id="field.id"
+                v-model="values.supplierCode"
+                name="supplierCode"
+                :class="[INPUT, 'font-mono']"
+              />
+            </FormField>
+          </ScreenSection>
 
-        <Section>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
-            {{ t('ui.items.save') }}
-          </button>
-        </Section>
-      </Form>
+          <ScreenSection :title="t('ui.items.warehouseSection')">
+            <FormField
+              id="reorderLevel"
+              v-slot="field"
+              :label="t('ui.items.reorderLevel')"
+              :hint="t('ui.items.reorderLevelHint')"
+              :error="errors.reorderLevel"
+            >
+              <Input
+                :id="field.id"
+                v-model="values.reorderLevel"
+                name="reorderLevel"
+                inputmode="decimal"
+                :class="INPUT"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+          </ScreenSection>
 
-      <Section
-        v-if="item"
-        :title="t('ui.items.documentsTitle')"
-        :description="t('ui.items.documentsDescription')"
-      >
-        <table v-if="documents.length" class="table">
-          <tbody>
-            <tr v-for="document in documents" :key="document.id">
-              <td>
-                <a
-                  :href="urlFor('item_documents.show', { id: document.id })"
-                  target="_blank"
-                  rel="noopener"
-                  class="il"
-                >
-                  {{ document.title }}
-                </a>
-                <span class="field__hint">
-                  · {{ document.originalName }} · {{ Math.ceil(document.sizeBytes / 1024) }} KB
-                </span>
-              </td>
-              <td class="table__actions">
-                <Form
-                  route="item_documents.destroy"
-                  :params="{ id: document.id }"
-                  :on-before="() => confirmDelete('ui.items.deleteDocumentConfirm')"
-                >
-                  <button type="submit" class="btn btn--ghost btn--sm">
-                    {{ t('ui.common.delete') }}
-                  </button>
-                </Form>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <p v-else :style="{ color: 'var(--subtle)' }">{{ t('ui.items.noDocuments') }}</p>
-
-        <Form
-          v-slot="{ processing, errors }"
-          route="item_documents.store"
-          :params="{ id: item.id }"
-          reset-on-success
-          :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-start' }"
-        >
-          <div class="field">
-            <label class="field__label" for="document-title">{{
-              t('ui.items.documentTitle')
-            }}</label>
-            <input id="document-title" name="title" class="field__input" />
-            <span v-if="errors.title" class="field__error">{{ errors.title }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="document-file">{{ t('ui.items.documentFile') }}</label>
-            <input
-              id="document-file"
-              name="attachment"
-              type="file"
-              accept=".pdf,.jpg,.jpeg,.png,.webp"
-            />
-            <span v-if="errors.attachment" class="field__error">{{ errors.attachment }}</span>
-          </div>
-          <button
-            type="submit"
-            class="btn btn--secondary"
-            :disabled="processing"
-            :style="{ marginTop: '22px' }"
-          >
-            {{ t('ui.items.upload') }}
-          </button>
-        </Form>
-      </Section>
-
-      <Section v-if="item">
-        <p v-if="item.archived" class="field__hint">{{ t('ui.items.archivedNotice') }}</p>
-        <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-          <Form
-            :route="item.archived ? 'items.unarchive' : 'items.archive'"
-            :params="{ id: item.id }"
-          >
-            <button type="submit" class="btn btn--secondary btn--sm">
-              {{ item.archived ? t('ui.items.unarchive') : t('ui.items.archive') }}
-            </button>
-          </Form>
-          <Form
-            route="items.destroy"
-            :params="{ id: item.id }"
-            :on-before="() => confirmDelete('ui.items.deleteConfirm')"
-          >
-            <button type="submit" class="btn btn--ghost btn--sm">{{ t('ui.items.delete') }}</button>
-          </Form>
-        </div>
-      </Section>
-    </Page>
+          <ScreenSection :title="t('ui.items.maintenanceSection')">
+            <FormField
+              id="maintenanceIntervalMonths"
+              v-slot="field"
+              :label="t('ui.items.maintenanceInterval')"
+              :hint="t('ui.items.maintenanceIntervalHint')"
+              :error="errors.maintenanceIntervalMonths"
+            >
+              <Input
+                :id="field.id"
+                v-model="values.maintenanceIntervalMonths"
+                name="maintenanceIntervalMonths"
+                type="number"
+                min="1"
+                max="120"
+                :class="INPUT"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+            <div class="flex flex-col gap-1.5">
+              <label :class="CHECK">
+                <input
+                  v-model="values.equipment"
+                  type="checkbox"
+                  name="equipment"
+                  value="true"
+                  class="size-4"
+                  aria-describedby="equipment-hint"
+                  @change="onFlagInput"
+                />
+                {{ t('ui.items.equipment') }}
+              </label>
+              <p id="equipment-hint" :class="HINT">{{ t('ui.items.equipmentHint') }}</p>
+            </div>
+          </ScreenSection>
+        </template>
+      </EntityScreen>
+    </Form>
   </AppLayout>
 </template>

@@ -6,6 +6,9 @@ import VatCode from '#models/vat_code'
 import StockMovement from '#models/stock_movement'
 import StockLedger from '#stock/stock_ledger'
 import { isBelowMarkup } from '#shared/money'
+import { reorderReason } from '#shared/stock'
+import { itemActions } from '#services/item_actions'
+import { saveActions } from '#shared/screen_actions'
 import { itemSearchValidator, itemValidator } from '#validators/item'
 import { isForeignKeyViolation, isUniqueViolation } from '#services/database_errors'
 import { storagePath } from '#services/storage'
@@ -105,10 +108,10 @@ export default class ItemsController {
     })
   }
 
-  async create({ inertia }: HttpContext) {
+  async create({ inertia, i18n }: HttpContext) {
     return inertia.render('items/form', {
+      actions: saveActions(i18n.t('ui.items.save')),
       item: null,
-      documents: [],
       categories: await categoryOptions(),
       vatCodes: await vatCodeOptions(),
     })
@@ -130,10 +133,10 @@ export default class ItemsController {
   }
 
   /**
-   * The Item with its stock (in stock, committed, available) and Stock
-   * Movement history.
+   * The Item with its stock (in stock, committed, available), its
+   * documents and Stock Movement history, and its header's actions.
    */
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, i18n, bouncer }: HttpContext) {
     const item = await Item.query()
       .where('id', params.id)
       .preload('category')
@@ -148,12 +151,21 @@ export default class ItemsController {
         { column: 'id', order: 'desc' },
       ])
       .limit(MOVEMENT_HISTORY)
+    const stock = await StockLedger.quantitiesOf(item)
+    const archived = item.archivedAt !== null
 
     return inertia.render('items/show', {
+      actions: itemActions(
+        { item: { id: item.id, code: item.code, archived }, referenced: await item.isReferenced() },
+        i18n
+      ),
       item: {
         ...itemIdentity(item),
+        archived,
         // The Supplier linked by a Supplier Invoice (#199), else the name typed on the Item
         supplierName: item.supplier?.name ?? item.supplierName,
+        // Its page, for the roles that may open Suppliers
+        supplierId: (await bouncer.allows('managePurchases')) ? (item.supplier?.id ?? null) : null,
         supplierCode: item.supplierCode,
         purchasePrice: item.purchasePrice,
         resalePrice: item.resalePrice,
@@ -163,8 +175,14 @@ export default class ItemsController {
           : false,
         markupPercent: item.category?.markupPercent ?? null,
       },
-      stock: await StockLedger.quantitiesOf(item),
-      documents: item.documents.map((document) => ({ id: document.id, title: document.title })),
+      stock,
+      reorder: reorderReason(stock.available, item.reorderLevel),
+      documents: item.documents.map((document) => ({
+        id: document.id,
+        title: document.title,
+        originalName: document.originalName,
+        sizeBytes: document.sizeBytes,
+      })),
       movements: movements.map((movement) => ({
         id: movement.id,
         kind: movement.kind,
@@ -189,13 +207,11 @@ export default class ItemsController {
     return { item: { ...itemIdentity(item), inStock, available } }
   }
 
-  async edit({ params, inertia }: HttpContext) {
-    const item = await Item.query()
-      .where('id', params.id)
-      .preload('documents', (documents) => documents.orderBy('title'))
-      .firstOrFail()
+  async edit({ params, inertia, i18n }: HttpContext) {
+    const item = await Item.findOrFail(params.id)
 
     return inertia.render('items/form', {
+      actions: saveActions(i18n.t('ui.items.save')),
       item: {
         id: item.id,
         code: item.code,
@@ -214,12 +230,6 @@ export default class ItemsController {
         reorderLevel: item.reorderLevel,
         maintenanceIntervalMonths: item.maintenanceIntervalMonths,
       },
-      documents: item.documents.map((document) => ({
-        id: document.id,
-        title: document.title,
-        originalName: document.originalName,
-        sizeBytes: document.sizeBytes,
-      })),
       categories: await categoryOptions(),
       vatCodes: await vatCodeOptions(item.vatCodeId),
     })
@@ -294,7 +304,7 @@ export default class ItemsController {
     await item.save()
 
     session.flash('success', i18n.t('flash.itemUnarchived', { code: item.code }))
-    response.redirect().toRoute('items.edit', { id: item.id })
+    response.redirect().toRoute('items.show', { id: item.id })
   }
 
   /**

@@ -11,7 +11,7 @@ Rules for every screen on the new UI: a screen is on it once its content is buil
 ## Kinds of screen
 
 - **List:** a collection of one kind of record (Commesse, Clienti, Fatture). Its layout and filters are still to be decided.
-- **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`), and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for.
+- **Entity screen:** one record (a Job, a Visit, an Item, an Invoice). A form to create or edit one is an Entity screen in edit mode: the page wraps the screen in its form, its only action is Save (primary, `saveActions()`), and it sits under the record it edits (breadcrumb "Clienti / Mario Rossi / Modifica", the record's name as title) or, when new, under the list or the record it is created for. A record with no page of its own (a Supplier) sits under its list, its name as title and breadcrumb's last step.
 - **Bespoke:** Agenda, dashboards. Only the header and menu rules apply.
 
 ## Header
@@ -41,6 +41,7 @@ On desktop the header's buttons read: secondary, primary, "⋯". Destructive act
 - **Hidden or disabled.** An action the state makes meaningless is hidden (no new Visit on a closed Job). The primary is the exception: it stays, disabled with its reason shown beside it, since the user looks for it there (the Job's draft Invoice when nothing is to bill, or a draft already waits). Use `disabledReason` elsewhere only where a user would otherwise search for a missing action. The page may add one itself for its own unsaved edits, the one state the server can't see (the Quote's sending and answers wait for Save).
 - **Header or section.** The header holds the record's own actions. Adding to a section ("Aggiungi addebito") sits in that section's header, and acting on one row in its row; the server still decides whether they show (through the page's props).
 - **Confirmations** use the confirmation dialog (`confirm_dialog.vue`), never `window.confirm`: titled with the action, the question as its text, the action's own label on its button.
+- **Deleting through a `DELETE` route** is a `post` action with `method: 'delete'`, destructive with its `confirm` question like any other: the screen asks it in the confirmation dialog, then sends the `DELETE` (the Item's Elimina, `app/services/item_actions.ts`). Deleting one row of a section still uses the row's own button and the confirmation dialog.
 
 ## Entity screen body
 
