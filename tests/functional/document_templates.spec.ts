@@ -1,5 +1,7 @@
 import { test } from '@japa/runner'
 import db from '@adonisjs/lucid/services/db'
+import { DateTime } from 'luxon'
+import type { ScreenAction } from '#shared/screen_actions'
 import DocumentTemplate from '#models/document_template'
 import DocumentTemplateVersion from '#models/document_template_version'
 import { createUser } from '#tests/helpers/users'
@@ -285,5 +287,41 @@ test.group('Document Templates', () => {
       .withInertia()
       .loginAs(admin)
     edit.assertInertiaPropsContains({ template: { archived: false } })
+  })
+
+  test("the editor's actions: Save, trying it and archiving; an archived one only restores and tries", async ({
+    client,
+    assert,
+  }) => {
+    const admin = await createUser('admin')
+    await client
+      .post('/settings/document-templates')
+      .json(certificate)
+      .withCsrfToken()
+      .loginAs(admin)
+    const template = await DocumentTemplate.findByOrFail('name', certificate.name)
+    const actions = async () => {
+      const page = await client
+        .get(`/settings/document-templates/${template.id}/edit`)
+        .withInertia()
+        .loginAs(admin)
+      return page.inertiaProps.actions as ScreenAction[]
+    }
+    const ranked = (list: ScreenAction[]) => list.map((action) => `${action.name}:${action.rank}`)
+
+    const active = await actions()
+    assert.deepEqual(ranked(active), ['save:primary', 'tryWithData:secondary', 'archive:overflow'])
+    const archive = active.find((action) => action.name === 'archive')!
+    assert.isTrue(archive.destructive)
+    assert.equal(archive.confirm, it('ui.documentTemplates.archiveConfirm'))
+    assert.equal(archive.href, `/settings/document-templates/${template.id}/archive`)
+    assert.equal(active[0].form, 'document-template')
+
+    template.archivedAt = DateTime.now()
+    await template.save()
+    const archived = await actions()
+    assert.deepEqual(ranked(archived), ['restore:primary', 'tryWithData:secondary'])
+    assert.equal(archived[0].href, `/settings/document-templates/${template.id}/restore`)
+    assert.isNull(archived[0].confirm)
   })
 })

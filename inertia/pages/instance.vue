@@ -1,14 +1,32 @@
 <script setup lang="ts">
+/**
+ * Istanza, the Superuser's screen on the new UI (docs/ui.md "Settings",
+ * several short forms): sending to SDI, the legal storage it implies, the
+ * last poll, the backups and recovering an Admin's account, each form in
+ * its section with its own Save. The header has no actions.
+ */
+import { ref } from 'vue'
+import { router } from '@inertiajs/vue3'
 import { Form } from '@adonisjs/inertia/vue'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
+import { CircleAlert } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
 import { SDI_ENVIRONMENTS, SDI_MODES, type LegalStorageStatus } from '@shared/instance'
 import { isSdiFailureCode, type PollFailure } from '@shared/sdi_failures'
 import { formatDateTime } from '@shared/dates'
+import { urlFor } from '~/client'
 import { t } from '~/i18n'
+import { cn } from '~/lib/utils'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import ConfirmDialog from '~/components/screen/confirm_dialog.vue'
+import FormField from '~/components/screen/form_field.vue'
+import RowErrors from '~/components/screen/row_errors.vue'
+import { EDIT_ROW, EDIT_ROW_FORM, TOUCH } from '~/components/screen/screen'
 
-defineProps<{
+const props = defineProps<{
   settings: {
     sdiMode: string
     sdiEnvironment: string
@@ -48,190 +66,245 @@ defineProps<{
 const sdiFailure = (detail: string) =>
   isSdiFailureCode(detail) ? t(`ui.sdiFailures.${detail}`) : detail
 
+const sdiMode = ref(props.settings.sdiMode)
+const sdiEnvironment = ref(props.settings.sdiEnvironment)
+
 // Each Supplier Invoice archived is paid for: asked first (#214)
-const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExistingConfirm'))
+const archiveOpen = ref(false)
+// Held while it is sent, so a second click can't ask twice
+const archiving = ref(false)
+function archiveExisting() {
+  archiveOpen.value = false
+  if (archiving.value) return
+  router.post(
+    urlFor('instance.archive_supplier_invoices'),
+    {},
+    {
+      onStart: () => (archiving.value = true),
+      onFinish: () => (archiving.value = false),
+    }
+  )
+}
+
+const FORM = 'flex flex-col gap-4'
+const GRID = 'grid gap-4 md:grid-cols-2'
+const SAVE = [TOUCH, 'self-start']
+const TEXT = 'm-0 text-sm'
+const HINT = 'm-0 text-[13px] text-muted-foreground'
+const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
+const CHECK = 'flex min-h-11 items-center gap-2.5 text-sm md:min-h-0'
+const SUBTITLE = 'm-0 text-sm font-semibold'
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="t('ui.instance.title')" :description="t('ui.instance.text')">
-      <Section :title="t('ui.instance.sdiSection')">
-        <Form v-slot="{ processing, errors }" route="instance.update">
-          <div class="field">
-            <label class="field__label" for="sdi-mode">{{ t('ui.instance.sdiMode') }}</label>
-            <select id="sdi-mode" name="sdiMode" class="field__input">
-              <option
-                v-for="mode in SDI_MODES"
-                :key="mode"
-                :value="mode"
-                :selected="mode === settings.sdiMode"
+    <EntityScreen
+      :document-title="t('ui.instance.title')"
+      :crumbs="[]"
+      :current="t('ui.instance.title')"
+      :title="t('ui.instance.title')"
+    >
+      <p :class="HINT">{{ t('ui.instance.text') }}</p>
+
+      <ScreenSection :title="t('ui.instance.sdiSection')">
+        <Form v-slot="{ processing, errors }" route="instance.update" :class="FORM">
+          <div :class="GRID">
+            <FormField id="sdi-mode" v-slot="field" :label="t('ui.instance.sdiMode')">
+              <NativeSelect :id="field.id" v-model="sdiMode" name="sdiMode">
+                <option v-for="mode in SDI_MODES" :key="mode" :value="mode">
+                  {{ t(`ui.instance.sdiModes.${mode}`) }}
+                </option>
+              </NativeSelect>
+            </FormField>
+            <FormField id="sdi-environment" v-slot="field" :label="t('ui.instance.sdiEnvironment')">
+              <NativeSelect :id="field.id" v-model="sdiEnvironment" name="sdiEnvironment">
+                <option
+                  v-for="environment in SDI_ENVIRONMENTS"
+                  :key="environment"
+                  :value="environment"
+                >
+                  {{ t(`ui.instance.sdiEnvironments.${environment}`) }}
+                </option>
+              </NativeSelect>
+            </FormField>
+            <div class="flex flex-col gap-2">
+              <FormField
+                id="openapi-token"
+                v-slot="field"
+                :label="t('ui.instance.token')"
+                :hint="settings.hasToken ? t('ui.instance.secretStored') : undefined"
+                :error="
+                  errors.openapiToken ??
+                  (settings.tokenUnreadable ? t('ui.instance.secretUnreadable') : undefined)
+                "
               >
-                {{ t(`ui.instance.sdiModes.${mode}`) }}
-              </option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field__label" for="sdi-environment">{{
-              t('ui.instance.sdiEnvironment')
-            }}</label>
-            <select id="sdi-environment" name="sdiEnvironment" class="field__input">
-              <option
-                v-for="environment in SDI_ENVIRONMENTS"
-                :key="environment"
-                :value="environment"
-                :selected="environment === settings.sdiEnvironment"
-              >
-                {{ t(`ui.instance.sdiEnvironments.${environment}`) }}
-              </option>
-            </select>
-          </div>
-          <div class="field">
-            <label class="field__label" for="openapi-token">{{ t('ui.instance.token') }}</label>
-            <input
-              id="openapi-token"
-              name="openapiToken"
-              type="password"
-              autocomplete="off"
-              class="field__input"
-            />
-            <span v-if="settings.tokenUnreadable" class="field__error">{{
-              t('ui.instance.secretUnreadable')
-            }}</span>
-            <template v-if="settings.hasToken">
-              <span class="field__hint">{{ t('ui.instance.secretStored') }}</span>
-              <label>
-                <input type="checkbox" name="clearToken" value="true" />
+                <Input
+                  :id="field.id"
+                  name="openapiToken"
+                  type="password"
+                  autocomplete="off"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                  :class="TOUCH"
+                />
+              </FormField>
+              <label v-if="settings.hasToken" :class="CHECK">
+                <input type="checkbox" name="clearToken" value="true" class="size-4" />
                 {{ t('ui.instance.clearToken') }}
               </label>
-            </template>
-            <span v-if="errors.openapiToken" class="field__error">{{ errors.openapiToken }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="polling">{{ t('ui.instance.pollingMinutes') }}</label>
-            <input
+            </div>
+            <FormField
               id="polling"
-              name="pollingMinutes"
-              inputmode="numeric"
-              class="field__input"
-              :value="settings.pollingMinutes"
-              :style="{ maxWidth: '120px' }"
-            />
-            <span v-if="errors.pollingMinutes" class="field__error">{{
-              errors.pollingMinutes
-            }}</span>
-          </div>
-          <div class="field">
-            <label>
-              <input
-                type="checkbox"
-                name="webhookEnabled"
-                value="true"
-                :checked="settings.webhookEnabled"
+              v-slot="field"
+              :label="t('ui.instance.pollingMinutes')"
+              :error="errors.pollingMinutes"
+            >
+              <Input
+                :id="field.id"
+                name="pollingMinutes"
+                inputmode="numeric"
+                :default-value="settings.pollingMinutes"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="[TOUCH, 'md:w-32']"
               />
-              {{ t('ui.instance.webhookEnabled') }}
-            </label>
-          </div>
-          <div class="field">
-            <label class="field__label" for="webhook-secret">{{
-              t('ui.instance.webhookSecret')
-            }}</label>
-            <input
-              id="webhook-secret"
-              name="webhookSecret"
-              type="password"
-              autocomplete="off"
-              class="field__input"
-            />
-            <span v-if="settings.secretUnreadable" class="field__error">{{
-              t('ui.instance.secretUnreadable')
-            }}</span>
-            <template v-if="settings.hasWebhookSecret">
-              <span class="field__hint">{{ t('ui.instance.secretStored') }}</span>
-              <label>
-                <input type="checkbox" name="clearWebhookSecret" value="true" />
+            </FormField>
+            <div class="flex flex-col gap-2">
+              <FormField
+                id="webhook-secret"
+                v-slot="field"
+                :label="t('ui.instance.webhookSecret')"
+                :hint="settings.hasWebhookSecret ? t('ui.instance.secretStored') : undefined"
+                :error="
+                  errors.webhookSecret ??
+                  (settings.secretUnreadable ? t('ui.instance.secretUnreadable') : undefined)
+                "
+              >
+                <Input
+                  :id="field.id"
+                  name="webhookSecret"
+                  type="password"
+                  autocomplete="off"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                  :class="TOUCH"
+                />
+              </FormField>
+              <label v-if="settings.hasWebhookSecret" :class="CHECK">
+                <input type="checkbox" name="clearWebhookSecret" value="true" class="size-4" />
                 {{ t('ui.instance.clearWebhookSecret') }}
               </label>
-            </template>
-            <span v-if="errors.webhookSecret" class="field__error">{{ errors.webhookSecret }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="public-url">{{ t('ui.instance.publicUrl') }}</label>
-            <input
+              <label :class="CHECK">
+                <input
+                  type="checkbox"
+                  name="webhookEnabled"
+                  value="true"
+                  :checked="settings.webhookEnabled"
+                  class="size-4"
+                />
+                {{ t('ui.instance.webhookEnabled') }}
+              </label>
+            </div>
+            <FormField
               id="public-url"
-              name="publicUrl"
-              type="url"
-              class="field__input"
-              :value="settings.publicUrl ?? ''"
-            />
-            <span v-if="errors.publicUrl" class="field__error">{{ errors.publicUrl }}</span>
-            <span v-if="settings.webhookUrl" class="field__hint">{{
-              t('ui.instance.webhookUrl', { url: settings.webhookUrl })
-            }}</span>
+              v-slot="field"
+              :label="t('ui.instance.publicUrl')"
+              :hint="
+                settings.webhookUrl
+                  ? t('ui.instance.webhookUrl', { url: settings.webhookUrl })
+                  : undefined
+              "
+              :error="errors.publicUrl"
+            >
+              <Input
+                :id="field.id"
+                name="publicUrl"
+                type="url"
+                :default-value="settings.publicUrl ?? ''"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
           </div>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
+          <Button type="submit" variant="outline" :class="SAVE" :disabled="processing">
             {{ t('ui.instance.save') }}
-          </button>
+          </Button>
         </Form>
-        <h3>{{ t('ui.instance.legalStorageTitle') }}</h3>
-        <p>{{ t(`ui.instance.legalStorage.${settings.legalStorage}`) }}</p>
-        <p
-          v-if="settings.legalStorage !== 'manual' && settings.legalStorageReadAt"
-          class="field__hint"
+      </ScreenSection>
+
+      <ScreenSection :title="t('ui.instance.legalStorageTitle')">
+        <template
+          v-if="settings.legalStorage === 'active' && settings.receivedNotArchived"
+          #actions
         >
+          <Button
+            variant="outline"
+            :class="TOUCH"
+            :disabled="archiving"
+            @click="archiveOpen = true"
+          >
+            {{ t('ui.instance.archiveExisting') }}
+          </Button>
+        </template>
+        <p :class="TEXT">{{ t(`ui.instance.legalStorage.${settings.legalStorage}`) }}</p>
+        <p v-if="settings.legalStorage !== 'manual' && settings.legalStorageReadAt" :class="HINT">
           {{
             t('ui.instance.legalStorageReadAt', { at: formatDateTime(settings.legalStorageReadAt) })
           }}
         </p>
-        <p v-if="settings.legalStorage === 'active'" class="field__hint">
+        <p v-if="settings.legalStorage === 'active'" :class="HINT">
           {{ t('ui.instance.legalStorageActiveHint') }}
         </p>
         <template v-else>
-          <p v-if="settings.legalStorage === 'inactive'" class="field__hint">
+          <p v-if="settings.legalStorage === 'inactive'" :class="HINT">
             {{ t('ui.instance.legalStorageSetup') }}
           </p>
-          <p class="field__hint">{{ t('ui.instance.legalArchivingElsewhere') }}</p>
+          <p :class="HINT">{{ t('ui.instance.legalArchivingElsewhere') }}</p>
         </template>
-        <h3>{{ t('ui.instance.pollStatus') }}</h3>
-        <p v-if="settings.polledAt">
+        <p v-if="settings.legalStorage === 'active' && settings.receivedNotArchived" :class="TEXT">
+          {{ t('ui.instance.archiveExistingHint', { count: settings.receivedNotArchived }) }}
+        </p>
+      </ScreenSection>
+
+      <ScreenSection :title="t('ui.instance.pollStatus')">
+        <p v-if="settings.polledAt" :class="TEXT">
           {{ t('ui.instance.lastPoll', { at: formatDateTime(settings.polledAt) }) }}
         </p>
-        <p v-else>{{ t('ui.instance.noPoll') }}</p>
+        <p v-else :class="TEXT">{{ t('ui.instance.noPoll') }}</p>
         <template v-if="settings.pollFailures.length">
-          <p class="field__error">{{ t('ui.instance.pollFailure') }}</p>
-          <ul>
+          <p :class="ERROR">
+            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+            {{ t('ui.instance.pollFailure') }}
+          </p>
+          <ul class="m-0 flex list-disc flex-col gap-1 pl-5 text-sm">
             <li v-for="(failure, index) in settings.pollFailures" :key="index">
               {{ t(`ui.instance.pollSteps.${failure.step}`, { subject: failure.subject ?? '' }) }}:
               {{ sdiFailure(failure.detail) }}
             </li>
           </ul>
         </template>
-        <p v-if="settings.receivedWaiting">
+        <p v-if="settings.receivedWaiting" :class="TEXT">
           {{ t('ui.instance.receivedWaiting', { count: settings.receivedWaiting }) }}
         </p>
-        <Form
-          v-if="settings.legalStorage === 'active' && settings.receivedNotArchived"
-          v-slot="{ processing }"
-          route="instance.archive_supplier_invoices"
-          :on-before="confirmArchiveExisting"
-        >
-          <p>
-            {{ t('ui.instance.archiveExistingHint', { count: settings.receivedNotArchived }) }}
-          </p>
-          <button type="submit" class="btn btn--secondary" :disabled="processing">
-            {{ t('ui.instance.archiveExisting') }}
-          </button>
-        </Form>
-      </Section>
+      </ScreenSection>
 
-      <Section
+      <ScreenSection
         :title="t('ui.instance.backups.section')"
         :description="t('ui.instance.backups.description')"
       >
-        <h3>{{ t('ui.instance.backups.status') }}</h3>
-        <p v-if="backups.startedAt">
+        <template #actions>
+          <Form v-slot="{ processing }" route="instance.backups.run">
+            <Button type="submit" variant="outline" :class="TOUCH" :disabled="processing">
+              {{ t('ui.instance.backups.runNow') }}
+            </Button>
+          </Form>
+        </template>
+        <h3 :class="SUBTITLE">{{ t('ui.instance.backups.status') }}</h3>
+        <p v-if="backups.startedAt" :class="TEXT">
           {{ t('ui.instance.backups.running', { at: formatDateTime(backups.startedAt) }) }}
         </p>
-        <p v-if="backups.succeededAt">
+        <p v-if="backups.succeededAt" :class="TEXT">
           {{
             t('ui.instance.backups.lastSuccess', {
               at: formatDateTime(backups.succeededAt),
@@ -239,218 +312,228 @@ const confirmArchiveExisting = () => window.confirm(t('ui.instance.archiveExisti
             })
           }}
         </p>
-        <p v-else>{{ t('ui.instance.backups.noSuccess') }}</p>
+        <p v-else :class="TEXT">{{ t('ui.instance.backups.noSuccess') }}</p>
         <template v-if="backups.failedAt">
-          <p class="field__error">
+          <p :class="ERROR">
+            <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
             {{ t('ui.instance.backups.lastFailure', { at: formatDateTime(backups.failedAt) }) }}
           </p>
-          <pre :style="{ whiteSpace: 'pre-wrap' }">{{ backups.failure }}</pre>
+          <pre
+            class="m-0 overflow-x-auto rounded-sm border border-border bg-background p-3 font-mono text-xs whitespace-pre-wrap"
+            >{{ backups.failure }}</pre>
         </template>
-        <Form
-          v-slot="{ processing }"
-          route="instance.backups.run"
-          :style="{ marginBottom: '16px' }"
-        >
-          <button type="submit" class="btn btn--secondary" :disabled="processing">
-            {{ t('ui.instance.backups.runNow') }}
-          </button>
-        </Form>
 
-        <Form v-slot="{ processing, errors }" route="instance.backups">
-          <div class="field">
-            <label class="field__label" for="backup-endpoint">{{
-              t('ui.instance.backups.endpoint')
-            }}</label>
-            <input
+        <Form v-slot="{ processing, errors }" route="instance.backups" :class="FORM">
+          <div :class="GRID">
+            <FormField
               id="backup-endpoint"
-              name="backupEndpoint"
-              type="url"
-              class="field__input"
-              :value="backups.endpoint ?? ''"
-            />
-            <span v-if="errors.backupEndpoint" class="field__error">{{
-              errors.backupEndpoint
-            }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="backup-bucket">{{
-              t('ui.instance.backups.bucket')
-            }}</label>
-            <input
+              v-slot="field"
+              :label="t('ui.instance.backups.endpoint')"
+              :error="errors.backupEndpoint"
+            >
+              <Input
+                :id="field.id"
+                name="backupEndpoint"
+                type="url"
+                :default-value="backups.endpoint ?? ''"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
               id="backup-bucket"
-              name="backupBucket"
-              class="field__input"
-              :value="backups.bucket ?? ''"
-            />
-            <span v-if="errors.backupBucket" class="field__error">{{ errors.backupBucket }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="backup-region">{{
-              t('ui.instance.backups.region')
-            }}</label>
-            <input
+              v-slot="field"
+              :label="t('ui.instance.backups.bucket')"
+              :error="errors.backupBucket"
+            >
+              <Input
+                :id="field.id"
+                name="backupBucket"
+                :default-value="backups.bucket ?? ''"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
               id="backup-region"
-              name="backupRegion"
-              class="field__input"
-              :value="backups.region ?? ''"
-            />
-            <span v-if="errors.backupRegion" class="field__error">{{ errors.backupRegion }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="backup-access-key">{{
-              t('ui.instance.backups.accessKeyId')
-            }}</label>
-            <input
+              v-slot="field"
+              :label="t('ui.instance.backups.region')"
+              :error="errors.backupRegion"
+            >
+              <Input
+                :id="field.id"
+                name="backupRegion"
+                :default-value="backups.region ?? ''"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
               id="backup-access-key"
-              name="backupAccessKeyId"
-              autocomplete="off"
-              class="field__input"
-              :value="backups.accessKeyId ?? ''"
-            />
-            <span v-if="errors.backupAccessKeyId" class="field__error">{{
-              errors.backupAccessKeyId
-            }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="backup-secret">{{
-              t('ui.instance.backups.secretAccessKey')
-            }}</label>
-            <input
+              v-slot="field"
+              :label="t('ui.instance.backups.accessKeyId')"
+              :error="errors.backupAccessKeyId"
+            >
+              <Input
+                :id="field.id"
+                name="backupAccessKeyId"
+                autocomplete="off"
+                :default-value="backups.accessKeyId ?? ''"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
               id="backup-secret"
-              name="backupSecretAccessKey"
-              type="password"
-              autocomplete="off"
-              class="field__input"
-            />
-            <span v-if="backups.hasSecret" class="field__hint">{{
-              t('ui.instance.secretStored')
-            }}</span>
-            <span v-if="errors.backupSecretAccessKey" class="field__error">{{
-              errors.backupSecretAccessKey
-            }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="backup-retention">{{
-              t('ui.instance.backups.retention')
-            }}</label>
-            <input
+              v-slot="field"
+              :label="t('ui.instance.backups.secretAccessKey')"
+              :hint="backups.hasSecret ? t('ui.instance.secretStored') : undefined"
+              :error="errors.backupSecretAccessKey"
+            >
+              <Input
+                :id="field.id"
+                name="backupSecretAccessKey"
+                type="password"
+                autocomplete="off"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
               id="backup-retention"
-              name="backupRetention"
-              inputmode="numeric"
-              class="field__input"
-              :value="backups.retention"
-              :style="{ maxWidth: '120px' }"
-            />
-            <span class="field__hint">{{ t('ui.instance.backups.retentionHint') }}</span>
-            <span v-if="errors.backupRetention" class="field__error">{{
-              errors.backupRetention
-            }}</span>
+              v-slot="field"
+              :label="t('ui.instance.backups.retention')"
+              :hint="t('ui.instance.backups.retentionHint')"
+              :error="errors.backupRetention"
+            >
+              <Input
+                :id="field.id"
+                name="backupRetention"
+                inputmode="numeric"
+                :default-value="backups.retention"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="[TOUCH, 'md:w-32']"
+              />
+            </FormField>
           </div>
-          <p>
-            <strong>{{ t('ui.instance.backups.passphraseWarning') }}</strong>
-          </p>
-          <p>{{ t('ui.instance.backups.appKeyWarning') }}</p>
-          <p v-if="backups.recipient" class="field__hint">
+
+          <p :class="cn(TEXT, 'font-semibold')">{{ t('ui.instance.backups.passphraseWarning') }}</p>
+          <p :class="TEXT">{{ t('ui.instance.backups.appKeyWarning') }}</p>
+          <p v-if="backups.recipient" :class="HINT">
             {{ t('ui.instance.backups.passphraseChange') }}
           </p>
-          <div class="field">
-            <label class="field__label" for="backup-passphrase">{{
-              t('ui.instance.backups.passphrase')
-            }}</label>
-            <input
+          <div :class="GRID">
+            <FormField
               id="backup-passphrase"
-              name="backupPassphrase"
-              type="password"
-              autocomplete="new-password"
-              class="field__input"
-            />
-            <span v-if="backups.recipient" class="field__hint">{{
-              t('ui.instance.backups.passphraseSet')
-            }}</span>
-            <span v-if="errors.backupPassphrase" class="field__error">{{
-              errors.backupPassphrase
-            }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="backup-passphrase-confirmation">{{
-              t('ui.instance.backups.passphraseConfirmation')
-            }}</label>
-            <input
+              v-slot="field"
+              :label="t('ui.instance.backups.passphrase')"
+              :hint="backups.recipient ? t('ui.instance.backups.passphraseSet') : undefined"
+              :error="errors.backupPassphrase"
+            >
+              <Input
+                :id="field.id"
+                name="backupPassphrase"
+                type="password"
+                autocomplete="new-password"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
               id="backup-passphrase-confirmation"
-              name="backupPassphraseConfirmation"
-              type="password"
-              autocomplete="new-password"
-              class="field__input"
-            />
-            <span v-if="errors.backupPassphraseConfirmation" class="field__error">{{
-              errors.backupPassphraseConfirmation
-            }}</span>
+              v-slot="field"
+              :label="t('ui.instance.backups.passphraseConfirmation')"
+              :error="errors.backupPassphraseConfirmation"
+            >
+              <Input
+                :id="field.id"
+                name="backupPassphraseConfirmation"
+                type="password"
+                autocomplete="new-password"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+                :class="TOUCH"
+              />
+            </FormField>
           </div>
-          <p v-if="backups.recipient" class="field__hint">
+          <p v-if="backups.recipient" :class="cn(HINT, 'break-all')">
             {{ t('ui.instance.backups.publicKey', { key: backups.recipient }) }}
           </p>
-          <button type="submit" class="btn btn--primary" :disabled="processing">
+          <Button type="submit" variant="outline" :class="SAVE" :disabled="processing">
             {{ t('ui.instance.backups.save') }}
-          </button>
+          </Button>
         </Form>
-      </Section>
+      </ScreenSection>
 
-      <Section
+      <ScreenSection
         :title="t('ui.instance.adminsSection')"
         :description="t('ui.instance.adminsDescription')"
+        flush
       >
-        <Form
-          v-for="admin in admins"
-          :key="admin.id"
-          v-slot="{ processing, errors }"
-          route="instance.admin_password"
-          :params="{ id: admin.id }"
-          :style="{ marginBottom: '12px' }"
-        >
-          <p :style="{ margin: '0 0 4px' }">
-            <strong>{{ admin.name ?? admin.email }}</strong> · {{ admin.email }}
-            <span v-if="!admin.active" class="field__hint">{{ t('ui.instance.inactive') }}</span>
-          </p>
-          <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-            <input
-              name="password"
-              type="password"
-              autocomplete="new-password"
-              class="field__input"
-              :aria-label="t('ui.instance.newPasswordFor', { email: admin.email })"
-              :style="{ maxWidth: '220px' }"
-            />
-            <input
-              name="passwordConfirmation"
-              type="password"
-              autocomplete="new-password"
-              class="field__input"
-              :aria-label="t('ui.instance.confirmPasswordFor', { email: admin.email })"
-              :style="{ maxWidth: '220px' }"
-            />
-            <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
-              {{ t('ui.instance.setPassword') }}
-            </button>
-          </div>
-          <!-- Under both inputs, so naming the one each error is about -->
-          <span v-if="errors.password" class="field__error">
-            {{
-              t('ui.common.fieldError', {
-                field: t('ui.instance.newPasswordFor', { email: admin.email }),
-                message: errors.password,
-              })
-            }}
-          </span>
-          <span v-if="errors.passwordConfirmation" class="field__error">
-            {{
-              t('ui.common.fieldError', {
-                field: t('ui.instance.confirmPasswordFor', { email: admin.email }),
-                message: errors.passwordConfirmation,
-              })
-            }}
-          </span>
-        </Form>
-      </Section>
-    </Page>
+        <ul class="m-0 list-none p-0">
+          <li v-for="admin in admins" :key="admin.id" :class="EDIT_ROW">
+            <div class="flex min-w-0 flex-col md:w-64 md:shrink-0 md:pt-2">
+              <span class="text-sm font-medium">{{ admin.name ?? admin.email }}</span>
+              <span class="truncate text-sm text-muted-foreground">
+                {{ admin.email }}
+                <template v-if="!admin.active"> {{ t('ui.instance.inactive') }}</template>
+              </span>
+            </div>
+            <Form
+              v-slot="{ processing, errors }"
+              route="instance.admin_password"
+              :params="{ id: admin.id }"
+              :class="EDIT_ROW_FORM"
+            >
+              <Input
+                name="password"
+                type="password"
+                autocomplete="new-password"
+                :aria-label="t('ui.instance.newPasswordFor', { email: admin.email })"
+                :placeholder="t('ui.users.newPassword')"
+                :aria-invalid="errors.password ? 'true' : undefined"
+                :class="[TOUCH, 'md:w-52']"
+              />
+              <Input
+                name="passwordConfirmation"
+                type="password"
+                autocomplete="new-password"
+                :aria-label="t('ui.instance.confirmPasswordFor', { email: admin.email })"
+                :placeholder="t('ui.users.confirmPassword')"
+                :aria-invalid="errors.passwordConfirmation ? 'true' : undefined"
+                :class="[TOUCH, 'md:w-52']"
+              />
+              <Button type="submit" variant="outline" :class="TOUCH" :disabled="processing">
+                {{ t('ui.instance.setPassword') }}
+              </Button>
+              <RowErrors
+                :errors="errors"
+                :fields="{
+                  password: t('ui.instance.newPasswordFor', { email: admin.email }),
+                  passwordConfirmation: t('ui.instance.confirmPasswordFor', {
+                    email: admin.email,
+                  }),
+                }"
+              />
+            </Form>
+          </li>
+        </ul>
+      </ScreenSection>
+    </EntityScreen>
+
+    <ConfirmDialog
+      v-model:open="archiveOpen"
+      :title="t('ui.instance.archiveExisting')"
+      :description="t('ui.instance.archiveExistingConfirm')"
+      :confirm-label="t('ui.instance.archiveExisting')"
+      @confirm="archiveExisting"
+    />
   </AppLayout>
 </template>

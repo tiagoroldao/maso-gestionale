@@ -1,85 +1,109 @@
 <script setup lang="ts">
-import { t } from '~/i18n'
 /**
- * Fields shared by the create and edit user forms. On edit, leaving the
- * password empty keeps the current one.
+ * The sections shared by the create and edit user screens: who the user
+ * is, then the password. On edit, leaving the password empty keeps the
+ * current one.
  */
-defineProps<{
+import { ref } from 'vue'
+import { t } from '~/i18n'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import FormField from '~/components/screen/form_field.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import { TOUCH } from '~/components/screen/screen'
+
+const props = defineProps<{
   errors: Partial<Record<string, string>>
   user?: { fullName: string | null; email: string; role: string }
   passwordOptional?: boolean
 }>()
+
+const role = ref(props.user?.role ?? 'technician')
 </script>
 
 <template>
-  <div class="field">
-    <label class="field__label" for="fullName">{{ t('ui.users.fullName') }}</label>
-    <input
-      id="fullName"
-      name="fullName"
-      type="text"
-      class="field__input"
-      :value="user?.fullName ?? ''"
-      :aria-invalid="errors.fullName ? 'true' : 'false'"
-    />
-    <span v-if="errors.fullName" class="field__error">{{ errors.fullName }}</span>
-  </div>
+  <ScreenSection :title="t('ui.users.detailsSection')">
+    <div class="grid gap-4 md:grid-cols-2">
+      <FormField
+        id="fullName"
+        v-slot="field"
+        :label="t('ui.users.fullName')"
+        :error="errors.fullName"
+      >
+        <Input
+          :id="field.id"
+          name="fullName"
+          :default-value="user?.fullName ?? ''"
+          :aria-invalid="field.invalid"
+          :aria-describedby="field.describedBy"
+          :class="TOUCH"
+        />
+      </FormField>
 
-  <div class="field">
-    <label class="field__label" for="email">{{ t('ui.users.email') }}</label>
-    <input
-      id="email"
-      name="email"
-      type="email"
-      class="field__input"
-      autocomplete="off"
-      :value="user?.email ?? ''"
-      :aria-invalid="errors.email ? 'true' : 'false'"
-    />
-    <span v-if="errors.email" class="field__error">{{ errors.email }}</span>
-  </div>
+      <FormField id="email" v-slot="field" :label="t('ui.users.email')" :error="errors.email">
+        <Input
+          :id="field.id"
+          name="email"
+          type="email"
+          autocomplete="off"
+          :default-value="user?.email ?? ''"
+          :aria-invalid="field.invalid"
+          :aria-describedby="field.describedBy"
+          :class="TOUCH"
+        />
+      </FormField>
 
-  <div class="field">
-    <label class="field__label" for="role">{{ t('ui.users.role') }}</label>
-    <select id="role" name="role" class="field__input" :value="user?.role ?? 'technician'">
-      <option value="technician">{{ t('ui.roles.technician') }}</option>
-      <option value="office">{{ t('ui.roles.office') }}</option>
-    </select>
-    <span v-if="errors.role" class="field__error">{{ errors.role }}</span>
-  </div>
+      <FormField id="role" v-slot="field" :label="t('ui.users.role')" :error="errors.role">
+        <NativeSelect
+          :id="field.id"
+          v-model="role"
+          name="role"
+          :aria-invalid="field.invalid"
+          :aria-describedby="field.describedBy"
+        >
+          <option value="technician">{{ t('ui.roles.technician') }}</option>
+          <option value="office">{{ t('ui.roles.office') }}</option>
+        </NativeSelect>
+      </FormField>
+    </div>
+  </ScreenSection>
 
-  <div class="field">
-    <label class="field__label" for="password">
-      {{ passwordOptional ? t('ui.users.newPassword') : t('ui.users.password') }}
-    </label>
-    <input
-      id="password"
-      name="password"
-      type="password"
-      class="field__input"
-      autocomplete="new-password"
-      :aria-invalid="errors.password ? 'true' : 'false'"
-    />
-    <span v-if="passwordOptional" class="field__hint">
-      {{ t('ui.users.keepPasswordHint') }}
-    </span>
-    <span v-if="errors.password" class="field__error">{{ errors.password }}</span>
-  </div>
+  <ScreenSection :title="t('ui.users.passwordSection')">
+    <div class="grid gap-4 md:grid-cols-2">
+      <FormField
+        id="password"
+        v-slot="field"
+        :label="passwordOptional ? t('ui.users.newPassword') : t('ui.users.password')"
+        :hint="passwordOptional ? t('ui.users.keepPasswordHint') : undefined"
+        :error="errors.password"
+      >
+        <Input
+          :id="field.id"
+          name="password"
+          type="password"
+          autocomplete="new-password"
+          :aria-invalid="field.invalid"
+          :aria-describedby="field.describedBy"
+          :class="TOUCH"
+        />
+      </FormField>
 
-  <div class="field">
-    <label class="field__label" for="passwordConfirmation">{{
-      t('ui.users.confirmPassword')
-    }}</label>
-    <input
-      id="passwordConfirmation"
-      name="passwordConfirmation"
-      type="password"
-      class="field__input"
-      autocomplete="new-password"
-      :aria-invalid="errors.passwordConfirmation ? 'true' : 'false'"
-    />
-    <span v-if="errors.passwordConfirmation" class="field__error">
-      {{ errors.passwordConfirmation }}
-    </span>
-  </div>
+      <FormField
+        id="passwordConfirmation"
+        v-slot="field"
+        :label="t('ui.users.confirmPassword')"
+        :error="errors.passwordConfirmation"
+      >
+        <Input
+          :id="field.id"
+          name="passwordConfirmation"
+          type="password"
+          autocomplete="new-password"
+          :aria-invalid="field.invalid"
+          :aria-describedby="field.describedBy"
+          :class="TOUCH"
+        />
+      </FormField>
+    </div>
+  </ScreenSection>
 </template>
