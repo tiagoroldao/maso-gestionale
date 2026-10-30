@@ -23,7 +23,7 @@
     "settings": "Impostazioni",
     "instance": "Istanza",
     "items": "Articoli",
-    "stock": "Magazzino",
+    "stock": "Giacenze",
     "jobs": "Commesse",
     "schedule": "Agenda",
     "invoices": "Fatture",
@@ -541,7 +541,7 @@
     "upload": "Carica documento"
   },
   "stock": {
-    "title": "Magazzino",
+    "title": "Giacenze",
     "toReorderTitle": "Da riordinare",
     "toReorderDescription": "Articoli la cui disponibilità (giacenza meno impegnato) è negativa, o pari o inferiore alla scorta minima.",
     "belowMarkupTitle": "Prezzi da rivedere",
