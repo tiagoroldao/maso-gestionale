@@ -42,6 +42,12 @@ const routes = {
     tokens: [[0,"logout"]],
     types: placeholder as Registry['session.destroy']['types'],
   },
+  'dev_ui.show': {
+    methods: ["GET","HEAD"],
+    pattern: '/dev/ui',
+    tokens: [[0,"dev"],[0,"ui"]],
+    types: placeholder as Registry['dev_ui.show']['types'],
+  },
   'dashboard': {
     methods: ["GET","HEAD"],
     pattern: '/dashboard',

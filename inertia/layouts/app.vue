@@ -13,11 +13,9 @@ import AppSidebar from '~/components/app_sidebar.vue'
 import FlashToasts from '~/components/flash_toasts.vue'
 import LogoMark from '~/components/logo_mark.vue'
 import { Sheet, SheetClose, SheetContent, SheetTitle, SheetTrigger } from '~/components/ui/sheet'
+import { BAR_BUTTON } from '~/components/shell_classes'
 
 const drawerOpen = ref(false)
-
-const barButton =
-  'grid size-11 place-items-center rounded-sm text-white outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand'
 </script>
 
 <template>
@@ -39,7 +37,7 @@ const barButton =
           <LogoMark class="h-6 w-10" cut-class="fill-sidebar-brand" />
           <span class="sr-only">{{ t('ui.shell.wordmark') }}</span>
         </Link>
-        <SheetTrigger :class="barButton" :aria-label="t('ui.shell.openMenu')">
+        <SheetTrigger :class="BAR_BUTTON" :aria-label="t('ui.shell.openMenu')">
           <Menu :size="22" aria-hidden="true" />
         </SheetTrigger>
       </header>
@@ -47,12 +45,12 @@ const barButton =
       <SheetContent
         side="right"
         :aria-describedby="undefined"
-        class="w-[312px] max-w-[85vw] gap-0 overflow-y-auto border-0 bg-sidebar shadow-[-10px_0_30px_rgba(0,0,0,0.35)] sm:max-w-[312px]"
+        class="w-[312px] max-w-[85vw] gap-0 overflow-y-auto border-0 bg-sidebar shadow-drawer sm:max-w-[312px]"
       >
         <SheetTitle class="sr-only">{{ t('ui.shell.openMenu') }}</SheetTitle>
         <AppSidebar drawer @navigate="drawerOpen = false">
           <template #close>
-            <SheetClose :class="barButton" :aria-label="t('ui.shell.closeMenu')">
+            <SheetClose :class="BAR_BUTTON" :aria-label="t('ui.shell.closeMenu')">
               <X :size="22" aria-hidden="true" />
             </SheetClose>
           </template>

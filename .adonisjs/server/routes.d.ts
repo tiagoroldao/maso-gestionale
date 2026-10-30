@@ -10,6 +10,7 @@ export type ScannedRoutes = {
     'session.store': { paramsTuple?: []; params?: {} }
     'sdi.webhook': { paramsTuple?: []; params?: {} }
     'session.destroy': { paramsTuple?: []; params?: {} }
+    'dev_ui.show': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
     'items.search': { paramsTuple?: []; params?: {} }
@@ -210,6 +211,7 @@ export type ScannedRoutes = {
   GET: {
     'setup.create': { paramsTuple?: []; params?: {} }
     'session.create': { paramsTuple?: []; params?: {} }
+    'dev_ui.show': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
     'items.search': { paramsTuple?: []; params?: {} }
@@ -293,6 +295,7 @@ export type ScannedRoutes = {
   HEAD: {
     'setup.create': { paramsTuple?: []; params?: {} }
     'session.create': { paramsTuple?: []; params?: {} }
+    'dev_ui.show': { paramsTuple?: []; params?: {} }
     'dashboard': { paramsTuple?: []; params?: {} }
     'company_settings.logo': { paramsTuple?: []; params?: {} }
     'items.search': { paramsTuple?: []; params?: {} }

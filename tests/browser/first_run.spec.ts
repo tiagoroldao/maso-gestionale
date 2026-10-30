@@ -1,10 +1,16 @@
 import { test } from '@japa/runner'
 import { it } from '#tests/helpers/i18n'
+import { seriousA11yViolations } from '#tests/helpers/axe'
+import { SCREEN_SIZES } from '#shared/screen_sizes'
 
 test.group('First run in the browser', () => {
-  test('sets up the Instance, then the Admin signs in', async ({ visit }) => {
+  test('sets up the Instance, then the Admin signs in', async ({ visit, assert }) => {
     const page = await visit('/')
     await page.assertPath('/setup')
+    for (const size of ['phone', 'desktop'] as const) {
+      await page.setViewportSize(SCREEN_SIZES[size])
+      assert.deepEqual(await seriousA11yViolations(page), [], size)
+    }
 
     await page.getByLabel(it('ui.setup.email')).first().fill('installer@example.com')
     await page.getByLabel(it('ui.setup.password'), { exact: true }).first().fill('installer-secret')

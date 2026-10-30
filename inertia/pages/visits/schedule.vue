@@ -297,7 +297,7 @@ const weekday = (iso: string) =>
         </div>
       </div>
 
-      <table v-else class="table agenda--week">
+      <table v-else class="agenda--week table">
         <thead>
           <tr>
             <th />

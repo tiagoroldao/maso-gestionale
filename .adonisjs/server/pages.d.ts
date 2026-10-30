@@ -15,6 +15,7 @@ declare module '@adonisjs/inertia/types' {
     'customers/index': ExtractProps<(typeof import('../../inertia/pages/customers/index.vue'))['default']>
     'customers/show': ExtractProps<(typeof import('../../inertia/pages/customers/show.vue'))['default']>
     'dashboard': ExtractProps<(typeof import('../../inertia/pages/dashboard.vue'))['default']>
+    'dev/ui': ExtractProps<(typeof import('../../inertia/pages/dev/ui.vue'))['default']>
     'errors/forbidden': ExtractProps<(typeof import('../../inertia/pages/errors/forbidden.vue'))['default']>
     'errors/not_found': ExtractProps<(typeof import('../../inertia/pages/errors/not_found.vue'))['default']>
     'errors/server_error': ExtractProps<(typeof import('../../inertia/pages/errors/server_error.vue'))['default']>
