@@ -137,6 +137,7 @@ export type ScannedRoutes = {
     'items.create': { paramsTuple?: []; params?: {} }
     'items.store': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.receive': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock_movements.adjust': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock.index': { paramsTuple?: []; params?: {} }
@@ -267,6 +268,7 @@ export type ScannedRoutes = {
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
@@ -351,6 +353,7 @@ export type ScannedRoutes = {
     'items.index': { paramsTuple?: []; params?: {} }
     'items.create': { paramsTuple?: []; params?: {} }
     'items.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
+    'items.preview': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'stock.index': { paramsTuple?: []; params?: {} }
     'items.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'item_documents.show': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }

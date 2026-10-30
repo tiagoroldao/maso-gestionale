@@ -195,6 +195,8 @@ export default class JobsController {
     const sumOf = (state: ChargeState) =>
       sumAmounts(work.filter((line) => line.state === state).map((line) => line.amount))
 
+    // An Item's Charge opens the Item's preview, for those who may open the Item
+    const previewItems = await bouncer.allows('manageItems')
     const settings = await CompanySettings.current()
     const invoices = await Invoice.query().where('jobId', job.id).preload('lines').orderBy('id')
     const quotes = await job.related('quotes').query().preload('lines').orderBy('sequence')
@@ -344,6 +346,7 @@ export default class JobsController {
         id: charge.id,
         visitId: charge.visitId,
         description: charge.description,
+        itemId: previewItems && charge.kind === 'item' ? charge.itemId : null,
         unit: charge.billUnit,
         quantity: charge.billQuantity,
         unitPrice: charge.unitPrice,

@@ -29,6 +29,7 @@ export interface ApiDefinition {
     create: typeof routes['items.create']
     store: typeof routes['items.store']
     show: typeof routes['items.show']
+    preview: typeof routes['items.preview']
     edit: typeof routes['items.edit']
     update: typeof routes['items.update']
     archive: typeof routes['items.archive']
