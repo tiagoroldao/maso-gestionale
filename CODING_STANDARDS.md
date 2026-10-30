@@ -24,7 +24,7 @@ The UI is functional scaffolding until the UX pass (ADR 0009). A screen on the n
 - **Reachable, not designed.** A feature gets a plain page from the existing pieces (`Page`, `Section`, `.table`, `.field` classes). New visual components, styles, layout work and interaction niceties (live previews, drag and drop, inline editing) are out unless the feature can't work without them. Destructive actions (delete, cancel, finalise) get a confirmation; nothing else does.
 - **Lists** are a plain table in an explicit order (by name, or newest first for dated records). Search only where a record must be found or picked; filters, sorting and pagination only when an acceptance criterion or the data volume needs them.
 - **No extras.** No dashboards, reports, summaries or charts beyond the issue's criteria.
-- **Logic stays out of pages.** Rules, totals and statuses come from services or `shared/` modules; controllers pass plain domain data.
+- **Rules live in `shared/` or services, never written inside a page.** Totals, statuses and business rules come from services or `shared/` modules; controllers pass plain domain data. A page may run `shared/` rules for live interaction (defaults, previews, totals as you type, enabling a field), and the server runs the same rules again and is authoritative on submit. What a user may do to a record comes from the server (`docs/ui.md`, Actions). Purely visual state (open sections, tabs, unsaved edits) is the page's own.
 - **UX gaps found** in review go to `ui-later` (an issue with that label), not into the diff.
 
 ## Tests
