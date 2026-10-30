@@ -5,7 +5,17 @@ import { t } from '~/i18n'
  * and typing searches every Site. Emits the chosen Site.
  */
 import { onBeforeUnmount, onMounted, ref, useId, watch } from 'vue'
+import { CircleAlert } from 'lucide-vue-next'
 import { urlFor } from '~/client'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
+import StatusTag from '~/components/screen/status_tag.vue'
+import {
+  PICKER_ERROR,
+  PICKER_HINT,
+  PICKER_OPTION,
+  PICKER_RESULTS,
+} from '~/components/screen/screen'
 
 export type PickedSite = { id: number; summary: string; linked: boolean }
 
@@ -59,33 +69,34 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="field">
-    <label class="field__label" :for="inputId">{{ label ?? t('ui.sites.picker.label') }}</label>
-    <input
+  <div class="flex flex-col gap-1.5">
+    <Label :for="inputId">{{ label ?? t('ui.sites.picker.label') }}</Label>
+    <Input
       :id="inputId"
       v-model="query"
       type="search"
-      class="field__input"
+      class="h-11 md:h-9"
       :placeholder="t('ui.sites.picker.placeholder')"
       autocomplete="off"
     />
     <ul
       v-if="results.length"
-      class="picker__results"
+      :class="PICKER_RESULTS"
       role="listbox"
       :aria-label="t('ui.sites.picker.results')"
     >
       <li v-for="site in results" :key="site.id">
-        <button type="button" class="picker__option" role="option" @click="emit('select', site)">
+        <button type="button" :class="PICKER_OPTION" role="option" @click="emit('select', site)">
           {{ site.summary }}
-          <span v-if="site.linked" class="tag">{{ t('ui.sites.picker.linked') }}</span>
+          <StatusTag v-if="site.linked" tone="grey">{{ t('ui.sites.picker.linked') }}</StatusTag>
         </button>
       </li>
     </ul>
-    <p v-else-if="status === 'failed'" class="field__error">
+    <p v-else-if="status === 'failed'" :class="PICKER_ERROR">
+      <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
       {{ t('ui.sites.picker.failed') }}
     </p>
-    <p v-else-if="query && status === 'done'" class="field__hint">
+    <p v-else-if="query && status === 'done'" :class="PICKER_HINT">
       {{ t('ui.sites.picker.noMatches') }}
     </p>
   </div>

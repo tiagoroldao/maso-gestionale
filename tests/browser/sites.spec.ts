@@ -18,7 +18,10 @@ test.group('Sites in the browser', () => {
     const page = await visit(`/customers/${customer.id}`)
     await page.getByLabel(it('ui.customers.linkSite')).fill('centrale')
     await page.getByRole('option', { name: /Centrale termica/ }).click()
-    await page.getByRole('cell', { name: /Centrale termica/ }).waitFor()
+    await page
+      .getByTestId('customer-sites')
+      .getByRole('link', { name: /Centrale termica/ })
+      .waitFor()
 
     await page.getByRole('link', { name: it('ui.customers.newSite') }).click()
     await page.getByLabel(it('ui.address.street'), { exact: true }).fill('Via Verdi')
@@ -30,7 +33,10 @@ test.group('Sites in the browser', () => {
     await page.getByRole('button', { name: it('ui.sites.save') }).click()
 
     await page.waitForURL(`**/customers/${customer.id}`)
-    await page.getByRole('cell', { name: /int\. 7/ }).waitFor()
+    await page
+      .getByTestId('customer-sites')
+      .getByRole('link', { name: /int\. 7/ })
+      .waitFor()
     await customer.load('sites')
     assert.lengthOf(customer.sites, 2)
   })

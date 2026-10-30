@@ -8,11 +8,13 @@ import Archiving, { HasOpenJobsError } from '#services/archiving'
 import PaymentTerms from '#models/payment_terms'
 import { customerSearchValidator, customerValidator } from '#validators/customer'
 import { customerPickerValidator } from '#validators/job'
-import { recentJobs } from '#services/job_rows'
+import { openJobCount, recentJobs } from '#services/job_rows'
+import { customerActions } from '#services/customer_actions'
 import IssuedDocuments from '#services/issued_documents'
 import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 import { likePattern } from '#services/search'
+import { saveActions } from '#shared/screen_actions'
 
 const PER_PAGE = 25
 
@@ -109,7 +111,7 @@ export default class CustomersController {
     })
   }
 
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, bouncer, i18n }: HttpContext) {
     const customer = await Customer.query()
       .where('id', params.id)
       .preload('paymentTerms')
@@ -141,6 +143,20 @@ export default class CustomersController {
     const today = DateTime.now().toISODate()!
 
     return inertia.render('customers/show', {
+      actions: customerActions(
+        {
+          customer: {
+            id: customer.id,
+            phone: customer.phone,
+            archived: customer.archivedAt !== null,
+          },
+          can: { jobs: await bouncer.allows('manageJobs') },
+        },
+        i18n
+      ),
+      // Adding a Legacy Invoice sits in the Invoices section (docs/ui.md "Actions")
+      canAddInvoice: await bouncer.allows('manageInvoices'),
+      openJobs: await openJobCount({ customerId: customer.id }),
       balance,
       // Issued Invoices and Legacy Invoices (#27), newest first
       invoices: issued.map((invoice) => ({
@@ -183,8 +199,9 @@ export default class CustomersController {
     })
   }
 
-  async create({ inertia }: HttpContext) {
+  async create({ inertia, i18n }: HttpContext) {
     return inertia.render('customers/form', {
+      actions: saveActions(i18n.t('ui.customers.save')),
       customer: null,
       paymentTerms: await paymentTermsOptions(),
     })
@@ -198,12 +215,14 @@ export default class CustomersController {
     response.redirect().toRoute('customers.show', { id: customer.id })
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const customer = await Customer.findOrFail(params.id)
 
     return inertia.render('customers/form', {
+      actions: saveActions(i18n.t('ui.customers.save')),
       customer: {
         id: customer.id,
+        displayName: customer.displayName,
         type: customer.type,
         firstName: customer.firstName,
         lastName: customer.lastName,
