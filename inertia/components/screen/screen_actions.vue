@@ -10,7 +10,8 @@
  * first when it has a question (destructive or irreversible ones); a
  * `dialog` action is the page's own short form, opened through the
  * `dialog` event; a `submit` action submits the form the screen sits in,
- * or the one its `form` names (disabled while it is `busy`, or blocked),
+ * or the one its `form` names (disabled while it is `busy`; blocked, it
+ * stays focusable so its reason is read, and refuses its click and Enter),
  * asking first when it has a question (issuing a document): its button
  * and Enter in one of the form's fields open the question, and only the
  * answer submits the form. A disabled one shows its reason. A `link`
@@ -60,19 +61,29 @@ const outside = (action: ScreenAction) => {
 // A post or delete on its way: the header's buttons wait, so it isn't sent twice
 const sending = ref(false)
 /**
- * A button that can't be pressed now: a Save while its form is sent or
- * blocked, a post while one is on its way (a blocked post stays focusable,
- * marked aria-disabled, so its reason is read)
+ * A button that can't be pressed now, disabled: a Save while its form is
+ * sent, a post while one is on its way. A blocked action (its
+ * `disabledReason`) is not: it stays focusable, marked aria-disabled, so
+ * its reason is read, and `run` refuses it (#295).
  */
 const held = (action: ScreenAction) =>
-  (action.kind === 'submit' && (props.busy || !!action.disabledReason)) ||
-  (action.kind === 'post' && sending.value)
+  (action.kind === 'submit' && props.busy) || (action.kind === 'post' && sending.value)
 
 /** A `submit` that asks first: its form's submits wait for the answer */
 const asks = (action: ScreenAction) => action.kind === 'submit' && !!action.confirm
 
-function run(action: ScreenAction) {
-  if (action.disabledReason || action.kind === 'submit' || held(action)) return
+/**
+ * A button's click. A blocked one refuses it: for a `submit`, cancelling
+ * the click stops its form's submit, also from Enter in a field, which
+ * clicks the form's first submit button. An unblocked `submit` lets the
+ * click submit its form.
+ */
+function run(action: ScreenAction, event?: Event) {
+  if (action.disabledReason || held(action)) {
+    event?.preventDefault()
+    return
+  }
+  if (action.kind === 'submit') return
   if (action.kind === 'dialog') {
     emit('dialog', action.name)
   } else if (action.kind === 'post' && action.confirm) {
@@ -164,7 +175,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
     ref="root"
     :class="
       cn(
-        'mt-1 flex items-start gap-2 md:mt-0 md:flex-wrap md:justify-end',
+        'mt-1 flex items-start gap-2 md:mt-0 md:ml-auto md:flex-wrap md:justify-end md:gap-y-1',
         !arranged.secondary.length && !arranged.overflow.length && 'max-md:contents'
       )
     "
@@ -197,7 +208,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         :class="SECONDARY"
         :aria-disabled="action.disabledReason ? 'true' : undefined"
         :aria-describedby="action.disabledReason ? reasonId(action) : undefined"
-        @click="run(action)"
+        @click="(event: MouseEvent) => run(action, event)"
       >
         {{ action.label }}
       </button>
@@ -208,17 +219,19 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
 
     <!--
       The primary: a bar fixed at the bottom on the phone, its button clear of
-      the iPhone's home indicator (the safe area); a black button from 768px
+      the iPhone's home indicator (the safe area); a black button from 768px,
+      where its parts join the buttons' row (md:contents) so a disabled reason
+      wraps on a line of its own under them, however long (#282)
     -->
     <div
       v-if="arranged.primary"
       data-testid="primary-action"
-      class="fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-t border-border bg-card px-3.5 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:static md:z-auto md:items-end md:gap-1 md:border-0 md:bg-transparent md:p-0"
+      class="fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-t border-border bg-card px-3.5 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:contents"
     >
       <span
         v-if="arranged.primary.disabledReason"
         :id="reasonId(arranged.primary)"
-        class="order-first text-center text-xs text-muted-foreground md:order-last md:text-right"
+        class="order-first text-center text-xs text-muted-foreground md:order-last md:basis-full md:text-right"
       >
         {{ arranged.primary.disabledReason }}
       </span>
@@ -251,7 +264,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
         :class="PRIMARY"
         :aria-disabled="arranged.primary.disabledReason ? 'true' : undefined"
         :aria-describedby="arranged.primary.disabledReason ? reasonId(arranged.primary) : undefined"
-        @click="run(arranged.primary)"
+        @click="(event: MouseEvent) => run(arranged.primary!, event)"
       >
         {{ arranged.primary.label }}
       </button>
