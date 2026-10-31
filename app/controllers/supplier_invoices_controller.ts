@@ -39,7 +39,7 @@ const PER_PAGE = 25
  * intermediary, sent again from its page after a failure (#214).
  */
 export default class SupplierInvoicesController {
-  async index({ request, inertia, i18n }: HttpContext) {
+  async index({ request, inertia, i18n, session }: HttpContext) {
     const { page = 1 } = await pageValidator.validate(request.qs())
     const results = await SupplierInvoice.query()
       .preload('supplier')
@@ -72,6 +72,11 @@ export default class SupplierInvoicesController {
         currentPage: results.currentPage,
         lastPage: results.lastPage,
         total: results.total,
+      },
+      // The export's dates, back after a refused range (#209)
+      exportRange: {
+        issuedFrom: flashedDate(session.flashMessages.get('issuedFrom')),
+        issuedTo: flashedDate(session.flashMessages.get('issuedTo')),
       },
     })
   }
@@ -292,6 +297,7 @@ export default class SupplierInvoicesController {
     const to = issuedTo.setZone(TIME_ZONE).toISODate()!
     const invoices = await SupplierInvoiceExport.invoicesIssuedIn(from, to)
     if (!invoices.length) {
+      session.flashOnly(['issuedFrom', 'issuedTo'])
       session.flash('error', i18n.t('flash.supplierInvoiceExportEmpty'))
       return response.redirect().withQs(false).toRoute('supplier_invoices.index')
     }
@@ -302,6 +308,7 @@ export default class SupplierInvoicesController {
     } catch (error) {
       if (!(error instanceof PdfConversionError)) throw error
       logger.warn({ err: error }, 'PDF conversion failed')
+      session.flashOnly(['issuedFrom', 'issuedTo'])
       session.flash('error', i18n.t('errors.pdfUnavailable'))
       return response.redirect().withQs(false).toRoute('supplier_invoices.index')
     }
@@ -312,4 +319,12 @@ export default class SupplierInvoicesController {
     )
     response.stream(zip)
   }
+}
+
+/**
+ * A date the export form sent, as flashed back to it: kept only when it
+ * reads as one, for the date input.
+ */
+function flashedDate(value: unknown) {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : ''
 }
