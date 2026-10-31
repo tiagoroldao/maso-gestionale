@@ -91,6 +91,18 @@ const sampleActions = declareActions([
   },
   { name: 'confirm', label: t('ui.devUi.action.destructive'), rank: 'overflow', kind: 'dialog' },
 ])
+// The primary disabled with a long reason (#282): the buttons stay together, the reason under them
+const blockedActions = declareActions([
+  { name: 'secondary', label: t('ui.devUi.action.secondary'), rank: 'secondary', kind: 'dialog' },
+  {
+    name: 'primary',
+    label: t('ui.devUi.action.primary'),
+    rank: 'primary',
+    kind: 'dialog',
+    disabledReason: t('ui.devUi.action.longReason'),
+  },
+  { name: 'overflow', label: t('ui.devUi.action.overflow'), rank: 'overflow', kind: 'dialog' },
+])
 const sampleFacts: KeyFact[] = [
   { label: t('ui.jobs.customer'), value: t('ui.devUi.sampleCustomer'), href: '/dev/ui' },
   { label: t('ui.jobs.site'), value: t('ui.devUi.sampleSite') },
@@ -418,6 +430,20 @@ function sampleDialog(name: string) {
               <p class="m-0 text-sm">{{ t('ui.devUi.sectionText') }}</p>
             </ScreenSection>
           </div>
+        </div>
+        <!-- A second primary would be a second bar on the phone: shown from 768px -->
+        <div
+          data-testid="blocked-primary"
+          class="hidden overflow-hidden rounded-sm border border-border md:block"
+        >
+          <ScreenHeader
+            :crumbs="[{ label: t('ui.devUi.sampleParent'), href: '/dev/ui' }]"
+            :current="t('ui.devUi.sampleCurrent')"
+            :title="t('ui.devUi.sampleTitle')"
+            :facts="t('ui.devUi.sampleFacts')"
+            :actions="blockedActions"
+            @dialog="sampleDialog"
+          />
         </div>
       </section>
 
