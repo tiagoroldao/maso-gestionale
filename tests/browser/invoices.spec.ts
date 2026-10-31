@@ -39,14 +39,20 @@ test.group('Invoices in the browser', () => {
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
     await page.getByText(it('flash.invoiceSaved')).waitFor()
 
-    page.on('dialog', (dialog) => dialog.accept())
+    // Irreversible, so asked first
     await page.getByRole('button', { name: it('ui.invoices.finalise') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.invoices.finalise') })
+      .click()
     const number = `1/${new Date().getFullYear()}`
     await page.getByText(it('flash.invoiceFinalised', { number })).waitFor()
 
-    // Paid in full at the counter
-    await page.getByLabel(it('ui.invoices.amountPaid')).fill('219,60')
+    // Paid in full at the counter, from the Payments section's dialog
     await page.getByRole('button', { name: it('ui.invoices.recordPayment') }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByLabel(it('ui.invoices.amountPaid')).fill('219,60')
+    await dialog.getByRole('button', { name: it('ui.invoices.recordPayment') }).click()
     await page.getByText(it('flash.paymentRecorded')).waitFor()
     await page.getByText(it('ui.invoices.paymentStatuses.paid'), { exact: true }).waitFor()
 
@@ -83,13 +89,16 @@ test.group('Invoices in the browser', () => {
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
     await page.getByText(it('flash.invoiceSaved')).waitFor()
 
-    page.on('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: it('ui.invoices.finaliseCreditNote') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.invoices.finaliseCreditNote') })
+      .click()
     const number = `2/${new Date().getFullYear()}`
     await page.getByText(it('flash.creditNoteFinalised', { number })).waitFor()
 
     // Back on the Invoice: the Credit Note listed, 91.50 left to collect
-    await page.getByTestId('credits').getByRole('link').click()
+    await page.getByRole('link', { name: `1/${new Date().getFullYear()}`, exact: true }).click()
     await page.getByTestId('credit-notes').getByText(number).waitFor()
     await page.getByText(it('ui.invoices.credited', { amount: '30,50 €' })).waitFor()
 
