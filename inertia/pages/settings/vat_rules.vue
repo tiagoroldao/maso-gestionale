@@ -4,7 +4,7 @@
  * rules are one form, saved by the header's primary action. Each row is a
  * Customer type, Work Category and kind of Site, with a code per line kind.
  */
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Form } from '@adonisjs/inertia/vue'
 import { CircleAlert } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
@@ -45,6 +45,22 @@ const rows = computed(() => {
   })
   return [...byKey.entries()].map(([key, row]) => ({ key, ...row }))
 })
+
+/**
+ * Each rule's chosen code, as picked: its select shows the code's name
+ * whole (#266). Back to the saved ones once the rules come back changed.
+ */
+const codes = ref<string[]>([])
+watch(
+  () => props.rules,
+  (rules) => (codes.value = rules.map((rule) => String(rule.vatCodeId))),
+  { immediate: true }
+)
+const codeName = (id: string) => {
+  const code = props.vatCodes.find((entry) => String(entry.id) === id)
+  if (!code) return ''
+  return code.archived ? `${code.name} ${t('ui.vatRules.archived')}` : code.name
+}
 
 const ruleError = (errors: Record<string, string>, index: number) =>
   errors[`rules.${index}.vatCodeId`]
@@ -145,8 +161,9 @@ const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
                       :value="rules[row.cells.get(kind)!].id"
                     />
                     <NativeSelect
+                      v-model="codes[row.cells.get(kind)!]"
                       :name="`rules[${row.cells.get(kind)}][vatCodeId]`"
-                      :model-value="String(rules[row.cells.get(kind)!].vatCodeId)"
+                      :display="codeName(codes[row.cells.get(kind)!])"
                       :aria-label="
                         t('ui.vatRules.codeFor', {
                           kind: t(`ui.vatRules.lineKinds.${kind}`),
