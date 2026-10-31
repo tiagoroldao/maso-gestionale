@@ -6,6 +6,7 @@ import LabourRate from '#models/labour_rate'
 import User from '#models/user'
 import Charges, { ChargeRefusedError } from '#services/charges'
 import Installations from '#services/installations'
+import { chargeActions } from '#services/charge_actions'
 import { localDateTime } from '#services/dates'
 import StockLedger from '#stock/stock_ledger'
 import { flashWithStockWarning } from '#stock/stock_warning'
@@ -39,7 +40,7 @@ export default class ChargesController {
     return response.redirect().toRoute('jobs.show', { id: job.id })
   }
 
-  async edit({ params, inertia }: HttpContext) {
+  async edit({ params, inertia, i18n }: HttpContext) {
     const charge = await Charge.query()
       .where('id', params.id)
       .preload('events', (events) => events.preload('user').preload('invoice').orderBy('id'))
@@ -52,6 +53,11 @@ export default class ChargesController {
     const job = await Job.findOrFail(charge.jobId)
     const visit = charge.visitId ? await Visit.findOrFail(charge.visitId) : null
     const frozen = await Charges.isFrozen(charge.id)
+    // Office switches done and not done once the Visit closed (a Job's own
+    // Charges at any time), while no draft holds it and no issued Invoice
+    // bills it uncredited (ADR 0016)
+    const canSetWork =
+      (!visit || isClosedVisit(visit.status)) && charge.state !== 'in_draft' && !frozen
 
     // Archived rates only for the Charge already using one
     const rates = await LabourRate.query()
@@ -75,16 +81,21 @@ export default class ChargesController {
       .orderBy('email')
 
     return inertia.render('charges/edit', {
+      // The header's actions, for the Charge's states (only Admin and Office open it)
+      actions: chargeActions(
+        {
+          charge: { id: charge.id, state: charge.state, workState: charge.workState },
+          invoiceNumber: invoice?.formattedNumber ?? null,
+          canSetWork,
+        },
+        i18n
+      ),
       charge: {
         id: charge.id,
         kind: charge.kind,
         state: charge.state,
         workState: charge.workState,
-        // Office switches done and not done once the Visit closed (a Job's
-        // own Charges at any time), while no draft holds it and no issued
-        // Invoice bills it uncredited (ADR 0016)
-        canSetWork:
-          (!visit || isClosedVisit(visit.status)) && charge.state !== 'in_draft' && !frozen,
+        canSetWork,
         // Its quantity and Item are frozen too
         frozen,
         visitStartsAt: visit ? localDateTime(visit.startsAt) : null,

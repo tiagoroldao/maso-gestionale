@@ -12,7 +12,13 @@ import { VISIT_STATUSES } from '#models/visit'
 import type { JobLeftovers } from '#services/jobs'
 import { validationMessages } from '#validators/messages_provider'
 import { ADVANCE_STATES } from '#shared/advances'
-import { CHARGE_EVENT_KINDS, CHARGE_STATES, WORK_STATES } from '#shared/charges'
+import {
+  CHARGE_EVENT_KINDS,
+  CHARGE_KINDS,
+  CHARGE_STATES,
+  WORK_STATES,
+  isHeld,
+} from '#shared/charges'
 import { LIQUIDATION_STATUSES, SOLE_SHAREHOLDER } from '#shared/company'
 import { CREDIT_NOTE_NUMBERING_MODES } from '#shared/credit_notes'
 import {
@@ -89,6 +95,7 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
   'ui.charges.workStates': WORK_STATES,
   'ui.charges.states': CHARGE_STATES,
   'ui.charges.events': CHARGE_EVENT_KINDS,
+  'ui.charges.kinds': CHARGE_KINDS,
   'ui.visits.statuses': VISIT_STATUSES,
   'ui.visits.repeats': REPEAT_FREQUENCIES,
   'ui.visits.weekdayNames': WEEKDAYS,
@@ -163,6 +170,8 @@ const BUILT_ON_SERVER: Record<string, readonly (string | number)[]> = {
     visitCancelled: true,
     wholeQuantity: true,
   }),
+  // Why Save is held on the Charge screen: an Invoice holds, bills or credited it
+  'ui.charges.billingHeld': CHARGE_STATES.filter(isHeld),
   // Office marks done or not done; planned is never flashed
   'flash.chargeWork': WORK_STATES.filter((state) => state !== 'planned'),
   'flash.creditNoteNumbering': CREDIT_NOTE_NUMBERING_MODES,
