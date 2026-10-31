@@ -215,7 +215,10 @@ test.group('Issued Document screens in the browser', () => {
       await loading
       await route.continue()
     })
-    const issue = page.getByRole('button', { name: it('ui.issuedDocuments.issue') })
+    // The header's, not the confirmation's button of the same name while it fades out
+    const issue = page
+      .getByTestId('primary-action')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
     const answered = page.waitForResponse(
       (response) => response.request().method() === 'POST' && response.status() === 200
     )
