@@ -482,7 +482,6 @@ router
           .where('id', router.matchers.number())
         router.get('settings/company', [controllers.CompanySettings, 'edit'])
         router.post('settings/company', [controllers.CompanySettings, 'update'])
-        router.get('settings/company/letterhead', [controllers.LetterheadPreview, 'show'])
         router.get('settings/company/letterhead.pdf', [controllers.LetterheadPreview, 'pdf'])
         router.get('settings/rates', [controllers.Rates, 'index'])
         router.post('settings/rates', [controllers.Rates, 'store'])

@@ -1,9 +1,42 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
 import Visit from '#models/visit'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
+
+test.group('Agenda blocks in the browser', () => {
+  test('a block opens its Visit and keeps a way to the Job, in the day and week views', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const anna = await createUser('technician', { fullName: 'Anna Tecnico' })
+    const job = await createJob(await createCustomer())
+    const startsAt = DateTime.fromISO('2026-11-03T09:00')
+    const planned = await Visit.create({
+      jobId: job.id,
+      startsAt,
+      endsAt: startsAt.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await planned.related('technicians').attach([anna.id])
+
+    for (const view of ['day', 'week']) {
+      const page = await visit(`/agenda?date=2026-11-03&view=${view}`)
+      const block = page.locator(`[data-visit="${planned.id}"]`)
+      // The Job stays one click away from the block
+      assert.equal(
+        await block.getByRole('link', { name: job.number }).getAttribute('href'),
+        `/jobs/${job.id}`
+      )
+      await block.getByRole('link', { name: '09:00' }).click()
+      await page.waitForURL(`**/visits/${planned.id}/edit`)
+    }
+  })
+})
 
 test.group('Agenda in the browser', () => {
   test('Office plans a Visit, then drags it to another Technician and time', async ({

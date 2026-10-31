@@ -20,11 +20,6 @@ function sample(i18n: I18n): DocumentInput {
 }
 
 export default class LetterheadPreviewController {
-  async show({ response, i18n }: HttpContext) {
-    response.header('content-type', 'text/html; charset=utf-8')
-    return new DocumentRenderer().renderHtml(sample(i18n))
-  }
-
   async pdf({ response, logger, i18n }: HttpContext) {
     try {
       const pdf = await new DocumentRenderer().renderPdf(sample(i18n))

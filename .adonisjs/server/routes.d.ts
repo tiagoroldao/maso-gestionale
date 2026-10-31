@@ -171,7 +171,6 @@ export type ScannedRoutes = {
     'categories.destroy': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
     'company_settings.update': { paramsTuple?: []; params?: {} }
-    'letterhead_preview.show': { paramsTuple?: []; params?: {} }
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'rates.store': { paramsTuple?: []; params?: {} }
@@ -281,7 +280,6 @@ export type ScannedRoutes = {
     'suppliers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
-    'letterhead_preview.show': { paramsTuple?: []; params?: {} }
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
@@ -366,7 +364,6 @@ export type ScannedRoutes = {
     'suppliers.edit': { paramsTuple: [ParamValue]; params: {'id': ParamValue} }
     'categories.index': { paramsTuple?: []; params?: {} }
     'company_settings.edit': { paramsTuple?: []; params?: {} }
-    'letterhead_preview.show': { paramsTuple?: []; params?: {} }
     'letterhead_preview.pdf': { paramsTuple?: []; params?: {} }
     'rates.index': { paramsTuple?: []; params?: {} }
     'vat_codes.index': { paramsTuple?: []; params?: {} }
