@@ -1,12 +1,17 @@
 /**
- * The errors of rows edited in place and saved together (a Quote's or an
- * Invoice's lines, an Invoice's sections, a Legacy Invoice's VAT rows). The
- * server names a row's errors by its position in the save it refused
- * (`lines.N.field`), so each row finds its own by the position its key had
- * in that save: they stay on their row when one is removed, moved or added
- * since (#287, #289, #292).
+ * The errors of rows edited in place and saved together, each on its own
+ * row wherever it has moved since (`shared/sent_rows.ts`): the rows' state
+ * held for a page, taking the answer's order in with its errors.
  */
 import { ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
+import {
+  fieldsReplaced,
+  rowErrorName,
+  rowsAnswered,
+  sendCancelled,
+  sendRows,
+  sentRows,
+} from '@shared/sent_rows'
 
 export function useSentRowErrors(options: {
   /** The rows as on screen, each with a key of its own */
@@ -19,11 +24,7 @@ export function useSentRowErrors(options: {
   fields: string[]
 }) {
   const keys = () => options.rows().map((row) => row.key)
-  // The rows' keys in the order the last answered save sent them; null
-  // where a row's errors no longer apply (its fields replaced since)
-  const sentKeys = ref<(number | null)[]>(keys())
-  // Those of the save in flight, until its answer
-  let sending: number[] | null = null
+  const state = ref(sentRows(keys()))
 
   // The answer's errors and the order they refer to arrive together: the
   // order changes only with them (before the screen updates), so the errors
@@ -31,16 +32,14 @@ export function useSentRowErrors(options: {
   watch(
     () => toValue(options.errors),
     () => {
-      if (!sending) return
-      sentKeys.value = sending
-      sending = null
+      state.value = rowsAnswered(state.value)
     }
   )
 
   /** A row's error on `field`, if the last answered save had one */
   const error = (key: number, field: string): string | undefined => {
-    const sent = sentKeys.value.indexOf(key)
-    return sent === -1 ? undefined : toValue(options.errors)[`${options.name}.${sent}.${field}`]
+    const name = rowErrorName(state.value, options.name, key, field)
+    return name === null ? undefined : toValue(options.errors)[name]
   }
 
   return {
@@ -57,23 +56,19 @@ export function useSentRowErrors(options: {
     invalid: (key: number, field: string) => (error(key, field) ? 'true' : undefined),
     /** Call as the rows are sent: their order now is the one the answer refers to */
     send: () => {
-      sending = keys()
+      state.value = sendRows(state.value, keys())
     },
-    /**
-     * Call when the save sent gets no answer (cancelled, or failed without
-     * one): the errors on screen stay those of the last answered save.
-     */
+    /** Call when the save sent gets no answer (cancelled, or failed without one) */
     cancel: () => {
-      sending = null
+      state.value = sendCancelled(state.value)
     },
-    /** Call when a row's fields are replaced (merged into): its errors no longer apply */
-    clear: (key: number) => {
-      sentKeys.value = sentKeys.value.map((sent) => (sent === key ? null : sent))
+    /** Call when a row's fields are replaced (merged into): their errors no longer apply */
+    clear: (key: number, fields: string[]) => {
+      state.value = fieldsReplaced(state.value, key, fields)
     },
     /** Call once the rows are again what the server has (after a save) */
     reset: () => {
-      sending = null
-      sentKeys.value = keys()
+      state.value = sentRows(keys())
     },
   }
 }

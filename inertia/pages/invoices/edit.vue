@@ -491,11 +491,16 @@ function canMergeUp(index: number) {
   )
 }
 
+// The fields merging (and folding) writes anew: their errors no longer apply
+const MERGE_REPLACES = ['itemId', 'quantity', 'unitPrice', 'discountPercent']
+
 /**
  * One line billing both lines' Charges, for their combined amount, at
  * their shared VAT Code.
  */
 function mergeUp(index: number) {
+  // Not while a save is in flight: its answer is about the lines before
+  if (processing.value) return
   const [above, line] = [lines[index - 1], lines[index]]
   const amount = parseAmount(amountOf(above)!)!.plus(amountOf(line)!)
   Object.assign(above, {
@@ -506,7 +511,7 @@ function mergeUp(index: number) {
     discountPercent: '',
     chargeIds: [...above.chargeIds, ...line.chargeIds],
   })
-  lineErrors.clear(above.key)
+  lineErrors.clear(above.key, MERGE_REPLACES)
   lines.splice(index, 1)
 }
 
@@ -534,6 +539,7 @@ const folds = computed(() =>
  * "Materiale di consumo", 1 × their total, billing all their Charges.
  */
 function foldConsumables() {
+  if (processing.value) return
   const removed = new Set<number>()
   for (const { indices, amount } of folds.value) {
     const [first, ...rest] = indices.map((index) => lines[index])
@@ -547,7 +553,7 @@ function foldConsumables() {
       discountPercent: '',
       chargeIds: [first, ...rest].flatMap((line) => line.chargeIds),
     })
-    lineErrors.clear(first.key)
+    lineErrors.clear(first.key, [...MERGE_REPLACES, 'description'])
     for (const line of rest) removed.add(line.key)
   }
   lines.splice(0, lines.length, ...lines.filter((line) => !removed.has(line.key)))
@@ -991,6 +997,7 @@ const history = computed(() =>
                         variant="ghost"
                         size="icon-touch"
                         :class="ICON"
+                        :disabled="processing"
                         :aria-label="t('ui.invoices.mergeUp')"
                         @click="mergeUp(position(line) - 1)"
                       >
@@ -1232,6 +1239,7 @@ const history = computed(() =>
               type="button"
               variant="outline"
               :class="cn(BUTTON, 'self-start')"
+              :disabled="processing"
               @click="foldConsumables"
             >
               {{ t('ui.invoices.foldConsumables') }}

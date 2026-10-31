@@ -323,7 +323,7 @@ test.group('Invoice screen in the browser', (group) => {
     assert.deepEqual(await shows(2), { invalid: null, errors: 0 })
   })
 
-  test('a line merged into, after a refused save, shows no stale errors (#292)', async ({
+  test("a line merged into, after a refused save, loses the errors of the fields merging rewrote, not the others' (#292)", async ({
     browserContext,
     visit,
     assert,
@@ -335,19 +335,30 @@ test.group('Invoice screen in the browser', (group) => {
     const line = (position: number) =>
       page.getByRole('listitem', { name: it('ui.invoices.lineOf', { position }) })
     const description = page.getByLabel(it('ui.invoices.descriptionOf', { position: 1 }))
+    const discount = page.getByLabel(it('ui.invoices.lineDiscountOf', { position: 1 }))
+    const discountError = it('ui.common.fieldError', {
+      field: it('ui.invoices.lineDiscount'),
+      message: '',
+    })
 
-    // Refused: the first line has no description
+    // Refused: the first line has no description and a discount over 100%
     await description.fill('')
+    await discount.fill('150')
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
     await line(1).getByText(DESCRIPTION_ERROR).waitFor()
+    await line(1).getByText(discountError).waitFor()
 
-    // The second merged into it: one line, its errors gone with the save they were for
+    // The second merged into it: the discount is written anew, its error
+    // gone; the description is kept as it was, and so is its error
     await line(2)
       .getByRole('button', { name: it('ui.invoices.mergeUp') })
       .click()
     await line(2).waitFor({ state: 'detached' })
-    assert.equal(await line(1).getByText(DESCRIPTION_ERROR).count(), 0)
-    assert.isNull(await description.getAttribute('aria-invalid'))
+    assert.equal(await discount.inputValue(), '')
+    assert.equal(await line(1).getByText(discountError).count(), 0)
+    assert.isNull(await discount.getAttribute('aria-invalid'))
+    assert.equal(await line(1).getByText(DESCRIPTION_ERROR).count(), 1)
+    assert.equal(await description.getAttribute('aria-invalid'), 'true')
   })
 
   test('a line folded into, after a refused save, shows no stale errors (#292)', async ({
