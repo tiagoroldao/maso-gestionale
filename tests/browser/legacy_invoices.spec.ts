@@ -225,7 +225,12 @@ test.group('Legacy Invoices in the browser', (group) => {
     await page
       .getByRole('button', { name: it('ui.legacyInvoices.removeRowOf', { position: 1 }) })
       .click()
-    assert.equal(await page.getByRole('listitem', { name: /Riga IVA/ }).count(), 1)
+    assert.equal(
+      await page
+        .getByRole('listitem', { name: it('ui.legacyInvoices.rowOf', { position: '' }) })
+        .count(),
+      1
+    )
     await row(1).getByText(rowTaxableError).waitFor()
     assert.equal(
       await page
@@ -233,6 +238,31 @@ test.group('Legacy Invoices in the browser', (group) => {
         .getAttribute('aria-invalid'),
       'true'
     )
+
+    // Saved again, held: until its answer each error stays on its row (#289)
+    let answer!: () => void
+    const held = new Promise<void>((resolve) => (answer = resolve))
+    await page.route(
+      '**/invoices/legacy',
+      async (route) => {
+        await held
+        await route.continue()
+      },
+      { times: 1 }
+    )
+    const sent = page.waitForRequest(
+      (request) => request.method() === 'POST' && request.url().endsWith('/invoices/legacy')
+    )
+    const answered = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' && response.url().includes('/invoices/legacy/create')
+    )
+    await page.getByRole('button', { name: it('ui.legacyInvoices.create') }).click()
+    await sent
+    assert.equal(await row(1).getByText(rowTaxableError).count(), 1)
+    answer()
+    await answered
+    await row(1).getByText(rowTaxableError).waitFor()
     // A row added since has none
     await addRow.click()
     await row(2).waitFor()

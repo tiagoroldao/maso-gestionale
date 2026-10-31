@@ -21,6 +21,7 @@ import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import FormField from '~/components/screen/form_field.vue'
 import RowErrors from '~/components/screen/row_errors.vue'
+import { useSentRowErrors } from '~/components/screen/sent_row_errors'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
@@ -119,12 +120,6 @@ const valuesFromProps = () => ({
 const values = reactive(valuesFromProps())
 const rows = ref(rowsFromProps())
 /**
- * The rows' keys in the order the last save sent them: the server names a
- * row's errors by that position (`vatRows.N.*`), so each stays on its own
- * row when one is removed or added after a refused save (#287).
- */
-const sentKeys = ref(rows.value.map((row) => row.key))
-/**
  * Bumped after a save to remount the PDF's file input: the page stays, and
  * a PDF still chosen there would be uploaded again by the next Save (#287).
  */
@@ -137,7 +132,7 @@ watch(
     if (Object.keys(errors.value).length) return
     Object.assign(values, valuesFromProps())
     rows.value = rowsFromProps()
-    sentKeys.value = rows.value.map((row) => row.key)
+    rowErrors.reset()
     pdfInput.value++
   }
 )
@@ -157,7 +152,7 @@ const processing = ref(false)
  */
 function save(event: Event) {
   if (processing.value) return
-  sentKeys.value = rows.value.map((row) => row.key)
+  rowErrors.send()
   const url = props.invoice
     ? urlFor('legacy_invoices.update', { id: props.invoice.id })
     : urlFor('legacy_invoices.store')
@@ -256,19 +251,13 @@ const ROW_FIELDS = computed(() => ({
   vatCodeId: t('ui.legacyInvoices.vatCode'),
   taxable: t('ui.legacyInvoices.rowTaxable'),
 }))
-/** A row's error for `field`, from its position when last sent */
-const rowError = (key: number, field: string) => {
-  const sent = sentKeys.value.indexOf(key)
-  return sent === -1 ? undefined : errors.value[`vatRows.${sent}.${field}`]
-}
-const rowErrors = (key: number) =>
-  Object.fromEntries(
-    Object.keys(ROW_FIELDS.value).flatMap((field) => {
-      const message = rowError(key, field)
-      return message ? [[field, message]] : []
-    })
-  ) as Record<string, string>
-const rowInvalid = (key: number, field: string) => (rowError(key, field) ? 'true' : undefined)
+// Each stays on its row when one is removed or added after a refused save
+const rowErrors = useSentRowErrors({
+  rows: () => rows.value,
+  errors,
+  name: 'vatRows',
+  fields: Object.keys(ROW_FIELDS.value),
+})
 
 const GRID = 'grid gap-4 md:grid-cols-3'
 const CHECK = 'flex min-h-11 items-center gap-2.5 text-sm font-medium md:min-h-0'
@@ -541,7 +530,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
                       :name="`vatRows[${index}][vatCodeId]`"
                       :form="FORM"
                       :aria-label="t('ui.legacyInvoices.vatCodeOf', { position: index + 1 })"
-                      :aria-invalid="rowInvalid(row.key, 'vatCodeId')"
+                      :aria-invalid="rowErrors.invalid(row.key, 'vatCodeId')"
                     >
                       <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
                         {{ code.name }}
@@ -556,7 +545,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
                       :form="FORM"
                       :class="TOUCH"
                       :aria-label="t('ui.legacyInvoices.rowTaxableOf', { position: index + 1 })"
-                      :aria-invalid="rowInvalid(row.key, 'taxable')"
+                      :aria-invalid="rowErrors.invalid(row.key, 'taxable')"
                     />
                   </RowField>
                   <Button
@@ -570,10 +559,10 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
                     <Trash2 aria-hidden="true" />
                   </Button>
                   <div
-                    v-if="Object.keys(rowErrors(row.key)).length"
+                    v-if="Object.keys(rowErrors.errorsOf(row.key)).length"
                     class="col-span-full flex flex-col gap-1 md:basis-full"
                   >
-                    <RowErrors :errors="rowErrors(row.key)" :fields="ROW_FIELDS" />
+                    <RowErrors :errors="rowErrors.errorsOf(row.key)" :fields="ROW_FIELDS" />
                   </div>
                 </li>
               </ol>
