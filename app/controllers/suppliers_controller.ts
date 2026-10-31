@@ -1,6 +1,8 @@
 import Supplier from '#models/supplier'
 import { isUniqueViolation } from '#services/database_errors'
 import { saveActions } from '#shared/screen_actions'
+import { listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import { newSupplierValidator, pageValidator, supplierValidator } from '#validators/supplier'
 import type { Infer } from '@vinejs/vine/types'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -14,7 +16,7 @@ const PER_PAGE = 25
  * carry it.
  */
 export default class SuppliersController {
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const { page = 1 } = await pageValidator.validate(request.qs())
     const results = await Supplier.query()
       .withCount('invoices')
@@ -22,6 +24,7 @@ export default class SuppliersController {
       .paginate(page, PER_PAGE)
 
     return inertia.render('suppliers/index', {
+      actions: listActions({ label: i18n.t('ui.suppliers.new'), href: urlFor('suppliers.create') }),
       suppliers: results.all().map((supplier) => ({
         id: supplier.id,
         name: supplier.name,

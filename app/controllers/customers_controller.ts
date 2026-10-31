@@ -15,6 +15,8 @@ import type { HttpContext } from '@adonisjs/core/http'
 import type { Infer } from '@vinejs/vine/types'
 import { likePattern } from '#services/search'
 import { saveActions } from '#shared/screen_actions'
+import { archivedLink, listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 
 const PER_PAGE = 25
 
@@ -68,7 +70,7 @@ export default class CustomersController {
     response.redirect().toRoute('customers.show', { id: params.id })
   }
 
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const { q, page = 1, archived = false } = await customerSearchValidator.validate(request.qs())
 
     const query = Customer.query()
@@ -92,6 +94,10 @@ export default class CustomersController {
       .paginate(page, PER_PAGE)
 
     return inertia.render('customers/index', {
+      actions: listActions(
+        { label: i18n.t('ui.customers.new'), href: urlFor('customers.create') },
+        [archivedLink('customers.index', archived, i18n)]
+      ),
       q: q ?? '',
       archived,
       customers: results.all().map((customer) => ({
