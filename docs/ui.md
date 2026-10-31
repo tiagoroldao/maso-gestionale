@@ -25,6 +25,8 @@ Every screen has one, with the same parts in the same order: where you are, the 
 | Menu          | The sidebar                                           | "☰", always top right, on every screen                |
 | Title         | The record's name; a Visit is "Intervento · Customer" | Same                                                   |
 
+A long name (a Charge's billed description, up to 1000 characters) is clamped: the title to three lines, the breadcrumb's last step to one.
+
 ## Actions
 
 A screen declares its actions once, each ranked **primary** (at most one), **secondary** or **overflow**. The server sends only the actions the user's role allows. An action blocked by the record's state is hidden, or shown disabled with its reason where the user would expect it.

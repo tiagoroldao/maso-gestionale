@@ -130,6 +130,24 @@ export function isDraftable(state: ChargeState, work: WorkState) {
 }
 
 /**
+ * Why a Charge won't be billed: not billable, or to bill but its work
+ * not done (only done Charges are billed, ADR 0016).
+ */
+export const WONT_BILL_REASONS = ['not_billable', 'not_done'] as const
+export type WontBillReason = (typeof WONT_BILL_REASONS)[number]
+
+/**
+ * The reason a Charge won't be billed, or null while it may be (still
+ * planned or done and to bill) or already is (held by a draft, billed,
+ * credited).
+ */
+export function wontBillReason(state: ChargeState, work: WorkState): WontBillReason | null {
+  if (state === 'not_billable') return 'not_billable'
+  if (state === 'to_bill' && work === 'not_done') return 'not_done'
+  return null
+}
+
+/**
  * A Visit is billed once it is closed, or cancelled (its Charges then not
  * done, #157), and none of its Charges are outstanding. VISIT_BILLED_SQL
  * says the same in SQL.

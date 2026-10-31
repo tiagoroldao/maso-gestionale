@@ -5,7 +5,8 @@
  * facts, the actions. On desktop a white band under a breadcrumb of the
  * canonical path (`crumbs`, then `current`); on the phone a black band
  * that continues the shell's bar, where "‹" (set here, shown by the shell
- * beside "☰") goes back to the canonical parent, the last crumb.
+ * beside "☰") goes back to the canonical parent, the last crumb. A long
+ * title is clamped to three lines and a long last crumb to one (#283).
  */
 import { inject, onBeforeUnmount, watchEffect } from 'vue'
 import { Link } from '@adonisjs/inertia/vue'
@@ -59,13 +60,14 @@ onBeforeUnmount(() => {
             </li>
             <li aria-hidden="true">/</li>
           </template>
-          <li aria-current="page">{{ current }}</li>
+          <!-- A long one (a Charge's billed description) cut to a line -->
+          <li aria-current="page" class="max-w-[48ch] min-w-0 truncate">{{ current }}</li>
         </ol>
       </nav>
       <div class="flex flex-col gap-3 md:flex-row md:flex-wrap md:items-end md:gap-4">
         <div class="flex min-w-0 flex-col gap-2 md:flex-[1_1_320px]">
           <h1
-            class="m-0 font-display text-[22px] leading-tight font-bold tracking-[0.01em] md:text-[26px]"
+            class="m-0 line-clamp-3 font-display text-[22px] leading-tight font-bold tracking-[0.01em] break-words md:text-[26px]"
           >
             {{ title }}
           </h1>

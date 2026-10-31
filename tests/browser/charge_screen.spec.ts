@@ -77,6 +77,78 @@ test.group('Charge screen in the browser', () => {
     assert.isFalse(await save.isDisabled())
   })
 
+  test('a long description is clamped in the header; unsaved billing holds the other actions; a Charge not billed says so (#283)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    await browserContext.loginAs(office)
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const description = 'Lavori di adeguamento dell’impianto termico. '.repeat(20).trim()
+    const charge = await Charges.add(
+      job,
+      { description, quantity: '2', unit: 'h', unitPrice: '30', vatKind: 'labour' },
+      office
+    )
+
+    const page = await visit(`/charges/${charge.id}/edit`)
+    // The whole description is still its name, only clamped to the eye
+    const title = page.getByRole('heading', { level: 1, name: description })
+    await title.waitFor()
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page
+      .getByRole('navigation', { name: it('ui.screen.breadcrumb') })
+      .getByText(description)
+      .waitFor()
+
+    // Unsaved billing: the actions that reload the page wait for Save
+    const header = page.locator('main header')
+    await page.getByLabel(it('ui.charges.unitPrice')).fill('35')
+    await page.getByText(it('ui.charges.unsaved')).waitFor()
+    assert.isTrue(
+      await page.getByRole('button', { name: it('ui.charges.saveCorrection') }).isDisabled()
+    )
+    await page.getByText(it('ui.charges.saveBillingFirst')).first().waitFor()
+    await header.getByRole('button', { name: it('ui.screen.moreActions') }).click()
+    const notBillable = page.getByRole('menuitem', { name: it('ui.charges.markNotBillable') })
+    assert.equal(await notBillable.getAttribute('aria-disabled'), 'true')
+    await page.keyboard.press('Escape')
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+
+    // Saved: the actions come back
+    await header.getByRole('button', { name: it('ui.charges.saveBilling') }).click()
+    await page.getByText(it('flash.chargeBillingSaved')).waitFor()
+    assert.equal(await page.getByText(it('ui.charges.unsaved')).count(), 0)
+    await header.getByRole('button', { name: it('ui.screen.moreActions') }).click()
+    await notBillable.click()
+    await page.getByText(it('flash.chargeNotBillable')).waitFor()
+
+    // Not billable: its amount won't be billed, and says so
+    await page.getByText(it('ui.charges.wontBill.not_billable'), { exact: false }).first().waitFor()
+    await charge.refresh()
+    assert.equal(charge.unitPrice, '35.0000')
+  })
+
+  test('a Charge to bill whose work was not done says its amount will not be billed (#283)', async ({
+    browserContext,
+    visit,
+  }) => {
+    const office = await createUser('office')
+    await browserContext.loginAs(office)
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const charge = await Charges.add(
+      job,
+      { description: 'Sopralluogo', quantity: '1', unit: 'h', unitPrice: '30', vatKind: 'labour' },
+      office
+    )
+    await Charges.setWorkState(charge, 'not_done', office, 'Non eseguito')
+
+    const page = await visit(`/charges/${charge.id}/edit`)
+    await page.getByTestId('charge-state').getByText(it('ui.charges.states.to_bill')).waitFor()
+    await page.getByText(it('ui.charges.wontBill.not_done'), { exact: false }).waitFor()
+  })
+
   test('on a desktop, the breadcrumb runs Commesse / the Job / the Charge, the work state beside Save', async ({
     browserContext,
     visit,

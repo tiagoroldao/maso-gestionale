@@ -16,6 +16,7 @@ import {
   CHARGE_EVENT_KINDS,
   CHARGE_KINDS,
   CHARGE_STATES,
+  WONT_BILL_REASONS,
   WORK_STATES,
   isHeld,
 } from '#shared/charges'
@@ -96,6 +97,8 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
   'ui.charges.states': CHARGE_STATES,
   'ui.charges.events': CHARGE_EVENT_KINDS,
   'ui.charges.kinds': CHARGE_KINDS,
+  // Why a Charge's amount won't be billed, in its key facts (#283)
+  'ui.charges.wontBill': WONT_BILL_REASONS,
   'ui.visits.statuses': VISIT_STATUSES,
   'ui.visits.repeats': REPEAT_FREQUENCIES,
   'ui.visits.weekdayNames': WEEKDAYS,

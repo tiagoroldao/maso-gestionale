@@ -7,6 +7,7 @@ import {
   isOutstanding,
   isVisitBilled,
   workState,
+  wontBillReason,
   type ChargeState,
   type WorkState,
 } from '#shared/charges'
@@ -95,6 +96,23 @@ test.group('Work state', () => {
     for (const [state, work, outstanding, draftable] of cases) {
       assert.equal(isOutstanding(state, work), outstanding, `${state} ${work}`)
       assert.equal(isDraftable(state, work), draftable, `${state} ${work}`)
+    }
+  })
+
+  test("why a Charge won't be billed: not billable, or to bill but not done", ({ assert }) => {
+    const cases: [ChargeState, WorkState, string | null][] = [
+      ['to_bill', 'planned', null],
+      ['to_bill', 'done', null],
+      ['to_bill', 'not_done', 'not_done'],
+      ['not_billable', 'planned', 'not_billable'],
+      ['not_billable', 'done', 'not_billable'],
+      ['not_billable', 'not_done', 'not_billable'],
+      ['in_draft', 'done', null],
+      ['billed', 'done', null],
+      ['credited', 'not_done', null],
+    ]
+    for (const [state, work, reason] of cases) {
+      assert.equal(wontBillReason(state, work), reason, `${state} ${work}`)
     }
   })
 })
