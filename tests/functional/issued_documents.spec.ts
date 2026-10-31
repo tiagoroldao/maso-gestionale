@@ -386,11 +386,22 @@ test.group('Issued Documents: issuing', (group) => {
     fill.assertInertiaPropsContains({
       template: { id: template.id, name: 'Dichiarazione di conformità', fields },
     })
+    // Issuing can't be undone: it asks first, naming the template and the Customer
     assert.deepEqual(
-      (fill.inertiaProps.actions as { name: string; kind: string; form: string }[]).map(
-        ({ name, kind, form }) => ({ name, kind, form })
-      ),
-      [{ name: 'save', kind: 'submit', form: 'issued-document' }]
+      (
+        fill.inertiaProps.actions as { name: string; kind: string; form: string; confirm: string }[]
+      ).map(({ name, kind, form, confirm }) => ({ name, kind, form, confirm })),
+      [
+        {
+          name: 'save',
+          kind: 'submit',
+          form: 'issued-document',
+          confirm: it('ui.issuedDocuments.issueConfirm', {
+            template: 'Dichiarazione di conformità',
+            customer: customer.displayName,
+          }),
+        },
+      ]
     )
   })
 })

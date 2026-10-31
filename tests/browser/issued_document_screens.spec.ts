@@ -80,8 +80,27 @@ test.group('Issued Document screens in the browser', () => {
       .fill('Tenuta')
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'fields')
 
-    // The required note is missing: the field says so, nothing is issued
+    // Issuing asks first, naming the template and the Customer; cancelling issues nothing
     await issue.click()
+    const confirm = page.getByRole('alertdialog')
+    await confirm
+      .getByText(
+        it('ui.issuedDocuments.issueConfirm', { template: NAME, customer: 'Bar Centrale' })
+      )
+      .waitFor()
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'confirmation')
+    await confirm.getByRole('button', { name: it('ui.screen.goBack') }).click()
+    await confirm.waitFor({ state: 'detached' })
+    assert.lengthOf(await IssuedDocument.query().where('customerId', customer.id), 0)
+
+    // Enter in a field asks too
+    await page
+      .getByLabel(it('ui.documentTemplates.fill.cellOf', { column: 'Prova', row: 1 }))
+      .press('Enter')
+    await confirm.waitFor()
+
+    // The required note is missing: the field says so, nothing is issued
+    await confirm.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
     await page.getByText(it('ui.issuedDocuments.failed')).waitFor()
     assert.lengthOf(await IssuedDocument.query().where('customerId', customer.id), 0)
   })
@@ -137,6 +156,10 @@ test.group('Issued Document screens in the browser', () => {
     assert.equal(await page.getByLabel('Esito').inputValue(), 'Positivo')
     await page.getByLabel('Esito').fill('Positivo, corretto')
     await header.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
+      .click()
 
     // The replacement links back; the original is tagged and can't be replaced again
     await page.getByRole('link', { name: number, exact: true }).click()
@@ -197,10 +220,17 @@ test.group('Issued Document screens in the browser', () => {
       (response) => response.request().method() === 'POST' && response.status() === 200
     )
     await issue.click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
+      .click()
     await answered
+    // Held: neither opens the question again
+    assert.isTrue(await issue.isDisabled())
     await issue.click({ force: true })
     await page.getByLabel('Esito').press('Enter')
     await page.waitForTimeout(500)
+    assert.equal(await page.getByRole('alertdialog').count(), 0)
     release()
     await page.getByRole('heading', { name: /Verbale/ }).waitFor()
     assert.lengthOf(await issued(), 1)

@@ -220,7 +220,8 @@ function start() {
 }
 start()
 
-defineExpose({ input })
+// The Customer chosen, for the page's question before issuing
+defineExpose({ input, customer })
 
 /** Ids for the fields' controls, unique on the page */
 const uid = useId()

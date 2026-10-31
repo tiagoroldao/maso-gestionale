@@ -16,7 +16,8 @@ export type ActionRank = (typeof ACTION_RANKS)[number]
  * short form, such as the options of a draft Invoice), which the page
  * renders by the action's name, or submit the form the screen sits in (`submit`: Save, on a screen in
  * edit mode), or the page's form its `form` names when that form doesn't
- * wrap the header.
+ * wrap the header. A `submit` with a `confirm` question asks it first, on
+ * its button and on Enter in the form (issuing a document).
  */
 export const ACTION_KINDS = ['link', 'post', 'dialog', 'submit'] as const
 export type ActionKind = (typeof ACTION_KINDS)[number]

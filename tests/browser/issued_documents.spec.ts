@@ -52,6 +52,10 @@ test.group('Issued Documents in the browser', () => {
     await page.getByLabel('Caldaia').selectOption({ label: 'Caldaia — Vaillant' })
     await page.getByLabel('Esito').fill('Positivo')
     await page.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
+      .click()
 
     await page
       .getByRole('heading', {
@@ -72,6 +76,10 @@ test.group('Issued Documents in the browser', () => {
     assert.equal(await page.getByLabel('Esito').inputValue(), 'Positivo')
     await page.getByLabel('Esito').fill('Positivo, corretto')
     await page.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
+      .click()
 
     await page.getByRole('link', { name: number, exact: true }).waitFor()
     await original.refresh()

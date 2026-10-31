@@ -45,6 +45,10 @@ test.group('Work report in the browser (#180)', () => {
       .waitFor({ state: 'attached' })
     await page.getByLabel(it('ui.documentTemplates.fill.workReportPrices')).check()
     await page.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
+      .click()
 
     // The issued document names its Job in the key facts
     await page

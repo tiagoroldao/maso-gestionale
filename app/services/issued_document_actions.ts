@@ -1,6 +1,6 @@
 import { urlFor } from '@adonisjs/core/services/url_builder'
 import type { I18n } from '@adonisjs/i18n'
-import { declareActions, saveActions, type ScreenActionInput } from '#shared/screen_actions'
+import { declareActions, type ScreenActionInput } from '#shared/screen_actions'
 
 /** The issuing form's id, which the header's "Emetti documento" submits */
 export const ISSUED_DOCUMENT_FORM = 'issued-document'
@@ -8,10 +8,24 @@ export const ISSUED_DOCUMENT_FORM = 'issued-document'
 /**
  * Issuing a document, or its replacement (docs/ui.md "Kinds of screen"):
  * the filled template's form is in edit mode, "Emetti documento" its
- * primary. Choosing the template comes first and has no actions.
+ * primary. Issuing can't be undone (the document takes its number and is
+ * frozen), so it asks first, naming the template and the Customer; the
+ * page names the Customer chosen in the form instead, once one is.
+ * Choosing the template comes first and has no actions.
  */
-export function issuingActions(i18n: I18n) {
-  return saveActions(i18n.t('ui.issuedDocuments.issue'), ISSUED_DOCUMENT_FORM)
+export function issuingActions(i18n: I18n, issuing: { template: string; customer: string | null }) {
+  return declareActions([
+    {
+      name: 'save',
+      label: i18n.t('ui.issuedDocuments.issue'),
+      rank: 'primary',
+      kind: 'submit',
+      form: ISSUED_DOCUMENT_FORM,
+      confirm: issuing.customer
+        ? i18n.t('ui.issuedDocuments.issueConfirm', issuing)
+        : i18n.t('ui.issuedDocuments.issueConfirmAny', issuing),
+    },
+  ])
 }
 
 /**

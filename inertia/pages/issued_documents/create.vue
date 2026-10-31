@@ -62,6 +62,26 @@ const crumbs = computed(() => {
 const form = ref<InstanceType<typeof TemplateDataForm> | null>(null)
 const errors = ref<Record<string, string>>({})
 const failed = ref(false)
+
+/**
+ * "Emetti documento" asks first (docs/ui.md "Actions"), naming the
+ * Customer chosen in the form, which the server can't see; with none
+ * chosen yet it waits for one, its reason beside it.
+ */
+const screenActions = computed(() =>
+  props.actions.map((action) => {
+    if (action.name !== 'save' || !props.template) return action
+    const customer = form.value?.customer
+    if (!customer) return { ...action, disabledReason: t('ui.issuedDocuments.chooseCustomer') }
+    return {
+      ...action,
+      confirm: t('ui.issuedDocuments.issueConfirm', {
+        template: props.template.name,
+        customer: customer.displayName,
+      }),
+    }
+  })
+)
 const issuing = ref(false)
 
 async function issue() {
@@ -110,7 +130,7 @@ const ERROR =
       :crumbs="crumbs"
       :current="replaces ? t('ui.issuedDocuments.replacement') : title"
       :title="title"
-      :actions="actions"
+      :actions="screenActions"
       :busy="issuing"
     >
       <ScreenSection v-if="!template" :title="t('ui.issuedDocuments.chooseTemplate')" flush>

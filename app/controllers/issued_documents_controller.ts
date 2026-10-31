@@ -71,7 +71,10 @@ export default class IssuedDocumentsController {
       prefill[jobField.key] = { id: job.id, label: `${job.number} – ${job.title}` }
     }
     return inertia.render('issued_documents/create', {
-      actions: issuingActions(i18n),
+      actions: issuingActions(i18n, {
+        template: current.name,
+        customer: picked?.displayName ?? null,
+      }),
       templates: [],
       template: { id: template.id, name: current.name, fields: current.fields },
       customer: picked,
@@ -153,7 +156,7 @@ export default class IssuedDocumentsController {
 
     return inertia.render('issued_documents/create', {
       templates: [],
-      actions: issuingActions(i18n),
+      actions: issuingActions(i18n, { template: current.name, customer: customer.displayName }),
       template: { id: original.template.id, name: current.name, fields: current.fields },
       customer: { id: customer.id, displayName: customer.displayName, city: customer.city },
       // Its name as printed, for the breadcrumb's step back to it
