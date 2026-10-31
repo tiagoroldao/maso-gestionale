@@ -5,7 +5,7 @@
  * (`npm run ui:shots -- /dev/ui`, light and dark). Add a component here
  * when it joins the kit.
  */
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { Head } from '@inertiajs/vue3'
 import { declareActions } from '@shared/screen_actions'
 import ScreenHeader from '~/components/screen/screen_header.vue'
@@ -185,6 +185,9 @@ const sampleSearch = ref('')
 const dialogOpen = ref(false)
 const confirmOpen = ref(false)
 const sampleSelect = ref('kind')
+// A select whose options' names are long: shown whole (#266)
+const LONG_OPTIONS = computed(() => [t('ui.devUi.dialogText'), t('ui.devUi.field.value')])
+const longSelect = ref('0')
 // The preview of a referenced record (#236), in each of its states
 const previewState = ref<'ready' | 'loading' | 'failed'>('ready')
 const previewOpen = ref(false)
@@ -558,6 +561,22 @@ function sampleDialog(name: string) {
             >
               <option v-for="option in ORGANISE_BY" :key="option" :value="option">
                 {{ t(`ui.invoices.organiseOptions.${option}`) }}
+              </option>
+            </NativeSelect>
+          </FormField>
+          <FormField
+            id="gallery-wrapped-select"
+            v-slot="field"
+            :label="t('ui.devUi.field.wrappedSelect')"
+          >
+            <NativeSelect
+              :id="field.id"
+              v-model="longSelect"
+              :display="LONG_OPTIONS[Number(longSelect)]"
+              class="md:max-w-56"
+            >
+              <option v-for="(option, index) in LONG_OPTIONS" :key="index" :value="String(index)">
+                {{ option }}
               </option>
             </NativeSelect>
           </FormField>

@@ -77,7 +77,8 @@
       "value": "Valore",
       "disabled": "Campo disattivato",
       "touch": "Campo da 44px, con errore",
-      "error": "Spiega che cosa correggere."
+      "error": "Spiega che cosa correggere.",
+      "wrappedSelect": "Scelta dal nome lungo, mostrato intero"
     },
     "screen": "Schermata di un record",
     "screenIntro": "Intestazione, azioni e riepilogo come li dichiara il server. Sul telefono l'azione principale sta nella barra in fondo.",

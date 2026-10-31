@@ -1,4 +1,5 @@
 import { test } from '@japa/runner'
+import type { Page } from 'playwright'
 import CompanySettings from '#models/company_settings'
 import LabourRate from '#models/labour_rate'
 import User from '#models/user'
@@ -138,6 +139,52 @@ test.group('Settings screens in the browser', () => {
       )
       .waitFor()
 
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+  })
+
+  test('VAT rules show each long VAT Code name whole, at tablet and phone widths (#266)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('admin'))
+    const reverseCharge = 'Inversione contabile – impianti su edifici'
+    const select = (page: Page) =>
+      page.getByLabel(
+        it('ui.vatRules.codeFor', {
+          kind: it('ui.vatRules.lineKinds.labour'),
+          customerType: it('ui.customers.types.company'),
+          workCategory: it('ui.jobs.workCategories.new_installation'),
+          residential: it('ui.vatRules.residential'),
+        })
+      )
+    // The name the select shows, beside it: whole, not cut
+    const shown = (page: Page) => select(page).locator('xpath=following-sibling::div[1]')
+
+    const page = await visit('/settings/vat-rules')
+    for (const size of [SCREEN_SIZES.tablet, SCREEN_SIZES.phone]) {
+      await page.setViewportSize(size)
+      assert.equal(await shown(page).innerText(), reverseCharge)
+      const sideways = await page.evaluate<number>(
+        'document.documentElement.scrollWidth - document.documentElement.clientWidth'
+      )
+      assert.isAtMost(sideways, 0, 'no horizontal page scroll')
+    }
+    // The unseen select keeps 16px text on the phone, so iOS doesn't zoom in on focus
+    const fontSize = await select(page).evaluate(
+      (element) => element.ownerDocument.defaultView!.getComputedStyle(element).fontSize
+    )
+    assert.equal(fontSize, '16px')
+
+    // Another code: its name shown, and saved
+    await select(page).selectOption({ label: '22%' })
+    assert.equal(await shown(page).innerText(), '22%')
+    await page
+      .getByTestId('primary-action')
+      .getByRole('button', { name: it('ui.vatRules.save') })
+      .click()
+    await page.getByText(it('flash.vatRulesSaved')).waitFor()
+    assert.equal(await shown(page).innerText(), '22%')
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
   })
 
