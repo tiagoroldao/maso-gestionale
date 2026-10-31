@@ -11,6 +11,7 @@ import LegacyInvoices, {
   type LegacyInvoiceInput,
 } from '#services/legacy_invoices'
 import { storagePath } from '#services/storage'
+import { legacyInvoiceActions } from '#services/legacy_invoice_actions'
 import { advanceState } from '#shared/advances'
 import { creditRefusal } from '#shared/credit_notes'
 import { formatDate } from '#shared/dates'
@@ -46,13 +47,17 @@ export default class LegacyInvoicesController {
         : null
 
     return inertia.render('invoices/legacy', {
+      // Registra, once the Customer is picked
+      actions: legacyInvoiceActions(
+        { invoice: null, customerPicked: customer !== null, editable: true, canCredit: false },
+        i18n
+      ),
       invoice: null,
       customer: customer ? { id: customer.id, displayName: customer.displayName } : null,
       jobId: job?.id ?? null,
       jobs: customer ? await jobsOf(customer.id) : [],
       vatCodes: await vatCodeOptions([]),
       editable: true,
-      canCredit: false,
       creditNotes: [],
       advanceState: null,
       payments: [],
@@ -92,7 +97,7 @@ export default class LegacyInvoicesController {
     }
   }
 
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, i18n }: HttpContext) {
     const invoice = await Invoice.query()
       .where('id', params.id)
       .where('documentType', 'legacy')
@@ -109,8 +114,18 @@ export default class LegacyInvoicesController {
     const takenBack = await db.from('invoice_lines').where('deducts_invoice_id', invoice.id).first()
     const deducted = await db.from('advance_deductions').where('advance_id', invoice.id).first()
     const amounts = { total: invoice.total!, credited: invoice.credited, paid: invoice.paid }
+    // Changed or deleted only while nothing depends on it
+    const editable =
+      !invoice.payments.length && !takenBack && !deducted && !invoice.creditNotes.length
+    // Credited by amounts (#27), from the header; an advance only for what is left of it
+    const canCredit = creditRefusal(invoice) === null && (!advance || Number(advance.left) > 0)
 
     return inertia.render('invoices/legacy', {
+      // The header's actions, for its state (Office and the Admin alike)
+      actions: legacyInvoiceActions(
+        { invoice: { id: invoice.id }, customerPicked: true, editable, canCredit },
+        i18n
+      ),
       invoice: {
         id: invoice.id,
         number: invoice.legacyNumber!,
@@ -137,10 +152,7 @@ export default class LegacyInvoicesController {
       jobId: invoice.jobId,
       jobs: await jobsOf(invoice.customerId),
       vatCodes: await vatCodeOptions(invoice.legacyVatRows.map((row) => row.vatCodeId)),
-      // Changed or deleted only while nothing depends on it
-      editable: !invoice.payments.length && !takenBack && !deducted && !invoice.creditNotes.length,
-      // Credited by amounts (#27); an advance only for what is left of it
-      canCredit: creditRefusal(invoice) === null && (!advance || Number(advance.left) > 0),
+      editable,
       creditNotes: invoice.creditNotes.map((note) => ({
         id: note.id,
         number: note.formattedNumber,
