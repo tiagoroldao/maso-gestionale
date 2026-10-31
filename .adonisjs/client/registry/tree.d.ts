@@ -226,7 +226,6 @@ export interface ApiDefinition {
     destroy: typeof routes['categories.destroy']
   }
   letterheadPreview: {
-    show: typeof routes['letterhead_preview.show']
     pdf: typeof routes['letterhead_preview.pdf']
   }
   rates: {

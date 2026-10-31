@@ -1,17 +1,57 @@
 <style>
-  .quote-lines { width: 100%; border-collapse: collapse; margin-top: 4mm; }
-  .quote-lines th, .quote-lines td { padding: 2mm 1.5mm; border-bottom: 0.2mm solid #d0d7de; text-align: left; vertical-align: top; }
-  .quote-lines th { font-size: 8.5pt; text-transform: uppercase; letter-spacing: 0.03em; color: #57606a; }
-  .quote-lines .num { text-align: right; white-space: nowrap; }
-  .quote-lines .text-line td { color: #57606a; font-style: italic; }
-  .quote-total { margin-top: 4mm; text-align: right; font-size: 11pt; }
-  .quote-total strong { font-size: 12pt; }
-  .quote-note { margin-top: 6mm; white-space: pre-line; }
-  .quote-lines tr { page-break-inside: avoid; }
-  .quote-legal { margin-top: 4mm; font-size: 8.5pt; color: #57606a; }
+  .quote-lines {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 4mm;
+  }
+  .quote-lines th,
+  .quote-lines td {
+    padding: 2mm 1.5mm;
+    border-bottom: 0.2mm solid #d0d7de;
+    text-align: left;
+    vertical-align: top;
+  }
+  .quote-lines th {
+    font-size: 8.5pt;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #57606a;
+  }
+  .quote-lines .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .quote-lines .text-line td {
+    color: #57606a;
+    font-style: italic;
+  }
+  .quote-total {
+    margin-top: 4mm;
+    text-align: right;
+    font-size: 11pt;
+  }
+  .quote-total strong {
+    font-size: 12pt;
+  }
+  .quote-note {
+    margin-top: 6mm;
+    white-space: pre-line;
+  }
+  .quote-lines tr {
+    page-break-inside: avoid;
+  }
+  .quote-legal {
+    margin-top: 4mm;
+    font-size: 8.5pt;
+    color: #57606a;
+  }
 </style>
 
-<p>{{ t('documents.quote.issuedOn', { date: issuedOn }) }}<br />{{ t('documents.quote.subject', { title: job.title }) }}</p>
+<p>
+  {{ t('documents.quote.issuedOn', { date: issuedOn }) }}
+  <br />
+  {{ t('documents.quote.subject', { title: job.title }) }}
+</p>
 @if(validUntil)
   <p>{{ t('documents.quote.validUntil', { date: validUntil }) }}</p>
 @end
@@ -29,7 +69,9 @@
   <tbody>
     @each(line in lines)
       @if(line.kind === 'text')
-        <tr class="text-line"><td colspan="5">{{ line.description }}</td></tr>
+        <tr class="text-line">
+          <td colspan="5">{{ line.description }}</td>
+        </tr>
       @else
         <tr>
           <td>{{ line.description }}</td>
@@ -63,15 +105,18 @@
 </table>
 
 <p class="quote-total">
-  {{ t('documents.quote.taxable') }} {{ taxable }}<br />
-  {{ t('documents.quote.vatAmount') }} {{ vat }}<br />
-  {{ t('documents.quote.total') }} <strong>{{ total }}</strong>
+  {{ t('documents.quote.taxable') }}
+  {{ taxable }}
+  <br />
+  {{ t('documents.quote.vatAmount') }}
+  {{ vat }}
+  <br />
+  {{ t('documents.quote.total') }}
+  <strong>{{ total }}</strong>
 </p>
-
 @if(notes)
   <p class="quote-note">{{ notes }}</p>
 @end
-
 @each(note in legalNotes)
   <p class="quote-legal">{{ note }}</p>
 @end

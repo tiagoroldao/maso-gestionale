@@ -95,17 +95,35 @@
     <h1>{{ title }}</h1>
 
     <table class="meta">
-      <tr><td>{{ t('ui.supplierInvoices.documentType') }}</td><td>{{ documentType }}</td></tr>
-      <tr><td>{{ t('ui.supplierInvoices.number') }}</td><td><strong>{{ number }}</strong></td></tr>
-      <tr><td>{{ t('ui.supplierInvoices.issuedOn') }}</td><td>{{ issuedOn }}</td></tr>
+      <tr>
+        <td>{{ t('ui.supplierInvoices.documentType') }}</td>
+        <td>{{ documentType }}</td>
+      </tr>
+      <tr>
+        <td>{{ t('ui.supplierInvoices.number') }}</td>
+        <td><strong>{{ number }}</strong></td>
+      </tr>
+      <tr>
+        <td>{{ t('ui.supplierInvoices.issuedOn') }}</td>
+        <td>{{ issuedOn }}</td>
+      </tr>
       @if(currency !== 'EUR')
-        <tr><td>{{ t('ui.supplierInvoices.currency') }}</td><td>{{ currency }}</td></tr>
+        <tr>
+          <td>{{ t('ui.supplierInvoices.currency') }}</td>
+          <td>{{ currency }}</td>
+        </tr>
       @end
       @if(sdiIdentifier)
-        <tr><td>{{ t('ui.supplierInvoices.sdiIdentifier') }}</td><td>{{ sdiIdentifier }}</td></tr>
+        <tr>
+          <td>{{ t('ui.supplierInvoices.sdiIdentifier') }}</td>
+          <td>{{ sdiIdentifier }}</td>
+        </tr>
       @end
       @each(note in notes)
-        <tr><td>{{ t('ui.supplierInvoices.notes') }}</td><td class="description">{{ note }}</td></tr>
+        <tr>
+          <td>{{ t('ui.supplierInvoices.notes') }}</td>
+          <td class="description">{{ note }}</td>
+        </tr>
       @end
     </table>
 
@@ -116,6 +134,7 @@
         @each(line in seller.addressLines)
           <div>{{ line }}</div>
         @end
+
         <div>{{ t('ui.supplierInvoices.vatId') }} {{ seller.vatId }}</div>
         @if(seller.taxCode)
           <div>{{ t('ui.supplierInvoices.taxCode') }} {{ seller.taxCode }}</div>
@@ -184,11 +203,19 @@
     </table>
 
     <table class="totals">
-      <tr><td>{{ t('ui.supplierInvoices.taxable') }}</td><td class="num">{{ taxable }}</td></tr>
-      <tr><td>{{ t('ui.supplierInvoices.vat') }}</td><td class="num">{{ vat }}</td></tr>
-      <tr class="grand"><td>{{ t('ui.supplierInvoices.total') }}</td><td class="num">{{ total }}</td></tr>
+      <tr>
+        <td>{{ t('ui.supplierInvoices.taxable') }}</td>
+        <td class="num">{{ taxable }}</td>
+      </tr>
+      <tr>
+        <td>{{ t('ui.supplierInvoices.vat') }}</td>
+        <td class="num">{{ vat }}</td>
+      </tr>
+      <tr class="grand">
+        <td>{{ t('ui.supplierInvoices.total') }}</td>
+        <td class="num">{{ total }}</td>
+      </tr>
     </table>
-
     @if(payments.length)
       <h2>{{ t('ui.supplierInvoices.payments') }}</h2>
       <table>

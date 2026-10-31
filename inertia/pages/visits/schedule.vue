@@ -282,7 +282,10 @@ const weekday = (iso: string) =>
               :data-visit="visit.id"
               @dragstart="onDragStart($event, visit, technician.id, date)"
             >
-              <strong>{{ time(visit.startsAt) }}–{{ time(visit.endsAt) }}</strong>
+              <!-- The time opens the Visit; the Job number beside it opens the Job -->
+              <Link route="visits.edit" :params="{ id: visit.id }" class="il">
+                <strong>{{ time(visit.startsAt) }}–{{ time(visit.endsAt) }}</strong>
+              </Link>
               <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{
                 visit.job.number
               }}</Link>
@@ -332,7 +335,9 @@ const weekday = (iso: string) =>
                 :data-visit="visit.id"
                 @dragstart="onDragStart($event, visit, technician.id, day)"
               >
-                <strong>{{ time(visit.startsAt) }}</strong>
+                <Link route="visits.edit" :params="{ id: visit.id }" class="il">
+                  <strong>{{ time(visit.startsAt) }}</strong>
+                </Link>
                 <Link route="jobs.show" :params="{ id: visit.job.id }" class="il">{{
                   visit.job.number
                 }}</Link>
