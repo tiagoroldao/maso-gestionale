@@ -158,6 +158,88 @@ test.group('Legacy Invoices in the browser', (group) => {
     assert.equal(invoice.pdfPath, replaced)
   })
 
+  test('a save the service refuses keeps what was typed and the chosen PDF (#290)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer()
+    const invoice = await legacyInvoice(customer.id)
+    await legacyInvoice(customer.id, { legacyNumber: '8/2025' })
+
+    const page = await visit(`/invoices/${invoice.id}/legacy`)
+    // Changed meanwhile, so the page the refusal comes back to differs
+    await invoice.merge({ dueOn: DateTime.fromISO('2025-04-30') }).save()
+    // A number another Legacy Invoice of 2025 has
+    await page.getByLabel(it('ui.legacyInvoices.number')).fill('8/2025')
+    await page.getByLabel(it('ui.legacyInvoices.taxable')).fill('110,00')
+    await page
+      .getByLabel(it('ui.legacyInvoices.pdfReplace'))
+      .setInputFiles(app.makePath('tests/fixtures/manual.pdf'))
+    const shown = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().endsWith(`/invoices/${invoice.id}/legacy`)
+    )
+    await page.getByRole('button', { name: it('ui.legacyInvoices.save') }).click()
+    await shown
+    await page.getByText(it('flash.legacyInvoiceRefused.duplicateNumber')).waitFor()
+
+    assert.equal(await page.getByLabel(it('ui.legacyInvoices.number')).inputValue(), '8/2025')
+    assert.equal(await page.getByLabel(it('ui.legacyInvoices.taxable')).inputValue(), '110,00')
+    assert.match(
+      await page.getByLabel(it('ui.legacyInvoices.pdfReplace')).inputValue(),
+      /manual\.pdf$/
+    )
+    await invoice.refresh()
+    assert.equal(invoice.legacyNumber, '7/2025')
+  })
+
+  test("an advance whose amounts don't add up keeps what was typed (#290)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer()
+    const job = await createJob(customer)
+    const invoice = await legacyInvoice(customer.id, { jobId: job.id, advance: true })
+    const standard = await vatCode()
+    await LegacyVatRow.create({
+      invoiceId: invoice.id,
+      position: 0,
+      vatCodeId: standard.id,
+      vatRate: '22.00',
+      natura: null,
+      taxable: '100.00',
+      vat: '22.00',
+    })
+
+    const page = await visit(`/invoices/${invoice.id}/legacy`)
+    // Changed meanwhile, so the page the refusal comes back to differs
+    await invoice.merge({ dueOn: DateTime.fromISO('2025-04-30') }).save()
+    // 100 + 22 is not 130: refused by the service, not the validator
+    await page.getByLabel(it('ui.legacyInvoices.total'), { exact: true }).fill('130,00')
+    await page.getByLabel(it('ui.legacyInvoices.number')).fill('7-bis/2025')
+    const shown = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().endsWith(`/invoices/${invoice.id}/legacy`)
+    )
+    await page.getByRole('button', { name: it('ui.legacyInvoices.save') }).click()
+    await shown
+    await page.getByText(it('flash.legacyInvoiceRefused.advanceTotal')).waitFor()
+
+    assert.equal(
+      await page.getByLabel(it('ui.legacyInvoices.total'), { exact: true }).inputValue(),
+      '130,00'
+    )
+    assert.equal(await page.getByLabel(it('ui.legacyInvoices.number')).inputValue(), '7-bis/2025')
+    await invoice.refresh()
+    assert.equal(invoice.total, '122.00')
+  })
+
   test('on a phone, a new one starts from its Customer, then Registra is in the bar at the bottom', async ({
     browserContext,
     visit,
