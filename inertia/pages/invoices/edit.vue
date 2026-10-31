@@ -47,7 +47,12 @@ import { formatDate } from '@shared/dates'
 import { SUBMISSION_OUTCOMES, type InvoiceStatus } from '@shared/invoice_lifecycle'
 import type { ScreenAction } from '@shared/screen_actions'
 import { amountForInput, parseAmount, parseQuantity, sumAmounts } from '@shared/money'
-import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
+import {
+  discountInRange,
+  invoiceLineTotal,
+  invoiceTotals,
+  type TotalsLine,
+} from '@shared/invoice_totals'
 import {
   keptVatTreatment,
   lineKindOf,
@@ -269,6 +274,7 @@ watch(
     sections.splice(0, sections.length, ...sectionsFromProps())
     lines.splice(0, lines.length, ...linesFromProps(sections))
     lineErrors.reset()
+    sectionErrors.reset()
     discountPercent.value = Number(props.invoice.discountPercent)
       ? trim(props.invoice.discountPercent)
       : ''
@@ -319,6 +325,16 @@ function totalsLine(line: Line): TotalsLine | null {
 function amountOf(line: Line) {
   const values = totalsLine(line)
   return values ? invoiceLineTotal(values.quantity, values.unitPrice, values.discountPercent) : null
+}
+
+/**
+ * The amount merging or folding bakes into a price: a line's own, unless
+ * its discount is out of range (the save refuses it, and its amount
+ * isn't one to keep).
+ */
+function combinableAmountOf(line: Line) {
+  const values = totalsLine(line)
+  return values && discountInRange(values.discountPercent) ? amountOf(line) : null
 }
 
 const totals = computed(() =>
@@ -485,18 +501,23 @@ function canMergeUp(index: number) {
     line.chargeIds.length &&
     above.vatCodeId === line.vatCodeId &&
     above.significantGood === line.significantGood &&
-    amountOf(above) &&
-    amountOf(line)
+    combinableAmountOf(above) &&
+    combinableAmountOf(line)
   )
 }
+
+// The fields merging (and folding) writes anew: their errors no longer apply
+const MERGE_REPLACES = ['itemId', 'quantity', 'unitPrice', 'discountPercent']
 
 /**
  * One line billing both lines' Charges, for their combined amount, at
  * their shared VAT Code.
  */
 function mergeUp(index: number) {
+  // Not while a save is in flight: its answer is about the lines before
+  if (processing.value) return
   const [above, line] = [lines[index - 1], lines[index]]
-  const amount = parseAmount(amountOf(above)!)!.plus(amountOf(line)!)
+  const amount = parseAmount(combinableAmountOf(above)!)!.plus(combinableAmountOf(line)!)
   Object.assign(above, {
     itemId: null,
     quantity: '1',
@@ -505,6 +526,7 @@ function mergeUp(index: number) {
     discountPercent: '',
     chargeIds: [...above.chargeIds, ...line.chargeIds],
   })
+  lineErrors.clear(above.key, MERGE_REPLACES)
   lines.splice(index, 1)
 }
 
@@ -521,7 +543,7 @@ const folds = computed(() =>
         // Lines billing Charges only: a sale's Item lines take it off stock
         groupable: line.groupable && line.itemId !== null && line.chargeIds.length > 0,
         vatKey: `${line.sectionKey}|${line.vatCodeId}|${values?.vatRate}|${values?.natura}|${line.significantGood}`,
-        amount: amountOf(line),
+        amount: combinableAmountOf(line),
       }
     })
   )
@@ -532,6 +554,7 @@ const folds = computed(() =>
  * "Materiale di consumo", 1 × their total, billing all their Charges.
  */
 function foldConsumables() {
+  if (processing.value) return
   const removed = new Set<number>()
   for (const { indices, amount } of folds.value) {
     const [first, ...rest] = indices.map((index) => lines[index])
@@ -545,6 +568,7 @@ function foldConsumables() {
       discountPercent: '',
       chargeIds: [first, ...rest].flatMap((line) => line.chargeIds),
     })
+    lineErrors.clear(first.key, [...MERGE_REPLACES, 'description'])
     for (const line of rest) removed.add(line.key)
   }
   lines.splice(0, lines.length, ...lines.filter((line) => !removed.has(line.key)))
@@ -555,6 +579,12 @@ const processing = ref(false)
 function save() {
   if (processing.value) return
   lineErrors.send()
+  sectionErrors.send()
+  // Without an answer, the errors on screen stay those of the last one
+  const unanswered = () => {
+    lineErrors.cancel()
+    sectionErrors.cancel()
+  }
   router.put(
     urlFor('invoices.update', { id: props.invoice.id }),
     {
@@ -592,6 +622,9 @@ function save() {
       preserveScroll: true,
       onStart: () => (processing.value = true),
       onFinish: () => (processing.value = false),
+      onCancel: unanswered,
+      onNetworkError: unanswered,
+      onHttpException: unanswered,
     }
   )
 }
@@ -612,7 +645,13 @@ const lineErrors = useSentRowErrors({
   name: 'lines',
   fields: Object.keys(LINE_FIELDS.value),
 })
-const sectionError = (index: number) => errors.value[`sections.${index}.title`]
+// A section's title error, on its section the same way
+const sectionErrors = useSentRowErrors({
+  rows: () => sections,
+  errors,
+  name: 'sections',
+  fields: ['title'],
+})
 const deductionError = computed(
   () => Object.entries(errors.value).find(([key]) => key.startsWith('deductions'))?.[1]
 )
@@ -854,7 +893,7 @@ const history = computed(() =>
                   form="invoice-form"
                   :class="cn(FIELD, 'min-w-0 flex-[1_1_12rem] font-semibold')"
                   :aria-label="t('ui.invoices.sectionTitleOf', { position: group.index + 1 })"
-                  :aria-invalid="sectionError(group.index) ? 'true' : undefined"
+                  :aria-invalid="sectionErrors.invalid(group.section.key, 'title')"
                 />
                 <label class="flex min-h-11 items-center gap-2 text-sm md:min-h-0">
                   <input v-model="group.section.showSubtotal" type="checkbox" class="size-4" />
@@ -896,12 +935,12 @@ const history = computed(() =>
                 </span>
               </div>
               <h3 v-else class="m-0 text-sm font-semibold">{{ group.section.title }}</h3>
-              <p v-if="sectionError(group.index)" :class="ERROR">
+              <p v-if="sectionErrors.error(group.section.key, 'title')" :class="ERROR">
                 <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
                 {{
                   t('ui.common.fieldError', {
                     field: t('ui.invoices.sectionTitleOf', { position: group.index + 1 }),
-                    message: sectionError(group.index),
+                    message: sectionErrors.error(group.section.key, 'title'),
                   })
                 }}
               </p>
@@ -973,6 +1012,7 @@ const history = computed(() =>
                         variant="ghost"
                         size="icon-touch"
                         :class="ICON"
+                        :disabled="processing"
                         :aria-label="t('ui.invoices.mergeUp')"
                         @click="mergeUp(position(line) - 1)"
                       >
@@ -1214,6 +1254,7 @@ const history = computed(() =>
               type="button"
               variant="outline"
               :class="cn(BUTTON, 'self-start')"
+              :disabled="processing"
               @click="foldConsumables"
             >
               {{ t('ui.invoices.foldConsumables') }}

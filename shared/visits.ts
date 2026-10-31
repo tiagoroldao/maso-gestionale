@@ -1,4 +1,18 @@
 /**
+ * The statuses a Technician sets in the field: under way, then closed
+ * (done, or needing another visit).
+ */
+export const FIELD_VISIT_STATUSES = ['planned', 'in_progress', 'done', 'needs_return'] as const
+
+/**
+ * Every Visit status: the field's, and cancelled, which only Office sets
+ * (#157).
+ */
+export const VISIT_STATUSES = [...FIELD_VISIT_STATUSES, 'cancelled'] as const
+export type VisitStatus = (typeof VISIT_STATUSES)[number]
+export type FieldVisitStatus = (typeof FIELD_VISIT_STATUSES)[number]
+
+/**
  * Statuses that close a Visit: its Items are taken off stock and its
  * hours, Items, status and time become final. "Needs another visit" closes
  * this Visit too; the follow-up is a new Visit.

@@ -10,6 +10,7 @@ import type { JobIndicators, JobStatus } from '@shared/jobs'
 import type { PaymentStatus } from '@shared/payment_status'
 import type { QuoteStatus } from '@shared/quotes'
 import type { SupplierInvoiceStatus } from '@shared/supplier_invoices'
+import type { VisitStatus } from '@shared/visits'
 
 /** Section labels and the breadcrumb: Montserrat in spaced capitals */
 export const LABEL =
@@ -79,8 +80,13 @@ export type Crumb = { label: string; href: string }
  */
 export const SHELL_BACK: InjectionKey<Ref<Crumb | null>> = Symbol('shell-back')
 
-/** Blue planned, orange in progress or to bill, green done or paid, grey draft or set aside */
-export type Tone = 'blue' | 'orange' | 'green' | 'grey'
+/**
+ * Blue planned, orange in progress or to bill, green done or paid, grey
+ * draft or set aside, red a problem to act on (its tag adds an icon). Each
+ * map is keyed by its record's status type, so a new status fails typecheck
+ * until it has a tone.
+ */
+export type Tone = 'blue' | 'orange' | 'green' | 'grey' | 'red'
 
 export const JOB_TONES: Record<JobStatus, Tone> = {
   open: 'blue',
@@ -95,7 +101,7 @@ export const JOB_INDICATOR_TONES: Record<keyof JobIndicators, Tone> = {
   paid: 'green',
 }
 
-export const VISIT_TONES: Record<string, Tone> = {
+export const VISIT_TONES: Record<VisitStatus, Tone> = {
   planned: 'blue',
   in_progress: 'orange',
   done: 'green',
@@ -129,8 +135,8 @@ export const INVOICE_TONES: Record<InvoiceStatus, Tone> = {
   finalised: 'orange',
   submitted: 'blue',
   delivered: 'green',
-  not_deliverable: 'orange',
-  rejected: 'orange',
+  not_deliverable: 'red',
+  rejected: 'red',
 }
 
 /** An issued Invoice's payment: green once paid, orange while something is owed or to refund */
