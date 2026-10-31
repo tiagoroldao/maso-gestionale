@@ -36,7 +36,7 @@ const BOX =
         cn(
           BOX,
           'flex min-h-11 items-center py-2 leading-snug break-words md:min-h-9 md:py-1.5',
-          'peer-focus-visible:border-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring/40 peer-disabled:opacity-50 peer-aria-invalid:border-destructive'
+          'peer-focus-visible:border-foreground peer-focus-visible:ring-2 peer-focus-visible:ring-ring/40 peer-disabled:opacity-50 peer-aria-invalid:border-destructive forced-colors:peer-focus-visible:outline-2 forced-colors:peer-focus-visible:outline-offset-2 forced-colors:peer-focus-visible:outline-[Highlight] forced-colors:peer-focus-visible:outline-solid'
         )
       "
     >

@@ -140,8 +140,10 @@ body {
 /*
  * Windows high-contrast (forced colours) removes box-shadows, and with them
  * the focus rings the components draw as `ring-*` (#320). Keyboard focus
- * falls back to a system-coloured outline on the focused element itself
- * (also the wrapped select's native one), over the components' `outline-none`.
+ * falls back to a system-coloured outline on the focused element itself,
+ * over the components' `outline-none`. The exception is the wrapped
+ * NativeSelect, whose real <select> is unseen (opacity 0): its visible box
+ * draws the outline (NativeSelect.vue).
  */
 @media (forced-colors: active) {
   :focus-visible {
