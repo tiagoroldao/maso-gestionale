@@ -32,7 +32,7 @@ const hasPrimary = computed(() => props.actions.some((action) => action.rank ===
 </script>
 
 <template>
-  <div class="w-full min-w-0 bg-background">
+  <div class="min-h-full w-full min-w-0 bg-background">
     <Head :title="title" />
     <ScreenHeader :crumbs="[]" :current="title" :title="title" :actions="actions" />
     <div

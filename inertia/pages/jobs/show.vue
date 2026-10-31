@@ -18,6 +18,7 @@ import type { AdvanceState } from '@shared/advances'
 import type { InvoiceStatus } from '@shared/invoice_lifecycle'
 import { LINE_KINDS } from '@shared/vat'
 import type { JobIndicators, JobStatus } from '@shared/jobs'
+import type { VisitStatus } from '@shared/visits'
 import type { ScreenAction } from '@shared/screen_actions'
 import { DEFAULT_ORGANISE_BY, ORGANISE_BY } from '@shared/invoice_sections'
 import { computed, ref } from 'vue'
@@ -142,7 +143,7 @@ const props = defineProps<{
     id: number
     startsAt: string
     endsAt: string
-    status: string
+    status: VisitStatus
     survey: boolean
     closableByOffice: boolean
     billed: boolean
@@ -400,7 +401,7 @@ const SUMMARY_TOGGLE =
                         <StatusTag v-if="visit.survey" tone="grey">
                           {{ t('ui.visits.survey') }}
                         </StatusTag>
-                        <StatusTag :tone="VISIT_TONES[visit.status] ?? 'grey'">
+                        <StatusTag :tone="VISIT_TONES[visit.status]">
                           {{ t(`ui.visits.statuses.${visit.status}`) }}
                         </StatusTag>
                         <StatusTag v-if="visit.billed" tone="green">
@@ -460,7 +461,7 @@ const SUMMARY_TOGGLE =
                     <StatusTag v-if="visit.survey" tone="grey">{{
                       t('ui.visits.survey')
                     }}</StatusTag>
-                    <StatusTag :tone="VISIT_TONES[visit.status] ?? 'grey'">
+                    <StatusTag :tone="VISIT_TONES[visit.status]">
                       {{ t(`ui.visits.statuses.${visit.status}`) }}
                     </StatusTag>
                     <StatusTag v-if="visit.billed" tone="green">

@@ -39,8 +39,13 @@
   --color-card-foreground: #0b0b0c;
   --color-popover: #ffffff;
   --color-popover-foreground: #0b0b0c;
+  /*
+   * Dividers and cards stay quiet (`border`); a field's boundary (`input`)
+   * reaches 3:1 against the card and the background, light and dark (WCAG
+   * 1.4.11, #258)
+   */
   --color-border: #e2e2e5;
-  --color-input: #e2e2e5;
+  --color-input: #8a8d93;
 
   /* Controls are black and white; brand red is a mark (logo cut, active item, focus ring) */
   --color-primary: #0b0b0c;
@@ -60,7 +65,7 @@
   --color-sidebar-border: #222326;
   --color-sidebar-chip: #26272b;
 
-  /* Status: blue planned, orange in progress or to bill, green done or paid, grey draft */
+  /* Status: blue planned, orange in progress or to bill, green done or paid, grey draft, red a problem */
   --color-blue: #1d56c4;
   --color-blue-tint: #e6eefc;
   --color-orange: #9a4a06;
@@ -69,6 +74,8 @@
   --color-green-tint: #e3f2e9;
   --color-grey: #4f535a;
   --color-grey-tint: #ececef;
+  --color-red: #b3121c;
+  --color-red-tint: #fce8e8;
 
   --font-sans: 'Inter Variable', Inter, system-ui, sans-serif;
   --font-display: Montserrat, 'Inter Variable', Inter, system-ui, sans-serif;
@@ -95,7 +102,7 @@
   --color-popover: #151518;
   --color-popover-foreground: #ececed;
   --color-border: #2a2b30;
-  --color-input: #2a2b30;
+  --color-input: #64676d;
 
   --color-primary: #ececed;
   --color-primary-foreground: #0b0b0c;
@@ -116,4 +123,6 @@
   --color-green-tint: #11301f;
   --color-grey: #b9bcc2;
   --color-grey-tint: #25262b;
+  --color-red: #ff9a96;
+  --color-red-tint: #3a1616;
 }
