@@ -1,11 +1,17 @@
 import { test } from '@japa/runner'
 import type { ApiClient } from '@japa/api-client'
 import type Invoice from '#models/invoice'
+import Charges from '#services/charges'
 import Invoices from '#services/invoices'
 import Submissions from '#services/submissions'
+import SdiConnection from '#services/sdi_connection'
+import SdiPolling from '#services/sdi_polling'
+import { supplierInvoiceIntake, supplierInvoicesIntake } from '#services/supplier_invoice_intake'
 import type { ScreenAction } from '#shared/screen_actions'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
+import { createJob } from '#tests/helpers/jobs'
+import { FakeOpenapi } from '#tests/helpers/openapi'
 import { vatCode } from '#tests/helpers/items'
 import { completeCompany } from '#tests/helpers/company'
 import { it } from '#tests/helpers/i18n'
@@ -155,5 +161,102 @@ test.group('Invoice screen actions (#241)', (group) => {
       named(noteScreen.actions, 'delete').confirm,
       it('ui.invoices.deleteCreditNoteConfirm')
     )
+  })
+
+  test('a draft from a Job can be organised again, in "⋯"; an Advance Invoice can not', async ({
+    client,
+    assert,
+  }) => {
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    await Charges.add(
+      job,
+      { description: 'Lavori', quantity: '1', unit: null, unitPrice: '100', vatKind: 'labour' },
+      await createUser('office')
+    )
+    const fromJob = await Invoices.fromJob(job)
+    const { actions } = await screenOf(client, `/invoices/${fromJob.id}/edit`)
+    assert.deepEqual(ranked(actions), [
+      'finalise:primary',
+      'save:secondary',
+      'organise:overflow',
+      'delete:overflow',
+    ])
+    const organise = named(actions, 'organise')
+    assert.equal(organise.kind, 'dialog')
+    assert.equal(organise.label, it('ui.invoices.organise'))
+
+    const advance = await Invoices.createAdvance(job)
+    const advanceScreen = await screenOf(client, `/invoices/${advance.id}/edit`)
+    assert.deepEqual(ranked(advanceScreen.actions), [
+      'finalise:primary',
+      'save:secondary',
+      'delete:overflow',
+    ])
+  })
+
+  test('a delivered Advance Invoice: its PDF, and a Credit Note for what is left of it', async ({
+    client,
+    assert,
+  }) => {
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const advance = await Invoices.createAdvance(job)
+    const [line] = await advance.related('lines').query()
+    await Invoices.save(advance, {
+      lines: [
+        {
+          id: line.id,
+          description: line.description,
+          quantity: '1',
+          unitPrice: '500',
+          vatCodeId: line.vatCodeId,
+        },
+      ],
+    })
+    await delivered(advance)
+    const { actions } = await screenOf(client, `/invoices/${advance.id}/edit`)
+    assert.deepEqual(ranked(actions), ['pdf:secondary', 'creditNote:secondary'])
+  })
+})
+
+test.group('Invoice screen actions through Openapi (#241)', (group) => {
+  let openapi: FakeOpenapi
+  group.each.setup(async () => {
+    await completeCompany()
+    openapi = new FakeOpenapi()
+      .on('GET', '/invoices', 'emptyPage')
+      .on('POST', '/invoices', 'sent')
+      .keepsApiConfigurations()
+      .registers('01987654322', false)
+    SdiConnection.use(openapi.gateway())
+    SdiPolling.registered = null
+    supplierInvoiceIntake.current = null
+    return () => {
+      SdiConnection.restore()
+      supplierInvoiceIntake.current = supplierInvoicesIntake
+    }
+  })
+
+  test('the app sends it, asked first; its outcome, polled, is recorded by hand only from "⋯"', async ({
+    client,
+    assert,
+  }) => {
+    const invoice = await draft()
+    await Invoices.finalise(invoice)
+    await Submissions.prepare(invoice)
+    const path = `/invoices/${invoice.id}/edit`
+
+    const prepared = await screenOf(client, path)
+    assert.deepEqual(ranked(prepared.actions), [
+      'confirmSubmission:primary',
+      'pdf:secondary',
+      'xml:overflow',
+    ])
+    const send = named(prepared.actions, 'confirmSubmission')
+    assert.equal(send.label, it('ui.invoices.send'))
+    assert.equal(send.confirm, it('ui.invoices.sendConfirm'))
+
+    await Submissions.confirm(invoice, 'Sconto')
+    const sent = await screenOf(client, path)
+    assert.deepEqual(ranked(sent.actions), ['recordOutcome:overflow', 'pdf:secondary'])
   })
 })

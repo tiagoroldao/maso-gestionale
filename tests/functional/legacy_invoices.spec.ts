@@ -24,6 +24,7 @@ import { completeCompany } from '#tests/helpers/company'
 import { it, ACCESS_DENIED_KEY } from '#tests/helpers/i18n'
 import { formatMoney } from '#shared/money'
 import { formatDate } from '#shared/dates'
+import type { ScreenAction } from '#shared/screen_actions'
 
 const pdf = app.makePath('tests/fixtures/manual.pdf')
 const notPdf = app.makePath('tests/fixtures/logo.png')
@@ -597,6 +598,50 @@ test.group('Legacy Invoices', (group) => {
     deleted.assertFlashMessage('success', it('flash.legacyInvoiceDeleted'))
     assert.isNull(await Invoice.find(legacy.id))
     assert.isFalse(existsSync(storagePath(legacy.pdfPath!)))
+  })
+
+  test("the screen's actions: Save while it can change, the PDF to view, deleting asked first", async ({
+    client,
+    assert,
+  }) => {
+    const office = await createUser('office')
+    const customer = await createCustomer()
+    const screen = async (url: string) => {
+      const page = await client.get(url).withInertia().loginAs(office)
+      page.assertStatus(200)
+      return page.inertiaProps.actions as ScreenAction[]
+    }
+    const ranked = (actions: ScreenAction[]) =>
+      actions.map((action) => `${action.name}:${action.rank}`)
+
+    // New: nothing until its Customer is picked, then Registra
+    assert.deepEqual(await screen('/invoices/legacy/create'), [])
+    const fresh = await screen(`/invoices/legacy/create?customerId=${customer.id}`)
+    assert.deepEqual(ranked(fresh), ['save:primary'])
+    assert.equal(fresh[0].label, it('ui.legacyInvoices.create'))
+    assert.equal(fresh[0].form, 'legacy-invoice-form')
+
+    // Saved, nothing depending on it: edited in place, deleted through its DELETE route
+    const legacy = await enter(client, legacyFields(customer))
+    const url = `/invoices/${legacy.id}/legacy`
+    const editable = await screen(url)
+    assert.deepEqual(ranked(editable), [
+      'save:primary',
+      'pdf:secondary',
+      'creditNote:secondary',
+      'delete:overflow',
+    ])
+    const pdfAction = editable.find((action) => action.name === 'pdf')!
+    assert.deepEqual([pdfAction.href, pdfAction.file], [`${url}/pdf`, 'view'])
+    const remove = editable.find((action) => action.name === 'delete')!
+    assert.deepEqual(
+      [remove.href, remove.method, remove.destructive, remove.confirm],
+      [url, 'delete', true, it('ui.legacyInvoices.deleteConfirm')]
+    )
+
+    // Paid: neither Save nor deleting; the server refuses both anyway
+    await Payments.record(legacy, { amount: '10', paidOn: DateTime.now() })
+    assert.deepEqual(ranked(await screen(url)), ['pdf:secondary', 'creditNote:secondary'])
   })
 
   test('Technicians and the Superuser are refused on every route; Admins enter them', async ({
