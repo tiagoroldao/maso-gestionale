@@ -157,6 +157,7 @@ const TONES: [Tone, string][] = [
   ['orange', 'ui.devUi.tones.orange'],
   ['green', 'ui.devUi.tones.green'],
   ['grey', 'ui.devUi.tones.grey'],
+  ['red', 'ui.devUi.tones.red'],
 ]
 // Rows edited in place (#226), one refused, as a settings screen shows them
 const sampleRows: { name: string; value: string; errors: Partial<Record<string, string>> }[] = [

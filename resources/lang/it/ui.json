@@ -112,7 +112,8 @@
       "blue": "Pianificato",
       "orange": "In corso",
       "green": "Completato",
-      "grey": "Bozza"
+      "grey": "Bozza",
+      "red": "Scartata"
     },
     "rows": "Righe di una sezione",
     "rowsIntro": "Le commesse e i documenti emessi di un cliente o di un immobile: tabella su desktop, righe sul telefono.",

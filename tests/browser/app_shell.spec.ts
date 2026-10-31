@@ -108,4 +108,26 @@ test.group('App shell in the browser', () => {
       assert.deepEqual(await seriousA11yViolations(page), [], size)
     }
   })
+
+  test('a short screen fills the content area, even inside its form (#270)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+
+    // The Supplier form wraps its Entity screen in the form
+    const page = await visit('/suppliers/create')
+    await page.getByRole('heading', { level: 1 }).waitFor()
+    for (const size of ['desktop', 'tablet', 'phone'] as const) {
+      await page.setViewportSize(SCREEN_SIZES[size])
+      const main = await page.locator('main').boundingBox()
+      const screen = await page
+        .locator('main h1')
+        .locator('xpath=ancestor::div[contains(@class, "bg-background")][1]')
+        .boundingBox()
+      const bottom = (box: typeof main) => Math.round((box?.y ?? 0) + (box?.height ?? 0))
+      assert.equal(bottom(screen), bottom(main), size)
+    }
+  })
 })
