@@ -32,6 +32,42 @@ test.group('App shell in the browser', () => {
     assert.isFalse(await page.getByRole('dialog').isVisible())
   })
 
+  test("the phone's menu drawer keeps its user row clear of the iPhone's home indicator (#311)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+
+    const page = await visit('/jobs')
+    await page.setViewportSize(SCREEN_SIZES.phone)
+    await page.getByRole('button', { name: it('ui.shell.openMenu') }).click()
+    const drawer = page.getByRole('dialog')
+    const logout = drawer.getByRole('button', { name: it('ui.common.logout') })
+    await logout.waitFor()
+    // Once it has slid in, scrolled to its end: the user row is the last thing in it
+    await page.waitForFunction(
+      "document.querySelector('[role=dialog]')?.getAnimations().length === 0"
+    )
+    const gapBelow = async () => {
+      await drawer.evaluate((el) => el.scrollTo({ top: el.scrollHeight, behavior: 'instant' }))
+      const box = await logout.boundingBox()
+      return SCREEN_SIZES.phone.height - ((box?.y ?? 0) + (box?.height ?? 0))
+    }
+    const plain = await gapBelow()
+
+    // An iPhone's home indicator: 34px of safe area at the bottom
+    const cdp = await browserContext.newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } })
+    await page.waitForFunction(
+      `(() => { const el = document.querySelector('[role=dialog]'); el.scrollTo({ top: el.scrollHeight, behavior: 'instant' }); return window.innerHeight - el.querySelector('button[type=submit]').getBoundingClientRect().bottom > ${plain} })()`
+    )
+    // The user row moved up by the inset, clear of it; without one it was unchanged above
+    const clear = await gapBelow()
+    assert.isAtLeast(clear, 34)
+    assert.closeTo(clear, plain + 34, 1)
+  })
+
   test('a Technician’s menu has only their Visits', async ({ browserContext, visit, assert }) => {
     const technician = await createUser('technician')
     await browserContext.loginAs(technician)
