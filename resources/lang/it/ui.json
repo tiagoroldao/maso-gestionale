@@ -1501,7 +1501,7 @@
     "issuedOn": "Data",
     "dueOn": "Scadenza",
     "dueOnHint": "Se vuota, dalle condizioni di pagamento del cliente.",
-    "amounts": "Totali",
+    "details": "Dati della fattura",
     "taxable": "Imponibile",
     "vat": "IVA",
     "total": "Totale",
