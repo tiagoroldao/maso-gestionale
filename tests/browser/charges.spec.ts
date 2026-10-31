@@ -45,7 +45,9 @@ test.group('Charges in the browser', () => {
       .getByText(it('ui.charges.events.billing_edited'))
       .waitFor()
 
-    await page.getByRole('button', { name: it('ui.charges.markNotBillable') }).click()
+    // Not billable is in the header's "⋯"
+    await page.getByRole('button', { name: it('ui.screen.moreActions') }).click()
+    await page.getByRole('menuitem', { name: it('ui.charges.markNotBillable') }).click()
     await page.getByTestId('charge-state').getByText(it('ui.charges.states.not_billable')).waitFor()
 
     await charge.refresh()
