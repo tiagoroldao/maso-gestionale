@@ -158,6 +158,44 @@ test.group('Legacy Invoices in the browser', (group) => {
     assert.equal(invoice.pdfPath, replaced)
   })
 
+  test('a save the service refuses keeps what was typed and the chosen PDF (#290)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer()
+    const invoice = await legacyInvoice(customer.id)
+    await legacyInvoice(customer.id, { legacyNumber: '8/2025' })
+
+    const page = await visit(`/invoices/${invoice.id}/legacy`)
+    // Changed meanwhile, so the page the refusal comes back to differs
+    await invoice.merge({ dueOn: DateTime.fromISO('2025-04-30') }).save()
+    // A number another Legacy Invoice of 2025 has
+    await page.getByLabel(it('ui.legacyInvoices.number')).fill('8/2025')
+    await page.getByLabel(it('ui.legacyInvoices.taxable')).fill('110,00')
+    await page
+      .getByLabel(it('ui.legacyInvoices.pdfReplace'))
+      .setInputFiles(app.makePath('tests/fixtures/manual.pdf'))
+    const shown = page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' &&
+        response.url().endsWith(`/invoices/${invoice.id}/legacy`)
+    )
+    await page.getByRole('button', { name: it('ui.legacyInvoices.save') }).click()
+    await shown
+    await page.getByText(it('flash.legacyInvoiceRefused.duplicateNumber')).waitFor()
+
+    assert.equal(await page.getByLabel(it('ui.legacyInvoices.number')).inputValue(), '8/2025')
+    assert.equal(await page.getByLabel(it('ui.legacyInvoices.taxable')).inputValue(), '110,00')
+    assert.match(
+      await page.getByLabel(it('ui.legacyInvoices.pdfReplace')).inputValue(),
+      /manual\.pdf$/
+    )
+    await invoice.refresh()
+    assert.equal(invoice.legacyNumber, '7/2025')
+  })
+
   test('on a phone, a new one starts from its Customer, then Registra is in the bar at the bottom', async ({
     browserContext,
     visit,

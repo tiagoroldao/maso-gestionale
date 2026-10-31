@@ -125,11 +125,12 @@ const rows = ref(rowsFromProps())
  */
 const pdfInput = ref(0)
 
-// After a save, show what the server has
+// After a save, show what the server has. A refused one keeps what was
+// typed: its fields' errors, or the service's refusal as a flash (#290)
 watch(
   () => props.invoice,
   () => {
-    if (Object.keys(errors.value).length) return
+    if (Object.keys(errors.value).length || page.flash.error) return
     Object.assign(values, valuesFromProps())
     rows.value = rowsFromProps()
     rowErrors.reset()
