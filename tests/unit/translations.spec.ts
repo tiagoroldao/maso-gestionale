@@ -111,6 +111,7 @@ const BUILT_IN_PAGES: Record<string, readonly (string | number)[]> = {
   'ui.invoices.organiseOptions': ORGANISE_BY,
   'ui.invoices.outcomes': SUBMISSION_OUTCOMES,
   'ui.invoices.statuses': INVOICE_STATUSES,
+  'ui.invoices.kinds': ['invoice', 'advance', 'credit_note'],
   'ui.invoices.stages': INVOICE_STAGES,
   'ui.invoices.advanceStates': ADVANCE_STATES,
   'ui.invoiceNumbering.creditNotesModes': CREDIT_NOTE_NUMBERING_MODES,

@@ -4,7 +4,16 @@
  * chosen one.
  */
 import { onBeforeUnmount, ref, useId, watch } from 'vue'
+import { CircleAlert } from 'lucide-vue-next'
 import { urlFor } from '~/client'
+import { Input } from '~/components/ui/input'
+import { Label } from '~/components/ui/label'
+import {
+  PICKER_ERROR,
+  PICKER_HINT,
+  PICKER_OPTION,
+  PICKER_RESULTS,
+} from '~/components/screen/screen'
 import { t } from '~/i18n'
 
 export type PickedCustomer = { id: number; displayName: string; city: string }
@@ -65,35 +74,34 @@ function choose(customer: PickedCustomer) {
 </script>
 
 <template>
-  <div class="field">
-    <label class="field__label" :for="inputId">
-      {{ label ?? t('ui.customers.picker.label') }}
-    </label>
-    <input
+  <div class="flex flex-col gap-1.5">
+    <Label :for="inputId">{{ label ?? t('ui.customers.picker.label') }}</Label>
+    <Input
       :id="inputId"
       v-model="query"
       type="search"
-      class="field__input"
+      class="h-11 md:h-9"
       :placeholder="t('ui.customers.searchPlaceholder')"
       autocomplete="off"
     />
     <ul
       v-if="results.length"
-      class="picker__results"
+      :class="PICKER_RESULTS"
       role="listbox"
       :aria-label="t('ui.customers.title')"
     >
       <li v-for="customer in results" :key="customer.id">
-        <button type="button" class="picker__option" role="option" @click="choose(customer)">
+        <button type="button" :class="PICKER_OPTION" role="option" @click="choose(customer)">
           <span>{{ customer.displayName }}</span>
-          <span class="field__hint">{{ customer.city }}</span>
+          <span class="text-[13px] text-muted-foreground">{{ customer.city }}</span>
         </button>
       </li>
     </ul>
-    <p v-else-if="status === 'failed'" class="field__error">
+    <p v-else-if="status === 'failed'" :class="PICKER_ERROR">
+      <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
       {{ t('ui.customers.picker.failed') }}
     </p>
-    <p v-else-if="query && status === 'done'" class="field__hint">
+    <p v-else-if="query && status === 'done'" :class="PICKER_HINT">
       {{ t('ui.customers.picker.noMatches') }}
     </p>
   </div>
