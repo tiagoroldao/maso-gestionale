@@ -9,15 +9,17 @@
  * A `post` action (a POST, or a DELETE when its `method` says so) asks
  * first when it has a question (destructive or irreversible ones); a
  * `dialog` action is the page's own short form, opened through the
- * `dialog` event; a `submit` action submits the form
- * the screen sits in, or the one its `form` names (disabled while it is
- * `busy`, or blocked); a disabled one shows its reason. A `link` outside
- * the app (a contact's `tel:`, a map) is a plain link, a web one opening in
+ * `dialog` event; a `submit` action submits the form the screen sits in,
+ * or the one its `form` names (disabled while it is `busy`, or blocked),
+ * asking first when it has a question (issuing a document): its button
+ * and Enter in one of the form's fields open the question, and only the
+ * answer submits the form. A disabled one shows its reason. A `link`
+ * outside the app (a contact's `tel:`, a map) is a plain link, a web one opening in
  * a new tab; a `file` of the app is a plain link too, downloaded in place
  * or viewed in a new tab. A `post` holds the buttons of posts while it is
  * on its way, so it can't be sent twice.
  */
-import { computed, ref, useId } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, useId } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
 import { Ellipsis } from 'lucide-vue-next'
@@ -66,6 +68,9 @@ const held = (action: ScreenAction) =>
   (action.kind === 'submit' && (props.busy || !!action.disabledReason)) ||
   (action.kind === 'post' && sending.value)
 
+/** A `submit` that asks first: its form's submits wait for the answer */
+const asks = (action: ScreenAction) => action.kind === 'submit' && !!action.confirm
+
 function run(action: ScreenAction) {
   if (action.disabledReason || action.kind === 'submit' || held(action)) return
   if (action.kind === 'dialog') {
@@ -94,8 +99,48 @@ function runFromMenu(action: ScreenAction) {
 
 function confirmed() {
   confirmOpen.value = false
-  if (confirming.value) send(confirming.value)
+  if (!confirming.value) return
+  if (confirming.value.kind === 'submit') submitForm(confirming.value)
+  else send(confirming.value)
 }
+
+const root = ref<HTMLElement | null>(null)
+/** The form a `submit` action submits: the one it names, or the one the screen sits in */
+const formOf = (action: ScreenAction) =>
+  action.form
+    ? (document.getElementById(action.form) as HTMLFormElement | null)
+    : (root.value?.closest('form') ?? null)
+
+// Set while the confirmed submit goes through, so the check below lets it pass
+let answered = false
+function submitForm(action: ScreenAction) {
+  const form = formOf(action)
+  if (!form) return
+  answered = true
+  try {
+    form.requestSubmit()
+  } finally {
+    answered = false
+  }
+}
+
+/**
+ * A `submit` that asks first stops its form's submits, from its button or
+ * Enter in a field, before the page's own handler sees them, and asks
+ * instead (nothing, while it is held or blocked); the answer submits it
+ */
+function askOnSubmit(event: SubmitEvent) {
+  if (answered) return
+  const action = props.actions.find((one) => asks(one) && formOf(one) === event.target)
+  if (!action) return
+  event.preventDefault()
+  event.stopImmediatePropagation()
+  if (action.disabledReason || held(action)) return
+  confirming.value = action
+  confirmOpen.value = true
+}
+onMounted(() => document.addEventListener('submit', askOnSubmit, true))
+onBeforeUnmount(() => document.removeEventListener('submit', askOnSubmit, true))
 
 const FOCUS = 'outline-none focus-visible:ring-2 focus-visible:ring-sidebar-brand'
 const DISABLED =
@@ -116,6 +161,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
 
 <template>
   <div
+    ref="root"
     :class="
       cn(
         'mt-1 flex items-start gap-2 md:mt-0 md:flex-wrap md:justify-end',

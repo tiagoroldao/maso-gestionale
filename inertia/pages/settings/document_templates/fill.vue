@@ -67,8 +67,8 @@ async function render() {
         :title="t('ui.documentTemplates.fields')"
         :description="t('ui.documentTemplates.fill.description')"
       >
-        <!-- Shared with issuing a document, which is not on the new UI yet -->
-        <div>
+        <!-- Shared with issuing a document -->
+        <div class="md:max-w-3xl">
           <TemplateDataForm ref="form" :fields="template.fields" :errors="errors" />
         </div>
       </ScreenSection>
