@@ -377,6 +377,9 @@ test.group('Invoice screen in the browser', (group) => {
     await fold.waitFor()
 
     for (const invalid of ['150', '-10']) {
+      await discount.fill('50')
+      await merge.waitFor()
+      await fold.waitFor()
       await discount.fill(invalid)
       assert.equal(await merge.count(), 0)
       assert.equal(await fold.count(), 0)

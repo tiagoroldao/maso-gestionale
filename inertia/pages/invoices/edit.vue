@@ -334,7 +334,7 @@ function amountOf(line: Line) {
  */
 function combinableAmountOf(line: Line) {
   const values = totalsLine(line)
-  return values && discountInRange(values.discountPercent ?? '0') ? amountOf(line) : null
+  return values && discountInRange(values.discountPercent) ? amountOf(line) : null
 }
 
 const totals = computed(() =>
