@@ -1422,6 +1422,12 @@
     "billingSection": "Da fatturare",
     "billingHint": "Quello che va in fattura. Si può modificare finché nessuna fattura contiene l'addebito.",
     "saveBilling": "Salva fatturazione",
+    "unsaved": "Modifiche non salvate.",
+    "saveBillingFirst": "Salva prima la fatturazione, o le modifiche andranno perse.",
+    "wontBill": {
+      "not_billable": "non verrà fatturato: non fatturabile",
+      "not_done": "non verrà fatturato: non eseguito"
+    },
     "inInvoice": "In fattura {number}",
     "inDraft": "In una bozza di fattura",
     "markNotBillable": "Segna come non fatturabile",

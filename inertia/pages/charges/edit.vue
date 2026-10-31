@@ -6,9 +6,10 @@
  * bills or credited the Charge. What was recorded is corrected in its own
  * section, with its own Save; its work state, not billable and setting it
  * back to bill are the header's other actions, sent by the server for the
- * Charge's states. Its history sits beside.
+ * Charge's states. Its history sits beside. Unsaved billing holds back
+ * every other action, each of which reloads the page (#283).
  */
-import { computed, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
 import { CircleAlert } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
@@ -96,6 +97,37 @@ const props = defineProps<{
 // Save, in the header, waits while the billing is sent
 const busy = ref(false)
 
+/**
+ * What is billed, as typed: the server's until the user edits it, so
+ * unsaved edits can be told apart (as on the Quote and Invoice screens).
+ */
+const billingFromProps = () => ({
+  description: props.charge.billing.description,
+  quantity: amountForInput(props.charge.billing.quantity),
+  unitPrice: amountForInput(props.charge.billing.unitPrice),
+  unit: props.charge.billing.unit ?? '',
+  vatKind: props.charge.billing.vatKind ?? undefined,
+})
+const billing = reactive(billingFromProps())
+const saved = ref(JSON.stringify(billingFromProps()))
+const dirty = computed(() => JSON.stringify(billing) !== saved.value)
+// Saved, or changed by another action: show what the server has
+function showSaved() {
+  Object.assign(billing, billingFromProps())
+  saved.value = JSON.stringify(billingFromProps())
+}
+watch(() => props.charge.billing, showSaved)
+
+// The header: while billing waits for Save, the other actions (each
+// reloads the page) wait too
+const screenActions = computed(() =>
+  props.actions.map((action) =>
+    dirty.value && action.name !== 'saveBilling'
+      ? { ...action, disabledReason: t('ui.charges.saveBillingFirst') }
+      : action
+  )
+)
+
 // Hours by someone outside the app, named instead of picked
 const someoneElse = ref(props.charge.kind === 'labour' && !props.charge.recorded.technicianId)
 const item = ref(props.charge.recorded.item)
@@ -135,6 +167,14 @@ const recordedUnit = computed(() =>
       ? (props.charge.recorded.item?.unit ?? '')
       : (props.charge.billing.unit ?? '')
 )
+// Why its amount won't be billed: not billable, or the work wasn't done
+// (only done Charges are billed, ADR 0016); null while it may be
+const wontBill = computed(() => {
+  const { state, workState } = props.charge
+  if (state === 'not_billable') return 'not_billable'
+  if (state === 'to_bill' && workState === 'not_done') return 'not_done'
+  return null
+})
 const keyFacts = computed<KeyFact[]>(() => [
   {
     label: t('ui.charges.job'),
@@ -151,11 +191,14 @@ const keyFacts = computed<KeyFact[]>(() => [
     label: t('ui.charges.amount'),
     value: formatMoney(lineTotal(props.charge.billing.quantity, props.charge.billing.unitPrice)),
     amount: true,
-    hint: t('ui.charges.quantityAtPrice', {
-      quantity:
-        `${quantity(props.charge.billing.quantity)} ${props.charge.billing.unit ?? ''}`.trim(),
-      price: formatMoney(props.charge.billing.unitPrice),
-    }),
+    hint: [
+      t('ui.charges.quantityAtPrice', {
+        quantity:
+          `${quantity(props.charge.billing.quantity)} ${props.charge.billing.unit ?? ''}`.trim(),
+        price: formatMoney(props.charge.billing.unitPrice),
+      }),
+      ...(wontBill.value ? [t(`ui.charges.wontBill.${wontBill.value}`)] : []),
+    ].join(' · '),
   },
   {
     label: t('ui.charges.invoice'),
@@ -196,7 +239,7 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
       :current="charge.billing.description"
       :title="charge.billing.description"
       :facts="facts"
-      :actions="actions"
+      :actions="screenActions"
       :key-facts="keyFacts"
       :busy="busy"
     >
@@ -214,6 +257,11 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
           :title="t('ui.charges.billingSection')"
           :description="t('ui.charges.billingHint')"
         >
+          <template #actions>
+            <span v-if="dirty" role="status" class="text-[13px] text-muted-foreground">
+              {{ t('ui.charges.unsaved') }}
+            </span>
+          </template>
           <!-- Named for the header's Save (charge_actions.ts); an action form,
                since a route form's types take no id -->
           <Form
@@ -222,6 +270,7 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
             :action="{ url: urlFor('charges.update_billing', { id: charge.id }), method: 'put' }"
             @start="busy = true"
             @finish="busy = false"
+            @success="showSaved"
           >
             <fieldset :disabled="frozen" class="m-0 grid gap-4 border-0 p-0 md:grid-cols-2">
               <FormField
@@ -233,8 +282,8 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
               >
                 <Input
                   :id="field.id"
+                  v-model="billing.description"
                   name="description"
-                  :model-value="charge.billing.description"
                   :class="TOUCH"
                   :aria-invalid="field.invalid"
                   :aria-describedby="field.describedBy"
@@ -252,9 +301,9 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
               >
                 <Input
                   :id="field.id"
+                  v-model="billing.quantity"
                   name="quantity"
                   inputmode="decimal"
-                  :model-value="quantity(charge.billing.quantity)"
                   :class="TOUCH"
                   :aria-invalid="field.invalid"
                   :aria-describedby="field.describedBy"
@@ -268,9 +317,9 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
               >
                 <Input
                   :id="field.id"
+                  v-model="billing.unitPrice"
                   name="unitPrice"
                   inputmode="decimal"
-                  :model-value="amountForInput(charge.billing.unitPrice)"
                   :class="TOUCH"
                   :aria-invalid="field.invalid"
                   :aria-describedby="field.describedBy"
@@ -285,8 +334,8 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
                 >
                   <Input
                     :id="field.id"
+                    v-model="billing.unit"
                     name="unit"
-                    :model-value="charge.billing.unit ?? ''"
                     :class="TOUCH"
                     :aria-invalid="field.invalid"
                     :aria-describedby="field.describedBy"
@@ -300,8 +349,8 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
                 >
                   <NativeSelect
                     :id="field.id"
+                    v-model="billing.vatKind"
                     name="vatKind"
-                    :model-value="charge.billing.vatKind ?? undefined"
                     :aria-invalid="field.invalid"
                     :aria-describedby="field.describedBy"
                   >
@@ -504,10 +553,20 @@ const asOption = (id: number | null | undefined) => (id ? String(id) : '')
                 {{ t('ui.field.serialNumberHint') }}
               </p>
             </template>
-            <div class="md:col-span-2">
-              <Button type="submit" variant="outline" :class="TOUCH" :disabled="processing">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 md:col-span-2">
+              <Button
+                type="submit"
+                variant="outline"
+                :class="TOUCH"
+                :disabled="processing || dirty"
+                :aria-describedby="dirty ? 'correction-held' : undefined"
+              >
                 {{ t('ui.charges.saveCorrection') }}
               </Button>
+              <!-- Sending it reloads the page: billing edits first -->
+              <span v-if="dirty" id="correction-held" class="text-[13px] text-muted-foreground">
+                {{ t('ui.charges.saveBillingFirst') }}
+              </span>
             </div>
           </Form>
         </ScreenSection>
