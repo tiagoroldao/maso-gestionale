@@ -286,6 +286,10 @@ function save() {
     preserveScroll: true,
     onStart: () => (processing.value = true),
     onFinish: () => (processing.value = false),
+    // Without an answer, the errors on screen stay those of the last one
+    onCancel: lineErrors.cancel,
+    onNetworkError: lineErrors.cancel,
+    onHttpException: lineErrors.cancel,
   }
   // A new Quote is created on its Job by the first save
   if (props.quote) router.put(urlFor('quotes.update', { id: props.quote.id }), body, options)
