@@ -78,7 +78,7 @@ function returnFocus(event: Event) {
 
 /** Phone: a sheet from the bottom. From 768px: a panel on the right, full height */
 const PANEL =
-  'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col gap-3.5 overflow-y-auto rounded-t-[10px] bg-card px-4 pt-2 pb-[calc(18px+env(safe-area-inset-bottom))] font-sans text-card-foreground shadow-float outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[400px] md:gap-4 md:rounded-none md:border-l md:border-border md:p-5 md:pr-[calc(1.25rem+env(safe-area-inset-right))] md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right'
+  'fixed inset-x-0 bottom-0 z-50 flex max-h-[85dvh] flex-col gap-3.5 overflow-y-auto rounded-t-[10px] bg-card px-4 pt-2 pb-[calc(18px+env(safe-area-inset-bottom))] font-sans text-card-foreground shadow-float outline-none data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0 max-md:data-[state=closed]:slide-out-to-bottom max-md:data-[state=open]:slide-in-from-bottom md:inset-y-0 md:right-0 md:left-auto md:max-h-none md:w-[400px] md:gap-4 md:rounded-none md:border-l md:border-border md:p-5 md:pr-[calc(1.25rem+env(safe-area-inset-right))] md:pb-[calc(1.25rem+env(safe-area-inset-bottom))] md:data-[state=closed]:slide-out-to-right md:data-[state=open]:slide-in-from-right'
 const button = (variant: 'default' | 'outline') =>
   cn(buttonVariants({ variant, size: 'touch' }), 'flex-1 md:h-9')
 </script>

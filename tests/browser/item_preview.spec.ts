@@ -129,12 +129,48 @@ test.group('Item preview in the browser', () => {
     // An iPhone's home indicator: 34px of safe area at the bottom
     const cdp = await browserContext.newCDPSession(page)
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } })
+    // Waits on the link it asserts on (types without a DOM: `any`)
     await page.waitForFunction(
-      `window.innerHeight - document.querySelector('[data-testid=record-preview] a').getBoundingClientRect().bottom > ${plain}`
+      ({ el, was }: any) =>
+        (globalThis as any).innerHeight - el.getBoundingClientRect().bottom > was,
+      { el: await openPage.elementHandle(), was: plain }
     )
     // The sheet still reaches the bottom; its buttons moved up by the inset, clear of it
     const box = await preview.boundingBox()
     assert.equal(Math.round(box!.y + box!.height), SCREEN_SIZES.phone.height)
+    const clear = await gapBelow()
+    assert.isAtLeast(clear, 34)
+    assert.equal(clear, plain + 34)
+  })
+
+  test("on a sideways phone, the side panel keeps its buttons clear of the iPhone's home indicator (#326)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { job } = await jobWithAValve()
+
+    const page = await visit(`/jobs/${job.id}`)
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page.getByRole('button', { name: 'Valvola a sfera' }).click()
+    const preview = page.getByRole('dialog', { name: 'Valvola a sfera' })
+    const openPage = preview.getByRole('link', { name: it('ui.screen.preview.openPage') })
+    await openPage.waitFor()
+    await page.waitForFunction(SLID_IN)
+    const gapBelow = async () => {
+      const box = await openPage.boundingBox()
+      return Math.round(SCREEN_SIZES.desktop.height - ((box?.y ?? 0) + (box?.height ?? 0)))
+    }
+    const plain = await gapBelow()
+
+    const cdp = await browserContext.newCDPSession(page)
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } })
+    await page.waitForFunction(
+      ({ el, was }: any) =>
+        (globalThis as any).innerHeight - el.getBoundingClientRect().bottom > was,
+      { el: await openPage.elementHandle(), was: plain }
+    )
     const clear = await gapBelow()
     assert.isAtLeast(clear, 34)
     assert.equal(clear, plain + 34)

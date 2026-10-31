@@ -63,8 +63,13 @@ test.group('App shell in the browser', () => {
     // An iPhone's home indicator: 34px of safe area at the bottom
     const cdp = await browserContext.newCDPSession(page)
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } })
+    // Waits on the button it asserts on (types without a DOM: `any`)
     await page.waitForFunction(
-      `(() => { const el = document.querySelector('[role=dialog]'); el.scrollTo({ top: el.scrollHeight, behavior: 'instant' }); return window.innerHeight - el.querySelector('button[type=submit]').getBoundingClientRect().bottom > ${plain} })()`
+      ({ dialog, el, was }: any) => {
+        dialog.scrollTo({ top: dialog.scrollHeight, behavior: 'instant' })
+        return (globalThis as any).innerHeight - el.getBoundingClientRect().bottom > was
+      },
+      { dialog: await drawer.elementHandle(), el: await logout.elementHandle(), was: plain }
     )
     // The user row moved up by the inset, clear of it; without one it was unchanged above
     const clear = await gapBelow()
