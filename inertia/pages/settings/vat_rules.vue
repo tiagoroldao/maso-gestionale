@@ -56,10 +56,12 @@ watch(
   (rules) => (codes.value = rules.map((rule) => String(rule.vatCodeId))),
   { immediate: true }
 )
+// A code as its option reads, archived ones marked
+const codeLabel = (code: { name: string; archived: boolean }) =>
+  code.archived ? `${code.name} ${t('ui.vatRules.archived')}` : code.name
 const codeName = (id: string) => {
   const code = props.vatCodes.find((entry) => String(entry.id) === id)
-  if (!code) return ''
-  return code.archived ? `${code.name} ${t('ui.vatRules.archived')}` : code.name
+  return code ? codeLabel(code) : ''
 }
 
 const ruleError = (errors: Record<string, string>, index: number) =>
@@ -177,7 +179,7 @@ const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
                         :key="code.id"
                         :value="String(code.id)"
                       >
-                        {{ code.name }}{{ code.archived ? ` ${t('ui.vatRules.archived')}` : '' }}
+                        {{ codeLabel(code) }}
                       </option>
                     </NativeSelect>
                     <p v-if="ruleError(errors, row.cells.get(kind)!)" :class="ERROR">

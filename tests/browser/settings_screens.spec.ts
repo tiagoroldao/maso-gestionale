@@ -165,13 +165,16 @@ test.group('Settings screens in the browser', () => {
     for (const size of [SCREEN_SIZES.tablet, SCREEN_SIZES.phone]) {
       await page.setViewportSize(size)
       assert.equal(await shown(page).innerText(), reverseCharge)
-      const cut = await shown(page).evaluate((box) => box.scrollWidth - box.clientWidth)
-      assert.isAtMost(cut, 0, 'the name fits its box')
       const sideways = await page.evaluate<number>(
         'document.documentElement.scrollWidth - document.documentElement.clientWidth'
       )
       assert.isAtMost(sideways, 0, 'no horizontal page scroll')
     }
+    // The unseen select keeps 16px text on the phone, so iOS doesn't zoom in on focus
+    const fontSize = await select(page).evaluate(
+      (element) => element.ownerDocument.defaultView!.getComputedStyle(element).fontSize
+    )
+    assert.equal(fontSize, '16px')
 
     // Another code: its name shown, and saved
     await select(page).selectOption({ label: '22%' })

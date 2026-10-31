@@ -5,7 +5,8 @@
  *
  * `display`, the chosen option's text, shows it whole, wrapped over lines,
  * where a select's own one line would cut it (long VAT Code names, #266):
- * the select, unseen, lies over it and still takes the clicks and keys.
+ * the select, unseen, lies over it and still takes the clicks and keys. It
+ * keeps the 16px text on the phone, or iOS Safari zooms in on focus.
  */
 import type { HTMLAttributes } from 'vue'
 import { ChevronDown } from 'lucide-vue-next'
@@ -25,7 +26,7 @@ const BOX =
       v-model="model"
       v-bind="$attrs"
       data-slot="native-select"
-      class="peer absolute inset-0 z-10 size-full cursor-pointer appearance-none opacity-0 outline-none disabled:cursor-not-allowed"
+      class="peer absolute inset-0 z-10 size-full cursor-pointer appearance-none font-sans text-base opacity-0 outline-none disabled:cursor-not-allowed md:text-sm"
     >
       <slot />
     </select>
