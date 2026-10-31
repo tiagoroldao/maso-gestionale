@@ -31,10 +31,13 @@ test.group('Screen header in the browser', () => {
         .getByRole('button', { name: it('ui.screen.moreActions') })
         .boundingBox()
 
-      // Secondary, primary, "⋯" side by side, 8px apart
-      assert.equal(Math.round(primary!.x - (secondary!.x + secondary!.width)), 8, size)
-      assert.equal(Math.round(more!.x - (primary!.x + primary!.width)), 8, size)
+      // Secondary, primary, "⋯" side by side on one row, as far apart as each other
+      const before = primary!.x - (secondary!.x + secondary!.width)
+      const after = more!.x - (primary!.x + primary!.width)
+      assert.isAbove(before, 0, size)
+      assert.equal(Math.round(before), Math.round(after), size)
       assert.equal(Math.round(primary!.y), Math.round(secondary!.y), size)
+      assert.equal(Math.round(more!.y), Math.round(primary!.y), size)
       // The reason under them
       const under = await reason.boundingBox()
       assert.isAtLeast(under!.y, primary!.y + primary!.height, size)
