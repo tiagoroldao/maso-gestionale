@@ -218,8 +218,19 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                 :aria-describedby="field.describedBy"
               />
             </FormField>
-            <FormField id="categoryId" v-slot="field" :label="t('ui.items.category')">
-              <NativeSelect :id="field.id" v-model="categoryId" name="categoryId">
+            <FormField
+              id="categoryId"
+              v-slot="field"
+              :label="t('ui.items.category')"
+              :error="errors.categoryId"
+            >
+              <NativeSelect
+                :id="field.id"
+                v-model="categoryId"
+                name="categoryId"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              >
                 <option value="">{{ t('ui.items.noCategory') }}</option>
                 <option v-for="option in categories" :key="option.id" :value="String(option.id)">
                   {{ option.name }} ({{ percent(option.markupPercent) }} %)
@@ -345,20 +356,34 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
 
         <template #side>
           <ScreenSection :title="t('ui.items.supplierSection')">
-            <FormField id="supplierName" v-slot="field" :label="t('ui.items.supplierName')">
+            <FormField
+              id="supplierName"
+              v-slot="field"
+              :label="t('ui.items.supplierName')"
+              :error="errors.supplierName"
+            >
               <Input
                 :id="field.id"
                 v-model="values.supplierName"
                 name="supplierName"
                 :class="INPUT"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
               />
             </FormField>
-            <FormField id="supplierCode" v-slot="field" :label="t('ui.items.supplierCode')">
+            <FormField
+              id="supplierCode"
+              v-slot="field"
+              :label="t('ui.items.supplierCode')"
+              :error="errors.supplierCode"
+            >
               <Input
                 :id="field.id"
                 v-model="values.supplierCode"
                 name="supplierCode"
                 :class="[INPUT, 'font-mono']"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
               />
             </FormField>
           </ScreenSection>
