@@ -3,6 +3,7 @@ import type { FieldContext } from '@vinejs/vine/types'
 import { INVOICE_STAGES, SUBMISSION_OUTCOMES } from '#shared/invoice_lifecycle'
 import { CREDIT_NOTE_NUMBERING_MODES } from '#shared/credit_notes'
 import { ORGANISE_BY } from '#shared/invoice_sections'
+import { LINE_DISCOUNT_MAX } from '#shared/invoice_totals'
 import { UNIT_PRICE_DECIMALS } from '#shared/money'
 import { amountRule } from '#validators/rules/amount'
 import { quantityRule } from '#validators/rules/quantity'
@@ -92,7 +93,7 @@ export const invoiceValidator = vine
             .use(noNegativeItemPrice()),
           discountPercent: vine
             .string()
-            .use(amountRule({ decimals: 2, max: '100' }))
+            .use(amountRule({ decimals: 2, max: LINE_DISCOUNT_MAX }))
             .optional(),
           deductsInvoiceId: vine.number().withoutDecimals().optional(),
           // On a Credit Note, the credited Invoice's line (checked by Invoices.save)
