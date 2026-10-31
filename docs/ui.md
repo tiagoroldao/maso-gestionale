@@ -86,5 +86,5 @@ The settings area (Impostazioni) is one menu item; its pages are tabs under each
 - **Colours** are CSS variables, light and dark; the system setting decides, the user can override. Black and white for controls and text; status colours (blue planned, orange in progress or to bill, green done or paid, grey draft) in tinted tags, never colour alone.
 - **Brand red** is a mark only: the logo cut, the active menu item, the focus ring. Errors use red too, always with an icon and words.
 - **Type:** Inter with tabular figures for text and numbers; Montserrat for the wordmark and section labels (spaced capitals). Status tags in sentence case. Fonts are self-hosted.
-- **Shape:** 3px corners, flat bordered surfaces; shadows only on what floats (menus, sheets, dialogs, toasts). Touch targets at least 44px.
+- **Shape:** 3px corners, flat bordered surfaces; shadows only on what floats (menus, sheets, dialogs, toasts). Dividers and cards keep a quiet border (`border`); a field's border (`input`) reaches 3:1 against the surfaces it sits on, light and dark (WCAG 1.4.11). Touch targets at least 44px.
 - **Density:** compact on desktop, roomier on touch screens; the same components, spaced by screen size.
