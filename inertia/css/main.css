@@ -117,3 +117,13 @@
   --color-grey: #b9bcc2;
   --color-grey-tint: #25262b;
 }
+
+/*
+ * The page reaches the screen's edges (viewport-fit=cover, for the phone's
+ * bottom bar: #260); on a phone turned sideways the body keeps its content
+ * clear of the notch, as before.
+ */
+body {
+  padding-right: env(safe-area-inset-right);
+  padding-left: env(safe-area-inset-left);
+}
