@@ -48,6 +48,8 @@ defineProps<{
   actions: ScreenAction[]
   invoices: Invoice[]
   pagination: { currentPage: number; lastPage: number; total: number }
+  // The export's dates, back after a refused range; empty otherwise
+  exportRange: { issuedFrom: string; issuedTo: string }
 }>()
 
 // The export form is a plain one, so its errors come with the page
@@ -119,6 +121,7 @@ const FILE =
                 <Input
                   :id="field.id"
                   name="issuedFrom"
+                  :default-value="exportRange.issuedFrom"
                   type="date"
                   required
                   :aria-invalid="field.invalid"
@@ -135,6 +138,7 @@ const FILE =
                 <Input
                   :id="field.id"
                   name="issuedTo"
+                  :default-value="exportRange.issuedTo"
                   type="date"
                   required
                   :aria-invalid="field.invalid"

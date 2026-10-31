@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { watch } from 'vue'
+import { onMounted, watch } from 'vue'
 import { usePage } from '@inertiajs/vue3'
 import { toast, Toaster } from 'vue-sonner'
 import { CircleAlert, CircleCheck, TriangleAlert } from 'lucide-vue-next'
@@ -11,15 +11,15 @@ watch(
   () => toast.dismiss()
 )
 
-watch(
-  () => page.flash,
-  (flash) => {
-    if (flash.error) toast.error(flash.error, { id: 'flash' })
-    if (flash.success) toast.success(flash.success, { id: 'flash' })
-    if (flash.warning) toast.warning(flash.warning, { id: 'flash' })
-  },
-  { immediate: true }
-)
+const show = (flash: typeof page.flash) => {
+  if (flash.error) toast.error(flash.error, { id: 'flash' })
+  if (flash.success) toast.success(flash.success, { id: 'flash' })
+  if (flash.warning) toast.warning(flash.warning, { id: 'flash' })
+}
+watch(() => page.flash, show)
+// The page's own flash once the Toaster listens: on a full page load (a
+// plain form's refusal, #209) it isn't listening yet during setup
+onMounted(() => show(page.flash))
 </script>
 
 <template>

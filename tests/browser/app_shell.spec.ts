@@ -1,4 +1,8 @@
 import { test } from '@japa/runner'
+import { DateTime } from 'luxon'
+import Invoice from '#models/invoice'
+import { createCustomer } from '#tests/helpers/customers'
+import { chooseMoreAction } from '#tests/helpers/screen'
 import { createUser } from '#tests/helpers/users'
 import { it } from '#tests/helpers/i18n'
 import { seriousA11yViolations } from '#tests/helpers/axe'
@@ -129,5 +133,42 @@ test.group('App shell in the browser', () => {
       const bottom = (box: typeof main) => Math.round((box?.y ?? 0) + (box?.height ?? 0))
       assert.equal(bottom(screen), bottom(main), size)
     }
+  })
+
+  test('a flash after a visit to another page is one toast, though the layout remounts (#209)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer()
+    const invoice = await Invoice.create({
+      customerId: customer.id,
+      documentType: 'legacy',
+      status: 'delivered',
+      legacyNumber: '7/2025',
+      issuedOn: DateTime.fromISO('2025-03-01'),
+      dueOn: DateTime.fromISO('2025-03-31'),
+      taxable: '100.00',
+      vat: '22.00',
+      total: '122.00',
+      pdfPath: 'invoices/legacy/missing.pdf',
+      pdfName: 'originale.pdf',
+    })
+
+    // Deleted from its page: the Invoices list, another page, says so
+    const page = await visit(`/invoices/${invoice.id}/legacy`)
+    await chooseMoreAction(page, it('ui.legacyInvoices.delete'))
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.legacyInvoices.delete') })
+      .click()
+    await page.waitForURL(/\/invoices$/)
+    await page.getByText(it('flash.legacyInvoiceDeleted')).waitFor()
+    // Two frames on, a second toast would be there too
+    await page.evaluate(
+      'new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)))'
+    )
+    assert.equal(await page.locator('[data-sonner-toast]').count(), 1)
   })
 })
