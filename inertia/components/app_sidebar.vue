@@ -71,7 +71,9 @@ const iconButton = computed(() => sidebarIconButtonClass(props.drawer))
     :class="
       cn(
         'flex min-h-full flex-col bg-sidebar font-sans text-sidebar-foreground tabular-nums',
-        drawer ? 'gap-[18px] px-3.5 pt-1 pb-4' : 'gap-[22px] px-3.5 py-5 md:max-lg:px-2'
+        drawer
+          ? 'shrink-0 gap-[18px] px-3.5 pt-1 pb-[calc(1rem+env(safe-area-inset-bottom))]'
+          : 'gap-[22px] px-3.5 py-5 md:max-lg:px-2'
       )
     "
   >

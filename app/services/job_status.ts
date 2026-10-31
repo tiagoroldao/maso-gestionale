@@ -1,5 +1,5 @@
 import type { DateTime } from 'luxon'
-import type { VisitStatus } from '#models/visit'
+import type { VisitStatus } from '#shared/visits'
 import type { JobIndicators } from '#shared/jobs'
 import { isSettled } from '#shared/payment_status'
 import { CLOSED_VISIT_STATUSES, isCancelledVisit, isWorkVisit } from '#shared/visits'

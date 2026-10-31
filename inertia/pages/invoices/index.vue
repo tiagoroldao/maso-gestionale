@@ -33,12 +33,12 @@ type Invoice = {
   id: number
   number: string | null
   issuedOn: string | null
-  status: string
+  status: InvoiceStatus
   documentType: string
   customer: string
   createdAt: string
   total: string
-  payment: string | null
+  payment: PaymentStatus | null
 }
 
 const props = defineProps<{
@@ -57,9 +57,7 @@ function filter() {
   })
 }
 
-const statusTone = (invoice: Invoice) => INVOICE_TONES[invoice.status as InvoiceStatus] ?? 'grey'
-const paymentTone = (invoice: Invoice) =>
-  PAYMENT_TONES[invoice.payment as PaymentStatus] ?? 'orange'
+const statusTone = (invoice: Invoice) => INVOICE_TONES[invoice.status]
 // A Credit Note or a Legacy Invoice says so beside its number
 const kind = (invoice: Invoice) =>
   invoice.documentType === 'credit_note'
@@ -123,7 +121,7 @@ const date = (invoice: Invoice) => formatDate(invoice.issuedOn ?? invoice.create
               </td>
               <td :class="cn(TD, 'whitespace-nowrap')">{{ date(invoice) }}</td>
               <td :class="TD">
-                <StatusTag v-if="invoice.payment" :tone="paymentTone(invoice)">
+                <StatusTag v-if="invoice.payment" :tone="PAYMENT_TONES[invoice.payment]">
                   {{ t(`ui.invoices.paymentStatuses.${invoice.payment}`) }}
                 </StatusTag>
               </td>
@@ -151,7 +149,7 @@ const date = (invoice: Invoice) => formatDate(invoice.issuedOn ?? invoice.create
               <StatusTag :tone="statusTone(invoice)">
                 {{ t(`ui.invoices.statuses.${invoice.status}`) }}
               </StatusTag>
-              <StatusTag v-if="invoice.payment" :tone="paymentTone(invoice)">
+              <StatusTag v-if="invoice.payment" :tone="PAYMENT_TONES[invoice.payment]">
                 {{ t(`ui.invoices.paymentStatuses.${invoice.payment}`) }}
               </StatusTag>
               <StatusTag v-if="kind(invoice)" tone="grey">{{ kind(invoice) }}</StatusTag>

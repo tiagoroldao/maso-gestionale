@@ -1,6 +1,6 @@
 import { test } from '@japa/runner'
 import { DateTime } from 'luxon'
-import type { VisitStatus } from '#models/visit'
+import type { VisitStatus } from '#shared/visits'
 import { jobIndicators } from '#services/job_status'
 
 const day = DateTime.fromISO('2026-11-02T09:00')
