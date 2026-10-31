@@ -47,7 +47,7 @@ test.group('Issued Documents in the browser', () => {
     await page.getByRole('link', { name: it('ui.issuedDocuments.newForCustomer') }).click()
     await page.getByRole('link', { name: 'Dichiarazione di conformità' }).click()
     // The Customer comes along; the Customer's own Site is offered straight away
-    await page.getByText('Bar Centrale').waitFor()
+    await page.locator('[data-field="customer"]').getByText('Bar Centrale').waitFor()
     await page.getByRole('option', { name: /Centrale termica/ }).click()
     await page.getByLabel('Caldaia').selectOption({ label: 'Caldaia — Vaillant' })
     await page.getByLabel('Esito').fill('Positivo')
@@ -73,7 +73,7 @@ test.group('Issued Documents in the browser', () => {
     await page.getByLabel('Esito').fill('Positivo, corretto')
     await page.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
 
-    await page.getByRole('link', { name: number }).waitFor()
+    await page.getByRole('link', { name: number, exact: true }).waitFor()
     await original.refresh()
     assert.isNotNull(original.replacedById)
     const replacement = await IssuedDocument.findOrFail(original.replacedById)

@@ -16,6 +16,10 @@ import type { TemplateNode } from '@shared/document_templates'
 // `readonly` (an archived template) shows the body without letting it change
 const props = defineProps<{ initial: TemplateNode | null; readonly?: boolean }>()
 
+/** The body's box, a field like the others: flat, on the card colour */
+const BODY =
+  'min-h-60 rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none focus:border-foreground focus:ring-2 focus:ring-ring/40 md:text-sm'
+
 // No code, links, quotes or raw HTML: pasted content keeps only these
 const editor = useEditor({
   content: props.initial ?? { type: 'doc', content: [{ type: 'paragraph' }] },
@@ -37,7 +41,7 @@ const editor = useEditor({
     }),
   ],
   editorProps: {
-    attributes: { 'class': 'template-editor', 'aria-label': t('ui.documentTemplates.body') },
+    attributes: { 'class': BODY, 'aria-label': t('ui.documentTemplates.body') },
   },
 })
 onBeforeUnmount(() => editor.value?.destroy())

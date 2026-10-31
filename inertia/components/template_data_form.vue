@@ -7,14 +7,29 @@
  * `input()` gives what the server checks and prints
  * (services/template_data.ts). It can start with a Customer and values (a
  * replacement's original).
+ *
+ * Its fields stack in one column, each named above its control, with its
+ * error under it (docs/ui.md "Look"); a chosen Customer, Site or Item shows
+ * as text with "Cambia" beside it, and a table field's rows are edited in
+ * place, stacked on the phone (docs/ui.md "Settings"). The page puts it in
+ * a section of its screen.
  */
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, reactive, ref, useId, watch } from 'vue'
+import { CircleAlert } from 'lucide-vue-next'
 import CustomerPicker, { type PickedCustomer } from '~/components/customer_picker.vue'
 import ItemPicker from '~/components/item_picker.vue'
 import SitePicker from '~/components/site_picker.vue'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import { Textarea } from '~/components/ui/textarea'
+import FormField from '~/components/screen/form_field.vue'
+import RowField from '~/components/screen/row_field.vue'
+import RowHeads from '~/components/screen/row_heads.vue'
+import { EDIT_ROW, EMPTY, TOUCH } from '~/components/screen/screen'
 import { urlFor } from '~/client'
 import { t } from '~/i18n'
-import type { TemplateField, TemplatePrefill } from '@shared/document_templates'
+import type { FieldType, TemplateField, TemplatePrefill } from '@shared/document_templates'
 import type { WorkReportOptions } from '@shared/work_report'
 
 type Choice = { id: number; label: string }
@@ -206,233 +221,338 @@ function start() {
 start()
 
 defineExpose({ input })
+
+/** Ids for the fields' controls, unique on the page */
+const uid = useId()
+const idOf = (key: string, part = '') => `${uid}-${key}${part}`
+
+/** A field's error, else a list that didn't load */
+function selectError(field: TemplateField) {
+  if (props.errors[field.key]) return props.errors[field.key]
+  return failed[field.type as 'equipment' | 'job'] ? t('ui.documentTemplates.fill.loadFailed') : ''
+}
+
+/** Why an Equipment or Job list is empty, when it is */
+function selectHint(field: TemplateField) {
+  if (field.type === 'equipment' && !site.value) return t('ui.documentTemplates.fill.noSiteYet')
+  if (options[field.type as 'equipment' | 'job'].length > 0) return ''
+  return t(
+    field.type === 'job'
+      ? 'ui.documentTemplates.fill.noJobs'
+      : 'ui.documentTemplates.fill.noEquipment'
+  )
+}
+
+/** A label above a control that isn't a single input: a picker's choice, a table, a group */
+const NAME = 'm-0 text-sm leading-none font-medium'
+/** A choice made, shown as text with "Cambia" beside it */
+const CHOSEN =
+  'm-0 flex min-h-11 items-center justify-between gap-2 rounded-sm border border-border bg-background py-1 pr-1 pl-3 text-sm md:min-h-9'
+const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
+const HINT = 'm-0 text-[13px] text-muted-foreground'
+const CHECK = 'flex min-h-11 items-center gap-2 text-sm md:min-h-9'
+/** A table column's width on desktop, under its head */
+const CELL = 'md:w-44'
+/** The fields in a `FormField`, which shows their error under the control */
+const OWN_ERROR = new Set<FieldType>([
+  'text',
+  'long_text',
+  'number',
+  'date',
+  'choice',
+  'equipment',
+  'job',
+])
 </script>
 
 <template>
-  <div v-if="customer" class="field">
-    <span class="field__label">{{ t('ui.customers.picker.label') }}</span>
-    <p>
-      {{ customer.displayName }}
-      <button type="button" class="btn btn--ghost btn--sm" @click="customer = null">
-        {{ t('ui.documentTemplates.fill.changeCustomer') }}
-      </button>
+  <div class="flex flex-col gap-4">
+    <dl v-if="customer" class="m-0 flex flex-col gap-1.5" data-field="customer">
+      <dt :class="NAME">{{ t('ui.issuedDocuments.customer') }}</dt>
+      <dd :class="CHOSEN">
+        <span class="min-w-0 font-medium">{{ customer.displayName }}</span>
+        <Button type="button" variant="ghost" :class="TOUCH" @click="customer = null">
+          {{ t('ui.documentTemplates.fill.changeCustomer') }}
+        </Button>
+      </dd>
+    </dl>
+    <CustomerPicker v-else @select="chooseCustomer" />
+    <p v-if="errors.customerId" :class="ERROR">
+      <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+      {{ errors.customerId }}
     </p>
-  </div>
-  <CustomerPicker v-else @select="chooseCustomer" />
-  <span v-if="errors.customerId" class="field__error">{{ errors.customerId }}</span>
 
-  <template v-if="customer">
-    <p v-if="fields.length === 0" class="field__hint">
-      {{ t('ui.documentTemplates.fill.noFields') }}
-    </p>
-    <div v-for="field in fields" :key="field.key" :data-field="field.key">
-      <template v-if="field.type === 'site' || field.type === 'item'">
-        <div v-if="chosen[field.key]" class="field">
-          <span class="field__label">{{ field.label }}</span>
-          <p>
-            {{ chosen[field.key]!.label }}
-            <button type="button" class="btn btn--ghost btn--sm" @click="chosen[field.key] = null">
-              {{ t('ui.documentTemplates.fill.change') }}
-            </button>
-          </p>
-        </div>
-        <SitePicker
-          v-else-if="field.type === 'site'"
-          :key="customer.id"
-          :customer-id="customer.id"
-          :label="field.label"
-          @select="(picked) => (chosen[field.key] = { id: picked.id, label: picked.summary })"
-        />
-        <ItemPicker
-          v-else
-          :label="field.label"
-          @select="(picked) => (chosen[field.key] = { id: picked.id, label: picked.description })"
-        />
-      </template>
+    <template v-if="customer">
+      <p v-if="fields.length === 0" :class="HINT">
+        {{ t('ui.documentTemplates.fill.noFields') }}
+      </p>
+      <div
+        v-for="field in fields"
+        :key="field.key"
+        :data-field="field.key"
+        class="flex flex-col gap-1.5"
+      >
+        <template v-if="field.type === 'site' || field.type === 'item'">
+          <dl v-if="chosen[field.key]" class="m-0 flex flex-col gap-1.5">
+            <dt :class="NAME">{{ field.label }}</dt>
+            <dd :class="CHOSEN">
+              <span class="min-w-0">{{ chosen[field.key]!.label }}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                :class="TOUCH"
+                :aria-label="t('ui.documentTemplates.fill.changeField', { field: field.label })"
+                @click="chosen[field.key] = null"
+              >
+                {{ t('ui.documentTemplates.fill.change') }}
+              </Button>
+            </dd>
+          </dl>
+          <SitePicker
+            v-else-if="field.type === 'site'"
+            :key="customer.id"
+            :customer-id="customer.id"
+            :label="field.label"
+            @select="(picked) => (chosen[field.key] = { id: picked.id, label: picked.summary })"
+          />
+          <ItemPicker
+            v-else
+            :label="field.label"
+            @select="(picked) => (chosen[field.key] = { id: picked.id, label: picked.description })"
+          />
+        </template>
 
-      <div v-else-if="field.type === 'equipment' || field.type === 'job'" class="field">
-        <label class="field__label" :for="`fill-${field.key}`">{{ field.label }}</label>
-        <select
-          :id="`fill-${field.key}`"
-          class="field__input"
-          :value="chosen[field.key]?.id ?? ''"
-          @change="choose(field, ($event.target as HTMLSelectElement).value)"
-        >
-          <option value="">{{ t('ui.documentTemplates.fill.none') }}</option>
-          <option v-for="option in options[field.type]" :key="option.id" :value="option.id">
-            {{ option.label }}
-          </option>
-        </select>
-        <p v-if="failed[field.type]" class="field__error">
-          {{ t('ui.documentTemplates.fill.loadFailed') }}
-        </p>
-        <p v-else-if="field.type === 'equipment' && !site" class="field__hint">
-          {{ t('ui.documentTemplates.fill.noSiteYet') }}
-        </p>
-        <p v-else-if="options[field.type].length === 0" class="field__hint">
-          {{
-            t(
-              field.type === 'job'
-                ? 'ui.documentTemplates.fill.noJobs'
-                : 'ui.documentTemplates.fill.noEquipment'
-            )
-          }}
-        </p>
-        <p v-if="field.type === 'job' && chosen[field.key] && loadsFromJob">
-          <button type="button" class="btn btn--secondary btn--sm" @click="loadFromJob">
-            {{ t('ui.documentTemplates.fill.loadFromJob') }}
-          </button>
-          <span v-if="loaded !== null" class="field__hint">
-            {{ t('ui.documentTemplates.fill.loadedFromJob', { count: loaded }) }}
-          </span>
-          <span v-if="loadFailed" class="field__error">
-            {{ t('ui.documentTemplates.fill.loadFailed') }}
-          </span>
-        </p>
-      </div>
-
-      <div v-else-if="field.type === 'items'" class="field">
-        <ItemPicker
-          :label="field.label"
-          @select="
-            (picked) =>
-              (lists[field.key] = [
-                ...(lists[field.key] ?? []),
-                { id: picked.id, label: picked.description },
-              ])
-          "
-        />
-        <ul v-if="lists[field.key]?.length">
-          <li v-for="(item, index) in lists[field.key]" :key="index">
-            {{ item.label }}
-            <button
-              type="button"
-              class="btn btn--ghost btn--sm"
-              @click="lists[field.key].splice(index, 1)"
+        <template v-else-if="field.type === 'equipment' || field.type === 'job'">
+          <FormField
+            :id="idOf(field.key)"
+            v-slot="control"
+            :label="field.label"
+            :error="selectError(field)"
+            :hint="selectHint(field)"
+          >
+            <NativeSelect
+              :id="control.id"
+              :model-value="String(chosen[field.key]?.id ?? '')"
+              :aria-invalid="control.invalid"
+              :aria-describedby="control.describedBy"
+              @update:model-value="(id) => choose(field, id ?? '')"
             >
-              {{ t('ui.documentTemplates.fill.remove') }}
-            </button>
-          </li>
-        </ul>
-      </div>
+              <option value="">{{ t('ui.documentTemplates.fill.none') }}</option>
+              <option
+                v-for="option in options[field.type]"
+                :key="option.id"
+                :value="String(option.id)"
+              >
+                {{ option.label }}
+              </option>
+            </NativeSelect>
+          </FormField>
+          <div
+            v-if="field.type === 'job' && chosen[field.key] && loadsFromJob"
+            class="flex flex-wrap items-center gap-2"
+          >
+            <Button type="button" variant="outline" :class="TOUCH" @click="loadFromJob">
+              {{ t('ui.documentTemplates.fill.loadFromJob') }}
+            </Button>
+            <span v-if="loaded !== null" role="status" :class="HINT">
+              {{ t('ui.documentTemplates.fill.loadedFromJob', { count: loaded }) }}
+            </span>
+            <span v-if="loadFailed" :class="ERROR">
+              <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+              {{ t('ui.documentTemplates.fill.loadFailed') }}
+            </span>
+          </div>
+        </template>
 
-      <div v-else-if="field.type === 'table'" class="field">
-        <span class="field__label">{{ field.label }}</span>
-        <table class="table">
-          <thead>
-            <tr>
-              <th v-for="column in field.columns" :key="column.key">{{ column.label }}</th>
-              <th />
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="(row, r) in rows[field.key] ?? []" :key="r">
-              <td v-for="(column, c) in field.columns" :key="column.key">
-                <input
-                  v-model="row[c]"
-                  class="field__input"
-                  :type="column.type === 'date' ? 'date' : 'text'"
-                  :inputmode="column.type === 'number' ? 'decimal' : undefined"
-                  :aria-label="
-                    t('ui.documentTemplates.fill.cellOf', { column: column.label, row: r + 1 })
-                  "
-                />
-              </td>
-              <td class="table__actions">
-                <button
+        <template v-else-if="field.type === 'items'">
+          <ItemPicker
+            :label="field.label"
+            @select="
+              (picked) =>
+                (lists[field.key] = [
+                  ...(lists[field.key] ?? []),
+                  { id: picked.id, label: picked.description },
+                ])
+            "
+          />
+          <ul
+            v-if="lists[field.key]?.length"
+            :aria-label="field.label"
+            class="m-0 list-none rounded-sm border-x border-b border-border p-0"
+          >
+            <li
+              v-for="(item, index) in lists[field.key]"
+              :key="index"
+              class="flex items-center justify-between gap-2 border-t border-border py-1 pr-1 pl-3 text-sm"
+            >
+              {{ item.label }}
+              <Button
+                type="button"
+                variant="ghost"
+                :class="TOUCH"
+                :aria-label="t('ui.documentTemplates.fill.removeItem', { item: item.label })"
+                @click="lists[field.key].splice(index, 1)"
+              >
+                {{ t('ui.documentTemplates.fill.remove') }}
+              </Button>
+            </li>
+          </ul>
+        </template>
+
+        <template v-else-if="field.type === 'table'">
+          <p :class="NAME">{{ field.label }}</p>
+          <!-- On desktop the heads name the columns once; on the phone each cell shows its name -->
+          <div class="rounded-sm border-x border-b border-border">
+            <RowHeads
+              v-if="rows[field.key]?.length"
+              :heads="(field.columns ?? []).map((column) => ({ label: column.label, class: CELL }))"
+            />
+            <p v-else :class="EMPTY">{{ t('ui.documentTemplates.fill.noRows') }}</p>
+            <ul class="m-0 list-none p-0">
+              <li v-for="(row, r) in rows[field.key] ?? []" :key="r" :class="EDIT_ROW">
+                <div class="flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:flex-wrap">
+                  <RowField
+                    v-for="(column, c) in field.columns"
+                    :key="column.key"
+                    :label="column.label"
+                    :class="CELL"
+                  >
+                    <Input
+                      v-model="row[c]"
+                      :type="column.type === 'date' ? 'date' : 'text'"
+                      :inputmode="column.type === 'number' ? 'decimal' : undefined"
+                      :aria-label="
+                        t('ui.documentTemplates.fill.cellOf', { column: column.label, row: r + 1 })
+                      "
+                      :class="TOUCH"
+                    />
+                  </RowField>
+                </div>
+                <Button
                   type="button"
-                  class="btn btn--ghost btn--sm"
+                  variant="ghost"
+                  :class="[TOUCH, 'self-start']"
                   @click="rows[field.key].splice(r, 1)"
                 >
                   {{ t('ui.documentTemplates.fill.removeRow', { row: r + 1 }) }}
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-        <button type="button" class="btn btn--secondary btn--sm" @click="addRow(field)">
-          {{ t('ui.documentTemplates.fill.addRow') }}
-        </button>
-      </div>
+                </Button>
+              </li>
+            </ul>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            :class="[TOUCH, 'self-start']"
+            @click="addRow(field)"
+          >
+            {{ t('ui.documentTemplates.fill.addRow') }}
+          </Button>
+        </template>
 
-      <div v-else-if="field.type === 'work_report'" class="field">
-        <span class="field__label">{{ field.label }}</span>
-        <p v-if="!job" class="field__hint">{{ t('ui.documentTemplates.fill.noJobYet') }}</p>
-        <div class="field">
-          <label class="field__label" :for="`fill-${field.key}-from`">
-            {{ t('ui.documentTemplates.fill.workReportFrom') }}
+        <fieldset
+          v-else-if="field.type === 'work_report'"
+          class="m-0 flex min-w-0 flex-col gap-3 rounded-sm border border-border p-3 md:p-4"
+        >
+          <legend :class="[NAME, 'px-1']">{{ field.label }}</legend>
+          <p v-if="!job" :class="HINT">{{ t('ui.documentTemplates.fill.noJobYet') }}</p>
+          <div class="flex flex-col gap-3 md:flex-row">
+            <FormField
+              :id="idOf(field.key, '-from')"
+              v-slot="control"
+              :label="t('ui.documentTemplates.fill.workReportFrom')"
+              class="md:w-44"
+            >
+              <Input
+                :id="control.id"
+                v-model="reports[field.key].from"
+                type="date"
+                :aria-describedby="idOf(field.key, '-period')"
+                :class="TOUCH"
+              />
+            </FormField>
+            <FormField
+              :id="idOf(field.key, '-to')"
+              v-slot="control"
+              :label="t('ui.documentTemplates.fill.workReportTo')"
+              class="md:w-44"
+            >
+              <Input
+                :id="control.id"
+                v-model="reports[field.key].to"
+                type="date"
+                :aria-describedby="idOf(field.key, '-period')"
+                :class="TOUCH"
+              />
+            </FormField>
+          </div>
+          <p :id="idOf(field.key, '-period')" :class="HINT">
+            {{ t('ui.documentTemplates.fill.workReportPeriodHint') }}
+          </p>
+          <label :class="CHECK">
+            <input v-model="reports[field.key].prices" type="checkbox" class="size-4" />
+            {{ t('ui.documentTemplates.fill.workReportPrices') }}
           </label>
-          <input
-            :id="`fill-${field.key}-from`"
-            v-model="reports[field.key].from"
-            class="field__input"
-            type="date"
-          />
-        </div>
-        <div class="field">
-          <label class="field__label" :for="`fill-${field.key}-to`">
-            {{ t('ui.documentTemplates.fill.workReportTo') }}
+          <label :class="CHECK">
+            <input v-model="reports[field.key].notes" type="checkbox" class="size-4" />
+            {{ t('ui.documentTemplates.fill.workReportNotes') }}
           </label>
-          <input
-            :id="`fill-${field.key}-to`"
-            v-model="reports[field.key].to"
-            class="field__input"
-            type="date"
-          />
-        </div>
-        <p class="field__hint">{{ t('ui.documentTemplates.fill.workReportPeriodHint') }}</p>
-        <label>
-          <input v-model="reports[field.key].prices" type="checkbox" />
-          {{ t('ui.documentTemplates.fill.workReportPrices') }}
-        </label>
-        <label>
-          <input v-model="reports[field.key].notes" type="checkbox" />
-          {{ t('ui.documentTemplates.fill.workReportNotes') }}
-        </label>
-        <label>
-          <input v-model="reports[field.key].jobCharges" type="checkbox" />
-          {{ t('ui.documentTemplates.fill.workReportJobCharges') }}
-        </label>
-      </div>
+          <label :class="CHECK">
+            <input v-model="reports[field.key].jobCharges" type="checkbox" class="size-4" />
+            {{ t('ui.documentTemplates.fill.workReportJobCharges') }}
+          </label>
+        </fieldset>
 
-      <div v-else-if="field.type === 'boolean'" class="field">
-        <label>
-          <input v-model="checks[field.key]" type="checkbox" />
+        <label v-else-if="field.type === 'boolean'" :class="CHECK">
+          <input v-model="checks[field.key]" type="checkbox" class="size-4" />
           {{ field.label }}
         </label>
-      </div>
 
-      <div v-else class="field">
-        <label class="field__label" :for="`fill-${field.key}`">{{ field.label }}</label>
-        <select
-          v-if="field.type === 'choice'"
-          :id="`fill-${field.key}`"
-          v-model="texts[field.key]"
-          class="field__input"
-        >
-          <option value="">{{ t('ui.documentTemplates.fill.none') }}</option>
-          <option v-for="option in field.options" :key="option" :value="option">
-            {{ option }}
-          </option>
-        </select>
-        <textarea
-          v-else-if="field.type === 'long_text'"
-          :id="`fill-${field.key}`"
-          v-model="texts[field.key]"
-          class="field__input"
-          rows="4"
-        />
-        <input
+        <FormField
           v-else
-          :id="`fill-${field.key}`"
-          v-model="texts[field.key]"
-          class="field__input"
-          :type="field.type === 'date' ? 'date' : 'text'"
-          :inputmode="field.type === 'number' ? 'decimal' : undefined"
-        />
-      </div>
+          :id="idOf(field.key)"
+          v-slot="control"
+          :label="field.label"
+          :error="errors[field.key]"
+        >
+          <NativeSelect
+            v-if="field.type === 'choice'"
+            :id="control.id"
+            v-model="texts[field.key]"
+            :aria-invalid="control.invalid"
+            :aria-describedby="control.describedBy"
+          >
+            <option value="">{{ t('ui.documentTemplates.fill.none') }}</option>
+            <option v-for="option in field.options" :key="option" :value="option">
+              {{ option }}
+            </option>
+          </NativeSelect>
+          <Textarea
+            v-else-if="field.type === 'long_text'"
+            :id="control.id"
+            v-model="texts[field.key]"
+            :aria-invalid="control.invalid"
+            :aria-describedby="control.describedBy"
+            rows="4"
+          />
+          <Input
+            v-else
+            :id="control.id"
+            v-model="texts[field.key]"
+            :type="field.type === 'date' ? 'date' : 'text'"
+            :inputmode="field.type === 'number' ? 'decimal' : undefined"
+            :aria-invalid="control.invalid"
+            :aria-describedby="control.describedBy"
+            :class="TOUCH"
+          />
+        </FormField>
 
-      <span v-if="errors[field.key]" class="field__error">{{ errors[field.key] }}</span>
-    </div>
-  </template>
+        <!-- The error of a field whose control doesn't show it -->
+        <p v-if="errors[field.key] && !OWN_ERROR.has(field.type)" :class="ERROR">
+          <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+          {{ errors[field.key] }}
+        </p>
+      </div>
+    </template>
+    <p v-else :class="HINT">{{ t('ui.documentTemplates.fill.chooseCustomerFirst') }}</p>
+  </div>
 </template>

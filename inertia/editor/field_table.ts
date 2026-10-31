@@ -1,4 +1,5 @@
 import { mergeAttributes, Node } from '@tiptap/core'
+import { CHIP } from './placeholder'
 
 /**
  * A table field's rows in a Document Template's body: `key` names the
@@ -31,7 +32,7 @@ export const FieldTable = Node.create<{ chipLabel: (label: string) => string }>(
     return [
       'div',
       mergeAttributes(HTMLAttributes, { 'data-field-table': node.attrs.key }),
-      ['span', { class: 'chip' }, this.options.chipLabel(node.attrs.label ?? node.attrs.key)],
+      ['span', { class: CHIP }, this.options.chipLabel(node.attrs.label ?? node.attrs.key)],
     ]
   },
 })

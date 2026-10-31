@@ -504,34 +504,6 @@ input {
   justify-content: flex-end;
 }
 
-/* --- picker --- */
-.picker__results {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  max-height: 260px;
-  overflow-y: auto;
-}
-.picker__option {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.picker__option:hover,
-.picker__option:focus-visible {
-  background: var(--line);
-}
-
 /* --- definition list --- */
 .details {
   display: grid;
@@ -676,21 +648,4 @@ input {
   flex-direction: column;
   gap: 8px;
   margin-top: 12px;
-}
-
-/* Document Template editor: the body and its data chips */
-.template-editor {
-  border: 1px solid var(--line-2);
-  border-radius: var(--r);
-  padding: 8px 12px;
-  min-height: 240px;
-  background: var(--field);
-}
-.template-editor .chip {
-  display: inline-block;
-  padding: 0 6px;
-  border-radius: 4px;
-  background: var(--line);
-  font-family: monospace;
-  font-size: 0.9em;
 }

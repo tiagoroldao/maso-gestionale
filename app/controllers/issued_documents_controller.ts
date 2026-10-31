@@ -12,6 +12,7 @@ import IssuedDocuments, {
   StoredPdfMissingError,
 } from '#services/issued_documents'
 import { TemplateDataError } from '#services/template_data'
+import { issuedDocumentActions, issuingActions } from '#services/issued_document_actions'
 import type { TemplatePrefill } from '#shared/document_templates'
 import { issuedDocumentValidator, replacementValidator } from '#validators/issued_document'
 import type { HttpContext } from '@adonisjs/core/http'
@@ -27,7 +28,7 @@ export default class IssuedDocumentsController {
    * given, and with one of its Jobs in the Job field when given: a Job's
    * work report, #180).
    */
-  async create({ request, inertia }: HttpContext) {
+  async create({ request, inertia, i18n }: HttpContext) {
     const templateId = Number(request.input('templateId'))
     const customerId = Number(request.input('customerId'))
     const jobId = Number(request.input('jobId'))
@@ -52,6 +53,8 @@ export default class IssuedDocumentsController {
         .withScopes((scopes) => scopes.active())
         .orderBy('name')
       return inertia.render('issued_documents/create', {
+        // Nothing to issue yet: the template comes first
+        actions: [],
         templates: templates.map((one) => ({ id: one.id, name: one.name })),
         template: null,
         customer: picked,
@@ -68,6 +71,7 @@ export default class IssuedDocumentsController {
       prefill[jobField.key] = { id: job.id, label: `${job.number} – ${job.title}` }
     }
     return inertia.render('issued_documents/create', {
+      actions: issuingActions(i18n),
       templates: [],
       template: { id: template.id, name: current.name, fields: current.fields },
       customer: picked,
@@ -87,7 +91,7 @@ export default class IssuedDocumentsController {
     return this.issue({ response, i18n, auth, logger }, template, data, null)
   }
 
-  async show({ params, inertia }: HttpContext) {
+  async show({ params, inertia, i18n }: HttpContext) {
     const document = await IssuedDocument.query()
       .where('id', params.id)
       .preload('version')
@@ -103,8 +107,10 @@ export default class IssuedDocumentsController {
     const job = document.jobId ? await Job.find(document.jobId) : null
     const link = (other: IssuedDocument | null) =>
       other ? { id: other.id, number: other.number } : null
+    const canReplace = document.replacedById === null && document.template.archivedAt === null
 
     return inertia.render('issued_documents/show', {
+      actions: issuedDocumentActions({ id: document.id, canReplace }, i18n),
       document: {
         id: document.id,
         number: document.number,
@@ -116,7 +122,7 @@ export default class IssuedDocumentsController {
         job: job && { id: job.id, number: job.number, title: job.title },
         replacedBy: link(document.replacedBy),
         replaces: link(document.replaces),
-        canReplace: document.replacedById === null && document.template.archivedAt === null,
+        canReplace,
       },
     })
   }
@@ -135,6 +141,7 @@ export default class IssuedDocumentsController {
       .where('id', params.id)
       .preload('customer')
       .preload('template')
+      .preload('version')
       .firstOrFail()
     if (original.replacedById !== null || original.template.archivedAt !== null) {
       const reason = original.replacedById ? 'alreadyReplaced' : 'templateArchived'
@@ -146,9 +153,11 @@ export default class IssuedDocumentsController {
 
     return inertia.render('issued_documents/create', {
       templates: [],
+      actions: issuingActions(i18n),
       template: { id: original.template.id, name: current.name, fields: current.fields },
       customer: { id: customer.id, displayName: customer.displayName, city: customer.city },
-      replaces: { id: original.id, number: original.number },
+      // Its name as printed, for the breadcrumb's step back to it
+      replaces: { id: original.id, number: original.number, title: original.version.name },
       prefill: await IssuedDocuments.prefill(original, current.fields),
     })
   }
