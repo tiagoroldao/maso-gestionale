@@ -5,6 +5,7 @@ import { DateTime } from 'luxon'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
+import Submissions from '#services/submissions'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
@@ -335,30 +336,59 @@ test.group('Invoice screen in the browser', (group) => {
     const line = (position: number) =>
       page.getByRole('listitem', { name: it('ui.invoices.lineOf', { position }) })
     const description = page.getByLabel(it('ui.invoices.descriptionOf', { position: 1 }))
-    const discount = page.getByLabel(it('ui.invoices.lineDiscountOf', { position: 1 }))
-    const discountError = it('ui.common.fieldError', {
-      field: it('ui.invoices.lineDiscount'),
+    const quantity = page.getByLabel(it('ui.invoices.quantityOf', { position: 1 }))
+    const quantityError = it('ui.common.fieldError', {
+      field: it('ui.invoices.quantity'),
       message: '',
     })
 
-    // Refused: the first line has no description and a discount over 100%
+    // Refused: the first line has no description and a quantity of 4 decimals
     await description.fill('')
-    await discount.fill('150')
+    await quantity.fill('1,2345')
     await page.getByRole('button', { name: it('ui.invoices.save') }).click()
     await line(1).getByText(DESCRIPTION_ERROR).waitFor()
-    await line(1).getByText(discountError).waitFor()
+    await line(1).getByText(quantityError).waitFor()
 
-    // The second merged into it: the discount is written anew, its error
+    // The second merged into it: the quantity is written anew, its error
     // gone; the description is kept as it was, and so is its error
     await line(2)
       .getByRole('button', { name: it('ui.invoices.mergeUp') })
       .click()
     await line(2).waitFor({ state: 'detached' })
-    assert.equal(await discount.inputValue(), '')
-    assert.equal(await line(1).getByText(discountError).count(), 0)
-    assert.isNull(await discount.getAttribute('aria-invalid'))
+    assert.equal(await quantity.inputValue(), '1')
+    assert.equal(await line(1).getByText(quantityError).count(), 0)
+    assert.isNull(await quantity.getAttribute('aria-invalid'))
     assert.equal(await line(1).getByText(DESCRIPTION_ERROR).count(), 1)
     assert.equal(await description.getAttribute('aria-invalid'), 'true')
+  })
+
+  test('a line with a discount outside 0-100% is neither merged nor folded (#298)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const invoice = await draftOfAValveAndAPipe()
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const discount = page.getByLabel(it('ui.invoices.lineDiscountOf', { position: 1 }))
+    const merge = page.getByRole('button', { name: it('ui.invoices.mergeUp') })
+    const fold = page.getByRole('button', { name: it('ui.invoices.foldConsumables') })
+    await merge.waitFor()
+    await fold.waitFor()
+
+    for (const invalid of ['150', '-10']) {
+      await discount.fill('50')
+      await merge.waitFor()
+      await fold.waitFor()
+      await discount.fill(invalid)
+      assert.equal(await merge.count(), 0)
+      assert.equal(await fold.count(), 0)
+    }
+
+    await discount.fill('50')
+    await merge.waitFor()
+    await fold.waitFor()
   })
 
   test('a line folded into, after a refused save, shows no stale errors (#292)', async ({
@@ -467,5 +497,29 @@ test.group('Invoice screen in the browser', (group) => {
       .waitFor()
     const owedLabel = it('ui.invoices.owedHint', { amount: '' }).trim()
     assert.equal(await facts.getByText(owedLabel).count(), 0)
+  })
+
+  test('a rejected Invoice reads as a problem: its own tone and an icon beside the words (#261)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { invoice } = await draftWithAValve()
+    await Invoices.finalise(invoice)
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const tag = page.getByTestId('invoice-status')
+    await tag.getByText(it('ui.invoices.statuses.rejected')).waitFor()
+    assert.equal(await tag.locator('svg[aria-hidden="true"]').count(), 1)
+    assert.include(await tag.getAttribute('class'), 'bg-red-tint')
+    for (const scheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: scheme })
+      await page.locator(`html[data-theme="${scheme}"]`).waitFor({ state: 'attached' })
+      assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], scheme)
+    }
   })
 })
