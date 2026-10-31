@@ -24,6 +24,7 @@ import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import FormField from '~/components/screen/form_field.vue'
 import RowErrors from '~/components/screen/row_errors.vue'
+import { useSentRowErrors } from '~/components/screen/sent_row_errors'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
@@ -267,6 +268,7 @@ watch(
     if (Object.keys(errors.value).length) return
     sections.splice(0, sections.length, ...sectionsFromProps())
     lines.splice(0, lines.length, ...linesFromProps(sections))
+    lineErrors.reset()
     discountPercent.value = Number(props.invoice.discountPercent)
       ? trim(props.invoice.discountPercent)
       : ''
@@ -552,6 +554,7 @@ const processing = ref(false)
 
 function save() {
   if (processing.value) return
+  lineErrors.send()
   router.put(
     urlFor('invoices.update', { id: props.invoice.id }),
     {
@@ -602,17 +605,13 @@ const LINE_FIELDS = computed(() => ({
   discountPercent: t('ui.invoices.lineDiscount'),
   vatCodeId: t('ui.invoices.vatCode'),
 }))
-const lineErrors = (line: Line) => {
-  const index = lines.indexOf(line)
-  return Object.fromEntries(
-    Object.keys(LINE_FIELDS.value).flatMap((field) => {
-      const message = errors.value[`lines.${index}.${field}`]
-      return message ? [[field, message]] : []
-    })
-  ) as Record<string, string>
-}
-const invalid = (line: Line, field: string) =>
-  errors.value[`lines.${lines.indexOf(line)}.${field}`] ? 'true' : undefined
+// Each stays on its line when one is removed, moved or added after a refused save
+const lineErrors = useSentRowErrors({
+  rows: () => lines,
+  errors,
+  name: 'lines',
+  fields: Object.keys(LINE_FIELDS.value),
+})
 const sectionError = (index: number) => errors.value[`sections.${index}.title`]
 const deductionError = computed(
   () => Object.entries(errors.value).find(([key]) => key.startsWith('deductions'))?.[1]
@@ -1004,7 +1003,7 @@ const history = computed(() =>
                     :class="FIELD"
                     :disabled="isDeduction(line)"
                     :aria-label="t('ui.invoices.descriptionOf', { position: position(line) })"
-                    :aria-invalid="invalid(line, 'description')"
+                    :aria-invalid="lineErrors.invalid(line.key, 'description')"
                   />
                 </div>
                 <RowField :label="t('ui.invoices.quantity')" :class="QUANTITY">
@@ -1019,7 +1018,7 @@ const history = computed(() =>
                       :class="FIELD"
                       :disabled="isDeduction(line)"
                       :aria-label="t('ui.invoices.quantityOf', { position: position(line) })"
-                      :aria-invalid="invalid(line, 'quantity')"
+                      :aria-invalid="lineErrors.invalid(line.key, 'quantity')"
                     />
                     <span v-if="line.unit" class="text-[13px] text-muted-foreground">
                       {{ line.unit }}
@@ -1038,7 +1037,7 @@ const history = computed(() =>
                     :class="FIELD"
                     :disabled="isDeduction(line)"
                     :aria-label="t('ui.invoices.unitPriceOf', { position: position(line) })"
-                    :aria-invalid="invalid(line, 'unitPrice')"
+                    :aria-invalid="lineErrors.invalid(line.key, 'unitPrice')"
                   />
                 </RowField>
                 <RowField :label="t('ui.invoices.lineDiscount')" :class="DISCOUNT">
@@ -1053,7 +1052,7 @@ const history = computed(() =>
                     :class="FIELD"
                     :disabled="isDeduction(line)"
                     :aria-label="t('ui.invoices.lineDiscountOf', { position: position(line) })"
-                    :aria-invalid="invalid(line, 'discountPercent')"
+                    :aria-invalid="lineErrors.invalid(line.key, 'discountPercent')"
                   />
                 </RowField>
                 <RowField :label="t('ui.invoices.vatCode')" :class="VAT">
@@ -1070,7 +1069,7 @@ const history = computed(() =>
                     :model-value="String(line.vatCodeId)"
                     :disabled="isDeduction(line)"
                     :aria-label="t('ui.invoices.vatCodeOf', { position: position(line) })"
-                    :aria-invalid="invalid(line, 'vatCodeId')"
+                    :aria-invalid="lineErrors.invalid(line.key, 'vatCodeId')"
                     @update:model-value="(value) => (line.vatCodeId = Number(value))"
                   >
                     <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
@@ -1087,13 +1086,13 @@ const history = computed(() =>
                 </RowField>
 
                 <div
-                  v-if="splitWarning(line) || Object.keys(lineErrors(line)).length"
+                  v-if="splitWarning(line) || Object.keys(lineErrors.errorsOf(line.key)).length"
                   class="col-span-full flex flex-col gap-1 md:basis-full"
                 >
                   <p v-if="splitWarning(line)" :class="HINT" data-testid="split-warning">
                     {{ t('ui.invoices.significantGoodSplit') }}
                   </p>
-                  <RowErrors :errors="lineErrors(line)" :fields="LINE_FIELDS" />
+                  <RowErrors :errors="lineErrors.errorsOf(line.key)" :fields="LINE_FIELDS" />
                 </div>
               </li>
             </ol>

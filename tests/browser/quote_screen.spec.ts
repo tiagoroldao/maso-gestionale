@@ -175,6 +175,49 @@ test.group('Quote screen in the browser', () => {
     assert.equal(Number(quote.lines[0].quantity), 5)
   })
 
+  test('removing a line after a refused save leaves each line its own errors (#289)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { quote } = await draftWithAValve()
+
+    const page = await visit(`/quotes/${quote.id}`)
+    const addText = page.getByRole('button', { name: it('ui.quotes.addText') })
+    const line = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.quotes.lineOf', { position }) })
+    const descriptionError = it('ui.common.fieldError', {
+      field: it('ui.quotes.description'),
+      message: '',
+    })
+    const descriptionOf = (position: number) =>
+      page.getByLabel(it('ui.quotes.descriptionOf', { position }))
+
+    // Refused: the text line, second, has no description
+    await addText.click()
+    await page.getByRole('button', { name: it('ui.quotes.save') }).click()
+    await line(2).getByText(descriptionError).waitFor()
+    assert.equal(await line(1).getByText(descriptionError).count(), 0)
+
+    // The valve removed: the text line, now first, keeps its error
+    await line(1)
+      .getByRole('button', { name: it('ui.quotes.removeLine') })
+      .click()
+    assert.equal(
+      await page.getByRole('listitem', { name: it('ui.quotes.lineOf', { position: '' }) }).count(),
+      1
+    )
+    await line(1).getByText(descriptionError).waitFor()
+    assert.equal(await descriptionOf(1).getAttribute('aria-invalid'), 'true')
+
+    // A line added since has none
+    await addText.click()
+    await line(2).waitFor()
+    assert.equal(await line(2).getByText(descriptionError).count(), 0)
+    assert.isNull(await descriptionOf(2).getAttribute('aria-invalid'))
+  })
+
   test("on a tablet, a line's fields keep one row under their heads", async ({
     browserContext,
     visit,

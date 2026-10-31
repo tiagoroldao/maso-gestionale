@@ -1,17 +1,42 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { router } from '@inertiajs/vue3'
-import { Form, Link } from '@adonisjs/inertia/vue'
-import { Trash2 } from 'lucide-vue-next'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
+/**
+ * A Legacy Invoice (#27), an Entity screen on the new UI (docs/ui.md): an
+ * invoice the previous software issued, kept as its totals and original
+ * PDF. A new one starts from its Customer (picked here unless the page was
+ * opened for a Customer or a Job), then is entered in edit mode, Save its
+ * primary. A saved one is edited in place on its own screen while nothing
+ * depends on it, its VAT rows (an advance's) edited in their rows; once it
+ * has Payments, deductions or Credit Notes it reads as text. Its header
+ * actions come from the server; its Credit Notes and Payments follow.
+ */
+import { computed, reactive, ref, watch } from 'vue'
+import { router, usePage } from '@inertiajs/vue3'
+import { Link } from '@adonisjs/inertia/vue'
+import { CircleAlert, Trash2 } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
 import CustomerPicker from '~/components/customer_picker.vue'
 import InvoicePayments from '~/components/invoice_payments.vue'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import StatusTag from '~/components/screen/status_tag.vue'
+import FormField from '~/components/screen/form_field.vue'
+import RowErrors from '~/components/screen/row_errors.vue'
+import { useSentRowErrors } from '~/components/screen/sent_row_errors'
+import RowField from '~/components/screen/row_field.vue'
+import RowHeads from '~/components/screen/row_heads.vue'
+import type { KeyFact } from '~/components/screen/key_facts.vue'
+import { EMPTY, INVOICE_TONES, LABEL, LINK, ROW, TOUCH } from '~/components/screen/screen'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
 import { urlFor } from '~/client'
-import { formatDate, formatMoney, t, todayIso } from '~/i18n'
+import { cn } from '~/lib/utils'
+import { formatMoney, t, todayIso } from '~/i18n'
+import { formatDate } from '@shared/dates'
 import { amountForInput } from '@shared/money'
 import type { AdvanceState } from '@shared/advances'
+import type { InvoiceStatus } from '@shared/invoice_lifecycle'
+import type { ScreenAction } from '@shared/screen_actions'
 
 type VatRow = {
   vatCodeId: number
@@ -22,6 +47,8 @@ type VatRow = {
 }
 
 const props = defineProps<{
+  // The header's actions, for its state: Save while it can change
+  actions: ScreenAction[]
   // Null for a new Legacy Invoice
   invoice: {
     id: number
@@ -44,9 +71,7 @@ const props = defineProps<{
   vatCodes: { id: number; name: string; rate: string }[]
   // Changed or deleted only while it has no Payments and no Invoice takes it back
   editable: boolean
-  // A Credit Note credits it by amounts (#27)
-  canCredit: boolean
-  creditNotes: { id: number; number: string | null; status: string; total: string | null }[]
+  creditNotes: { id: number; number: string | null; status: InvoiceStatus; total: string | null }[]
   advanceState: { state: AdvanceState; deducted: string; left: string } | null
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
   paymentSummary: {
@@ -58,349 +83,581 @@ const props = defineProps<{
   } | null
 }>()
 
+const page = usePage()
+const errors = computed(() => (page.props.errors ?? {}) as Record<string, string>)
+
+// The form Save submits (`LEGACY_INVOICE_FORM` on the server): the fields
+// sit in the screen's sections and name it
+const FORM = 'legacy-invoice-form'
 const today = todayIso()
 const input = (amount: string | undefined) => (amount ? amountForInput(amount) : '')
-const advance = ref(props.invoice?.advance ?? false)
-const paid = ref(false)
+
 let nextKey = 0
-const rows = ref(
+type Row = { key: number; vatCodeId: string; taxable: string }
+const rowsFromProps = (): Row[] =>
   (props.invoice?.vatRows ?? []).map((row) => ({
     key: nextKey++,
-    vatCodeId: row.vatCodeId as number | null,
+    vatCodeId: String(row.vatCodeId),
     taxable: input(row.taxable),
   }))
+
+/**
+ * The fields' values live in reactive state, so a refused save (the page
+ * reused, its errors shown) keeps what was typed.
+ */
+const valuesFromProps = () => ({
+  jobId: String(props.invoice ? (props.invoice.job?.id ?? '') : (props.jobId ?? '')),
+  number: props.invoice?.number ?? '',
+  issuedOn: props.invoice?.issuedOn ?? '',
+  dueOn: props.invoice?.dueOn ?? '',
+  taxable: input(props.invoice?.taxable),
+  vat: input(props.invoice?.vat),
+  total: input(props.invoice?.total),
+  advance: props.invoice?.advance ?? false,
+  paid: false,
+  paidOn: '',
+})
+const values = reactive(valuesFromProps())
+const rows = ref(rowsFromProps())
+/**
+ * Bumped after a save to remount the PDF's file input: the page stays, and
+ * a PDF still chosen there would be uploaded again by the next Save (#287).
+ */
+const pdfInput = ref(0)
+
+// After a save, show what the server has
+watch(
+  () => props.invoice,
+  () => {
+    if (Object.keys(errors.value).length) return
+    Object.assign(values, valuesFromProps())
+    rows.value = rowsFromProps()
+    rowErrors.reset()
+    pdfInput.value++
+  }
 )
-const addRow = () => rows.value.push({ key: nextKey++, vatCodeId: null, taxable: '' })
+
+const addRow = () =>
+  rows.value.push({ key: nextKey++, vatCodeId: String(props.vatCodes[0]?.id ?? ''), taxable: '' })
 const removeRow = (key: number) => (rows.value = rows.value.filter((row) => row.key !== key))
+
+const pickCustomer = (customer: { id: number }) =>
+  router.get(urlFor('legacy_invoices.create'), { customerId: customer.id })
+
+const processing = ref(false)
+
+/**
+ * Sends the form's fields as they are, the PDF with them; the server
+ * answers with the saved invoice's page, or the fields' errors.
+ */
+function save(event: Event) {
+  if (processing.value) return
+  rowErrors.send()
+  const url = props.invoice
+    ? urlFor('legacy_invoices.update', { id: props.invoice.id })
+    : urlFor('legacy_invoices.store')
+  router.post(url, new FormData(event.target as HTMLFormElement), {
+    preserveScroll: true,
+    onStart: () => (processing.value = true),
+    onFinish: () => (processing.value = false),
+  })
+}
+// The form is there once the Customer is known, and while the invoice can change
+const editing = computed(() => props.customer !== null && props.editable)
 
 const title = computed(() =>
   props.invoice
     ? t('ui.legacyInvoices.title', { number: props.invoice.number })
     : t('ui.legacyInvoices.newTitle')
 )
-const description = computed(() =>
+const facts = computed(() =>
   props.invoice
-    ? `${props.invoice.customer.displayName} · ${t('ui.legacyInvoices.description')}`
-    : t('ui.legacyInvoices.newDescription')
+    ? [
+        t(`ui.invoices.kinds.${props.invoice.advance ? 'advance' : 'invoice'}`),
+        t('ui.invoices.issuedOn', { date: formatDate(props.invoice.issuedOn) }),
+        t('ui.invoices.dueOn', { date: formatDate(props.invoice.dueOn) }),
+      ].join(' · ')
+    : ''
 )
-const pickCustomer = (customer: { id: number }) =>
-  router.get(urlFor('legacy_invoices.create'), { customerId: customer.id })
-const confirmDelete = () => window.confirm(t('ui.legacyInvoices.deleteConfirm'))
+const keyFacts = computed<KeyFact[]>(() => {
+  const { invoice, customer, paymentSummary } = props
+  if (!customer) return []
+  const customerFact = {
+    label: t('ui.invoices.customer'),
+    value: customer.displayName,
+    href: urlFor('customers.show', { id: customer.id }),
+  }
+  if (!invoice) return [customerFact]
+  return [
+    customerFact,
+    ...(invoice.job
+      ? [
+          {
+            label: t('ui.invoices.jobFact'),
+            value: invoice.job.number,
+            href: urlFor('jobs.show', { id: invoice.job.id }),
+          },
+        ]
+      : []),
+    {
+      label: t('ui.invoices.total'),
+      value: formatMoney(invoice.total),
+      amount: true,
+      hint: t('ui.invoices.totalHint', {
+        taxable: formatMoney(invoice.taxable),
+        vat: formatMoney(invoice.vat),
+      }),
+    },
+    ...(paymentSummary
+      ? [
+          {
+            label: t('ui.invoices.paidFact'),
+            value: formatMoney(paymentSummary.paid),
+            // Overpaid: by how much, never a negative amount to collect
+            hint: paymentSummary.overpaidBy
+              ? t('ui.invoices.overpaidBy', {
+                  paid: formatMoney(paymentSummary.paid),
+                  amount: formatMoney(paymentSummary.overpaidBy),
+                })
+              : Number(paymentSummary.owed) > 0
+                ? t('ui.invoices.owedHint', { amount: formatMoney(paymentSummary.owed) })
+                : undefined,
+          },
+        ]
+      : []),
+  ]
+})
+
+const codeName = (id: number) => props.vatCodes.find((code) => code.id === id)?.name ?? ''
+
+/**
+ * A VAT row: on the phone its fields stack, each named above it; from
+ * 768px one row under the column heads (`RowField`, `RowHeads`, #226).
+ */
+const VAT_ROW =
+  'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] items-end gap-x-3 gap-y-2 border-t border-border px-3.5 py-3 md:flex md:flex-wrap md:items-start md:gap-x-2 md:px-4'
+const CODE = 'md:w-48'
+const TAXABLE = 'md:w-36'
+const VAT = 'md:w-36 md:text-right'
+const editHeads = computed(() => [
+  { label: t('ui.legacyInvoices.vatCode'), class: CODE },
+  { label: t('ui.legacyInvoices.rowTaxable'), class: TAXABLE },
+])
+const readHeads = computed(() => [
+  ...editHeads.value,
+  { label: t('ui.legacyInvoices.rowVat'), class: VAT },
+])
+const ROW_FIELDS = computed(() => ({
+  vatCodeId: t('ui.legacyInvoices.vatCode'),
+  taxable: t('ui.legacyInvoices.rowTaxable'),
+}))
+// Each stays on its row when one is removed or added after a refused save
+const rowErrors = useSentRowErrors({
+  rows: () => rows.value,
+  errors,
+  name: 'vatRows',
+  fields: Object.keys(ROW_FIELDS.value),
+})
+
+const GRID = 'grid gap-4 md:grid-cols-3'
+const CHECK = 'flex min-h-11 items-center gap-2.5 text-sm font-medium md:min-h-0'
+const HINT = 'm-0 text-[13px] text-muted-foreground'
+const ERROR = 'm-0 flex items-start gap-1.5 text-sm text-destructive'
+const DT = cn(LABEL, 'text-[10px]')
+const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="title" :description="description">
-      <template v-if="invoice" #actions>
-        <Form v-if="canCredit" route="invoices.store_credit_note" :params="{ id: invoice.id }">
-          <button type="submit" class="btn btn--secondary btn--sm">
-            {{ t('ui.invoices.newCreditNote') }}
-          </button>
-        </Form>
-        <a
-          :href="urlFor('legacy_invoices.pdf', { id: invoice.id })"
-          target="_blank"
-          rel="noopener"
-          class="btn btn--secondary btn--sm"
-        >
-          {{ t('ui.legacyInvoices.openPdf', { name: invoice.pdfName }) }}
-        </a>
+    <EntityScreen
+      :document-title="title"
+      :crumbs="[{ label: t('ui.invoices.title'), href: urlFor('invoices.index') }]"
+      :current="invoice?.number ?? title"
+      :title="title"
+      :facts="facts"
+      :actions="actions"
+      :key-facts="keyFacts"
+      :busy="processing"
+    >
+      <template v-if="invoice" #tags>
+        <StatusTag tone="grey">{{ t('ui.invoices.legacy') }}</StatusTag>
       </template>
 
-      <Section v-if="!customer" :title="t('ui.legacyInvoices.customer')">
+      <!-- A new one: its Customer first -->
+      <ScreenSection
+        v-if="!customer"
+        :title="t('ui.legacyInvoices.customer')"
+        :description="t('ui.legacyInvoices.newDescription')"
+      >
         <CustomerPicker @select="pickCustomer" />
-      </Section>
+      </ScreenSection>
 
-      <template v-else>
-        <Section v-if="invoice && !editable" :title="t('ui.legacyInvoices.amounts')">
-          <p class="field__hint">{{ t('ui.legacyInvoices.locked') }}</p>
-          <dl class="details">
-            <dt>{{ t('ui.legacyInvoices.job') }}</dt>
-            <dd>
-              <Link
-                v-if="invoice.job"
-                route="jobs.show"
-                :params="{ id: invoice.job.id }"
-                class="il"
-              >
-                {{ invoice.job.number }} {{ invoice.job.title }}
-              </Link>
-              <template v-else>{{ t('ui.legacyInvoices.noJob') }}</template>
-            </dd>
-            <dt>{{ t('ui.legacyInvoices.issuedOn') }}</dt>
-            <dd>{{ formatDate(invoice.issuedOn) }}</dd>
-            <dt>{{ t('ui.legacyInvoices.dueOn') }}</dt>
-            <dd>{{ formatDate(invoice.dueOn) }}</dd>
-            <dt>{{ t('ui.legacyInvoices.taxable') }}</dt>
-            <dd>{{ formatMoney(invoice.taxable) }}</dd>
-            <dt>{{ t('ui.legacyInvoices.vat') }}</dt>
-            <dd>{{ formatMoney(invoice.vat) }}</dd>
-            <dt>{{ t('ui.legacyInvoices.total') }}</dt>
-            <dd>{{ formatMoney(invoice.total) }}</dd>
-          </dl>
-          <table v-if="invoice.advance" class="table">
-            <thead>
-              <tr>
-                <th>{{ t('ui.legacyInvoices.vatCode') }}</th>
-                <th :style="{ textAlign: 'right' }">{{ t('ui.legacyInvoices.rowTaxable') }}</th>
-                <th :style="{ textAlign: 'right' }">{{ t('ui.legacyInvoices.rowVat') }}</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="row in invoice.vatRows" :key="row.vatCodeId">
-                <td>{{ vatCodes.find((code) => code.id === row.vatCodeId)?.name }}</td>
-                <td :style="{ textAlign: 'right' }">{{ formatMoney(row.taxable) }}</td>
-                <td :style="{ textAlign: 'right' }">{{ formatMoney(row.vat) }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </Section>
-
-        <Form
-          v-else
-          v-slot="{ processing, errors }"
-          :route="invoice ? 'legacy_invoices.update' : 'legacy_invoices.store'"
-          :params="invoice ? { id: invoice.id } : undefined"
+      <template v-if="customer" #main>
+        <ScreenSection
+          :title="t('ui.legacyInvoices.details')"
+          :description="
+            invoice ? t('ui.legacyInvoices.description') : t('ui.legacyInvoices.newDescription')
+          "
         >
-          <Section :title="t('ui.legacyInvoices.customer')">
-            <input type="hidden" name="customerId" :value="customer.id" />
-            <p>
-              <strong>{{ customer.displayName }}</strong>
-            </p>
-            <div class="field" :style="{ maxWidth: '420px' }">
-              <label class="field__label" for="legacy-job">{{ t('ui.legacyInvoices.job') }}</label>
-              <select id="legacy-job" name="jobId" class="field__input">
+          <template v-if="editing">
+            <input type="hidden" name="customerId" :value="customer.id" :form="FORM" />
+            <FormField
+              id="legacy-job"
+              v-slot="field"
+              :label="t('ui.legacyInvoices.job')"
+              :error="errors.jobId"
+            >
+              <NativeSelect
+                :id="field.id"
+                v-model="values.jobId"
+                name="jobId"
+                :form="FORM"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              >
                 <option value="">{{ t('ui.legacyInvoices.noJob') }}</option>
-                <option
-                  v-for="job in jobs"
-                  :key="job.id"
-                  :value="job.id"
-                  :selected="job.id === jobId"
-                >
+                <option v-for="job in jobs" :key="job.id" :value="String(job.id)">
                   {{ job.number }} {{ job.title }}
                 </option>
-              </select>
-              <span v-if="errors.jobId" class="field__error">{{ errors.jobId }}</span>
-            </div>
-          </Section>
-
-          <Section :title="t('ui.legacyInvoices.amounts')">
-            <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-              <div class="field">
-                <label class="field__label" for="legacy-number">
-                  {{ t('ui.legacyInvoices.number') }}
-                </label>
-                <input
-                  id="legacy-number"
+              </NativeSelect>
+            </FormField>
+            <div :class="GRID">
+              <FormField
+                id="legacy-number"
+                v-slot="field"
+                :label="t('ui.legacyInvoices.number')"
+                :hint="t('ui.legacyInvoices.numberHint')"
+                :error="errors.number"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.number"
                   name="number"
-                  class="field__input mono"
-                  :value="invoice?.number ?? ''"
+                  :form="FORM"
+                  :class="cn(TOUCH, 'font-mono')"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span class="field__hint">{{ t('ui.legacyInvoices.numberHint') }}</span>
-                <span v-if="errors.number" class="field__error">{{ errors.number }}</span>
-              </div>
-              <div class="field">
-                <label class="field__label" for="legacy-issued-on">
-                  {{ t('ui.legacyInvoices.issuedOn') }}
-                </label>
-                <input
-                  id="legacy-issued-on"
+              </FormField>
+              <FormField
+                id="legacy-issued-on"
+                v-slot="field"
+                :label="t('ui.legacyInvoices.issuedOn')"
+                :error="errors.issuedOn"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.issuedOn"
                   name="issuedOn"
                   type="date"
                   :max="today"
-                  class="field__input"
-                  :value="invoice?.issuedOn ?? ''"
+                  :form="FORM"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span v-if="errors.issuedOn" class="field__error">{{ errors.issuedOn }}</span>
-              </div>
-              <div class="field">
-                <label class="field__label" for="legacy-due-on">
-                  {{ t('ui.legacyInvoices.dueOn') }}
-                </label>
-                <input
-                  id="legacy-due-on"
+              </FormField>
+              <FormField
+                id="legacy-due-on"
+                v-slot="field"
+                :label="t('ui.legacyInvoices.dueOn')"
+                :hint="t('ui.legacyInvoices.dueOnHint')"
+                :error="errors.dueOn"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.dueOn"
                   name="dueOn"
                   type="date"
-                  class="field__input"
-                  :value="invoice?.dueOn ?? ''"
+                  :form="FORM"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span class="field__hint">{{ t('ui.legacyInvoices.dueOnHint') }}</span>
-                <span v-if="errors.dueOn" class="field__error">{{ errors.dueOn }}</span>
-              </div>
-            </div>
-            <div :style="{ display: 'flex', gap: '8px', flexWrap: 'wrap' }">
-              <div class="field">
-                <label class="field__label" for="legacy-taxable">
-                  {{ t('ui.legacyInvoices.taxable') }}
-                </label>
-                <input
-                  id="legacy-taxable"
+              </FormField>
+              <FormField
+                id="legacy-taxable"
+                v-slot="field"
+                :label="t('ui.legacyInvoices.taxable')"
+                :error="errors.taxable"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.taxable"
                   name="taxable"
                   inputmode="decimal"
-                  class="field__input"
-                  :value="input(invoice?.taxable)"
+                  :form="FORM"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span v-if="errors.taxable" class="field__error">{{ errors.taxable }}</span>
-              </div>
-              <div class="field">
-                <label class="field__label" for="legacy-vat">{{
-                  t('ui.legacyInvoices.vat')
-                }}</label>
-                <input
-                  id="legacy-vat"
+              </FormField>
+              <FormField
+                id="legacy-vat"
+                v-slot="field"
+                :label="t('ui.legacyInvoices.vat')"
+                :error="errors.vat"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.vat"
                   name="vat"
                   inputmode="decimal"
-                  class="field__input"
-                  :value="input(invoice?.vat)"
+                  :form="FORM"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span v-if="errors.vat" class="field__error">{{ errors.vat }}</span>
-              </div>
-              <div class="field">
-                <label class="field__label" for="legacy-total">
-                  {{ t('ui.legacyInvoices.total') }}
-                </label>
-                <input
-                  id="legacy-total"
+              </FormField>
+              <FormField
+                id="legacy-total"
+                v-slot="field"
+                :label="t('ui.legacyInvoices.total')"
+                :error="errors.total"
+              >
+                <Input
+                  :id="field.id"
+                  v-model="values.total"
                   name="total"
                   inputmode="decimal"
-                  class="field__input"
-                  :value="input(invoice?.total)"
+                  :form="FORM"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span v-if="errors.total" class="field__error">{{ errors.total }}</span>
-              </div>
+              </FormField>
             </div>
-          </Section>
+          </template>
 
-          <Section :title="t('ui.legacyInvoices.vatRows')">
-            <label>
-              <input v-model="advance" type="checkbox" name="advance" value="1" />
+          <!-- Frozen: its values as text, in the fields' places -->
+          <template v-else-if="invoice">
+            <p :class="HINT">{{ t('ui.legacyInvoices.locked') }}</p>
+            <dl
+              class="m-0 grid grid-cols-2 gap-4 text-sm md:grid-cols-3"
+              data-testid="legacy-amounts"
+            >
+              <div class="col-span-2 flex flex-col gap-0.5 md:col-span-3">
+                <dt :class="DT">{{ t('ui.legacyInvoices.job') }}</dt>
+                <dd class="m-0">
+                  <Link
+                    v-if="invoice.job"
+                    route="jobs.show"
+                    :params="{ id: invoice.job.id }"
+                    :class="LINK"
+                  >
+                    {{ invoice.job.number }} {{ invoice.job.title }}
+                  </Link>
+                  <template v-else>{{ t('ui.legacyInvoices.noJob') }}</template>
+                </dd>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <dt :class="DT">{{ t('ui.legacyInvoices.number') }}</dt>
+                <dd class="m-0 font-mono">{{ invoice.number }}</dd>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <dt :class="DT">{{ t('ui.legacyInvoices.issuedOn') }}</dt>
+                <dd class="m-0">{{ formatDate(invoice.issuedOn) }}</dd>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <dt :class="DT">{{ t('ui.legacyInvoices.dueOn') }}</dt>
+                <dd class="m-0">{{ formatDate(invoice.dueOn) }}</dd>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <dt :class="DT">{{ t('ui.legacyInvoices.taxable') }}</dt>
+                <dd class="m-0">{{ formatMoney(invoice.taxable) }}</dd>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <dt :class="DT">{{ t('ui.legacyInvoices.vat') }}</dt>
+                <dd class="m-0">{{ formatMoney(invoice.vat) }}</dd>
+              </div>
+              <div class="flex flex-col gap-0.5">
+                <dt :class="DT">{{ t('ui.legacyInvoices.total') }}</dt>
+                <dd class="m-0 font-semibold">{{ formatMoney(invoice.total) }}</dd>
+              </div>
+            </dl>
+          </template>
+        </ScreenSection>
+
+        <!-- An advance's VAT rows, as on its PDF: later Invoices take them back -->
+        <ScreenSection
+          v-if="editing || invoice?.advance"
+          :title="t('ui.legacyInvoices.vatRows')"
+          flush
+        >
+          <template v-if="editing && values.advance" #actions>
+            <Button type="button" variant="outline" :class="TOUCH" @click="addRow">
+              {{ t('ui.legacyInvoices.addRow') }}
+            </Button>
+          </template>
+          <div class="flex flex-col gap-1.5 px-3.5 pb-3 md:px-4">
+            <label v-if="editing" :class="CHECK">
+              <input
+                v-model="values.advance"
+                type="checkbox"
+                name="advance"
+                value="1"
+                :form="FORM"
+                class="size-4"
+              />
               {{ t('ui.legacyInvoices.advance') }}
             </label>
-            <p class="field__hint">{{ t('ui.legacyInvoices.advanceHint') }}</p>
-            <template v-if="advance">
-              <table v-if="rows.length" class="table">
-                <thead>
-                  <tr>
-                    <th>{{ t('ui.legacyInvoices.vatCode') }}</th>
-                    <th>{{ t('ui.legacyInvoices.rowTaxable') }}</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="(row, index) in rows" :key="row.key">
-                    <td>
-                      <select
-                        v-model="row.vatCodeId"
-                        :name="`vatRows[${index}][vatCodeId]`"
-                        class="field__input"
-                        :aria-label="t('ui.legacyInvoices.vatCodeOf', { position: index + 1 })"
-                      >
-                        <option v-for="code in vatCodes" :key="code.id" :value="code.id">
-                          {{ code.name }}
-                        </option>
-                      </select>
-                    </td>
-                    <td>
-                      <input
-                        v-model="row.taxable"
-                        :name="`vatRows[${index}][taxable]`"
-                        inputmode="decimal"
-                        class="field__input"
-                        :aria-label="t('ui.legacyInvoices.rowTaxableOf', { position: index + 1 })"
-                      />
-                    </td>
-                    <td class="table__actions">
-                      <button
-                        type="button"
-                        class="btn btn--ghost btn--sm"
-                        @click="removeRow(row.key)"
-                      >
-                        {{ t('ui.legacyInvoices.removeRow') }}
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-              <button type="button" class="btn btn--secondary btn--sm" @click="addRow">
-                {{ t('ui.legacyInvoices.addRow') }}
-              </button>
-              <span v-if="errors.vatRows" class="field__error">{{ errors.vatRows }}</span>
-            </template>
-          </Section>
+            <p v-if="editing" :class="HINT">{{ t('ui.legacyInvoices.advanceHint') }}</p>
+            <p v-if="advanceState" class="m-0 text-sm" data-testid="advance-state">
+              {{
+                t('ui.legacyInvoices.advanceState', {
+                  state: t(`ui.invoices.advanceStates.${advanceState.state}`, {
+                    amount: formatMoney(advanceState.deducted),
+                  }),
+                  left: formatMoney(advanceState.left),
+                })
+              }}
+            </p>
+          </div>
 
-          <Section v-if="!invoice" :title="t('ui.legacyInvoices.paid')">
-            <label>
-              <input v-model="paid" type="checkbox" name="paid" value="1" />
+          <template v-if="editing && values.advance">
+            <template v-if="rows.length">
+              <RowHeads :heads="editHeads" />
+              <ol class="m-0 list-none p-0">
+                <li
+                  v-for="(row, index) in rows"
+                  :key="row.key"
+                  :class="VAT_ROW"
+                  :aria-label="t('ui.legacyInvoices.rowOf', { position: index + 1 })"
+                >
+                  <RowField :label="t('ui.legacyInvoices.vatCode')" :class="CODE">
+                    <NativeSelect
+                      v-model="row.vatCodeId"
+                      :name="`vatRows[${index}][vatCodeId]`"
+                      :form="FORM"
+                      :aria-label="t('ui.legacyInvoices.vatCodeOf', { position: index + 1 })"
+                      :aria-invalid="rowErrors.invalid(row.key, 'vatCodeId')"
+                    >
+                      <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
+                        {{ code.name }}
+                      </option>
+                    </NativeSelect>
+                  </RowField>
+                  <RowField :label="t('ui.legacyInvoices.rowTaxable')" :class="TAXABLE">
+                    <Input
+                      v-model="row.taxable"
+                      :name="`vatRows[${index}][taxable]`"
+                      inputmode="decimal"
+                      :form="FORM"
+                      :class="TOUCH"
+                      :aria-label="t('ui.legacyInvoices.rowTaxableOf', { position: index + 1 })"
+                      :aria-invalid="rowErrors.invalid(row.key, 'taxable')"
+                    />
+                  </RowField>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-touch"
+                    class="md:ml-auto md:size-9"
+                    :aria-label="t('ui.legacyInvoices.removeRowOf', { position: index + 1 })"
+                    @click="removeRow(row.key)"
+                  >
+                    <Trash2 aria-hidden="true" />
+                  </Button>
+                  <div
+                    v-if="Object.keys(rowErrors.errorsOf(row.key)).length"
+                    class="col-span-full flex flex-col gap-1 md:basis-full"
+                  >
+                    <RowErrors :errors="rowErrors.errorsOf(row.key)" :fields="ROW_FIELDS" />
+                  </div>
+                </li>
+              </ol>
+            </template>
+            <p v-else :class="EMPTY">{{ t('ui.legacyInvoices.noRows') }}</p>
+            <p
+              v-if="errors.vatRows"
+              :class="cn(ERROR, 'border-t border-border px-3.5 py-3 md:px-4')"
+            >
+              <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+              {{ errors.vatRows }}
+            </p>
+          </template>
+
+          <!-- Frozen: the rows as text -->
+          <template v-else-if="!editing && invoice?.advance">
+            <RowHeads :heads="readHeads" />
+            <ol class="m-0 list-none p-0" data-testid="legacy-vat-rows">
+              <li v-for="row in invoice.vatRows" :key="row.vatCodeId" :class="VAT_ROW">
+                <RowField :label="t('ui.legacyInvoices.vatCode')" :class="CODE">
+                  <span :class="READ">{{ codeName(row.vatCodeId) }}</span>
+                </RowField>
+                <RowField :label="t('ui.legacyInvoices.rowTaxable')" :class="TAXABLE">
+                  <span :class="READ">{{ formatMoney(row.taxable) }}</span>
+                </RowField>
+                <RowField :label="t('ui.legacyInvoices.rowVat')" :class="cn(VAT, 'md:items-end')">
+                  <span :class="READ">{{ formatMoney(row.vat) }}</span>
+                </RowField>
+              </li>
+            </ol>
+          </template>
+        </ScreenSection>
+      </template>
+
+      <template v-if="customer" #side>
+        <template v-if="editing">
+          <!-- A new one already paid: one Payment for its total -->
+          <ScreenSection v-if="!invoice" :title="t('ui.legacyInvoices.paid')">
+            <label :class="CHECK">
+              <input
+                v-model="values.paid"
+                type="checkbox"
+                name="paid"
+                value="1"
+                :form="FORM"
+                class="size-4"
+              />
               {{ t('ui.legacyInvoices.paidHint') }}
             </label>
-            <div v-if="paid" class="field" :style="{ maxWidth: '240px' }">
-              <label class="field__label" for="legacy-paid-on">
-                {{ t('ui.legacyInvoices.paidOn') }}
-              </label>
-              <input
-                id="legacy-paid-on"
+            <FormField
+              v-if="values.paid"
+              id="legacy-paid-on"
+              v-slot="field"
+              :label="t('ui.legacyInvoices.paidOn')"
+              :hint="t('ui.legacyInvoices.paidOnHint')"
+              :error="errors.paidOn"
+            >
+              <Input
+                :id="field.id"
+                v-model="values.paidOn"
                 name="paidOn"
                 type="date"
                 :max="today"
-                class="field__input"
+                :form="FORM"
+                :class="TOUCH"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
               />
-              <span class="field__hint">{{ t('ui.legacyInvoices.paidOnHint') }}</span>
-              <span v-if="errors.paidOn" class="field__error">{{ errors.paidOn }}</span>
-            </div>
-          </Section>
+            </FormField>
+          </ScreenSection>
 
-          <Section
-            :title="invoice ? t('ui.legacyInvoices.pdfReplace') : t('ui.legacyInvoices.pdf')"
-          >
-            <input
+          <ScreenSection :title="t('ui.legacyInvoices.pdfSection')">
+            <FormField
               id="legacy-pdf"
-              name="pdf"
-              type="file"
-              accept=".pdf"
-              :aria-label="t('ui.legacyInvoices.pdf')"
-            />
-            <span v-if="errors.pdf" class="field__error">{{ errors.pdf }}</span>
-          </Section>
-
-          <Section>
-            <button type="submit" class="btn btn--primary" :disabled="processing">
-              {{ invoice ? t('ui.legacyInvoices.save') : t('ui.legacyInvoices.create') }}
-            </button>
-          </Section>
-        </Form>
-
-        <Section v-if="advanceState">
-          <p data-testid="advance-state">
-            {{
-              t('ui.legacyInvoices.advanceState', {
-                state: t(`ui.invoices.advanceStates.${advanceState.state}`, {
-                  amount: formatMoney(advanceState.deducted),
-                }),
-                left: formatMoney(advanceState.left),
-              })
-            }}
-          </p>
-        </Section>
-
-        <Section v-if="creditNotes.length" :title="t('ui.invoices.creditNotesTitle')">
-          <table class="table">
-            <tbody>
-              <tr v-for="note in creditNotes" :key="note.id">
-                <td>
-                  <Link route="invoices.edit" :params="{ id: note.id }" class="il">
-                    {{ note.number ?? t('ui.invoices.creditNoteDraftTitle') }}
-                  </Link>
-                </td>
-                <td>
-                  <span class="tag">{{ t(`ui.invoices.statuses.${note.status}`) }}</span>
-                </td>
-                <td :style="{ textAlign: 'right' }">
-                  {{ note.total ? formatMoney(note.total) : '' }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </Section>
+              v-slot="field"
+              :label="invoice ? t('ui.legacyInvoices.pdfReplace') : t('ui.legacyInvoices.pdf')"
+              :hint="
+                invoice ? t('ui.legacyInvoices.pdfKept', { name: invoice.pdfName }) : undefined
+              "
+              :error="errors.pdf"
+            >
+              <Input
+                :id="field.id"
+                :key="pdfInput"
+                name="pdf"
+                type="file"
+                accept=".pdf"
+                :form="FORM"
+                :class="cn(TOUCH, 'py-2 md:py-1')"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
+              />
+            </FormField>
+          </ScreenSection>
+        </template>
 
         <InvoicePayments
           v-if="invoice && paymentSummary"
@@ -409,18 +666,30 @@ const confirmDelete = () => window.confirm(t('ui.legacyInvoices.deleteConfirm'))
           :summary="paymentSummary"
         />
 
-        <Section v-if="invoice && editable">
-          <Form
-            route="legacy_invoices.destroy"
-            :params="{ id: invoice.id }"
-            :on-before="confirmDelete"
-          >
-            <button type="submit" class="btn btn--ghost btn--sm">
-              <Trash2 :size="14" /> {{ t('ui.legacyInvoices.delete') }}
-            </button>
-          </Form>
-        </Section>
+        <ScreenSection v-if="creditNotes.length" :title="t('ui.invoices.creditNotesTitle')" flush>
+          <ul class="m-0 list-none p-0" data-testid="credit-notes">
+            <li v-for="note in creditNotes" :key="note.id" :class="cn(ROW, 'items-center md:px-4')">
+              <Link
+                route="invoices.edit"
+                :params="{ id: note.id }"
+                :class="cn(LINK, 'min-w-0 flex-1 text-sm')"
+              >
+                {{ note.number ?? t('ui.invoices.creditNoteDraftTitle') }}
+              </Link>
+              <StatusTag :tone="INVOICE_TONES[note.status]">
+                {{ t(`ui.invoices.statuses.${note.status}`) }}
+              </StatusTag>
+              <span class="min-w-20 text-right text-sm font-semibold">
+                {{ note.total ? formatMoney(note.total) : '' }}
+              </span>
+            </li>
+          </ul>
+        </ScreenSection>
       </template>
-    </Page>
+    </EntityScreen>
+
+    <!-- What Save submits (the header's button names it). The fields name it
+         too (`form`), so Enter in them saves; the Customer search stays out -->
+    <form v-if="editing" :id="FORM" class="hidden" @submit.prevent="save" />
   </AppLayout>
 </template>

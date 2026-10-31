@@ -21,6 +21,7 @@ import ScreenSection from '~/components/screen/screen_section.vue'
 import StatusTag from '~/components/screen/status_tag.vue'
 import FormField from '~/components/screen/form_field.vue'
 import RowErrors from '~/components/screen/row_errors.vue'
+import { useSentRowErrors } from '~/components/screen/sent_row_errors'
 import RowField from '~/components/screen/row_field.vue'
 import RowHeads from '~/components/screen/row_heads.vue'
 import type { KeyFact } from '~/components/screen/key_facts.vue'
@@ -160,6 +161,7 @@ watch(
   () => {
     if (Object.keys(errors.value).length) return
     lines.splice(0, lines.length, ...linesFromProps())
+    lineErrors.reset()
     notes.value = props.quote?.notes ?? ''
     validityDays.value = props.quote?.validityDays ?? ''
     saved.value = snapshot()
@@ -264,6 +266,7 @@ function move(index: number, offset: number) {
 
 function save() {
   if (processing.value) return
+  lineErrors.send()
   const body = {
     notes: notes.value,
     ...(validityDays.value !== '' && { validityDays: validityDays.value }),
@@ -343,15 +346,13 @@ const LINE_FIELDS = computed(() => ({
   unitPrice: t('ui.quotes.unitPrice'),
   vatCodeId: t('ui.quotes.vatCode'),
 }))
-const lineErrors = (index: number) =>
-  Object.fromEntries(
-    Object.keys(LINE_FIELDS.value).flatMap((field) => {
-      const message = errors.value[`lines.${index}.${field}`]
-      return message ? [[field, message]] : []
-    })
-  ) as Record<string, string>
-const invalid = (index: number, field: string) =>
-  errors.value[`lines.${index}.${field}`] ? 'true' : undefined
+// Each stays on its line when one is removed, moved or added after a refused save
+const lineErrors = useSentRowErrors({
+  rows: () => lines,
+  errors,
+  name: 'lines',
+  fields: Object.keys(LINE_FIELDS.value),
+})
 
 // Importing lines as Charges (ADR 0012): every priced line chosen at first
 const priced = computed(() => (props.quote?.lines ?? []).filter((line) => line.kind !== 'text'))
@@ -536,7 +537,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                   :class="FIELD"
                   :disabled="!editable"
                   :aria-label="t('ui.quotes.descriptionOf', { position: index + 1 })"
-                  :aria-invalid="invalid(index, 'description')"
+                  :aria-invalid="lineErrors.invalid(line.key, 'description')"
                 />
               </div>
 
@@ -550,7 +551,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                       :class="FIELD"
                       :disabled="!editable"
                       :aria-label="t('ui.quotes.quantityOf', { position: index + 1 })"
-                      :aria-invalid="invalid(index, 'quantity')"
+                      :aria-invalid="lineErrors.invalid(line.key, 'quantity')"
                     />
                     <span v-if="line.unit" class="text-[13px] text-muted-foreground">
                       {{ line.unit }}
@@ -565,7 +566,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                     :class="FIELD"
                     :disabled="!editable"
                     :aria-label="t('ui.quotes.unitPriceOf', { position: index + 1 })"
-                    :aria-invalid="invalid(index, 'unitPrice')"
+                    :aria-invalid="lineErrors.invalid(line.key, 'unitPrice')"
                   />
                 </RowField>
                 <RowField :label="t('ui.quotes.vatCode')" :class="cn('col-span-2', VAT)">
@@ -573,7 +574,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
                     :model-value="line.vatCodeId === null ? '' : String(line.vatCodeId)"
                     :disabled="!editable"
                     :aria-label="t('ui.quotes.vatCodeOf', { position: index + 1 })"
-                    :aria-invalid="invalid(index, 'vatCodeId')"
+                    :aria-invalid="lineErrors.invalid(line.key, 'vatCodeId')"
                     @update:model-value="(value) => (line.vatCodeId = value ? Number(value) : null)"
                   >
                     <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
@@ -601,10 +602,10 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
               </template>
 
               <div
-                v-if="Object.keys(lineErrors(index)).length"
+                v-if="Object.keys(lineErrors.errorsOf(line.key)).length"
                 class="col-span-full flex flex-col gap-1 md:basis-full"
               >
-                <RowErrors :errors="lineErrors(index)" :fields="LINE_FIELDS" />
+                <RowErrors :errors="lineErrors.errorsOf(line.key)" :fields="LINE_FIELDS" />
               </div>
             </li>
           </ol>

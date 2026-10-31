@@ -107,7 +107,11 @@ test.group('Credit Notes on Legacy Invoices', () => {
     const invoice = await legacy(await createCustomer())
 
     const page = await client.get(`/invoices/${invoice.id}/legacy`).withInertia().loginAs(office)
-    page.assertInertiaPropsContains({ canCredit: true, creditNotes: [] })
+    page.assertInertiaPropsContains({ creditNotes: [] })
+    assert.include(
+      page.inertiaProps.actions.map((action: { name: string }) => action.name),
+      'creditNote'
+    )
     const response = await client
       .post(`/invoices/${invoice.id}/credit-notes`)
       .withCsrfToken()
@@ -329,7 +333,10 @@ test.group('Credit Notes on Legacy Invoices', () => {
     })
     // Nothing left to credit now
     const shown = await client.get(`/invoices/${advance.id}/legacy`).withInertia().loginAs(office)
-    shown.assertInertiaPropsContains({ canCredit: false })
+    assert.notInclude(
+      shown.inertiaProps.actions.map((action: { name: string }) => action.name),
+      'creditNote'
+    )
   })
 
   test('Technicians and the Superuser can not credit one; Admins can', async ({
