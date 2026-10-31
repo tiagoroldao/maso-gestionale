@@ -65,7 +65,7 @@
   --color-sidebar-border: #222326;
   --color-sidebar-chip: #26272b;
 
-  /* Status: blue planned, orange in progress or to bill, green done or paid, grey draft */
+  /* Status: blue planned, orange in progress or to bill, green done or paid, grey draft, red a problem */
   --color-blue: #1d56c4;
   --color-blue-tint: #e6eefc;
   --color-orange: #9a4a06;
@@ -74,6 +74,8 @@
   --color-green-tint: #e3f2e9;
   --color-grey: #4f535a;
   --color-grey-tint: #ececef;
+  --color-red: #b3121c;
+  --color-red-tint: #fce8e8;
 
   --font-sans: 'Inter Variable', Inter, system-ui, sans-serif;
   --font-display: Montserrat, 'Inter Variable', Inter, system-ui, sans-serif;
@@ -121,4 +123,6 @@
   --color-green-tint: #11301f;
   --color-grey: #b9bcc2;
   --color-grey-tint: #25262b;
+  --color-red: #ff9a96;
+  --color-red-tint: #3a1616;
 }

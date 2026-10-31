@@ -9,7 +9,7 @@
  */
 import { computed } from 'vue'
 import { Link } from '@adonisjs/inertia/vue'
-import type { JobIndicators } from '@shared/jobs'
+import type { JobIndicators, JobStatus } from '@shared/jobs'
 import type { QuoteStatus } from '@shared/quotes'
 import { formatDate, t } from '~/i18n'
 import { cn } from '~/lib/utils'
@@ -20,7 +20,7 @@ export type JobRow = {
   id: number
   number: string
   title: string
-  status: string
+  status: JobStatus
   // Shown beside the status (ADR 0015)
   indicators: JobIndicators | null
   customer: { id: number; displayName: string } | null
@@ -82,7 +82,7 @@ const quotes = (job: JobRow) =>
             </td>
             <td :class="TD">
               <span class="flex flex-wrap gap-1.5">
-                <StatusTag :tone="JOB_TONES[job.status as keyof typeof JOB_TONES] ?? 'grey'">
+                <StatusTag :tone="JOB_TONES[job.status]">
                   {{ t(`ui.jobs.statuses.${job.status}`) }}
                 </StatusTag>
                 <StatusTag
@@ -121,7 +121,7 @@ const quotes = (job: JobRow) =>
             {{ quotes(job).join(', ') }}
           </span>
           <span class="flex flex-wrap gap-1.5">
-            <StatusTag :tone="JOB_TONES[job.status as keyof typeof JOB_TONES] ?? 'grey'">
+            <StatusTag :tone="JOB_TONES[job.status]">
               {{ t(`ui.jobs.statuses.${job.status}`) }}
             </StatusTag>
             <StatusTag v-for="key in indicators(job)" :key="key" :tone="JOB_INDICATOR_TONES[key]">
