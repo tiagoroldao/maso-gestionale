@@ -49,6 +49,19 @@ export function invoiceLineTotal(quantity: string, unitPrice: string, discountPe
   return cents(gross.times(new Big(100).minus(discountPercent)).div(100)).toFixed(2)
 }
 
+// The most a line discount can be, in percent (the validator's limit too)
+export const LINE_DISCOUNT_MAX = '100'
+
+/**
+ * Whether a discount is one a line can carry, 0 to 100%. A line outside it
+ * is refused on save; its amount (negative over 100%) mustn't be baked
+ * into a merged or folded line's price.
+ */
+export function discountInRange(discountPercent = '0') {
+  const discount = new Big(discountPercent)
+  return discount.gte(0) && discount.lte(LINE_DISCOUNT_MAX)
+}
+
 /**
  * Splits `amount` (in cents) across `weights` in proportion, so the parts
  * add up exactly. Weights may be negative (a deduction line's VAT row):

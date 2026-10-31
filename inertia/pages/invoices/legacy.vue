@@ -160,6 +160,10 @@ function save(event: Event) {
     preserveScroll: true,
     onStart: () => (processing.value = true),
     onFinish: () => (processing.value = false),
+    // Without an answer, the errors on screen stay those of the last one
+    onCancel: rowErrors.cancel,
+    onNetworkError: rowErrors.cancel,
+    onHttpException: rowErrors.cancel,
   })
 }
 // The form is there once the Customer is known, and while the invoice can change

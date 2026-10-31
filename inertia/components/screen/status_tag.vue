@@ -1,8 +1,10 @@
 <script setup lang="ts">
 /**
  * A status in a tinted tag (docs/ui.md "Look"): its words in sentence
- * case, the colour only a second cue. Tones per record in `screen.ts`.
+ * case, the colour only a second cue. A problem (red) also shows an icon,
+ * as errors do. Tones per record in `screen.ts`.
  */
+import { CircleAlert } from 'lucide-vue-next'
 import { cn } from '~/lib/utils'
 import type { Tone } from './screen'
 
@@ -13,6 +15,7 @@ const TONE_CLASSES: Record<Tone, string> = {
   orange: 'bg-orange-tint text-orange',
   green: 'bg-green-tint text-green',
   grey: 'bg-grey-tint text-grey',
+  red: 'bg-red-tint text-red',
 }
 </script>
 
@@ -20,11 +23,12 @@ const TONE_CLASSES: Record<Tone, string> = {
   <span
     :class="
       cn(
-        'inline-flex h-[22px] shrink-0 items-center rounded-sm px-2 font-sans text-xs font-semibold whitespace-nowrap',
+        'inline-flex h-[22px] shrink-0 items-center gap-1 rounded-sm px-2 font-sans text-xs font-semibold whitespace-nowrap',
         TONE_CLASSES[tone]
       )
     "
   >
+    <CircleAlert v-if="tone === 'red'" class="size-3.5 shrink-0" aria-hidden="true" />
     <slot />
   </span>
 </template>
