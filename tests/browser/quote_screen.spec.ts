@@ -6,6 +6,7 @@ import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
+import { holdSave } from '#tests/helpers/screen'
 import { it } from '#tests/helpers/i18n'
 import { seriousA11yViolations } from '#tests/helpers/axe'
 import { SCREEN_SIZES } from '#shared/screen_sizes'
@@ -216,6 +217,63 @@ test.group('Quote screen in the browser', () => {
     await line(2).waitFor()
     assert.equal(await line(2).getByText(descriptionError).count(), 0)
     assert.isNull(await descriptionOf(2).getAttribute('aria-invalid'))
+  })
+
+  test("moving a line after a refused save takes its errors along; a save in flight doesn't move them (#292)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { quote } = await draftWithAValve()
+
+    const page = await visit(`/quotes/${quote.id}`)
+    const line = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.quotes.lineOf', { position }) })
+    const descriptionError = it('ui.common.fieldError', {
+      field: it('ui.quotes.description'),
+      message: '',
+    })
+    const hasError = async (position: number) =>
+      (await line(position).getByText(descriptionError).count()) === 1
+
+    // Refused: the text line, second, has no description
+    await page.getByRole('button', { name: it('ui.quotes.addText') }).click()
+    await page.getByRole('button', { name: it('ui.quotes.save') }).click()
+    await line(2).getByText(descriptionError).waitFor()
+
+    // Up, first: its error goes with it; down again, back to second
+    await line(2)
+      .getByRole('button', { name: it('ui.quotes.moveUp') })
+      .click()
+    await line(1).getByText(descriptionError).waitFor()
+    assert.isFalse(await hasError(2))
+    assert.equal(
+      await page
+        .getByLabel(it('ui.quotes.descriptionOf', { position: 1 }))
+        .getAttribute('aria-invalid'),
+      'true'
+    )
+    await line(1)
+      .getByRole('button', { name: it('ui.quotes.moveDown') })
+      .click()
+    await line(2).getByText(descriptionError).waitFor()
+    assert.isFalse(await hasError(1))
+
+    // Up again and saved, held: until its answer the error stays where it is
+    await line(2)
+      .getByRole('button', { name: it('ui.quotes.moveUp') })
+      .click()
+    await line(1).getByText(descriptionError).waitFor()
+    const save = await holdSave(page, { method: 'PUT', path: `/quotes/${quote.id}` })
+    await page.getByRole('button', { name: it('ui.quotes.save') }).click()
+    await save.sent
+    assert.isTrue(await hasError(1))
+    assert.isFalse(await hasError(2))
+    save.answer()
+    await save.answered
+    await line(1).getByText(descriptionError).waitFor()
+    assert.isFalse(await hasError(2))
   })
 
   test("on a tablet, a line's fields keep one row under their heads", async ({

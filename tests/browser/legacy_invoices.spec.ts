@@ -12,7 +12,7 @@ import { createCustomer } from '#tests/helpers/customers'
 import { createJob } from '#tests/helpers/jobs'
 import { vatCode } from '#tests/helpers/items'
 import { it } from '#tests/helpers/i18n'
-import { chooseMoreAction } from '#tests/helpers/screen'
+import { chooseMoreAction, holdSave } from '#tests/helpers/screen'
 import { seriousA11yViolations } from '#tests/helpers/axe'
 import { SCREEN_SIZES } from '#shared/screen_sizes'
 import Payments from '#services/payments'
@@ -240,28 +240,16 @@ test.group('Legacy Invoices in the browser', (group) => {
     )
 
     // Saved again, held: until its answer each error stays on its row (#289)
-    let answer!: () => void
-    const held = new Promise<void>((resolve) => (answer = resolve))
-    await page.route(
-      '**/invoices/legacy',
-      async (route) => {
-        await held
-        await route.continue()
-      },
-      { times: 1 }
-    )
-    const sent = page.waitForRequest(
-      (request) => request.method() === 'POST' && request.url().endsWith('/invoices/legacy')
-    )
-    const answered = page.waitForResponse(
-      (response) =>
-        response.request().method() === 'GET' && response.url().includes('/invoices/legacy/create')
-    )
+    const save = await holdSave(page, {
+      method: 'POST',
+      path: '/invoices/legacy',
+      answeredBy: '/invoices/legacy/create',
+    })
     await page.getByRole('button', { name: it('ui.legacyInvoices.create') }).click()
-    await sent
+    await save.sent
     assert.equal(await row(1).getByText(rowTaxableError).count(), 1)
-    answer()
-    await answered
+    save.answer()
+    await save.answered
     await row(1).getByText(rowTaxableError).waitFor()
     // A row added since has none
     await addRow.click()
