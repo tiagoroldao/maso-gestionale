@@ -105,6 +105,7 @@
       "overflow": "Nel menu",
       "disabled": "Bloccata",
       "disabledReason": "Il motivo per cui ora non si può.",
+      "longReason": "Un motivo lungo per cui ora non si può: va a capo sotto i pulsanti, che restano vicini.",
       "destructive": "Distruttiva"
     },
     "tones": {

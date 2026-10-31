@@ -175,7 +175,7 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
     ref="root"
     :class="
       cn(
-        'mt-1 flex items-start gap-2 md:mt-0 md:flex-wrap md:justify-end',
+        'mt-1 flex items-start gap-2 md:mt-0 md:ml-auto md:flex-wrap md:justify-end md:gap-y-1',
         !arranged.secondary.length && !arranged.overflow.length && 'max-md:contents'
       )
     "
@@ -217,16 +217,20 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
       </span>
     </div>
 
-    <!-- The primary: a bar fixed at the bottom on the phone, a black button from 768px -->
+    <!--
+      The primary: a bar fixed at the bottom on the phone, a black button from
+      768px, where its parts join the buttons' row (md:contents) so a disabled
+      reason wraps on a line of its own under them, however long (#282)
+    -->
     <div
       v-if="arranged.primary"
       data-testid="primary-action"
-      class="fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-t border-border bg-card px-3.5 py-2.5 md:static md:z-auto md:items-end md:gap-1 md:border-0 md:bg-transparent md:p-0"
+      class="fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-t border-border bg-card px-3.5 py-2.5 md:contents"
     >
       <span
         v-if="arranged.primary.disabledReason"
         :id="reasonId(arranged.primary)"
-        class="order-first text-center text-xs text-muted-foreground md:order-last md:text-right"
+        class="order-first text-center text-xs text-muted-foreground md:order-last md:basis-full md:text-right"
       >
         {{ arranged.primary.disabledReason }}
       </span>
