@@ -8,6 +8,7 @@ import { completeCompany } from '#tests/helpers/company'
 import { vatCode } from '#tests/helpers/items'
 import Invoices from '#services/invoices'
 import Submissions from '#services/submissions'
+import { SCREEN_SIZES } from '#shared/screen_sizes'
 
 test.group('Invoices in the browser', () => {
   test('Office drafts a direct sale with a global discount, issues it and records the payment', async ({
@@ -104,5 +105,50 @@ test.group('Invoices in the browser', () => {
 
     const note = await Invoice.findByOrFail('creditsInvoiceId', invoice.id)
     assert.equal(note.total, '30.50')
+  })
+
+  test('a blocked Save is reached by keyboard and reads its reason, but neither click nor Enter submits (#295)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    await completeCompany()
+    await createCustomer({ name: 'Bar Centrale' })
+
+    // No Customer picked yet: creating the draft is blocked, with its reason
+    const page = await visit('/invoices/create')
+    const create = page.getByRole('button', { name: it('ui.invoices.create') })
+    await create.waitFor()
+    assert.isNull(await create.getAttribute('disabled'))
+    assert.equal(await create.getAttribute('aria-disabled'), 'true')
+    // Tab from the breadcrumb reaches it, and it is described by its reason
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page
+      .getByRole('navigation', { name: it('ui.screen.breadcrumb') })
+      .getByRole('link', { name: it('ui.invoices.title') })
+      .focus()
+    await page.keyboard.press('Tab')
+    assert.deepEqual(
+      await page.evaluate(
+        `(() => { const button = document.activeElement; return [button.textContent.trim(), document.getElementById(button.getAttribute('aria-describedby')).textContent.trim()] })()`
+      ),
+      [it('ui.invoices.create'), it('ui.invoices.pickCustomer')]
+    )
+
+    // Neither Enter on it, a click, nor Enter in a field submits the form
+    const sent: string[] = []
+    page.on('request', (request) => {
+      if (request.method() !== 'GET') sent.push(request.url())
+    })
+    await page.keyboard.press('Enter')
+    await create.click({ force: true })
+    const search = page.getByLabel(it('ui.customers.picker.label'))
+    await search.fill('Nessuno')
+    await search.press('Enter')
+    await page.waitForTimeout(500)
+    assert.deepEqual(sent, [])
+    assert.match(page.url(), /\/invoices\/create$/)
+    assert.lengthOf(await Invoice.all(), 0)
   })
 })
