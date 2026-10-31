@@ -9,6 +9,10 @@
  * In edit mode (a form to create or edit the record, docs/ui.md "Kinds of
  * screen") Save, the primary `submit` action, submits the screen's form;
  * `busy` holds Save while it is sent.
+ *
+ * The screen fills the content area (`min-h-full`), also inside the form
+ * that wraps it in edit mode, so the shell's darker background never shows
+ * below a short screen (#270).
  */
 import { computed } from 'vue'
 import { Head } from '@inertiajs/vue3'
@@ -38,7 +42,7 @@ const hasPrimary = computed(() => props.actions.some((action) => action.rank ===
 </script>
 
 <template>
-  <div class="w-full min-w-0 bg-background">
+  <div class="min-h-full w-full min-w-0 bg-background">
     <Head :title="documentTitle" />
     <ScreenHeader
       :crumbs="crumbs"
