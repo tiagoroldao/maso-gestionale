@@ -7,6 +7,8 @@ import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
 import { chooseMoreAction } from '#tests/helpers/screen'
+import { seriousA11yViolations } from '#tests/helpers/axe'
+import { SCREEN_SIZES } from '#shared/screen_sizes'
 import type { Page } from 'playwright'
 
 /** Answers the confirmation dialog of an action (docs/ui.md "Actions") */
@@ -96,5 +98,37 @@ test.group('Quotes in the browser', () => {
     const quote = await Quote.query().where('jobId', job.id).preload('lines').firstOrFail()
     assert.equal(quote.status, 'accepted')
     assert.equal(quote.lines[0].unitPrice, '8.0000')
+  })
+
+  test('the labour-rate select sits above its button until the desktop (#271)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const job = await createJob(await createCustomer())
+    await LabourRate.create({ name: 'Idraulico specializzato', hourlyPrice: '40' })
+
+    const page = await visit(`/jobs/${job.id}/quotes/create`)
+    const select = page.getByLabel(it('ui.quotes.addLabour'))
+    const button = page.getByRole('button', { name: it('ui.quotes.addLabourButton') })
+    const boxes = async () => {
+      const field = await select.boundingBox()
+      const add = await button.boundingBox()
+      return { field: field!, add: add! }
+    }
+
+    // Phone and tablet: the select takes the row, the button under it
+    for (const size of [SCREEN_SIZES.phone, SCREEN_SIZES.tablet]) {
+      await page.setViewportSize(size)
+      const { field, add } = await boxes()
+      assert.isAtLeast(add.y, field.y + field.height, 'the button under the select')
+      assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
+    }
+    // Desktop: side by side, as before
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    const { field, add } = await boxes()
+    assert.isAtLeast(add.x, field.x + field.width, 'the button beside the select')
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
   })
 })
