@@ -727,7 +727,15 @@ const keyFacts = computed<KeyFact[]>(() => {
           {
             label: t('ui.invoices.paidFact'),
             value: formatMoney(paymentSummary.paid),
-            hint: t('ui.invoices.owedHint', { amount: formatMoney(paymentSummary.owed) }),
+            // Overpaid: by how much, never a negative amount to collect
+            hint: paymentSummary.overpaidBy
+              ? t('ui.invoices.overpaidBy', {
+                  paid: formatMoney(paymentSummary.paid),
+                  amount: formatMoney(paymentSummary.overpaidBy),
+                })
+              : Number(paymentSummary.owed) > 0
+                ? t('ui.invoices.owedHint', { amount: formatMoney(paymentSummary.owed) })
+                : undefined,
           },
         ]
       : []),
@@ -1034,7 +1042,9 @@ const history = computed(() =>
                   />
                 </RowField>
                 <RowField :label="t('ui.invoices.lineDiscount')" :class="DISCOUNT">
-                  <span v-if="!editable" :class="READ">{{ line.discountPercent }}</span>
+                  <span v-if="!editable" :class="READ">
+                    {{ line.discountPercent ? `${line.discountPercent}%` : '' }}
+                  </span>
                   <Input
                     v-else
                     v-model="line.discountPercent"
@@ -1238,12 +1248,15 @@ const history = computed(() =>
                   }}
                 </span>
               </div>
+              <span v-if="!editable" class="text-sm font-semibold">
+                {{ row.amount ? formatMoney(row.amount) : '' }}
+              </span>
               <Input
+                v-else
                 v-model="deductionAmounts[row.advanceId]"
                 form="invoice-form"
                 inputmode="decimal"
                 :class="cn(FIELD, 'w-36')"
-                :disabled="!editable"
                 :aria-label="t('ui.invoices.deductionOf', { number: row.number })"
               />
             </li>

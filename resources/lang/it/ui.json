@@ -1184,7 +1184,8 @@
     "moveHint": "Sposta righe e sezioni con le frecce: una riga oltre la prima o l'ultima della sua sezione passa a quella vicina. Rimuovendo una sezione le sue righe restano, fuori dalle sezioni.",
     "noSubmissions": "Non ancora inviata a SDI.",
     "removePaymentOf": "Elimina l'incasso del {date}",
-    "pickCustomer": "Scegli prima il cliente."
+    "pickCustomer": "Scegli prima il cliente.",
+    "saveChanges": "Salva modifiche"
   },
   "visits": {
     "title": "Interventi",

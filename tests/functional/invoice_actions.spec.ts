@@ -117,13 +117,20 @@ test.group('Invoice screen actions (#241)', (group) => {
     )
     assert.equal(named(prepared.actions, 'xml').file, 'download')
 
+    // Once sent, the file as it went is in the SDI history, not rebuilt
     await Submissions.confirm(invoice, 'Sconto')
     const submitted = await screenOf(client, path)
-    assert.deepEqual(ranked(submitted.actions), [
-      'recordOutcome:primary',
+    assert.deepEqual(ranked(submitted.actions), ['recordOutcome:primary', 'pdf:secondary'])
+
+    // Rejected: corrected and sent again, its Save no longer a draft's
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
+    const rejected = await screenOf(client, path)
+    assert.deepEqual(ranked(rejected.actions), [
+      'prepareSubmission:primary',
+      'save:secondary',
       'pdf:secondary',
-      'xml:overflow',
     ])
+    assert.equal(named(rejected.actions, 'save').label, it('ui.invoices.saveChanges'))
   })
 
   test('delivered: a Credit Note can be drafted; the Credit Note finalises as one', async ({

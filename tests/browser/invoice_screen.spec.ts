@@ -1,6 +1,8 @@
 import { test } from '@japa/runner'
 import Invoice from '#models/invoice'
+import { DateTime } from 'luxon'
 import Invoices from '#services/invoices'
+import Payments from '#services/payments'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
@@ -195,5 +197,25 @@ test.group('Invoice screen in the browser', (group) => {
     assert.equal(await pdf.getAttribute('target'), '_blank')
     assert.equal(await page.getByLabel(it('ui.invoices.quantityOf', { position: 1 })).count(), 0)
     await page.getByText('Valvola a sfera').waitFor()
+  })
+
+  test('an overpaid Invoice says by how much, never a negative amount to collect', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { invoice } = await draftWithAValve()
+    await Invoices.finalise(invoice)
+    // 15 + 22% VAT = 18.30, paid 20
+    await Payments.record(invoice, { amount: '20', paidOn: DateTime.now() })
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const facts = page.getByLabel(it('ui.screen.keyFacts'))
+    await facts
+      .getByText(it('ui.invoices.overpaidBy', { paid: '20,00 €', amount: '1,70 €' }))
+      .waitFor()
+    const owedLabel = it('ui.invoices.owedHint', { amount: '' }).trim()
+    assert.equal(await facts.getByText(owedLabel).count(), 0)
   })
 })

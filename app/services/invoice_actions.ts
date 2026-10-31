@@ -93,7 +93,8 @@ export function invoiceActions(state: InvoiceActionState, i18n: I18n) {
   if (state.editable) {
     actions.push({
       name: 'save',
-      label: i18n.t('ui.invoices.save'),
+      // A rejected Invoice keeps its number: no longer a draft
+      label: i18n.t(invoice.status === 'draft' ? 'ui.invoices.save' : 'ui.invoices.saveChanges'),
       rank: 'secondary',
       kind: 'submit',
       form: INVOICE_FORM,
@@ -118,8 +119,9 @@ export function invoiceActions(state: InvoiceActionState, i18n: I18n) {
       href: urlFor('invoices.store_credit_note', params),
     })
   }
-  // The file to upload exists once its Submission is prepared
-  if (open) {
+  // The file to upload, while its Submission waits to go; once sent, the
+  // file as it went is in the SDI history
+  if (open && !open.submitted) {
     actions.push({
       name: 'xml',
       label: i18n.t('ui.invoices.xml'),
