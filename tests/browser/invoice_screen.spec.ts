@@ -5,6 +5,7 @@ import { DateTime } from 'luxon'
 import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
+import Submissions from '#services/submissions'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
@@ -467,5 +468,29 @@ test.group('Invoice screen in the browser', (group) => {
       .waitFor()
     const owedLabel = it('ui.invoices.owedHint', { amount: '' }).trim()
     assert.equal(await facts.getByText(owedLabel).count(), 0)
+  })
+
+  test('a rejected Invoice reads as a problem: its own tone and an icon beside the words (#261)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { invoice } = await draftWithAValve()
+    await Invoices.finalise(invoice)
+    await Submissions.prepare(invoice)
+    await Submissions.confirm(invoice, 'Sconto')
+    await Submissions.recordOutcome(invoice, { outcome: 'rejected' })
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const tag = page.getByTestId('invoice-status')
+    await tag.getByText(it('ui.invoices.statuses.rejected')).waitFor()
+    assert.equal(await tag.locator('svg[aria-hidden="true"]').count(), 1)
+    assert.include(await tag.getAttribute('class'), 'bg-red-tint')
+    for (const scheme of ['light', 'dark'] as const) {
+      await page.emulateMedia({ colorScheme: scheme })
+      await page.locator(`html[data-theme="${scheme}"]`).waitFor({ state: 'attached' })
+      assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], scheme)
+    }
   })
 })
