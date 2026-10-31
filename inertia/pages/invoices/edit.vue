@@ -47,7 +47,12 @@ import { formatDate } from '@shared/dates'
 import { SUBMISSION_OUTCOMES, type InvoiceStatus } from '@shared/invoice_lifecycle'
 import type { ScreenAction } from '@shared/screen_actions'
 import { amountForInput, parseAmount, parseQuantity, sumAmounts } from '@shared/money'
-import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '@shared/invoice_totals'
+import {
+  discountInRange,
+  invoiceLineTotal,
+  invoiceTotals,
+  type TotalsLine,
+} from '@shared/invoice_totals'
 import {
   keptVatTreatment,
   lineKindOf,
@@ -322,6 +327,16 @@ function amountOf(line: Line) {
   return values ? invoiceLineTotal(values.quantity, values.unitPrice, values.discountPercent) : null
 }
 
+/**
+ * The amount merging or folding bakes into a price: a line's own, unless
+ * its discount is out of range (the save refuses it, and its amount
+ * isn't one to keep).
+ */
+function combinableAmountOf(line: Line) {
+  const values = totalsLine(line)
+  return values && discountInRange(values.discountPercent ?? '0') ? amountOf(line) : null
+}
+
 const totals = computed(() =>
   invoiceTotals(
     lines.flatMap((line) => {
@@ -486,8 +501,8 @@ function canMergeUp(index: number) {
     line.chargeIds.length &&
     above.vatCodeId === line.vatCodeId &&
     above.significantGood === line.significantGood &&
-    amountOf(above) &&
-    amountOf(line)
+    combinableAmountOf(above) &&
+    combinableAmountOf(line)
   )
 }
 
@@ -502,7 +517,7 @@ function mergeUp(index: number) {
   // Not while a save is in flight: its answer is about the lines before
   if (processing.value) return
   const [above, line] = [lines[index - 1], lines[index]]
-  const amount = parseAmount(amountOf(above)!)!.plus(amountOf(line)!)
+  const amount = parseAmount(combinableAmountOf(above)!)!.plus(combinableAmountOf(line)!)
   Object.assign(above, {
     itemId: null,
     quantity: '1',
@@ -528,7 +543,7 @@ const folds = computed(() =>
         // Lines billing Charges only: a sale's Item lines take it off stock
         groupable: line.groupable && line.itemId !== null && line.chargeIds.length > 0,
         vatKey: `${line.sectionKey}|${line.vatCodeId}|${values?.vatRate}|${values?.natura}|${line.significantGood}`,
-        amount: amountOf(line),
+        amount: combinableAmountOf(line),
       }
     })
   )

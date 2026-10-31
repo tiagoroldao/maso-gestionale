@@ -50,6 +50,16 @@ export function invoiceLineTotal(quantity: string, unitPrice: string, discountPe
 }
 
 /**
+ * Whether a discount is one a line can carry, 0 to 100%. A line outside it
+ * is refused on save; its amount (negative over 100%) mustn't be baked
+ * into a merged or folded line's price.
+ */
+export function discountInRange(discountPercent: string) {
+  const discount = new Big(discountPercent)
+  return discount.gte(0) && discount.lte(100)
+}
+
+/**
  * Splits `amount` (in cents) across `weights` in proportion, so the parts
  * add up exactly. Weights may be negative (a deduction line's VAT row):
  * each part is first rounded toward zero, then the cents left go, in the
