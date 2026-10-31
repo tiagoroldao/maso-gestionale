@@ -47,6 +47,8 @@ import {
   newInvoiceValidator,
   submissionOutcomeValidator,
 } from '#validators/invoice'
+import { listActions } from '#services/list_actions'
+import { urlFor } from '@adonisjs/core/services/url_builder'
 import type { HttpContext } from '@adonisjs/core/http'
 
 /**
@@ -102,7 +104,7 @@ export default class InvoicesController {
    * without an outcome yet, rejected (to correct and resubmit), or all;
    * or by payment: overdue, or overpaid (to refund or correct).
    */
-  async index({ request, inertia }: HttpContext) {
+  async index({ request, inertia, i18n }: HttpContext) {
     const { stage = 'all' } = await invoiceStageValidator.validate(request.qs())
     const query = Invoice.query()
       .preload('customer')
@@ -129,6 +131,13 @@ export default class InvoicesController {
     const invoices = await query
 
     return inertia.render('invoices/index', {
+      actions: listActions({ label: i18n.t('ui.invoices.new'), href: urlFor('invoices.create') }, [
+        {
+          name: 'newLegacy',
+          label: i18n.t('ui.invoices.newLegacy'),
+          href: urlFor('legacy_invoices.create'),
+        },
+      ]),
       stage,
       invoices: invoices.map((invoice) => ({
         id: invoice.id,

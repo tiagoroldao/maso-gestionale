@@ -1,15 +1,23 @@
 <script setup lang="ts">
+/**
+ * Immobili, a List screen (docs/ui.md "Lists"): searched by address or
+ * label, the archived ones a link away.
+ */
 import { ref } from 'vue'
 import { router } from '@inertiajs/vue3'
 import { Link } from '@adonisjs/inertia/vue'
-import { Plus } from 'lucide-vue-next'
-import Page from '~/components/page.vue'
+import type { ScreenAction } from '@shared/screen_actions'
 import AppLayout from '~/layouts/app.vue'
-import Pagination from '~/components/pagination.vue'
+import ListScreen from '~/components/screen/list_screen.vue'
+import ListSearch from '~/components/screen/list_search.vue'
+import { LINK, OPENS_LINK, OPENS_ROW, ROW, TD, TH } from '~/components/screen/screen'
 import { urlFor } from '~/client'
 import { t } from '~/i18n'
+import { cn } from '~/lib/utils'
 
 const props = defineProps<{
+  // New Site; the archived ones, or the active ones again
+  actions: ScreenAction[]
   q: string
   archived: boolean
   sites: { id: number; summary: string; customerCount: number }[]
@@ -22,76 +30,63 @@ function submitSearch() {
   router.get(
     urlFor('sites.index'),
     { ...(search.value && { q: search.value }), ...(props.archived && { archived: 'true' }) },
-    {
-      preserveState: true,
-      replace: true,
-    }
+    { preserveState: true, replace: true }
   )
 }
 </script>
 
 <template>
   <AppLayout>
-    <Page :title="t('ui.sites.title')" :description="t('ui.sites.description')">
-      <template #actions>
-        <Link
-          route="sites.index"
-          :qs="archived ? {} : { archived: 'true' }"
-          class="btn btn--ghost btn--sm"
-        >
-          {{ archived ? t('ui.archive.hideArchived') : t('ui.archive.showArchived') }}
-        </Link>
-        <Link route="sites.create" class="btn btn--primary btn--sm">
-          <Plus :size="15" /> {{ t('ui.sites.new') }}
-        </Link>
+    <ListScreen
+      :title="t('ui.sites.title')"
+      :actions="actions"
+      :description="t('ui.sites.description')"
+      :empty="sites.length ? null : q ? t('ui.sites.noMatches', { q }) : t('ui.sites.empty')"
+      :pagination="pagination"
+    >
+      <template #toolbar>
+        <ListSearch
+          v-model="search"
+          :label="t('ui.sites.searchLabel')"
+          :placeholder="t('ui.sites.searchPlaceholder')"
+          @search="submitSearch"
+        />
       </template>
 
-      <form
-        role="search"
-        :style="{ display: 'flex', gap: '8px', marginBottom: '16px' }"
-        @submit.prevent="submitSearch"
-      >
-        <input
-          v-model="search"
-          type="search"
-          class="field__input"
-          :aria-label="t('ui.sites.searchLabel')"
-          :placeholder="t('ui.sites.searchPlaceholder')"
-          :style="{ maxWidth: '360px' }"
-        />
-        <button type="submit" class="btn btn--secondary">{{ t('ui.common.search') }}</button>
-      </form>
-
-      <p v-if="sites.length === 0" :style="{ color: 'var(--subtle)' }">
-        {{ q ? t('ui.sites.noMatches', { q }) : t('ui.sites.empty') }}
-      </p>
-
-      <table v-else class="table">
-        <thead>
-          <tr>
-            <th>{{ t('ui.sites.site') }}</th>
-            <th>{{ t('ui.sites.customers') }}</th>
-            <th />
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="site in sites" :key="site.id">
-            <td>
-              <Link route="sites.show" :params="{ id: site.id }" class="il">
-                {{ site.summary }}
-              </Link>
-            </td>
-            <td>{{ site.customerCount }}</td>
-            <td class="table__actions">
-              <Link route="sites.edit" :params="{ id: site.id }" class="btn btn--ghost btn--sm">
-                {{ t('ui.common.edit') }}
-              </Link>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-
-      <Pagination v-bind="pagination" />
-    </Page>
+      <div class="hidden overflow-x-auto md:block">
+        <table class="w-full border-collapse">
+          <thead>
+            <tr>
+              <th :class="TH">{{ t('ui.sites.site') }}</th>
+              <th :class="cn(TH, 'text-right')">{{ t('ui.sites.customers') }}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="site in sites" :key="site.id" :class="OPENS_ROW">
+              <td :class="TD">
+                <Link route="sites.show" :params="{ id: site.id }" :class="cn(LINK, OPENS_LINK)">
+                  {{ site.summary }}
+                </Link>
+              </td>
+              <td :class="cn(TD, 'text-right')">{{ site.customerCount }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <ul class="m-0 list-none p-0 md:hidden">
+        <li v-for="site in sites" :key="site.id" :class="cn(ROW, OPENS_ROW)">
+          <Link
+            route="sites.show"
+            :params="{ id: site.id }"
+            :class="cn(LINK, OPENS_LINK, 'min-w-0 flex-1 text-[15px] font-semibold')"
+          >
+            {{ site.summary }}
+          </Link>
+          <span class="shrink-0 text-[13px] text-muted-foreground">
+            {{ t('ui.sites.customerCount', { count: site.customerCount }) }}
+          </span>
+        </li>
+      </ul>
+    </ListScreen>
   </AppLayout>
 </template>

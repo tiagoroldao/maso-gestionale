@@ -32,6 +32,13 @@ export const TH =
 export const TD = 'border-b border-border px-4 py-2.5 align-top text-sm'
 export const ROW = 'flex items-start gap-2.5 border-t border-border px-3.5 py-3'
 
+/**
+ * A row that opens its record (a list's, a section's): the row is `OPENS_ROW`
+ * and its link to the record `OPENS_LINK`, which stretches over the whole row
+ */
+export const OPENS_ROW = 'relative hover:bg-background'
+export const OPENS_LINK = "after:absolute after:inset-0 after:content-['']"
+
 /** A search-as-you-type picker (Sites, Items): its results under the field, each a button */
 export const PICKER_RESULTS =
   'm-0 max-h-64 list-none overflow-y-auto rounded-sm border border-border bg-card p-0'
@@ -48,6 +55,14 @@ export const EDIT_ROW =
   'flex flex-col gap-2 border-t border-border px-3.5 py-3 md:flex-row md:items-start md:px-4'
 export const EDIT_ROW_FORM =
   'flex min-w-0 flex-1 flex-col gap-2 md:flex-row md:flex-wrap md:items-start'
+
+/**
+ * A list's records (docs/ui.md "Lists"): a bordered box, whose own border
+ * closes the table's last row and opens the first of the phone's rows; `relative`
+ * keeps a row's stretched link inside it wherever a table row can't hold it
+ */
+export const LIST_BOX =
+  'relative min-w-0 rounded-sm border border-border bg-card tabular-nums [&>div>table>tbody>tr:last-child>td]:border-b-0 [&>ul>li:first-child]:border-t-0'
 
 /** A section's line when it has nothing to list */
 export const EMPTY = 'm-0 border-t border-border px-3.5 py-3 text-sm text-muted-foreground md:px-4'
