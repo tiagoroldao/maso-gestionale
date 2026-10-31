@@ -137,6 +137,51 @@ test.group('Invoice screen in the browser', (group) => {
     )
   })
 
+  test('removing a line after a refused save leaves each line its own errors (#289)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { invoice } = await draftWithAValve()
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const addFreeLine = page.getByRole('button', { name: it('ui.invoices.addFreeLine') })
+    const line = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.invoices.lineOf', { position }) })
+    const descriptionError = it('ui.common.fieldError', {
+      field: it('ui.invoices.description'),
+      message: '',
+    })
+    const descriptionOf = (position: number) =>
+      page.getByLabel(it('ui.invoices.descriptionOf', { position }))
+
+    // Refused: the free line, second, has no description
+    await addFreeLine.click()
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await line(2).getByText(descriptionError).waitFor()
+    assert.equal(await line(1).getByText(descriptionError).count(), 0)
+
+    // The valve removed: the free line, now first, keeps its error
+    await line(1)
+      .getByRole('button', { name: it('ui.invoices.removeLine') })
+      .click()
+    assert.equal(
+      await page
+        .getByRole('listitem', { name: it('ui.invoices.lineOf', { position: '' }) })
+        .count(),
+      1
+    )
+    await line(1).getByText(descriptionError).waitFor()
+    assert.equal(await descriptionOf(1).getAttribute('aria-invalid'), 'true')
+
+    // A line added since has none
+    await addFreeLine.click()
+    await line(2).waitFor()
+    assert.equal(await line(2).getByText(descriptionError).count(), 0)
+    assert.isNull(await descriptionOf(2).getAttribute('aria-invalid'))
+  })
+
   test("on a tablet, a line's fields keep one row under their heads", async ({
     browserContext,
     visit,
