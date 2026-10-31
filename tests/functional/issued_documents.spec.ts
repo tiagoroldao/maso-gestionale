@@ -356,7 +356,10 @@ test.group('Issued Documents: issuing', (group) => {
     assert.lengthOf(await IssuedDocument.all(), 0)
   })
 
-  test('the filling page starts from a template and an optional Customer', async ({ client }) => {
+  test('the filling page starts from a template and an optional Customer', async ({
+    client,
+    assert,
+  }) => {
     const office = await createUser('office')
     const customer = await createCustomer()
     const template = await saveTemplate()
@@ -373,6 +376,8 @@ test.group('Issued Documents: issuing', (group) => {
       template: null,
       customer: { id: customer.id, displayName: customer.displayName, city: customer.city },
     })
+    // Nothing to issue until the template is chosen
+    assert.deepEqual(choose.inertiaProps.actions, [])
 
     const fill = await client
       .get(`/issued-documents/create?templateId=${template.id}&customerId=${customer.id}`)
@@ -381,6 +386,23 @@ test.group('Issued Documents: issuing', (group) => {
     fill.assertInertiaPropsContains({
       template: { id: template.id, name: 'Dichiarazione di conformità', fields },
     })
+    // Issuing can't be undone: it asks first, naming the template and the Customer
+    assert.deepEqual(
+      (
+        fill.inertiaProps.actions as { name: string; kind: string; form: string; confirm: string }[]
+      ).map(({ name, kind, form, confirm }) => ({ name, kind, form, confirm })),
+      [
+        {
+          name: 'save',
+          kind: 'submit',
+          form: 'issued-document',
+          confirm: it('ui.issuedDocuments.issueConfirm', {
+            template: 'Dichiarazione di conformità',
+            customer: customer.displayName,
+          }),
+        },
+      ]
+    )
   })
 })
 
@@ -463,6 +485,20 @@ test.group('Issued Documents: replacing', (group) => {
     replacementPage.assertInertiaPropsContains({
       document: { replaces: { id: original.id, number: original.number } },
     })
+
+    // Its PDF on both; issuing a replacement only on the one not yet replaced
+    const names = (props: Record<string, unknown>) =>
+      (props.actions as { name: string; rank: string; file: string | null }[]).map(
+        ({ name, rank, file }) => ({ name, rank, file })
+      )
+    assert.deepEqual(names(page.inertiaProps), [{ name: 'pdf', rank: 'secondary', file: 'view' }])
+    assert.deepEqual(names(replacementPage.inertiaProps), [
+      { name: 'pdf', rank: 'secondary', file: 'view' },
+      { name: 'replace', rank: 'secondary', file: null },
+    ])
+    // The replacement's form issues it, under the document it replaces
+    assert.deepEqual(names(form.inertiaProps), [{ name: 'save', rank: 'primary', file: null }])
+    assert.equal((form.inertiaProps.replaces as { title: string }).title, template.name)
   })
 
   test('an original is replaced only once', async ({ client, assert }) => {

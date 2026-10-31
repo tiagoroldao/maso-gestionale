@@ -45,8 +45,16 @@ test.group('Work report in the browser (#180)', () => {
       .waitFor({ state: 'attached' })
     await page.getByLabel(it('ui.documentTemplates.fill.workReportPrices')).check()
     await page.getByRole('button', { name: it('ui.issuedDocuments.issue') }).click()
+    await page
+      .getByRole('alertdialog')
+      .getByRole('button', { name: it('ui.issuedDocuments.issue') })
+      .click()
 
-    await page.getByRole('link', { name: `${job.number} – ${job.title}` }).waitFor()
+    // The issued document names its Job in the key facts
+    await page
+      .getByLabel(it('ui.screen.keyFacts'), { exact: true })
+      .getByRole('link', { name: job.number, exact: true })
+      .waitFor()
     const document = await IssuedDocument.firstOrFail()
     assert.equal(document.jobId, job.id)
     assert.deepEqual(document.tables.rapportino.rows.at(-1), [
