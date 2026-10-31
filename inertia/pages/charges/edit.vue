@@ -29,6 +29,7 @@ import { amountForInput, lineTotal, parseAmount } from '@shared/money'
 import { takesSerialNumber } from '@shared/items'
 import {
   isHeld,
+  wontBillReason,
   type ChargeEventKind,
   type ChargeKind,
   type ChargeState,
@@ -167,14 +168,8 @@ const recordedUnit = computed(() =>
       ? (props.charge.recorded.item?.unit ?? '')
       : (props.charge.billing.unit ?? '')
 )
-// Why its amount won't be billed: not billable, or the work wasn't done
-// (only done Charges are billed, ADR 0016); null while it may be
-const wontBill = computed(() => {
-  const { state, workState } = props.charge
-  if (state === 'not_billable') return 'not_billable'
-  if (state === 'to_bill' && workState === 'not_done') return 'not_done'
-  return null
-})
+// Why its amount won't be billed, if it won't
+const wontBill = computed(() => wontBillReason(props.charge.state, props.charge.workState))
 const keyFacts = computed<KeyFact[]>(() => [
   {
     label: t('ui.charges.job'),

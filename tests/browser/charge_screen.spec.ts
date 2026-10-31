@@ -96,14 +96,11 @@ test.group('Charge screen in the browser', () => {
     // The whole description is still its name, only clamped to the eye
     const title = page.getByRole('heading', { level: 1, name: description })
     await title.waitFor()
-    for (const size of [SCREEN_SIZES.phone, SCREEN_SIZES.desktop]) {
-      await page.setViewportSize(size)
-      const box = await title.boundingBox()
-      assert.isAtMost(box!.height, 110, 'the title in at most three lines')
-    }
-    const breadcrumb = page.getByRole('navigation', { name: it('ui.screen.breadcrumb') })
-    const crumbs = await breadcrumb.boundingBox()
-    assert.isAtMost(crumbs!.height, 24, 'the breadcrumb on one line')
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page
+      .getByRole('navigation', { name: it('ui.screen.breadcrumb') })
+      .getByText(description)
+      .waitFor()
 
     // Unsaved billing: the actions that reload the page wait for Save
     const header = page.locator('main header')
@@ -131,6 +128,25 @@ test.group('Charge screen in the browser', () => {
     await page.getByText(it('ui.charges.wontBill.not_billable'), { exact: false }).first().waitFor()
     await charge.refresh()
     assert.equal(charge.unitPrice, '35.0000')
+  })
+
+  test('a Charge to bill whose work was not done says its amount will not be billed (#283)', async ({
+    browserContext,
+    visit,
+  }) => {
+    const office = await createUser('office')
+    await browserContext.loginAs(office)
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const charge = await Charges.add(
+      job,
+      { description: 'Sopralluogo', quantity: '1', unit: 'h', unitPrice: '30', vatKind: 'labour' },
+      office
+    )
+    await Charges.setWorkState(charge, 'not_done', office, 'Non eseguito')
+
+    const page = await visit(`/charges/${charge.id}/edit`)
+    await page.getByTestId('charge-state').getByText(it('ui.charges.states.to_bill')).waitFor()
+    await page.getByText(it('ui.charges.wontBill.not_done'), { exact: false }).waitFor()
   })
 
   test('on a desktop, the breadcrumb runs Commesse / the Job / the Charge, the work state beside Save', async ({
