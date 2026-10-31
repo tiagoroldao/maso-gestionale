@@ -39,7 +39,7 @@ type Invoice = {
   number: string
   issuedOn: string
   total: string
-  status: string
+  status: SupplierInvoiceStatus
   receivedVia: string
 }
 
@@ -56,8 +56,7 @@ defineProps<{
 const page = usePage()
 const exportErrors = computed(() => page.props.errors ?? {})
 
-const tone = (invoice: Invoice) =>
-  SUPPLIER_INVOICE_TONES[invoice.status as SupplierInvoiceStatus] ?? 'grey'
+const tone = (invoice: Invoice) => SUPPLIER_INVOICE_TONES[invoice.status]
 // Anything but a plain invoice (TD01) says what it is
 const kind = (invoice: Invoice) =>
   invoice.documentType === 'TD01' ? null : documentTypeLabel(invoice.documentType)

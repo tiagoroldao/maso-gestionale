@@ -1,5 +1,5 @@
 import vine from '@vinejs/vine'
-import { FIELD_VISIT_STATUSES } from '#models/visit'
+import { FIELD_VISIT_STATUSES } from '#shared/visits'
 import { quantityRule } from '#validators/rules/quantity'
 
 /**

@@ -11,14 +11,6 @@ import Charge from '#models/charge'
 import { TIME_ZONE } from '#shared/dates'
 import type { VisitStatus } from '#shared/visits'
 
-// The statuses live in shared/ so the pages type their tones by them (#261)
-export {
-  FIELD_VISIT_STATUSES,
-  VISIT_STATUSES,
-  type FieldVisitStatus,
-  type VisitStatus,
-} from '#shared/visits'
-
 /**
  * A single scheduled trip by one or more Technicians to a Site as part of
  * a Job.
