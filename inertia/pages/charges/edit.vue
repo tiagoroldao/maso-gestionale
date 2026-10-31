@@ -1,24 +1,45 @@
 <script setup lang="ts">
+/**
+ * A Charge, an Entity screen in edit mode under its Job (docs/ui.md, ADR
+ * 0010, 0014, 0016): what is billed is the main work, saved by the header's
+ * primary, which the server holds with its reason while an Invoice holds,
+ * bills or credited the Charge. What was recorded is corrected in its own
+ * section, with its own Save; its work state, not billable and setting it
+ * back to bill are the header's other actions, sent by the server for the
+ * Charge's states. Its history sits beside.
+ */
 import { computed, ref } from 'vue'
 import { Form, Link } from '@adonisjs/inertia/vue'
-import Page from '~/components/page.vue'
-import Section from '~/components/section.vue'
+import { CircleAlert } from 'lucide-vue-next'
 import AppLayout from '~/layouts/app.vue'
 import ItemPicker, { type PickedItem } from '~/components/item_picker.vue'
-import { amountForInput, parseAmount } from '@shared/money'
+import EntityScreen from '~/components/screen/entity_screen.vue'
+import ScreenSection from '~/components/screen/screen_section.vue'
+import StatusTag from '~/components/screen/status_tag.vue'
+import FormField from '~/components/screen/form_field.vue'
+import type { KeyFact } from '~/components/screen/key_facts.vue'
+import { CHARGE_TONES, LINK, TOUCH, WORK_TONES } from '~/components/screen/screen'
+import { Button } from '~/components/ui/button'
+import { Input } from '~/components/ui/input'
+import { NativeSelect } from '~/components/ui/native-select'
+import { urlFor } from '~/client'
+import { cn } from '~/lib/utils'
+import { amountForInput, lineTotal, parseAmount } from '@shared/money'
 import { takesSerialNumber } from '@shared/items'
 import {
-  canSetBackToBill,
   isHeld,
   type ChargeEventKind,
   type ChargeKind,
   type ChargeState,
   type WorkState,
 } from '@shared/charges'
+import type { ScreenAction } from '@shared/screen_actions'
 import { LINE_KINDS, type LineKind } from '@shared/vat'
 import { formatDate, formatMoney, t } from '~/i18n'
 
 const props = defineProps<{
+  // The header's actions, for the Charge's states
+  actions: ScreenAction[]
   charge: {
     id: number
     kind: ChargeKind
@@ -72,6 +93,9 @@ const props = defineProps<{
   technicians: { id: number; name: string }[]
 }>()
 
+// Save, in the header, waits while the billing is sent
+const busy = ref(false)
+
 // Hours by someone outside the app, named instead of picked
 const someoneElse = ref(props.charge.kind === 'labour' && !props.charge.recorded.technicianId)
 const item = ref(props.charge.recorded.item)
@@ -96,10 +120,56 @@ const singlePiece = computed(() => {
 // What is billed is frozen while an Invoice holds or bills the Charge,
 // whatever the Job's status (#111)
 const frozen = computed(() => isHeld(props.charge.state))
-const confirmSetBack = () =>
-  window.confirm(
-    t('ui.charges.setBackToBillConfirm', { number: props.charge.invoice?.number ?? '' })
-  )
+
+// The header: where the Charge comes from, and the key facts under it
+const source = computed(() =>
+  props.charge.visitStartsAt
+    ? t('ui.charges.visit', { date: formatDate(props.charge.visitStartsAt) })
+    : t('ui.charges.onJob')
+)
+const facts = computed(() => `${t(`ui.charges.kinds.${props.charge.kind}`)} · ${source.value}`)
+const recordedUnit = computed(() =>
+  props.charge.kind === 'labour'
+    ? 'h'
+    : props.charge.kind === 'item'
+      ? (props.charge.recorded.item?.unit ?? '')
+      : (props.charge.billing.unit ?? '')
+)
+const keyFacts = computed<KeyFact[]>(() => [
+  {
+    label: t('ui.charges.job'),
+    value: props.job.number,
+    href: urlFor('jobs.show', { id: props.job.id }),
+    hint: props.job.title,
+  },
+  {
+    label: t('ui.charges.recordedSection'),
+    value: `${quantity(props.charge.recorded.quantity)} ${recordedUnit.value}`.trim(),
+    hint: source.value,
+  },
+  {
+    label: t('ui.charges.amount'),
+    value: formatMoney(lineTotal(props.charge.billing.quantity, props.charge.billing.unitPrice)),
+    amount: true,
+    hint: t('ui.charges.quantityAtPrice', {
+      quantity:
+        `${quantity(props.charge.billing.quantity)} ${props.charge.billing.unit ?? ''}`.trim(),
+      price: formatMoney(props.charge.billing.unitPrice),
+    }),
+  },
+  {
+    label: t('ui.charges.invoice'),
+    // The draft holding it, or the Invoice billing it
+    value: props.charge.invoice
+      ? props.charge.invoice.number
+        ? t('ui.charges.inInvoice', { number: props.charge.invoice.number })
+        : t('ui.charges.inDraft')
+      : t('ui.charges.noInvoice'),
+    href: props.charge.invoice
+      ? urlFor('invoices.edit', { id: props.charge.invoice.id })
+      : undefined,
+  },
+])
 
 // The Quote's number goes with its line, not on a line of its own
 const shownChanges = (changes: { after: Record<string, string | null> } | null) =>
@@ -112,370 +182,395 @@ const shown = (key: string, value: string | null) => {
   if (key === 'vatKind') return t(`ui.charges.vatKinds.${value}`)
   return value
 }
+const asOption = (id: number | null | undefined) => (id ? String(id) : '')
 </script>
 
 <template>
   <AppLayout>
-    <Page
-      :title="t('ui.charges.editTitle', { number: job.number })"
-      :description="
-        charge.visitStartsAt
-          ? t('ui.charges.visit', { date: formatDate(charge.visitStartsAt) })
-          : t('ui.charges.onJob')
-      "
+    <EntityScreen
+      :document-title="`${charge.billing.description} · ${job.number}`"
+      :crumbs="[
+        { label: t('ui.jobs.title'), href: urlFor('jobs.index') },
+        { label: job.number, href: urlFor('jobs.show', { id: job.id }) },
+      ]"
+      :current="charge.billing.description"
+      :title="charge.billing.description"
+      :facts="facts"
+      :actions="actions"
+      :key-facts="keyFacts"
+      :busy="busy"
     >
-      <template #actions>
-        <Link route="jobs.show" :params="{ id: job.id }" class="btn btn--ghost btn--sm">
-          {{ job.number }} · {{ job.title }}
-        </Link>
+      <template #tags>
+        <StatusTag :tone="WORK_TONES[charge.workState]" data-testid="charge-work-state">
+          {{ t(`ui.charges.workStates.${charge.workState}`) }}
+        </StatusTag>
+        <StatusTag :tone="CHARGE_TONES[charge.state]" data-testid="charge-state">
+          {{ t(`ui.charges.states.${charge.state}`) }}
+        </StatusTag>
       </template>
 
-      <p>
-        <span class="tag" data-testid="charge-work-state">{{
-          t(`ui.charges.workStates.${charge.workState}`)
-        }}</span>
-        <span class="tag" data-testid="charge-state">{{
-          t(`ui.charges.states.${charge.state}`)
-        }}</span>
-        <Link
-          v-if="charge.invoice"
-          route="invoices.edit"
-          :params="{ id: charge.invoice.id }"
-          class="il"
+      <template #main>
+        <ScreenSection
+          :title="t('ui.charges.billingSection')"
+          :description="t('ui.charges.billingHint')"
         >
-          {{
-            charge.invoice.number
-              ? t('ui.charges.inInvoice', { number: charge.invoice.number })
-              : t('ui.charges.inDraft')
-          }}
-        </Link>
-      </p>
-
-      <Section :title="t('ui.charges.work')" :description="t('ui.charges.workHint')">
-        <div v-if="charge.canSetWork" :style="{ display: 'flex', gap: '8px' }">
+          <!-- Named for the header's Save (charge_actions.ts); an action form,
+               since a route form's types take no id -->
           <Form
-            v-if="charge.workState !== 'done'"
-            route="charges.mark_done"
-            :params="{ id: charge.id }"
+            id="charge-billing"
+            v-slot="{ errors }"
+            :action="{ url: urlFor('charges.update_billing', { id: charge.id }), method: 'put' }"
+            @start="busy = true"
+            @finish="busy = false"
           >
-            <button type="submit" class="btn btn--secondary btn--sm">
-              {{
-                charge.workState === 'planned'
-                  ? t('ui.charges.confirmUsed')
-                  : t('ui.charges.markDone')
-              }}
-            </button>
-          </Form>
-          <Form
-            v-if="charge.workState !== 'not_done'"
-            route="charges.mark_not_done"
-            :params="{ id: charge.id }"
-          >
-            <button type="submit" class="btn btn--ghost btn--sm">
-              {{ t('ui.charges.markNotDone') }}
-            </button>
-          </Form>
-        </div>
-      </Section>
-
-      <Section :title="t('ui.charges.recordedSection')" :description="t('ui.charges.recordedHint')">
-        <p v-if="charge.frozen" class="field__hint" data-testid="charge-frozen">
-          {{ t('ui.charges.frozenHint') }}
-        </p>
-        <Form
-          v-slot="{ processing, errors }"
-          route="charges.correct"
-          :params="{ id: charge.id }"
-          class="form"
-        >
-          <template v-if="charge.kind === 'labour'">
-            <div class="field">
-              <label class="field__label" for="correct-rate">{{
-                t('ui.charges.labourRate')
-              }}</label>
-              <select
-                id="correct-rate"
-                name="labourRateId"
-                class="field__input"
-                :value="charge.recorded.labourRateId"
-              >
-                <option v-for="rate in labourRates" :key="rate.id" :value="rate.id">
-                  {{ rate.name }}
-                </option>
-              </select>
-              <span v-if="errors.labourRateId" class="field__error">{{ errors.labourRateId }}</span>
-            </div>
-            <div class="field">
-              <label class="field__label" for="correct-worker">{{ t('ui.charges.worker') }}</label>
-              <select
-                id="correct-worker"
-                :name="someoneElse ? undefined : 'technicianId'"
-                class="field__input"
-                :value="charge.recorded.technicianId ?? ''"
-                @change="someoneElse = ($event.target as HTMLSelectElement).value === ''"
-              >
-                <option v-for="user in technicians" :key="user.id" :value="user.id">
-                  {{ user.name }}
-                </option>
-                <option value="">{{ t('ui.charges.someoneElse') }}</option>
-              </select>
-              <span v-if="errors.technicianId" class="field__error">{{ errors.technicianId }}</span>
-            </div>
-            <div v-if="someoneElse" class="field">
-              <label class="field__label" for="correct-worker-name">{{
-                t('ui.charges.workerName')
-              }}</label>
-              <input
-                id="correct-worker-name"
-                name="workerName"
-                class="field__input"
-                :value="charge.recorded.workerName ?? ''"
-              />
-              <span v-if="errors.workerName" class="field__error">{{ errors.workerName }}</span>
-            </div>
-          </template>
-          <div v-else-if="charge.kind === 'item'" class="field">
-            <span class="field__label">{{ t('ui.charges.item') }}</span>
-            <input type="hidden" name="itemId" :value="item?.id" />
-            <p v-if="item" :style="{ margin: 0 }">
-              <span class="mono">{{ item.code }}</span> {{ item.description }}
-              <button
-                v-if="!changingItem"
-                type="button"
-                class="btn btn--ghost btn--sm"
-                @click="changingItem = true"
-              >
-                {{ t('ui.charges.changeItem') }}
-              </button>
-            </p>
-            <ItemPicker v-if="changingItem" :label="t('ui.charges.item')" @select="pickItem" />
-            <span v-if="errors.itemId" class="field__error">{{ errors.itemId }}</span>
-          </div>
-          <div class="field">
-            <label class="field__label" for="correct-quantity">
-              {{ t('ui.charges.quantity') }}
-              {{
-                charge.kind === 'labour' ? '(h)' : charge.kind === 'item' ? `(${item?.unit})` : ''
-              }}
-            </label>
-            <input
-              id="correct-quantity"
-              v-model="correctedQuantity"
-              name="quantity"
-              inputmode="decimal"
-              class="field__input"
-            />
-            <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
-          </div>
-          <template v-if="pendingDetails">
-            <p class="field__hint" :style="{ margin: 0 }">{{ t('ui.charges.equipmentDetails') }}</p>
-            <div class="field">
-              <label class="field__label" for="correct-type">{{
-                t('ui.field.equipmentType')
-              }}</label>
-              <input
-                id="correct-type"
-                name="equipmentType"
-                class="field__input"
-                :value="charge.recorded.equipment.equipmentType ?? ''"
-              />
-              <span class="field__hint">{{ t('ui.field.equipmentTypeHint') }}</span>
-              <span v-if="errors.equipmentType" class="field__error">{{
-                errors.equipmentType
-              }}</span>
-            </div>
-            <div class="field">
-              <label class="field__label" for="correct-make">{{ t('ui.field.make') }}</label>
-              <input
-                id="correct-make"
-                name="make"
-                class="field__input"
-                :value="charge.recorded.equipment.make ?? ''"
-              />
-              <span v-if="errors.make" class="field__error">{{ errors.make }}</span>
-            </div>
-            <div class="field">
-              <label class="field__label" for="correct-model">{{ t('ui.field.model') }}</label>
-              <input
-                id="correct-model"
-                name="model"
-                class="field__input"
-                :value="charge.recorded.equipment.model ?? ''"
-              />
-              <span v-if="errors.model" class="field__error">{{ errors.model }}</span>
-            </div>
-            <div v-if="singlePiece" class="field">
-              <label class="field__label" for="correct-serial">{{
-                t('ui.field.serialNumber')
-              }}</label>
-              <input
-                id="correct-serial"
-                name="serialNumber"
-                class="field__input"
-                :value="charge.recorded.equipment.serialNumber ?? ''"
-              />
-              <span v-if="errors.serialNumber" class="field__error">{{ errors.serialNumber }}</span>
-            </div>
-            <span v-else class="field__hint">{{ t('ui.field.serialNumberHint') }}</span>
-          </template>
-          <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
-            {{ t('ui.charges.saveCorrection') }}
-          </button>
-        </Form>
-      </Section>
-
-      <Section :title="t('ui.charges.billingSection')" :description="t('ui.charges.billingHint')">
-        <Form
-          v-slot="{ processing, errors }"
-          route="charges.update_billing"
-          :params="{ id: charge.id }"
-          class="form"
-        >
-          <fieldset :disabled="frozen" :style="{ border: 0, padding: 0 }">
-            <div class="field">
-              <label class="field__label" for="billing-description">{{
-                t('ui.charges.description')
-              }}</label>
-              <input
+            <fieldset :disabled="frozen" class="m-0 grid gap-4 border-0 p-0 md:grid-cols-2">
+              <FormField
                 id="billing-description"
-                name="description"
-                class="field__input"
-                :value="charge.billing.description"
-              />
-              <span v-if="errors.description" class="field__error">{{ errors.description }}</span>
-            </div>
-            <div class="field">
-              <label class="field__label" for="billing-quantity">
-                {{ t('ui.charges.quantity') }}
-                {{ charge.billing.unit ? `(${charge.billing.unit})` : '' }}
-              </label>
-              <input
+                v-slot="field"
+                :label="t('ui.charges.description')"
+                :error="errors.description"
+                class="md:col-span-2"
+              >
+                <Input
+                  :id="field.id"
+                  name="description"
+                  :model-value="charge.billing.description"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <FormField
                 id="billing-quantity"
+                v-slot="field"
+                :label="
+                  charge.billing.unit
+                    ? `${t('ui.charges.quantity')} (${charge.billing.unit})`
+                    : t('ui.charges.quantity')
+                "
+                :error="errors.quantity"
+              >
+                <Input
+                  :id="field.id"
+                  name="quantity"
+                  inputmode="decimal"
+                  :model-value="quantity(charge.billing.quantity)"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <FormField
+                id="billing-price"
+                v-slot="field"
+                :label="t('ui.charges.unitPrice')"
+                :error="errors.unitPrice"
+              >
+                <Input
+                  :id="field.id"
+                  name="unitPrice"
+                  inputmode="decimal"
+                  :model-value="amountForInput(charge.billing.unitPrice)"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <template v-if="charge.kind === 'other'">
+                <FormField
+                  id="billing-unit"
+                  v-slot="field"
+                  :label="t('ui.charges.unit')"
+                  :error="errors.unit"
+                >
+                  <Input
+                    :id="field.id"
+                    name="unit"
+                    :model-value="charge.billing.unit ?? ''"
+                    :class="TOUCH"
+                    :aria-invalid="field.invalid"
+                    :aria-describedby="field.describedBy"
+                  />
+                </FormField>
+                <FormField
+                  id="billing-vat"
+                  v-slot="field"
+                  :label="t('ui.charges.vatKind')"
+                  :error="errors.vatKind"
+                >
+                  <NativeSelect
+                    :id="field.id"
+                    name="vatKind"
+                    :model-value="charge.billing.vatKind ?? undefined"
+                    :aria-invalid="field.invalid"
+                    :aria-describedby="field.describedBy"
+                  >
+                    <option v-for="kind in LINE_KINDS" :key="kind" :value="kind">
+                      {{ t(`ui.charges.vatKinds.${kind}`) }}
+                    </option>
+                  </NativeSelect>
+                </FormField>
+              </template>
+            </fieldset>
+          </Form>
+        </ScreenSection>
+
+        <ScreenSection
+          :title="t('ui.charges.recordedSection')"
+          :description="t('ui.charges.recordedHint')"
+        >
+          <p
+            v-if="charge.frozen"
+            class="m-0 text-[13px] text-muted-foreground"
+            data-testid="charge-frozen"
+          >
+            {{ t('ui.charges.frozenHint') }}
+          </p>
+          <Form
+            v-slot="{ processing, errors }"
+            route="charges.correct"
+            :params="{ id: charge.id }"
+            class="grid gap-4 md:grid-cols-2"
+          >
+            <template v-if="charge.kind === 'labour'">
+              <FormField
+                id="correct-rate"
+                v-slot="field"
+                :label="t('ui.charges.labourRate')"
+                :error="errors.labourRateId"
+              >
+                <NativeSelect
+                  :id="field.id"
+                  name="labourRateId"
+                  :model-value="asOption(charge.recorded.labourRateId)"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                >
+                  <option v-for="rate in labourRates" :key="rate.id" :value="String(rate.id)">
+                    {{ rate.name }}
+                  </option>
+                </NativeSelect>
+              </FormField>
+              <FormField
+                id="correct-worker"
+                v-slot="field"
+                :label="t('ui.charges.worker')"
+                :error="errors.technicianId"
+              >
+                <NativeSelect
+                  :id="field.id"
+                  :name="someoneElse ? undefined : 'technicianId'"
+                  :model-value="asOption(charge.recorded.technicianId)"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                  @change="someoneElse = ($event.target as HTMLSelectElement).value === ''"
+                >
+                  <option v-for="user in technicians" :key="user.id" :value="String(user.id)">
+                    {{ user.name }}
+                  </option>
+                  <option value="">{{ t('ui.charges.someoneElse') }}</option>
+                </NativeSelect>
+              </FormField>
+              <FormField
+                v-if="someoneElse"
+                id="correct-worker-name"
+                v-slot="field"
+                :label="t('ui.charges.workerName')"
+                :error="errors.workerName"
+              >
+                <Input
+                  :id="field.id"
+                  name="workerName"
+                  :model-value="charge.recorded.workerName ?? ''"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+            </template>
+            <div v-else-if="charge.kind === 'item'" class="flex flex-col gap-1.5 md:col-span-2">
+              <span class="text-sm font-medium">{{ t('ui.charges.item') }}</span>
+              <input type="hidden" name="itemId" :value="item?.id" />
+              <p v-if="item" class="m-0 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                <span>
+                  <span class="font-mono text-[13px]">{{ item.code }}</span>
+                  {{ item.description }}
+                </span>
+                <Button
+                  v-if="!changingItem"
+                  type="button"
+                  variant="outline"
+                  :class="TOUCH"
+                  @click="changingItem = true"
+                >
+                  {{ t('ui.charges.changeItem') }}
+                </Button>
+              </p>
+              <ItemPicker v-if="changingItem" :label="t('ui.charges.item')" @select="pickItem" />
+              <p v-if="errors.itemId" class="m-0 flex items-start gap-1.5 text-sm text-destructive">
+                <CircleAlert :size="16" aria-hidden="true" class="mt-0.5 shrink-0" />
+                {{ errors.itemId }}
+              </p>
+            </div>
+            <FormField
+              id="correct-quantity"
+              v-slot="field"
+              :label="
+                charge.kind === 'labour'
+                  ? `${t('ui.charges.quantity')} (h)`
+                  : charge.kind === 'item'
+                    ? `${t('ui.charges.quantity')} (${item?.unit ?? ''})`
+                    : t('ui.charges.quantity')
+              "
+              :error="errors.quantity"
+            >
+              <Input
+                :id="field.id"
+                v-model="correctedQuantity"
                 name="quantity"
                 inputmode="decimal"
-                class="field__input"
-                :value="quantity(charge.billing.quantity)"
+                :class="TOUCH"
+                :aria-invalid="field.invalid"
+                :aria-describedby="field.describedBy"
               />
-              <span v-if="errors.quantity" class="field__error">{{ errors.quantity }}</span>
-            </div>
-            <div class="field">
-              <label class="field__label" for="billing-price">{{
-                t('ui.charges.unitPrice')
-              }}</label>
-              <input
-                id="billing-price"
-                name="unitPrice"
-                inputmode="decimal"
-                class="field__input"
-                :value="amountForInput(charge.billing.unitPrice)"
-              />
-              <span v-if="errors.unitPrice" class="field__error">{{ errors.unitPrice }}</span>
-            </div>
-            <template v-if="charge.kind === 'other'">
-              <div class="field">
-                <label class="field__label" for="billing-unit">{{ t('ui.charges.unit') }}</label>
-                <input
-                  id="billing-unit"
-                  name="unit"
-                  class="field__input"
-                  :value="charge.billing.unit ?? ''"
+            </FormField>
+            <template v-if="pendingDetails">
+              <p class="m-0 text-[13px] text-muted-foreground md:col-span-2">
+                {{ t('ui.charges.equipmentDetails') }}
+              </p>
+              <FormField
+                id="correct-type"
+                v-slot="field"
+                :label="t('ui.field.equipmentType')"
+                :hint="t('ui.field.equipmentTypeHint')"
+                :error="errors.equipmentType"
+              >
+                <Input
+                  :id="field.id"
+                  name="equipmentType"
+                  :model-value="charge.recorded.equipment.equipmentType ?? ''"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
                 />
-                <span v-if="errors.unit" class="field__error">{{ errors.unit }}</span>
-              </div>
-              <div class="field">
-                <label class="field__label" for="billing-vat">{{ t('ui.charges.vatKind') }}</label>
-                <select
-                  id="billing-vat"
-                  name="vatKind"
-                  class="field__input"
-                  :value="charge.billing.vatKind"
-                >
-                  <option v-for="kind in LINE_KINDS" :key="kind" :value="kind">
-                    {{ t(`ui.charges.vatKinds.${kind}`) }}
-                  </option>
-                </select>
-              </div>
+              </FormField>
+              <FormField
+                id="correct-make"
+                v-slot="field"
+                :label="t('ui.field.make')"
+                :error="errors.make"
+              >
+                <Input
+                  :id="field.id"
+                  name="make"
+                  :model-value="charge.recorded.equipment.make ?? ''"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <FormField
+                id="correct-model"
+                v-slot="field"
+                :label="t('ui.field.model')"
+                :error="errors.model"
+              >
+                <Input
+                  :id="field.id"
+                  name="model"
+                  :model-value="charge.recorded.equipment.model ?? ''"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <FormField
+                v-if="singlePiece"
+                id="correct-serial"
+                v-slot="field"
+                :label="t('ui.field.serialNumber')"
+                :error="errors.serialNumber"
+              >
+                <Input
+                  :id="field.id"
+                  name="serialNumber"
+                  :model-value="charge.recorded.equipment.serialNumber ?? ''"
+                  :class="TOUCH"
+                  :aria-invalid="field.invalid"
+                  :aria-describedby="field.describedBy"
+                />
+              </FormField>
+              <p v-else class="m-0 self-end text-[13px] text-muted-foreground">
+                {{ t('ui.field.serialNumberHint') }}
+              </p>
             </template>
-            <button type="submit" class="btn btn--secondary btn--sm" :disabled="processing">
-              {{ t('ui.charges.saveBilling') }}
-            </button>
-          </fieldset>
-        </Form>
-        <Form
-          v-if="canSetBackToBill(charge.state)"
-          route="charges.set_back_to_bill"
-          :params="{ id: charge.id }"
-          :on-before="confirmSetBack"
-        >
-          <button type="submit" class="btn btn--ghost btn--sm">
-            {{ t('ui.charges.setBackToBill') }}
-          </button>
-        </Form>
-        <template v-if="!frozen">
-          <Form
-            v-if="charge.state === 'not_billable'"
-            route="charges.mark_billable"
-            :params="{ id: charge.id }"
-          >
-            <button type="submit" class="btn btn--ghost btn--sm">
-              {{ t('ui.charges.markBillable') }}
-            </button>
+            <div class="md:col-span-2">
+              <Button type="submit" variant="outline" :class="TOUCH" :disabled="processing">
+                {{ t('ui.charges.saveCorrection') }}
+              </Button>
+            </div>
           </Form>
-          <Form v-else route="charges.mark_not_billable" :params="{ id: charge.id }">
-            <button type="submit" class="btn btn--ghost btn--sm">
-              {{ t('ui.charges.markNotBillable') }}
-            </button>
-          </Form>
-        </template>
-      </Section>
+        </ScreenSection>
+      </template>
 
-      <Section :title="t('ui.charges.history')">
-        <table class="table" data-testid="charge-history">
-          <tbody>
-            <tr v-for="event in charge.history" :key="event.id">
-              <td>{{ formatDate(event.at) }} {{ event.at.slice(11, 16) }}</td>
-              <td>{{ t(`ui.charges.events.${event.kind}`) }}</td>
-              <td>{{ event.user ?? '' }}</td>
-              <td>
-                <Link
-                  v-if="event.invoice"
-                  route="invoices.edit"
-                  :params="{ id: event.invoice.id }"
-                  class="il"
-                >
-                  {{
-                    event.amount
-                      ? t('ui.charges.billedIn', {
-                          number: event.invoice.number ?? '',
-                          amount: formatMoney(event.amount),
+      <template #side>
+        <ScreenSection :title="t('ui.charges.work')">
+          <p class="m-0 text-[13px] text-muted-foreground">{{ t('ui.charges.workHint') }}</p>
+        </ScreenSection>
+
+        <ScreenSection :title="t('ui.charges.history')" flush>
+          <ol class="m-0 list-none p-0" data-testid="charge-history">
+            <li
+              v-for="event in charge.history"
+              :key="event.id"
+              class="flex flex-col gap-0.5 border-t border-border px-3.5 py-2.5 text-sm md:px-4"
+            >
+              <span class="flex flex-wrap items-baseline justify-between gap-x-3">
+                <span class="font-semibold">{{ t(`ui.charges.events.${event.kind}`) }}</span>
+                <span class="text-[13px] text-muted-foreground">
+                  {{ formatDate(event.at) }} {{ event.at.slice(11, 16) }}
+                </span>
+              </span>
+              <span v-if="event.user" class="text-[13px] text-muted-foreground">
+                {{ event.user }}
+              </span>
+              <Link
+                v-if="event.invoice"
+                :href="urlFor('invoices.edit', { id: event.invoice.id })"
+                :class="cn(LINK, 'self-start')"
+              >
+                {{
+                  event.amount
+                    ? t('ui.charges.billedIn', {
+                        number: event.invoice.number ?? '',
+                        amount: formatMoney(event.amount),
+                      })
+                    : event.kind === 'credited' || event.kind === 'uncredited'
+                      ? t('ui.charges.creditedBy', { number: event.invoice.number ?? '' })
+                      : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
+                }}
+              </Link>
+              <span v-for="(after, key) in shownChanges(event.changes)" :key="key">
+                <!-- Imported from a Quote line (ADR 0012), of a numbered Quote (ADR 0013) -->
+                {{
+                  key === 'quoteLine'
+                    ? event.changes!.after.quote
+                      ? t('ui.charges.fromQuoteLine', {
+                          position: after,
+                          number: event.changes!.after.quote,
                         })
-                      : event.kind === 'credited' || event.kind === 'uncredited'
-                        ? t('ui.charges.creditedBy', { number: event.invoice.number ?? '' })
-                        : t('ui.charges.unbilledFrom', { number: event.invoice.number ?? '' })
-                  }}
-                </Link>
-                <div v-for="(after, key) in shownChanges(event.changes)" :key="key">
-                  <!-- Imported from a Quote line (ADR 0012), of a numbered Quote (ADR 0013) -->
-                  {{
-                    key === 'quoteLine'
-                      ? event.changes!.after.quote
-                        ? t('ui.charges.fromQuoteLine', {
-                            position: after,
-                            number: event.changes!.after.quote,
-                          })
-                        : t('ui.charges.fromUnnumberedQuoteLine', { position: after })
-                      : t('ui.charges.change', {
-                          field: t(`ui.charges.fields.${key}`),
-                          before: shown(String(key), event.changes!.before[key]),
-                          after: shown(String(key), after),
-                        })
-                  }}
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </Section>
-    </Page>
+                      : t('ui.charges.fromUnnumberedQuoteLine', { position: after })
+                    : t('ui.charges.change', {
+                        field: t(`ui.charges.fields.${key}`),
+                        before: shown(String(key), event.changes!.before[key]),
+                        after: shown(String(key), after),
+                      })
+                }}
+              </span>
+            </li>
+          </ol>
+        </ScreenSection>
+      </template>
+    </EntityScreen>
   </AppLayout>
 </template>

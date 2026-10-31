@@ -1350,7 +1350,19 @@
   "charges": {
     "title": "Addebiti",
     "none": "Nessun addebito registrato.",
-    "editTitle": "Addebito · commessa {number}",
+    "kinds": {
+      "labour": "Ore",
+      "item": "Articolo",
+      "other": "Altro costo"
+    },
+    "job": "Commessa",
+    "invoice": "Fattura",
+    "noInvoice": "Nessuna",
+    "billingHeld": {
+      "in_draft": "È in una bozza di fattura: toglilo dalla bozza per modificarne la fatturazione.",
+      "billed": "È in una fattura emessa: rimettilo da fatturare per modificarne la fatturazione.",
+      "credited": "È stato stornato con una nota di credito: rimettilo da fatturare per modificarne la fatturazione."
+    },
     "open": "Rivedi",
     "description": "Descrizione",
     "quantity": "Quantità",

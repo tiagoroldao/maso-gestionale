@@ -498,6 +498,80 @@ test.group('Work state: Office switches done and not done', () => {
     assert.equal(await workOf(assert, valves), 'done')
     assert.deepEqual(await history(valves), ['recorded', 'done'])
   })
+
+  test("the Charge screen's header actions follow its work and billing states", async ({
+    client,
+    assert,
+  }) => {
+    const { office, anna, job, visit, valves } = await openVisit()
+    /** The actions the page gets, as the server declared them */
+    async function actionsOf() {
+      const page = await client.get(`/charges/${valves.id}/edit`).withInertia().loginAs(office)
+      return page.inertiaProps.actions as {
+        name: string
+        rank: string
+        disabledReason: string | null
+        confirm: string | null
+      }[]
+    }
+    const names = async () => {
+      const actions = await actionsOf()
+      return actions.map((action) => [action.name, action.rank])
+    }
+
+    // The Visit still open: no work state to switch yet
+    assert.deepEqual(await names(), [
+      ['saveBilling', 'primary'],
+      ['markNotBillable', 'overflow'],
+    ])
+
+    await FieldWork.setStatus(visit, 'done', anna)
+    assert.deepEqual(await names(), [
+      ['saveBilling', 'primary'],
+      ['markNotDone', 'secondary'],
+      ['markNotBillable', 'overflow'],
+    ])
+    await post(client, office, `/charges/${valves.id}/not-done`)
+    await post(client, office, `/charges/${valves.id}/not-billable`)
+    assert.deepEqual(await names(), [
+      ['saveBilling', 'primary'],
+      ['markDone', 'secondary'],
+      ['markBillable', 'overflow'],
+    ])
+    await post(client, office, `/charges/${valves.id}/billable`)
+    await post(client, office, `/charges/${valves.id}/done`)
+
+    // A draft holds it: Save stays, disabled with its reason; nothing else
+    const draft = await Invoices.fromJob(job)
+    const held = await actionsOf()
+    assert.deepEqual(
+      held.map((action) => [action.name, action.disabledReason]),
+      [['saveBilling', it('ui.charges.billingHeld.in_draft')]]
+    )
+
+    // Billed: set back to bill, confirmed with the Invoice's number
+    await Invoices.finalise(draft)
+    const finalised = await Invoice.findOrFail(draft.id)
+    const billed = await actionsOf()
+    assert.deepEqual(
+      billed.map((action) => [action.name, action.rank, action.disabledReason]),
+      [
+        ['saveBilling', 'primary', it('ui.charges.billingHeld.billed')],
+        ['setBackToBill', 'overflow', null],
+      ]
+    )
+    assert.equal(
+      billed[1].confirm,
+      it('ui.charges.setBackToBillConfirm', { number: finalised.formattedNumber! })
+    )
+
+    // Set back to bill: billing reopens, its work state stays frozen
+    await post(client, office, `/charges/${valves.id}/to-bill`)
+    assert.deepEqual(await names(), [
+      ['saveBilling', 'primary'],
+      ['markNotBillable', 'overflow'],
+    ])
+  })
 })
 
 test.group('Work state: billing in TypeScript and SQL', () => {
