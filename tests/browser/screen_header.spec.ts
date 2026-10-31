@@ -1,0 +1,43 @@
+import { test } from '@japa/runner'
+import { createUser } from '#tests/helpers/users'
+import { it } from '#tests/helpers/i18n'
+import { SCREEN_SIZES } from '#shared/screen_sizes'
+
+/**
+ * The screen header's actions (inertia/components/screen/screen_actions.vue),
+ * on the component gallery's samples (/dev/ui).
+ */
+test.group('Screen header in the browser', () => {
+  test("a primary's long disabled reason wraps under the buttons, which stay together (#282)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const page = await visit('/dev/ui')
+
+    for (const size of ['desktop', 'tablet'] as const) {
+      await page.setViewportSize(SCREEN_SIZES[size])
+      const header = page.getByTestId('blocked-primary')
+      const reason = header.getByText(it('ui.devUi.action.longReason'))
+      await reason.waitFor()
+      const secondary = await header
+        .getByRole('button', { name: it('ui.devUi.action.secondary') })
+        .boundingBox()
+      const primary = await header
+        .getByRole('button', { name: it('ui.devUi.action.primary') })
+        .boundingBox()
+      const more = await header
+        .getByRole('button', { name: it('ui.screen.moreActions') })
+        .boundingBox()
+
+      // Secondary, primary, "⋯" side by side, 8px apart
+      assert.equal(Math.round(primary!.x - (secondary!.x + secondary!.width)), 8, size)
+      assert.equal(Math.round(more!.x - (primary!.x + primary!.width)), 8, size)
+      assert.equal(Math.round(primary!.y), Math.round(secondary!.y), size)
+      // The reason under them
+      const under = await reason.boundingBox()
+      assert.isAtLeast(under!.y, primary!.y + primary!.height, size)
+    }
+  })
+})
