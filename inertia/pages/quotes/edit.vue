@@ -729,7 +729,9 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
       <div class="grid items-start gap-3 md:grid-cols-2 md:gap-5">
         <ScreenSection v-if="editable" :title="t('ui.quotes.addTitle')">
           <ItemPicker :label="t('ui.quotes.addItem')" @select="addItem" />
-          <div class="flex items-end gap-2">
+          <!-- The rate's select above its button until the column is wide
+               enough for both, so the rates' names stay readable (#271) -->
+          <div class="flex flex-col gap-2 lg:flex-row lg:items-end">
             <div class="min-w-0 flex-1">
               <FormField id="labour-rate" v-slot="field" :label="t('ui.quotes.addLabour')">
                 <NativeSelect :id="field.id" v-model="labourRateId">
@@ -743,7 +745,7 @@ const HINT = 'm-0 text-[13px] text-muted-foreground'
             <Button
               type="button"
               variant="outline"
-              :class="BUTTON"
+              :class="cn(BUTTON, 'self-start lg:self-auto')"
               :disabled="!labourRateId"
               @click="addLabour"
             >
