@@ -35,6 +35,12 @@ function legacyInvoice(customerId: number, fields: Partial<Invoice> = {}) {
   })
 }
 
+/** A VAT row's error on its Imponibile, as the row shows it */
+const rowTaxableError = it('ui.common.fieldError', {
+  field: it('ui.legacyInvoices.rowTaxable'),
+  message: '',
+})
+
 test.group('Legacy Invoices in the browser', (group) => {
   group.each.teardown(() => rm(storagePath(), { recursive: true, force: true }))
 
@@ -115,6 +121,43 @@ test.group('Legacy Invoices in the browser', (group) => {
     assert.equal(invoice.dueOn!.toISODate(), '2025-03-31')
   })
 
+  test('saving twice uploads its new PDF once (#287)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer()
+    const invoice = await legacyInvoice(customer.id)
+
+    const page = await visit(`/invoices/${invoice.id}/legacy`)
+    // Saved once the page it redirects to is back
+    const save = async () => {
+      const shown = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'GET' &&
+          response.url().endsWith(`/invoices/${invoice.id}/legacy`)
+      )
+      await page.getByRole('button', { name: it('ui.legacyInvoices.save') }).click()
+      await shown
+      await page.getByText(it('flash.legacyInvoiceSaved')).waitFor()
+    }
+    await page
+      .getByLabel(it('ui.legacyInvoices.pdfReplace'))
+      .setInputFiles(app.makePath('tests/fixtures/manual.pdf'))
+    await save()
+    await invoice.refresh()
+    const replaced = invoice.pdfPath
+    assert.notEqual(replaced, 'invoices/legacy/original.pdf')
+    assert.equal(await page.getByLabel(it('ui.legacyInvoices.pdfReplace')).inputValue(), '')
+
+    await page.getByLabel(it('ui.legacyInvoices.number')).fill('7-bis/2025')
+    await save()
+    await invoice.refresh()
+    assert.equal(invoice.legacyNumber, '7-bis/2025')
+    assert.equal(invoice.pdfPath, replaced)
+  })
+
   test('on a phone, a new one starts from its Customer, then Registra is in the bar at the bottom', async ({
     browserContext,
     visit,
@@ -145,6 +188,60 @@ test.group('Legacy Invoices in the browser', (group) => {
     await bar.getByRole('button', { name: it('ui.legacyInvoices.create') }).click()
     await page.locator('#legacy-pdf-error').waitFor()
     assert.equal(await page.getByLabel(it('ui.legacyInvoices.number')).inputValue(), '9/2025')
+    // The empty VAT row: its own error, in the row
+    const row = page.getByRole('listitem', { name: it('ui.legacyInvoices.rowOf', { position: 1 }) })
+    await row.getByText(rowTaxableError).waitFor()
+    assert.equal(
+      await row
+        .getByLabel(it('ui.legacyInvoices.rowTaxableOf', { position: 1 }))
+        .getAttribute('aria-invalid'),
+      'true'
+    )
+  })
+
+  test('removing a VAT row after a refused save leaves each row its own errors (#287)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer()
+
+    const page = await visit(`/invoices/legacy/create?customerId=${customer.id}`)
+    await page.getByLabel(it('ui.legacyInvoices.advance')).check()
+    const addRow = page.getByRole('button', { name: it('ui.legacyInvoices.addRow') })
+    await addRow.click()
+    await addRow.click()
+    await page.getByLabel(it('ui.legacyInvoices.rowTaxableOf', { position: 1 })).fill('100')
+    // Refused (no PDF, the second row empty)
+    await page.getByRole('button', { name: it('ui.legacyInvoices.create') }).click()
+    await page.locator('#legacy-pdf-error').waitFor()
+    const row = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.legacyInvoices.rowOf', { position }) })
+    await row(2).getByText(rowTaxableError).waitFor()
+    assert.equal(await row(1).getByText(rowTaxableError).count(), 0)
+
+    // The first removed: the empty one, now first, keeps its error
+    await page
+      .getByRole('button', { name: it('ui.legacyInvoices.removeRowOf', { position: 1 }) })
+      .click()
+    assert.equal(await page.getByRole('listitem', { name: /Riga IVA/ }).count(), 1)
+    await row(1).getByText(rowTaxableError).waitFor()
+    assert.equal(
+      await page
+        .getByLabel(it('ui.legacyInvoices.rowTaxableOf', { position: 1 }))
+        .getAttribute('aria-invalid'),
+      'true'
+    )
+    // A row added since has none
+    await addRow.click()
+    await row(2).waitFor()
+    assert.equal(await row(2).getByText(rowTaxableError).count(), 0)
+    assert.isNull(
+      await page
+        .getByLabel(it('ui.legacyInvoices.rowTaxableOf', { position: 2 }))
+        .getAttribute('aria-invalid')
+    )
   })
 
   test('on a desktop, the header reads its PDF, Crea nota di credito, Salva, "⋯"; deleting asks first', async ({
@@ -208,6 +305,8 @@ test.group('Legacy Invoices in the browser', (group) => {
     const page = await visit(`/invoices/${invoice.id}/legacy`)
     await page.getByTestId('legacy-amounts').getByText('7/2025').waitFor()
     await page.getByTestId('legacy-vat-rows').getByText('22,00 €').waitFor()
+    await page.getByRole('heading', { name: it('ui.legacyInvoices.details') }).waitFor()
+    assert.equal(await page.getByText(it('ui.legacyInvoices.advanceHint')).count(), 0)
     assert.equal(await page.getByLabel(it('ui.legacyInvoices.number')).count(), 0)
     assert.equal(await page.getByRole('button', { name: it('ui.legacyInvoices.save') }).count(), 0)
     assert.equal(await page.getByRole('button', { name: it('ui.screen.moreActions') }).count(), 0)

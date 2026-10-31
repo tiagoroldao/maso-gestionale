@@ -118,6 +118,17 @@ const valuesFromProps = () => ({
 })
 const values = reactive(valuesFromProps())
 const rows = ref(rowsFromProps())
+/**
+ * The rows' keys in the order the last save sent them: the server names a
+ * row's errors by that position (`vatRows.N.*`), so each stays on its own
+ * row when one is removed or added after a refused save (#287).
+ */
+const sentKeys = ref(rows.value.map((row) => row.key))
+/**
+ * Bumped after a save to remount the PDF's file input: the page stays, and
+ * a PDF still chosen there would be uploaded again by the next Save (#287).
+ */
+const pdfInput = ref(0)
 
 // After a save, show what the server has
 watch(
@@ -126,6 +137,8 @@ watch(
     if (Object.keys(errors.value).length) return
     Object.assign(values, valuesFromProps())
     rows.value = rowsFromProps()
+    sentKeys.value = rows.value.map((row) => row.key)
+    pdfInput.value++
   }
 )
 
@@ -144,6 +157,7 @@ const processing = ref(false)
  */
 function save(event: Event) {
   if (processing.value) return
+  sentKeys.value = rows.value.map((row) => row.key)
   const url = props.invoice
     ? urlFor('legacy_invoices.update', { id: props.invoice.id })
     : urlFor('legacy_invoices.store')
@@ -242,14 +256,19 @@ const ROW_FIELDS = computed(() => ({
   vatCodeId: t('ui.legacyInvoices.vatCode'),
   taxable: t('ui.legacyInvoices.rowTaxable'),
 }))
-const rowErrors = (index: number) =>
+/** A row's error for `field`, from its position when last sent */
+const rowError = (key: number, field: string) => {
+  const sent = sentKeys.value.indexOf(key)
+  return sent === -1 ? undefined : errors.value[`vatRows.${sent}.${field}`]
+}
+const rowErrors = (key: number) =>
   Object.fromEntries(
     Object.keys(ROW_FIELDS.value).flatMap((field) => {
-      const message = errors.value[`vatRows.${index}.${field}`]
+      const message = rowError(key, field)
       return message ? [[field, message]] : []
     })
   ) as Record<string, string>
-const invalid = (key: string) => (errors.value[key] ? 'true' : undefined)
+const rowInvalid = (key: number, field: string) => (rowError(key, field) ? 'true' : undefined)
 
 const GRID = 'grid gap-4 md:grid-cols-3'
 const CHECK = 'flex min-h-11 items-center gap-2.5 text-sm font-medium md:min-h-0'
@@ -286,7 +305,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
 
       <template v-if="customer" #main>
         <ScreenSection
-          :title="t('ui.legacyInvoices.amounts')"
+          :title="t('ui.legacyInvoices.details')"
           :description="
             invoice ? t('ui.legacyInvoices.description') : t('ui.legacyInvoices.newDescription')
           "
@@ -493,7 +512,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
               />
               {{ t('ui.legacyInvoices.advance') }}
             </label>
-            <p :class="HINT">{{ t('ui.legacyInvoices.advanceHint') }}</p>
+            <p v-if="editing" :class="HINT">{{ t('ui.legacyInvoices.advanceHint') }}</p>
             <p v-if="advanceState" class="m-0 text-sm" data-testid="advance-state">
               {{
                 t('ui.legacyInvoices.advanceState', {
@@ -522,7 +541,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
                       :name="`vatRows[${index}][vatCodeId]`"
                       :form="FORM"
                       :aria-label="t('ui.legacyInvoices.vatCodeOf', { position: index + 1 })"
-                      :aria-invalid="invalid(`vatRows.${index}.vatCodeId`)"
+                      :aria-invalid="rowInvalid(row.key, 'vatCodeId')"
                     >
                       <option v-for="code in vatCodes" :key="code.id" :value="String(code.id)">
                         {{ code.name }}
@@ -537,7 +556,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
                       :form="FORM"
                       :class="TOUCH"
                       :aria-label="t('ui.legacyInvoices.rowTaxableOf', { position: index + 1 })"
-                      :aria-invalid="invalid(`vatRows.${index}.taxable`)"
+                      :aria-invalid="rowInvalid(row.key, 'taxable')"
                     />
                   </RowField>
                   <Button
@@ -551,10 +570,10 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
                     <Trash2 aria-hidden="true" />
                   </Button>
                   <div
-                    v-if="Object.keys(rowErrors(index)).length"
+                    v-if="Object.keys(rowErrors(row.key)).length"
                     class="col-span-full flex flex-col gap-1 md:basis-full"
                   >
-                    <RowErrors :errors="rowErrors(index)" :fields="ROW_FIELDS" />
+                    <RowErrors :errors="rowErrors(row.key)" :fields="ROW_FIELDS" />
                   </div>
                 </li>
               </ol>
@@ -638,6 +657,7 @@ const READ = 'text-sm md:inline-flex md:min-h-9 md:items-center'
             >
               <Input
                 :id="field.id"
+                :key="pdfInput"
                 name="pdf"
                 type="file"
                 accept=".pdf"
