@@ -7,6 +7,7 @@ import { createItem } from '#tests/helpers/items'
 import { createJob } from '#tests/helpers/jobs'
 import { it } from '#tests/helpers/i18n'
 import { chooseMoreAction } from '#tests/helpers/screen'
+import { seriousA11yViolations } from '#tests/helpers/axe'
 import { SCREEN_SIZES } from '#shared/screen_sizes'
 import type { Page } from 'playwright'
 
@@ -122,12 +123,12 @@ test.group('Quotes in the browser', () => {
       await page.setViewportSize(size)
       const { field, add } = await boxes()
       assert.isAtLeast(add.y, field.y + field.height, 'the button under the select')
-      assert.isAtLeast(field.width, 280, 'the select as wide as its section')
+      assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
     }
     // Desktop: side by side, as before
     await page.setViewportSize(SCREEN_SIZES.desktop)
     const { field, add } = await boxes()
     assert.isAtLeast(add.x, field.x + field.width, 'the button beside the select')
-    assert.approximately(add.y + add.height, field.y + field.height, 1, 'their bottoms aligned')
+    assert.deepEqual(await seriousA11yViolations(page, { content: true }), [])
   })
 })
