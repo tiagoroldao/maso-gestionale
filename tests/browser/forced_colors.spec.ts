@@ -2,6 +2,8 @@ import { test } from '@japa/runner'
 import type { Locator } from 'playwright'
 import { createUser } from '#tests/helpers/users'
 import { it } from '#tests/helpers/i18n'
+import { createCustomer } from '#tests/helpers/customers'
+import { createJob } from '#tests/helpers/jobs'
 import { SCREEN_SIZES } from '#shared/screen_sizes'
 
 /**
@@ -41,5 +43,33 @@ test.group('Focus in forced colours in the browser', () => {
       assert.notEqual(outline.style, 'none', name)
       assert.isAbove(outline.width, 0, name)
     }
+  })
+
+  test("a menu's container, which holds focus while its items are navigated, draws no outline (#326)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const job = await createJob(await createCustomer())
+    const page = await visit(`/jobs/${job.id}`)
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page.emulateMedia({ forcedColors: 'active' })
+
+    // Opened with the pointer, the menu's container takes focus; a key press then makes it visible
+    await page.getByRole('button', { name: it('ui.screen.moreActions') }).click()
+    const menu = page.getByRole('menu')
+    await page.waitForFunction(
+      (el: any) => (globalThis as any).document.activeElement === el,
+      await menu.elementHandle()
+    )
+    await page.keyboard.press('Shift')
+    const outline = (locator: Locator) =>
+      locator.evaluate((el: any) => (globalThis as any).getComputedStyle(el).outlineStyle)
+    assert.equal(await outline(menu), 'none')
+    // Arrowing into an item: that item shows its focus, not the container
+    await page.keyboard.press('ArrowDown')
+    assert.equal(await outline(menu), 'none')
+    assert.notEqual(await outline(menu.locator(':focus')), 'none')
   })
 })

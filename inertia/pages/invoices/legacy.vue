@@ -36,6 +36,7 @@ import { formatDate } from '@shared/dates'
 import { amountForInput } from '@shared/money'
 import type { AdvanceState } from '@shared/advances'
 import type { InvoiceStatus } from '@shared/invoice_lifecycle'
+import type { PaymentStatus } from '@shared/payment_status'
 import type { ScreenAction } from '@shared/screen_actions'
 
 type VatRow = {
@@ -75,7 +76,7 @@ const props = defineProps<{
   advanceState: { state: AdvanceState; deducted: string; left: string } | null
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
   paymentSummary: {
-    status: string
+    status: PaymentStatus
     credited: string
     paid: string
     owed: string

@@ -34,7 +34,7 @@ defineProps<{
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
   // owed is below zero when overpaid, by overpaidBy
   summary: {
-    status: string
+    status: PaymentStatus
     credited: string
     paid: string
     owed: string
@@ -70,7 +70,7 @@ function remove() {
     </template>
     <div class="flex flex-col gap-1.5 px-3.5 pb-3 text-sm md:px-4">
       <p class="m-0 flex flex-wrap items-center gap-2">
-        <StatusTag :tone="PAYMENT_TONES[summary.status as PaymentStatus]">
+        <StatusTag :tone="PAYMENT_TONES[summary.status]">
           {{ t(`ui.invoices.paymentStatuses.${summary.status}`) }}
         </StatusTag>
         <span>

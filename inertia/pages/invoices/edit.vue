@@ -63,6 +63,7 @@ import {
 import { consumableFolds } from '@shared/combined_lines'
 import { DEFAULT_ORGANISE_BY, ORGANISE_BY, inSectionOrder } from '@shared/invoice_sections'
 import type { DocumentType } from '@shared/credit_notes'
+import type { PaymentStatus } from '@shared/payment_status'
 
 type Line = {
   key: number
@@ -183,7 +184,7 @@ const props = defineProps<{
   payments: { id: number; amount: string; paidOn: string; note: string | null }[]
   // owed is below zero when overpaid, by overpaidBy
   paymentSummary: {
-    status: string
+    status: PaymentStatus
     credited: string
     paid: string
     owed: string
