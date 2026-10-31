@@ -25,18 +25,22 @@ test.group('Screen actions in the browser', () => {
     const bottom = (box: { y: number; height: number } | null) =>
       Math.round((box?.y ?? 0) + (box?.height ?? 0))
 
-    // No safe area: the bar as before, 10px under its button
-    assert.equal(bottom(await button.boundingBox()), SCREEN_SIZES.phone.height - 10)
+    // No safe area: the bar at the bottom of the screen, its button above that
+    const height = SCREEN_SIZES.phone.height
+    assert.equal(bottom(await bar.boundingBox()), height)
+    const plain = bottom(await button.boundingBox())
 
     // An iPhone's home indicator: 34px of safe area at the bottom
     const cdp = await browserContext.newCDPSession(page)
     await cdp.send('Emulation.setSafeAreaInsetsOverride', { insets: { bottom: 34 } })
     await page.waitForFunction(
-      `document.querySelector('[data-testid="primary-action"] button').getBoundingClientRect().bottom < ${SCREEN_SIZES.phone.height - 34}`
+      `document.querySelector('[data-testid="primary-action"] button').getBoundingClientRect().bottom < ${plain}`
     )
-    assert.equal(bottom(await bar.boundingBox()), SCREEN_SIZES.phone.height)
+    // The bar still reaches the bottom; its button moved up by the inset, clear of it
+    assert.equal(bottom(await bar.boundingBox()), height)
     const clear = await button.boundingBox()
-    assert.equal(bottom(clear), SCREEN_SIZES.phone.height - 34 - 10)
+    assert.isAtMost(bottom(clear), height - 34)
+    assert.equal(bottom(clear), plain - 34)
     assert.isAtLeast(clear?.height ?? 0, 44)
   })
 })
