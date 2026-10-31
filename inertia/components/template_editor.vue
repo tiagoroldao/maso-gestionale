@@ -18,7 +18,7 @@ const props = defineProps<{ initial: TemplateNode | null; readonly?: boolean }>(
 
 /** The body's box, a field like the others: flat, on the card colour */
 const BODY =
-  'min-h-60 rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none focus:border-foreground focus:ring-2 focus:ring-ring/40 md:text-sm'
+  'min-h-60 rounded-md border border-input bg-card px-3 py-2 font-sans text-base text-foreground outline-none focus:border-foreground focus:ring-2 focus:ring-ring/40'
 
 // No code, links, quotes or raw HTML: pasted content keeps only these
 const editor = useEditor({

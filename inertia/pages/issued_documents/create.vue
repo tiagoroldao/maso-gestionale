@@ -77,14 +77,16 @@ async function issue() {
       ...form.value.input(),
     })
     if (answer?.status === 200 && 'id' in answer.data) {
+      // Issued: the button stays held while its page loads, so a second
+      // click or Enter can't issue another numbered document
       router.visit(urlFor('issued_documents.show', { id: answer.data.id }))
       return
     }
     errors.value = answer && 'errors' in answer.data ? answer.data.errors : {}
     failed.value = true
+    issuing.value = false
   } catch {
     failed.value = true
-  } finally {
     issuing.value = false
   }
 }

@@ -6,6 +6,7 @@ import IssuedDocuments from '#services/issued_documents'
 import type { TemplateNode } from '#shared/document_templates'
 import { SCREEN_SIZES } from '#shared/screen_sizes'
 import { createCustomer } from '#tests/helpers/customers'
+import { createItem } from '#tests/helpers/items'
 import { createSite } from '#tests/helpers/sites'
 import { createUser } from '#tests/helpers/users'
 import { seriousA11yViolations } from '#tests/helpers/axe'
@@ -146,5 +147,62 @@ test.group('Issued Document screens in the browser', () => {
       0
     )
     assert.deepEqual(await seriousA11yViolations(page, { content: true }), [], 'replaced')
+  })
+
+  test('a document is issued once: not by Enter in a search, not by a second submit', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const customer = await createCustomer({ name: 'Bar Centrale' })
+    await createItem({ code: 'VS-1', description: 'Valvola a sfera' })
+    const template = await DocumentTemplates.create({
+      name: 'Verbale',
+      fields: [
+        { key: 'notes', label: 'Esito', type: 'text', required: true },
+        { key: 'parts', label: 'Ricambi', type: 'items', required: false },
+      ],
+      body: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Verbale.' }] }],
+      } as TemplateNode,
+    })
+    const issued = () => IssuedDocument.query().where('customerId', customer.id)
+
+    const page = await visit(
+      `/issued-documents/create?templateId=${template.id}&customerId=${customer.id}`
+    )
+    await page.setViewportSize(SCREEN_SIZES.desktop)
+    await page.getByLabel('Esito').fill('Positivo')
+
+    // Enter in the Items search looks for Items; it issues nothing
+    const search = page.getByLabel('Ricambi')
+    await search.fill('Valvola')
+    await search.press('Enter')
+    await page.getByRole('option', { name: /Valvola a sfera/ }).waitFor()
+    await page.waitForTimeout(500)
+    assert.lengthOf(await issued(), 0)
+    assert.match(page.url(), /\/issued-documents\/create/)
+
+    // The document's page loads slowly: a second click and an Enter meanwhile issue nothing more
+    let release = () => {}
+    const loading = new Promise<void>((resolve) => (release = resolve))
+    await page.route(/\/issued-documents\/\d+$/, async (route) => {
+      await loading
+      await route.continue()
+    })
+    const issue = page.getByRole('button', { name: it('ui.issuedDocuments.issue') })
+    const answered = page.waitForResponse(
+      (response) => response.request().method() === 'POST' && response.status() === 200
+    )
+    await issue.click()
+    await answered
+    await issue.click({ force: true })
+    await page.getByLabel('Esito').press('Enter')
+    await page.waitForTimeout(500)
+    release()
+    await page.getByRole('heading', { name: /Verbale/ }).waitFor()
+    assert.lengthOf(await issued(), 1)
   })
 })
