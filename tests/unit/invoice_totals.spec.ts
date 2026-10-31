@@ -1,6 +1,11 @@
 import { test } from '@japa/runner'
 import Big from 'big.js'
-import { invoiceLineTotal, invoiceTotals, type TotalsLine } from '#shared/invoice_totals'
+import {
+  discountInRange,
+  invoiceLineTotal,
+  invoiceTotals,
+  type TotalsLine,
+} from '#shared/invoice_totals'
 
 const line = (
   quantity: string,
@@ -8,6 +13,13 @@ const line = (
   vatRate = '22',
   extra: Partial<TotalsLine> = {}
 ): TotalsLine => ({ quantity, unitPrice, vatRate, natura: null, ...extra })
+
+test.group('Discount range', () => {
+  test('a line discount is 0 to 100%, ends included', ({ assert }) => {
+    for (const ok of ['0', '0.5', '100']) assert.isTrue(discountInRange(ok))
+    for (const bad of ['150', '100.01', '-10', '-0.01']) assert.isFalse(discountInRange(bad))
+  })
+})
 
 test.group('Invoice line total', () => {
   test('quantity × price, less the line discount, rounded half-up', ({ assert }) => {
