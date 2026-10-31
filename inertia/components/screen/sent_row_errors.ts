@@ -1,9 +1,10 @@
 /**
  * The errors of rows edited in place and saved together (a Quote's or an
- * Invoice's lines, a Legacy Invoice's VAT rows). The server names a row's
- * errors by its position in the save it refused (`lines.N.field`), so each
- * row finds its own by the position its key had in that save: they stay on
- * their row when one is removed, moved or added since (#287, #289).
+ * Invoice's lines, an Invoice's sections, a Legacy Invoice's VAT rows). The
+ * server names a row's errors by its position in the save it refused
+ * (`lines.N.field`), so each row finds its own by the position its key had
+ * in that save: they stay on their row when one is removed, moved or added
+ * since (#287, #289, #292).
  */
 import { ref, toValue, watch, type MaybeRefOrGetter } from 'vue'
 
@@ -18,8 +19,9 @@ export function useSentRowErrors(options: {
   fields: string[]
 }) {
   const keys = () => options.rows().map((row) => row.key)
-  // The rows' keys in the order the last answered save sent them
-  const sentKeys = ref(keys())
+  // The rows' keys in the order the last answered save sent them; null
+  // where a row's errors no longer apply (its fields replaced since)
+  const sentKeys = ref<(number | null)[]>(keys())
   // Those of the save in flight, until its answer
   let sending: number[] | null = null
 
@@ -56,6 +58,17 @@ export function useSentRowErrors(options: {
     /** Call as the rows are sent: their order now is the one the answer refers to */
     send: () => {
       sending = keys()
+    },
+    /**
+     * Call when the save sent gets no answer (cancelled, or failed without
+     * one): the errors on screen stay those of the last answered save.
+     */
+    cancel: () => {
+      sending = null
+    },
+    /** Call when a row's fields are replaced (merged into): its errors no longer apply */
+    clear: (key: number) => {
+      sentKeys.value = sentKeys.value.map((sent) => (sent === key ? null : sent))
     },
     /** Call once the rows are again what the server has (after a save) */
     reset: () => {

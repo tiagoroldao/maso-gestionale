@@ -1,16 +1,25 @@
 import { test } from '@japa/runner'
 import Invoice from '#models/invoice'
+import Visit from '#models/visit'
 import { DateTime } from 'luxon'
+import FieldWork from '#services/field_work'
 import Invoices from '#services/invoices'
 import Payments from '#services/payments'
 import { createUser } from '#tests/helpers/users'
 import { createCustomer } from '#tests/helpers/customers'
 import { createItem, vatCode } from '#tests/helpers/items'
+import { createJob } from '#tests/helpers/jobs'
 import { completeCompany } from '#tests/helpers/company'
-import { chooseMoreAction } from '#tests/helpers/screen'
+import { chooseMoreAction, holdSave } from '#tests/helpers/screen'
 import { it } from '#tests/helpers/i18n'
 import { seriousA11yViolations } from '#tests/helpers/axe'
 import { SCREEN_SIZES } from '#shared/screen_sizes'
+
+/** A line's error on its description, as the line shows it */
+const DESCRIPTION_ERROR = it('ui.common.fieldError', {
+  field: it('ui.invoices.description'),
+  message: '',
+})
 
 /**
  * The Invoice as an Entity screen (#241): docs/ui.md's rules where they
@@ -39,6 +48,26 @@ test.group('Invoice screen in the browser', (group) => {
       ],
     })
     return { invoice, valve }
+  }
+
+  /** A Job's draft billing the valve and the pipe a done Visit used, a line each */
+  async function draftOfAValveAndAPipe() {
+    const anna = await createUser('technician', { fullName: 'Anna' })
+    const job = await createJob(await createCustomer(), { status: 'in_progress' })
+    const start = DateTime.fromISO('2026-10-05T09:00')
+    const done = await Visit.create({
+      jobId: job.id,
+      startsAt: start,
+      endsAt: start.plus({ hours: 2 }),
+      status: 'planned',
+    })
+    await done.related('technicians').attach([anna.id])
+    for (const description of ['Valvola', 'Tubo']) {
+      const item = await createItem({ description, resalePrice: '5' })
+      await FieldWork.recordItem(done, { itemId: item.id, quantity: '1' })
+    }
+    await FieldWork.setStatus(done, 'done', anna)
+    return Invoices.fromJob(job, { organiseBy: 'none' })
   }
 
   test('on a phone, finalising is in the bar at the bottom, Save in the header, deleting in "⋯"', async ({
@@ -180,6 +209,171 @@ test.group('Invoice screen in the browser', (group) => {
     await line(2).waitFor()
     assert.equal(await line(2).getByText(descriptionError).count(), 0)
     assert.isNull(await descriptionOf(2).getAttribute('aria-invalid'))
+  })
+
+  test("moving a line after a refused save takes its errors along; a save in flight doesn't move them (#292)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { invoice } = await draftWithAValve()
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const line = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.invoices.lineOf', { position }) })
+    const hasError = async (position: number) =>
+      (await line(position).getByText(DESCRIPTION_ERROR).count()) === 1
+
+    // Refused: the free line, second, has no description
+    await page.getByRole('button', { name: it('ui.invoices.addFreeLine') }).click()
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await line(2).getByText(DESCRIPTION_ERROR).waitFor()
+
+    // Up, first: its error goes with it; down again, back to second
+    await line(2)
+      .getByRole('button', { name: it('ui.invoices.moveUp') })
+      .click()
+    await line(1).getByText(DESCRIPTION_ERROR).waitFor()
+    assert.isFalse(await hasError(2))
+    assert.equal(
+      await page
+        .getByLabel(it('ui.invoices.descriptionOf', { position: 1 }))
+        .getAttribute('aria-invalid'),
+      'true'
+    )
+    await line(1)
+      .getByRole('button', { name: it('ui.invoices.moveDown') })
+      .click()
+    await line(2).getByText(DESCRIPTION_ERROR).waitFor()
+    assert.isFalse(await hasError(1))
+
+    // Up again and saved, held: until its answer the error stays where it is
+    await line(2)
+      .getByRole('button', { name: it('ui.invoices.moveUp') })
+      .click()
+    await line(1).getByText(DESCRIPTION_ERROR).waitFor()
+    const save = await holdSave(page, {
+      method: 'PUT',
+      path: `/invoices/${invoice.id}`,
+      answeredBy: `/invoices/${invoice.id}/edit`,
+    })
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await save.sent
+    assert.isTrue(await hasError(1))
+    assert.isFalse(await hasError(2))
+    save.answer()
+    await save.answered
+    await line(1).getByText(DESCRIPTION_ERROR).waitFor()
+    assert.isFalse(await hasError(2))
+  })
+
+  test("moving or removing a section after a refused save takes its title's error along (#292)", async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const { invoice } = await draftWithAValve()
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const title = (position: number) =>
+      page.getByLabel(it('ui.invoices.sectionTitleOf', { position }))
+    const section = (position: number) => page.getByTestId('invoice-section').nth(position - 1)
+    const titleError = (position: number) =>
+      it('ui.common.fieldError', {
+        field: it('ui.invoices.sectionTitleOf', { position }),
+        message: '',
+      })
+    const shows = async (position: number) => ({
+      invalid: await title(position).getAttribute('aria-invalid'),
+      errors: await section(position).getByText(titleError(position)).count(),
+    })
+
+    // Refused: the first of two sections has no title
+    const addSection = page.getByRole('button', { name: it('ui.invoices.addSection') })
+    await addSection.click()
+    await addSection.click()
+    await title(1).fill('')
+    await title(2).fill('Materiali')
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await section(1).getByText(titleError(1)).waitFor()
+    assert.deepEqual(await shows(2), { invalid: null, errors: 0 })
+
+    // Moved down, second: its error goes with it
+    await section(1)
+      .getByRole('button', { name: it('ui.invoices.moveSectionDown') })
+      .click()
+    assert.equal(await title(1).inputValue(), 'Materiali')
+    await section(2).getByText(titleError(2)).waitFor()
+    assert.deepEqual(await shows(2), { invalid: 'true', errors: 1 })
+    assert.deepEqual(await shows(1), { invalid: null, errors: 0 })
+
+    // The one above removed: first again, it keeps its error
+    await section(1)
+      .getByRole('button', { name: it('ui.invoices.removeSection') })
+      .click()
+    assert.equal(await page.getByTestId('invoice-section').count(), 1)
+    await section(1).getByText(titleError(1)).waitFor()
+    assert.deepEqual(await shows(1), { invalid: 'true', errors: 1 })
+
+    // A section added since has none
+    await addSection.click()
+    await title(2).waitFor()
+    assert.deepEqual(await shows(2), { invalid: null, errors: 0 })
+  })
+
+  test('a line merged into, after a refused save, shows no stale errors (#292)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const invoice = await draftOfAValveAndAPipe()
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const line = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.invoices.lineOf', { position }) })
+    const description = page.getByLabel(it('ui.invoices.descriptionOf', { position: 1 }))
+
+    // Refused: the first line has no description
+    await description.fill('')
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await line(1).getByText(DESCRIPTION_ERROR).waitFor()
+
+    // The second merged into it: one line, its errors gone with the save they were for
+    await line(2)
+      .getByRole('button', { name: it('ui.invoices.mergeUp') })
+      .click()
+    await line(2).waitFor({ state: 'detached' })
+    assert.equal(await line(1).getByText(DESCRIPTION_ERROR).count(), 0)
+    assert.isNull(await description.getAttribute('aria-invalid'))
+  })
+
+  test('a line folded into, after a refused save, shows no stale errors (#292)', async ({
+    browserContext,
+    visit,
+    assert,
+  }) => {
+    await browserContext.loginAs(await createUser('office'))
+    const invoice = await draftOfAValveAndAPipe()
+
+    const page = await visit(`/invoices/${invoice.id}/edit`)
+    const line = (position: number) =>
+      page.getByRole('listitem', { name: it('ui.invoices.lineOf', { position }) })
+    const description = page.getByLabel(it('ui.invoices.descriptionOf', { position: 1 }))
+
+    // Refused: the first line has no description
+    await description.fill('')
+    await page.getByRole('button', { name: it('ui.invoices.save') }).click()
+    await line(1).getByText(DESCRIPTION_ERROR).waitFor()
+
+    // Folded: one consumables line, described anew, with no errors
+    await page.getByRole('button', { name: it('ui.invoices.foldConsumables') }).click()
+    await line(2).waitFor({ state: 'detached' })
+    assert.equal(await description.inputValue(), it('documents.invoice.consumablesLine'))
+    assert.equal(await line(1).getByText(DESCRIPTION_ERROR).count(), 0)
+    assert.isNull(await description.getAttribute('aria-invalid'))
   })
 
   test("on a tablet, a line's fields keep one row under their heads", async ({
