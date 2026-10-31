@@ -28,10 +28,10 @@ test.group('Focus in forced colours in the browser', () => {
     }
     for (const [name, control] of Object.entries(controls)) {
       await control.focus()
-      const outline = await control.evaluate((el) => {
-        const style = getComputedStyle(el)
-        return { style: style.outlineStyle, width: Number.parseFloat(style.outlineWidth) }
-      })
+      // A string: the tests' types have no DOM
+      const outline: { style: string; width: number } = await page.evaluate(
+        '(() => { const s = getComputedStyle(document.activeElement); return { style: s.outlineStyle, width: parseFloat(s.outlineWidth) } })()'
+      )
       assert.notEqual(outline.style, 'none', name)
       assert.isAbove(outline.width, 0, name)
     }
