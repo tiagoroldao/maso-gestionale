@@ -218,14 +218,15 @@ const REASON = 'text-xs text-sidebar-foreground md:text-muted-foreground'
     </div>
 
     <!--
-      The primary: a bar fixed at the bottom on the phone, a black button from
-      768px, where its parts join the buttons' row (md:contents) so a disabled
-      reason wraps on a line of its own under them, however long (#282)
+      The primary: a bar fixed at the bottom on the phone, its button clear of
+      the iPhone's home indicator (the safe area); a black button from 768px,
+      where its parts join the buttons' row (md:contents) so a disabled reason
+      wraps on a line of its own under them, however long (#282)
     -->
     <div
       v-if="arranged.primary"
       data-testid="primary-action"
-      class="fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-t border-border bg-card px-3.5 py-2.5 md:contents"
+      class="fixed inset-x-0 bottom-0 z-30 flex flex-col gap-1.5 border-t border-border bg-card px-3.5 pt-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] md:contents"
     >
       <span
         v-if="arranged.primary.disabledReason"

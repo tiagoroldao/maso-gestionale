@@ -58,7 +58,7 @@ const hasPrimary = computed(() => props.actions.some((action) => action.rank ===
     <div
       :class="[
         'flex w-full max-w-[1220px] flex-col gap-3 p-3.5 md:gap-5 md:px-8 md:pt-5 md:pb-10',
-        hasPrimary ? 'pb-24' : 'pb-6',
+        hasPrimary ? 'pb-[calc(6rem+env(safe-area-inset-bottom))]' : 'pb-6',
       ]"
     >
       <KeyFacts v-if="keyFacts.length" :facts="keyFacts" />
